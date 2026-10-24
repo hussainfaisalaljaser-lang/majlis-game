@@ -11,7 +11,9 @@
 | المجلد | وش فيه |
 |---|---|
 | [`engine/`](engine) | **محرك اللعبة** (TypeScript): القوانين وتوزيع الأدوار والكروت والقدرات. نقي وما يعتمد على أي سيرفر، وبيشتغل داخل Firebase Cloud Functions عشان يمنع الغش |
+| [`functions/`](functions) | **السيرفر** (Firebase Cloud Functions): الرومات، والمطابقة، وتطبيق الحركات باستخدام المحرك |
 | [`app/`](app) | **تطبيق الجوال** (Flutter): الواجهة بالعربي ومن اليمين لليسار |
+| [`firestore.rules`](firestore.rules) | **قواعد الأمان**: الجوال يقرا بس، وكل لاعب يشوف نسخته هو من اللعبة |
 | [`docs/`](docs) | [وثيقة التصميم](docs/game-design.md) والتصاميم الأولية |
 
 ## 🛠️ التقنيات
@@ -26,14 +28,33 @@
 # المحرك والاختبارات
 cd engine && npm install && npm test
 
-# التطبيق (يحتاج Flutter)
+# السيرفر: اختبار كامل على محاكي Firebase (يحتاج Java 11+)
+cd functions && npm install && npm run build
+npx firebase emulators:exec --only auth,firestore,functions "npm run e2e"
+
+# التطبيق على السيرفر الحقيقي
 cd app && flutter pub get && flutter run
+
+# التطبيق على المحاكي (محاكي أندرويد يوصل لجهازك عن طريق 10.0.2.2)
+cd functions && npm run serve        # في نافذة
+cd app && flutter run --dart-define=USE_EMULATOR=true   # في نافذة ثانية
+```
+
+## 🚀 رفع السيرفر
+
+Cloud Functions تحتاج خطة **Blaze** في Firebase (الدفع حسب الاستخدام، وفيها كمية مجانية كبيرة كل شهر).
+
+```bash
+cd functions && npm install
+npx firebase login
+npx firebase deploy --only functions,firestore:rules
 ```
 
 ## 🗺️ المراحل
 
 - [x] **المرحلة ١ (الأساس):** محرك القوانين مع الاختبارات، وشاشات الرئيسية واختيار الطاولة والانتظار
-- [ ] **المرحلة ١ (تكملة):** شاشة اللعب، وربط Firebase، وروم بكود، ولعب كامل مع الأصحاب
+- [x] **المرحلة ١ (السيرفر):** ربط Firebase، وروم خاص بكود، والمطابقة العشوائية، وكشف الدور السري
+- [ ] **المرحلة ١ (تكملة):** شاشة الطاولة الكاملة (التصويت، والادعاءات، والقدرات، والسجل)
 - [ ] **المرحلة ٢:** المطابقة العشوائية، والذهب، والمهام اليومية
 - [ ] **المرحلة ٣:** المتجر، والإطارات، وأشكال البطاقات، والـ VIP
 - [ ] **المرحلة ٤:** الاختبار المغلق والنشر على Google Play

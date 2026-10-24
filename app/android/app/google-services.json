@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1041177786311",
+    "project_id": "majlis-game-1d739",
+    "storage_bucket": "majlis-game-1d739.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1041177786311:android:8477477407d976e9680be2",
+        "android_client_info": {
+          "package_name": "com.majlis.majlis"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBvUqssl1P_-P6Zd7CaJmzLKYlZeYYVmwQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

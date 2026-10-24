@@ -2,18 +2,23 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../models/room.dart';
 import '../models/table_tier.dart';
+import '../services/backend.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
+import 'game_screen.dart';
 
 /// غرفة الانتظار: المقاعد تتعبى لين تكتمل الطاولة.
 ///
-/// حالياً اللاعبين وهميين يدخلون كل ثانية. لما نربط Firebase، بيجون من المطابقة الحقيقية.
+/// لو فيه [code] تتابع الروم الحقيقي من السيرفر. بدونه (مثل نسخة الويب حالياً)
+/// تشتغل بلاعبين وهميين للعرض.
 class WaitingScreen extends StatefulWidget {
-  const WaitingScreen({super.key, required this.tier, required this.playerCount});
+  const WaitingScreen({super.key, required this.tier, required this.playerCount, this.code});
 
-  final TableTier tier;
+  final TableTier? tier;
   final int playerCount;
+  final String? code;
 
   @override
   State<WaitingScreen> createState() => _WaitingScreenState();
@@ -25,110 +30,191 @@ class _WaitingScreenState extends State<WaitingScreen> {
     ('🧑', 'فهد'), ('👩‍🦰', 'سارة'), ('👨', 'ناصر'), ('🧕', 'هيا'),
   ];
 
-  final _joined = <(String, String)>[('😎', 'أنت')];
+  final _demoJoined = [const RoomPlayer(uid: 'me', name: 'أنت', avatar: '😎')];
+  StreamSubscription<Room?>? _sub;
   Timer? _timer;
+  Room? _room;
+  bool _starting = false;
 
   @override
   void initState() {
     super.initState();
-    _timer = Timer.periodic(const Duration(milliseconds: 900), (_) {
-      if (_joined.length >= widget.playerCount) {
-        _timer?.cancel();
+    final code = widget.code;
+    if (code == null) {
+      _timer = Timer.periodic(const Duration(milliseconds: 900), (_) {
+        if (_demoJoined.length >= widget.playerCount) return _timer?.cancel();
+        final (avatar, name) = _demoPlayers[_demoJoined.length - 1];
+        setState(() => _demoJoined.add(RoomPlayer(uid: name, name: name, avatar: avatar)));
+      });
+      return;
+    }
+    _sub = Backend.instance.watchRoom(code).listen((room) {
+      if (!mounted) return;
+      if (room?.status == RoomStatus.playing) {
+        _sub?.cancel();
+        Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => GameScreen(code: code)));
         return;
       }
-      setState(() => _joined.add(_demoPlayers[_joined.length - 1]));
+      setState(() => _room = room);
     });
   }
 
   @override
   void dispose() {
     _timer?.cancel();
+    _sub?.cancel();
     super.dispose();
+  }
+
+  Future<void> _leave() async {
+    final code = widget.code;
+    Navigator.of(context).pop();
+    if (code != null) await Backend.instance.leaveRoom(code);
+  }
+
+  Future<void> _start() async {
+    setState(() => _starting = true);
+    try {
+      await Backend.instance.startGame(widget.code!);
+    } on BackendException catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+    } finally {
+      if (mounted) setState(() => _starting = false);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final full = _joined.length >= widget.playerCount;
-    final pot = widget.tier.entryFee * widget.playerCount;
-    return Scaffold(
-      appBar: AppBar(title: Text('طاولة ${widget.tier.name} ${widget.tier.emoji}')),
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: Column(
-            children: [
-              Text(
-                full ? '✅ اكتملت الطاولة! اللعبة بتبدأ…' : '🔍 نبحث عن لاعبين…',
-                style: const TextStyle(color: AppColors.muted, fontSize: 15),
-              ),
-              const SizedBox(height: 12),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
-                decoration: BoxDecoration(
-                  color: AppColors.card,
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: AppColors.gold, width: 1.5),
+    final online = widget.code != null;
+    final players = online ? (_room?.players ?? const <RoomPlayer>[]) : _demoJoined;
+    final max = _room?.maxPlayers ?? widget.playerCount;
+    final isPrivate = _room?.isPrivate ?? false;
+    final isHost = online && _room?.hostId == Backend.instance.uid;
+    final full = players.length >= max;
+    final tier = widget.tier;
+    final myUid = online ? Backend.instance.uid : 'me';
+
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) => didPop ? null : _leave(),
+      child: Scaffold(
+        appBar: AppBar(title: Text(tier == null ? 'روم خاص 🔒' : 'طاولة ${tier.name} ${tier.emoji}')),
+        body: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Column(
+              children: [
+                Text(
+                  isPrivate
+                      ? '👥 اعزم أصحابك بالكود'
+                      : full
+                          ? '✅ اكتملت الطاولة! اللعبة بتبدأ…'
+                          : '🔍 نبحث عن لاعبين…',
+                  style: const TextStyle(color: AppColors.muted, fontSize: 15),
                 ),
-                child: const Column(
-                  children: [
-                    Text('كود الروم (لو تبي تعزم أصحابك)', style: TextStyle(color: AppColors.muted, fontSize: 11.5)),
-                    Text(
-                      'K7Q2M',
-                      textDirection: TextDirection.ltr,
-                      style: TextStyle(color: AppColors.gold, fontSize: 24, fontWeight: FontWeight.w800, letterSpacing: 6),
-                    ),
-                  ],
+                const SizedBox(height: 12),
+                _CodeBox(code: widget.code ?? 'K7Q2M'),
+                const SizedBox(height: 18),
+                Expanded(
+                  child: GridView.count(
+                    crossAxisCount: 3,
+                    mainAxisSpacing: 12,
+                    children: [
+                      for (var i = 0; i < max; i++)
+                        i < players.length
+                            ? _Seat(
+                                emoji: players[i].avatar,
+                                name: players[i].uid == myUid ? 'أنت' : players[i].name,
+                                frame: players[i].uid == myUid ? AppColors.gold : null,
+                              )
+                            : const _Seat(emoji: '＋', name: 'ينتظر…', empty: true),
+                    ],
+                  ),
                 ),
-              ),
-              const SizedBox(height: 18),
-              Expanded(
-                child: GridView.count(
-                  crossAxisCount: 3,
-                  mainAxisSpacing: 12,
-                  children: [
-                    for (var i = 0; i < widget.playerCount; i++)
-                      i < _joined.length
-                          ? _Seat(emoji: _joined[i].$1, name: _joined[i].$2, frame: i == 0 ? AppColors.gold : null)
-                          : const _Seat(emoji: '＋', name: 'ينتظر…', empty: true),
-                  ],
+                LinearProgressIndicator(
+                  value: players.length / max,
+                  minHeight: 10,
+                  borderRadius: BorderRadius.circular(10),
+                  backgroundColor: AppColors.card,
+                  color: AppColors.gold,
                 ),
-              ),
-              LinearProgressIndicator(
-                value: _joined.length / widget.playerCount,
-                minHeight: 10,
-                borderRadius: BorderRadius.circular(10),
-                backgroundColor: AppColors.card,
-                color: AppColors.gold,
-              ),
-              const SizedBox(height: 6),
-              Text(
-                '${arabicNumber(_joined.length)} من ${arabicNumber(widget.playerCount)} · تبدأ تلقائياً لما تكتمل',
-                style: const TextStyle(color: AppColors.muted, fontSize: 13),
-              ),
-              const SizedBox(height: 12),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(14),
-                  gradient: const LinearGradient(colors: [Color(0xFF3B2A05), Color(0xFF5B4208)]),
+                const SizedBox(height: 6),
+                Text(
+                  isPrivate
+                      ? '${arabicNumber(players.length)} من ${arabicNumber(max)} · يحتاج ٥ لاعبين على الأقل'
+                      : '${arabicNumber(players.length)} من ${arabicNumber(max)} · تبدأ تلقائياً لما تكتمل',
+                  style: const TextStyle(color: AppColors.muted, fontSize: 13),
                 ),
-                child: Column(
-                  children: [
-                    Text(
-                      '🏆 الجائزة: ${arabicNumber(pot)} 🪙',
-                      style: const TextStyle(color: AppColors.gold, fontSize: 18, fontWeight: FontWeight.w800),
-                    ),
-                    const Text('تتوزع على الفريق الفايز', style: TextStyle(fontSize: 12)),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 12),
-              OutlinedButton(onPressed: () => Navigator.of(context).pop(), child: const Text('✖ خروج')),
-              const SizedBox(height: 12),
-            ],
+                const SizedBox(height: 12),
+                if (tier != null) _PotBox(pot: tier.entryFee * max),
+                if (isPrivate && isHost) ...[
+                  FilledButton(
+                    onPressed: players.length >= 5 && !_starting ? _start : null,
+                    child: Text(_starting ? 'لحظة…' : '▶ ابدأ اللعبة'),
+                  ),
+                ],
+                const SizedBox(height: 12),
+                OutlinedButton(onPressed: _leave, child: const Text('✖ خروج')),
+                const SizedBox(height: 12),
+              ],
+            ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _CodeBox extends StatelessWidget {
+  const _CodeBox({required this.code});
+
+  final String code;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
+      decoration: BoxDecoration(
+        color: AppColors.card,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.gold, width: 1.5),
+      ),
+      child: Column(
+        children: [
+          const Text('كود الروم (لو تبي تعزم أصحابك)', style: TextStyle(color: AppColors.muted, fontSize: 11.5)),
+          Text(
+            code,
+            textDirection: TextDirection.ltr,
+            style: const TextStyle(color: AppColors.gold, fontSize: 24, fontWeight: FontWeight.w800, letterSpacing: 6),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PotBox extends StatelessWidget {
+  const _PotBox({required this.pot});
+
+  final int pot;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(14),
+        gradient: const LinearGradient(colors: [Color(0xFF3B2A05), Color(0xFF5B4208)]),
+      ),
+      child: Column(
+        children: [
+          Text(
+            '🏆 الجائزة: ${arabicNumber(pot)} 🪙',
+            style: const TextStyle(color: AppColors.gold, fontSize: 18, fontWeight: FontWeight.w800),
+          ),
+          const Text('تتوزع على الفريق الفايز', style: TextStyle(fontSize: 12)),
+        ],
       ),
     );
   }

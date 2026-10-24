@@ -2,9 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
 import 'screens/home_screen.dart';
+import 'services/backend.dart';
 import 'theme.dart';
 
-void main() => runApp(const MajlisApp());
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Backend.instance.init();
+  runApp(const MajlisApp());
+}
 
 class MajlisApp extends StatelessWidget {
   const MajlisApp({super.key});
