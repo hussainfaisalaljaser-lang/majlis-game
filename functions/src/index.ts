@@ -22,6 +22,7 @@ import {
   type Action,
   type GameState,
 } from '../../engine/src/index.js';
+import { BOT_THINK_JITTER_MS, botThink, scenesDelay, startGrace } from './pacing.js';
 import { LINK_REWARD, XP_PER_GAME, XP_PER_WIN, levelFor, tierById, type TableTier } from './economy.js';
 import { MISSIONS, bumpMissions, gulfWeek, todaysMissions, type MissionId } from './missions.js';
 import { whoToNotify, type Note } from './notify.js';
@@ -202,21 +203,23 @@ function startGameTx(tx: Transaction, room: Room): GameState {
     randomInt(2 ** 31),
   );
   tx.update(db.doc(`rooms/${room.code}`), { status: 'playing' });
-  writeGame(tx, room.code, state, deadlineFor(state, Date.now()));
+  writeGame(tx, room.code, state, deadlineFor(state, Date.now(), startGrace()));
   return state;
 }
 
 const isBot = (id: string) => id.startsWith('bot_');
 
 /**
- * آخر وقت للدور الحالي (بالملي ثانية). لو الدور على بوت، نعطيه ٢–٤ ثواني بس
- * عشان يبان إنه يفكر، وبعدها أي جوال في الطاولة يطلب من السيرفر يلعب عنه.
+ * آخر وقت للدور الحالي (بالملي ثانية). [waitMs] وقت ننتظره قبل ما يبدأ الدور (الترحيب، أو مشاهد
+ * الأحداث اللي صارت للتو) عشان ما يركب شي على شي. لو الدور على بوت، يفكر ٣–٥ ثواني،
+ * وبعدها أي جوال في الطاولة يطلب من السيرفر يلعب عنه.
  */
-function deadlineFor(state: GameState, now: number): number | null {
+function deadlineFor(state: GameState, now: number, waitMs = 0): number | null {
   if (state.phase === 'gameOver') return null;
+  const start = now + waitMs;
   const actors = currentActors(state);
-  if (actors.length > 0 && actors.every(isBot)) return now + 2000 + randomInt(2000);
-  return now + PHASE_SECONDS[state.phase] * 1000;
+  if (actors.length > 0 && actors.every(isBot)) return start + botThink(randomInt(BOT_THINK_JITTER_MS));
+  return start + PHASE_SECONDS[state.phase] * 1000;
 }
 
 /** حركات البوتات اللي ما تحتاج انتظار: التصويت (سري لين يكتمل)، والادعاء بعد الحكم، وكشف العرّاف. */
@@ -559,7 +562,7 @@ async function finishTurn(
   const room = over ? ((await tx.get(roomRef)).data() as Room) : null;
   const profiles = await Promise.all(uids.map((uid) => readProfile(db, tx, uid)));
 
-  const deadline = turnKey(next) === prev.key ? prev.deadline : deadlineFor(next, now);
+  const deadline = turnKey(next) === prev.key ? prev.deadline : deadlineFor(next, now, scenesDelay(prev.state, next));
   writeGame(tx, code, next, deadline);
 
   if (!room) {

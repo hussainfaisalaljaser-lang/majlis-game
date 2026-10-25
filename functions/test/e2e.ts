@@ -1,6 +1,7 @@
 /**
  * اختبار كامل على محاكي Firebase: لاعبين وهميين يسوون روم ويلعبون لين النهاية.
- * التشغيل: npx firebase emulators:exec --only auth,firestore,functions "npm run e2e"
+ * التشغيل: MAJLIS_FAST_PACING=1 npx firebase emulators:exec --only auth,firestore,functions "npm run e2e"
+ * (الإيقاع السريع يشيل انتظار المشاهد والترحيب، عشان ما يطول الاختبار)
  */
 import assert from 'node:assert/strict';
 import { deleteApp, initializeApp, type FirebaseApp } from 'firebase/app';

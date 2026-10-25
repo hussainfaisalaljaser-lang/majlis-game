@@ -74,6 +74,15 @@ class GameTable extends StatelessWidget {
                       child: Image.asset('assets/images/carpet_wide.png', width: rugW, height: rugH, fit: BoxFit.fill),
                     ),
                     Image.asset('assets/images/tray_wide.png', width: trayW, height: trayH, fit: BoxFit.fill),
+                    // كومة السحب (يمين) وكومة الرمي (يسار)، بين الصينية وحافة السجادة.
+                    Positioned(
+                      right: rugW * .11,
+                      child: CardPile(count: view.drawPileCount, label: 'السحب', cardW: rugH * .2),
+                    ),
+                    Positioned(
+                      left: rugW * .11,
+                      child: CardPile(count: view.discardPileCount, label: 'الرمي', cardW: rugH * .2, messy: true),
+                    ),
                     SizedBox(width: trayW * .74, height: trayH * .72, child: Center(child: center)),
                   ],
                 ),
@@ -146,6 +155,105 @@ List<double> _seatAngles(int n, double rx, double ry) {
     out.add(math.pi / 2 + 2 * math.pi * (j + f) / steps);
   }
   return out;
+}
+
+/// كومة أوراق مقلوبة مع عدادها: كل ما زادت الأوراق زادت الطبقات (لين ٦).
+class CardPile extends StatelessWidget {
+  const CardPile({super.key, required this.count, required this.label, required this.cardW, this.messy = false});
+
+  final int count;
+  final String label;
+  final double cardW;
+
+  /// الرمي: الأوراق مايلة شوي كأنها انرمت.
+  final bool messy;
+
+  @override
+  Widget build(BuildContext context) {
+    final cardH = cardW * 1.4;
+    final layers = count.clamp(0, 6);
+    return Semantics(
+      label: '$label ${arabicNumber(count)}',
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SizedBox(
+            width: cardW + 10,
+            height: cardH + 10,
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                if (layers == 0)
+                  Container(
+                    width: cardW,
+                    height: cardH,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(cardW * .12),
+                      border: Border.all(color: AppColors.gold.withValues(alpha: .35), width: 1.5),
+                    ),
+                  ),
+                for (var i = 0; i < layers; i++)
+                  Transform.translate(
+                    offset: Offset(messy ? (i.isEven ? -1.5 : 1.5) * i * .6 : 0, -i * 1.6),
+                    child: Transform.rotate(
+                      angle: messy ? (i.isEven ? -.08 : .07) * (1 + i * .3) : 0,
+                      child: _CardBack(width: cardW, height: cardH),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          Container(
+            margin: const EdgeInsets.only(top: 2),
+            padding: const EdgeInsets.symmetric(horizontal: 7),
+            decoration: BoxDecoration(color: Colors.black.withValues(alpha: .55), borderRadius: BorderRadius.circular(8)),
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 250),
+              transitionBuilder: (child, a) => ScaleTransition(scale: a, child: child),
+              child: Text(
+                '$label ${arabicNumber(count)}',
+                key: ValueKey(count),
+                style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: AppColors.goldLight),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// ظهر الورقة: بنفسجي غامق بإطار ذهبي ونجمة في النص.
+class _CardBack extends StatelessWidget {
+  const _CardBack({required this.width, required this.height});
+
+  final double width;
+  final double height;
+
+  @override
+  Widget build(BuildContext context) => Container(
+        width: width,
+        height: height,
+        padding: EdgeInsets.all(width * .08),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(width * .12),
+          gradient: const LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [Color(0xFF4A3592), Color(0xFF1C1638)],
+          ),
+          border: Border.all(color: AppColors.gold, width: 1.5),
+          boxShadow: const [BoxShadow(color: Colors.black54, blurRadius: 4, offset: Offset(0, 2))],
+        ),
+        child: Container(
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(width * .08),
+            border: Border.all(color: AppColors.gold.withValues(alpha: .5), width: 1),
+          ),
+          child: Text('✦', style: TextStyle(color: AppColors.gold, fontSize: width * .38, height: 1)),
+        ),
+      );
 }
 
 /// نسبة عرض السجادة لطولها (assets/images/carpet_wide.png).

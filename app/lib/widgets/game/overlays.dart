@@ -46,7 +46,8 @@ class _RoleRevealState extends State<_RoleReveal> with SingleTickerProviderState
   @override
   void initState() {
     super.initState();
-    Future.delayed(const Duration(milliseconds: 500), () {
+    // البطاقة تنقلب بعد ما يخلص الترحيب، عشان جملة الدور ما تركب عليه.
+    Future.delayed(const Duration(milliseconds: 500)).then((_) => Sfx.whenQuiet()).then((_) {
       if (!mounted) return;
       _flip.forward().then((_) => Sfx.say(switch (widget.view.yourRole) {
             Role.loyal => 'role_loyal',

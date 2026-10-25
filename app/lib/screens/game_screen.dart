@@ -205,7 +205,8 @@ class _GameScreenState extends State<GameScreen> {
     }
     final myTurn = _isMyTurn(view);
     if (myTurn && !_wasMyTurn) HapticFeedback.mediumImpact();
-    _announce(view, myTurn && !_wasMyTurn);
+    // أول ما تدخل: الترحيب وبطاقة دورك أول، وإعلان الدور يجي بعد ما تقفل البطاقة.
+    if (_introDone) _announce(view, myTurn && !_wasMyTurn);
     _wasMyTurn = myTurn;
     if (view.phase == Phase.gameOver && !_endSoundPlayed) {
       _endSoundPlayed = true;
@@ -315,10 +316,20 @@ class _GameScreenState extends State<GameScreen> {
     );
   }
 
+  bool _introDone = false;
+
   void _showRole() {
     final view = _view;
     if (view == null || !mounted) return;
-    showRoleReveal(context, view, _room);
+    showRoleReveal(context, view, _room).then((_) {
+      if (_introDone || !mounted) return;
+      _introDone = true;
+      final v = _view;
+      if (v != null) {
+        _lastPhase = null;
+        _announce(v, _isMyTurn(v));
+      }
+    });
   }
 
   /// ملاحظتك الخاصة على لاعب (ضغطة طويلة على صورته).
