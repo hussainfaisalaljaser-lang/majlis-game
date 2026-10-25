@@ -838,17 +838,12 @@ class _GameScreenState extends State<GameScreen> {
     ),
   );
 
-  /// زرين فوق مقعدك، على السجادة (وقت التصويت تكون مظلمة أصلاً).
-  Widget _besideSeat({required Widget yes, required Widget no}) => Positioned(
-    bottom: 150,
-    left: 0,
-    right: 0,
-    child: Row(
-      mainAxisAlignment: MainAxisAlignment.center,
+  /// زرين على جنبين السجادة (فوق كومتين الأوراق)، عشان الصينية تبقى واضحة بالرئيس والوزير وأسمائهم.
+  Widget _besideSeat({required Widget yes, required Widget no}) => Positioned.fill(
+    child: Stack(
       children: [
-        SizedBox(width: 130, child: yes),
-        const SizedBox(width: 16),
-        SizedBox(width: 130, child: no),
+        Align(alignment: const Alignment(.5, .1), child: SizedBox(width: 130, child: yes)),
+        Align(alignment: const Alignment(-.5, .1), child: SizedBox(width: 130, child: no)),
       ],
     ),
   );
@@ -1086,18 +1081,25 @@ class _TableCenter extends StatelessWidget {
       Phase.gameOver => ('trophy', false, false),
     };
     final showMinister = v.phase != Phase.power && v.phase != Phase.gameOver;
+    String name(String? id) => id == null ? '' : (id == v.you ? 'أنت' : v.player(id).name);
     return FittedBox(
       fit: BoxFit.scaleDown,
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          _TraySeat(avatar: room?.player(v.presidentId)?.avatar, crown: true, cards: cardsWithPresident ? 3 : 0),
+          _TraySeat(
+            avatar: room?.player(v.presidentId)?.avatar,
+            name: name(v.presidentId),
+            crown: true,
+            cards: cardsWithPresident ? 3 : 0,
+          ),
           const SizedBox(width: 10),
           _PhaseIcon(icon: icon, pulse: v.phase == Phase.election || v.phase == Phase.power),
           if (showMinister) ...[
             const SizedBox(width: 10),
             _TraySeat(
               avatar: v.nomineeId == null ? null : room?.player(v.nomineeId!)?.avatar,
+              name: v.nomineeId == null ? 'الوزير؟' : name(v.nomineeId),
               waiting: v.nomineeId == null,
               cards: cardsWithMinister ? 2 : 0,
             ),
@@ -1110,9 +1112,12 @@ class _TableCenter extends StatelessWidget {
 
 /// صورة في الصينية: الرئيس بتاج مرسوم فوقه، أو الوزير، أو دائرة فاضية تنبض لين يختاره الرئيس.
 class _TraySeat extends StatelessWidget {
-  const _TraySeat({required this.avatar, this.crown = false, this.waiting = false, this.cards = 0});
+  const _TraySeat({required this.avatar, required this.name, this.crown = false, this.waiting = false, this.cards = 0});
 
   final String? avatar;
+
+  /// الاسم تحت الصورة، لأن اثنين ممكن يختارون نفس الشخصية.
+  final String name;
   final bool crown;
   final bool waiting;
   final int cards;
@@ -1120,8 +1125,8 @@ class _TraySeat extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      width: 64,
-      height: 92,
+      width: 76,
+      height: 108,
       child: Stack(
         clipBehavior: Clip.none,
         alignment: Alignment.topCenter,
@@ -1146,6 +1151,19 @@ class _TraySeat extends StatelessWidget {
                   ),
           ),
           if (crown) const Positioned(top: 0, child: GameIcon('crown', size: 22, color: Color(0xFFB8801F))),
+          Positioned(
+            top: 71,
+            child: SizedBox(
+              width: 76,
+              child: Text(
+                name,
+                textAlign: TextAlign.center,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: AppColors.goldInk, height: 1.2),
+              ),
+            ),
+          ),
           if (cards > 0)
             Positioned(
               bottom: 0,

@@ -304,7 +304,9 @@ void showTracksBoard(BuildContext context, GameView view) {
           mainAxisSize: MainAxisSize.min,
           children: [
             PolicyTracks(view: view),
-            const SizedBox(height: 12),
+            const SizedBox(height: 10),
+            _DeckSum(view: view),
+            const SizedBox(height: 10),
             const Text(
               '٥ قرارات زرقا = فوز الأوفياء · ٦ حمرا = فوز الخونة\n'
               'كل قرار أحمر يعطي الرئيس قدرة: 🔍 تحقيق · 👁️ تلصص · 🗳️ انتخاب خاص · 🗡️ طرد',
@@ -317,4 +319,44 @@ void showTracksBoard(BuildContext context, GameView view) {
       actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('تمام'))],
     ),
   );
+}
+
+/// وين الـ١٧ ورقة الحين: السحب + الرمي + اللي مشت على اللوحة + اللي بيد الرئيس أو الوزير.
+class _DeckSum extends StatelessWidget {
+  const _DeckSum({required this.view});
+
+  final GameView view;
+
+  static const _total = 17;
+
+  @override
+  Widget build(BuildContext context) {
+    final board = view.loyalPolicies + view.traitorPolicies;
+    final inHand = _total - view.drawPileCount - view.discardPileCount - board;
+    Widget part(String label, int n) => Column(
+          children: [
+            Text(arabicNumber(n), style: const TextStyle(fontFamily: kufi, fontSize: 18, fontWeight: FontWeight.w700)),
+            Text(label, style: const TextStyle(color: AppColors.muted, fontSize: 11)),
+          ],
+        );
+    const plus = Text('+', style: TextStyle(color: AppColors.muted, fontSize: 16));
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(color: const Color(0xFF0E0A1E), borderRadius: BorderRadius.circular(12)),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        children: [
+          part('السحب', view.drawPileCount),
+          plus,
+          part('الرمي', view.discardPileCount),
+          plus,
+          part('على اللوحة', board),
+          plus,
+          part('باليد', inHand),
+          const Text('=', style: TextStyle(color: AppColors.muted, fontSize: 16)),
+          part('كل الأوراق', _total),
+        ],
+      ),
+    );
+  }
 }
