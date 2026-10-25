@@ -515,158 +515,117 @@ class _GameScreenState extends State<GameScreen> {
     final (roleName, _, roleColor, _) = roleInfo[v.yourRole]!;
     final special = v.yourSpecial;
 
+    final pickHint = _seerPicking
+        ? '🔮 اختر لاعب تكشف فريقه (سراً)'
+        : _pendingReaction == null
+        ? null
+        : '${_pendingReaction!.emoji} ${_pendingReaction!.label} اختر لاعب';
+    final over = v.phase == Phase.gameOver;
+
     return PopScope(
-      canPop: v.phase == Phase.gameOver,
+      canPop: over,
       child: NightScaffold(
         body: SafeArea(
           child: Stack(
             children: [
-              Row(
-                children: [
-                  // اللوحة الجانبية (يمين): الجولة والمسارات وحركتك والردود.
-                  _SidePanel(
-                    header: Row(
-                      children: [
-                        if (v.phase == Phase.gameOver)
-                          IconButton(
-                            visualDensity: VisualDensity.compact,
-                            onPressed: () => Navigator.of(context).maybePop(),
-                            icon: const Icon(Icons.arrow_forward, size: 20),
-                          ),
-                        Text(
-                          'الجولة ${arabicNumber(v.round)}',
-                          style: const TextStyle(fontFamily: kufi, fontWeight: FontWeight.w700, fontSize: 17),
-                        ),
-                        const SizedBox(width: 8),
-                        Flexible(
-                          child: GestureDetector(
-                            onTap: _showRole,
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                              decoration: BoxDecoration(
-                                color: roleColor.withValues(alpha: .15),
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(color: roleColor.withValues(alpha: .6)),
-                              ),
-                              child: Text(
-                                '$roleName${special == null ? '' : ' ${special == Special.seer ? '🔮' : '🛡️'}'}',
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                  color: roleColor == AppColors.loyal ? AppColors.loyalLight : AppColors.traitorLight,
-                                  fontWeight: FontWeight.w800,
-                                  fontSize: 12,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                        const Spacer(),
-                        ValueListenableBuilder(
-                          valueListenable: Sfx.muted,
-                          builder: (context, muted, _) => IconButton(
-                            visualDensity: VisualDensity.compact,
-                            tooltip: muted ? 'شغّل الصوت' : 'اكتم الصوت',
-                            onPressed: Sfx.toggle,
-                            icon: GameIcon(muted ? 'mute' : 'sound', size: 20, color: AppColors.muted),
-                          ),
-                        ),
-                        IconButton(
-                          visualDensity: VisualDensity.compact,
-                          tooltip: 'السجل',
-                          onPressed: () => showGameLog(context, v),
-                          icon: const GameIcon('scroll', size: 22, color: AppColors.gold),
-                        ),
-                      ],
-                    ),
-                    tracks: PolicyTracks(view: v),
-                    action: _ActionPanel(
-                      view: v,
-                      busy: _busy,
-                      name: (id) => _name(v, id),
-                      pickHint: _seerPicking
-                          ? '🔮 اختر لاعب من الطاولة تكشف فريقه (سراً) 👈'
-                          : _pendingReaction == null
-                          ? null
-                          : '${_pendingReaction!.emoji} ${_pendingReaction!.label} اختر لاعب من الطاولة 👈',
-                      claimPending: _claimPending(v),
-                      onAct: _act,
-                      onCancelPick: () => setState(() {
-                        _pendingReaction = null;
-                        _seerPicking = false;
-                      }),
-                    ),
-                    footer: v.phase == Phase.gameOver
-                        ? null
-                        : Row(
-                            children: [
-                              Expanded(
-                                child: GameButton(
-                                  label: '💬 تفاعل',
-                                  semantics: 'تفاعل',
-                                  tone: ButtonTone.ghost,
-                                  height: 40,
-                                  fontSize: 15,
-                                  onPressed: _openReactions,
-                                ),
-                              ),
-                              if (v.seerReady) ...[
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: GameButton(
-                                    label: '🔮 اكشف',
-                                    semantics: 'كشف العراف',
-                                    tone: ButtonTone.purple,
-                                    height: 40,
-                                    fontSize: 15,
-                                    onPressed: () => setState(() {
-                                      _pendingReaction = null;
-                                      _seerPicking = !_seerPicking;
-                                    }),
-                                  ),
-                                ),
-                              ],
-                            ],
-                          ),
+              // الطاولة على الشاشة كلها، والباقي يطفو في الزوايا.
+              Positioned.fill(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 34, 20, 2),
+                  child: GameTable(
+                    view: v,
+                    room: _room,
+                    notes: _notes,
+                    selectable: selectable,
+                    onSelect: onSelect,
+                    onNote: _editNote,
+                    spotlight: v.phase == Phase.election && pickHint == null ? {v.presidentId, ?v.nomineeId} : null,
+                    center: _TableCenter(view: v, name: (id) => _name(v, id)),
                   ),
-                  Expanded(
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(4, 26, 4, 4),
-                      child: Stack(
-                        children: [
-                          Positioned.fill(
-                            child: GameTable(
-                              view: v,
-                              room: _room,
-                              notes: _notes,
-                              selectable: selectable,
-                              onSelect: onSelect,
-                              onNote: _editNote,
-                              spotlight: v.phase == Phase.election && !_seerPicking && _pendingReaction == null
-                                  ? {v.presidentId, ?v.nomineeId}
-                                  : null,
-                              center: _TableCenter(view: v, name: (id) => _name(v, id)),
-                            ),
-                          ),
-                          if (_claimPending(v))
-                            Center(
-                              child: _ClaimPrompt(
-                                count: v.claimCount!,
-                                president: v.claimCount == 3,
-                                busy: _busy,
-                                onClaim: (policies) => _act({
-                                  'type': 'claim',
-                                  'policies': [for (final p in policies) p.code],
-                                }),
-                                onLater: () => setState(() => _claimDismissedRound = v.round),
-                              ),
-                            ),
-                        ],
+                ),
+              ),
+              if (v.deadline != null && !over) Positioned(top: 0, left: 0, right: 0, child: _TopTimer(view: v)),
+              // فوق يمين: الجولة ودورك
+              PositionedDirectional(
+                top: 8,
+                start: 10,
+                child: _RoundHud(
+                  view: v,
+                  roleName: roleName,
+                  roleColor: roleColor,
+                  special: special,
+                  onRole: _showRole,
+                  onBack: over ? () => Navigator.of(context).maybePop() : null,
+                ),
+              ),
+              // فوق يسار: النقاط مصغرة، تنضغط وتكبر
+              PositionedDirectional(
+                top: 8,
+                end: 10,
+                child: MiniTracks(view: v, onTap: () => showTracksBoard(context, v)),
+              ),
+              // تحت يمين: التفاعل والعرّاف
+              if (!over)
+                PositionedDirectional(
+                  bottom: 10,
+                  start: 10,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (v.seerReady) ...[
+                        _RoundButton(
+                          emoji: '🔮',
+                          label: 'كشف العراف',
+                          color: const Color(0xFF7C5CFF),
+                          active: _seerPicking,
+                          onTap: () => setState(() {
+                            _pendingReaction = null;
+                            _seerPicking = !_seerPicking;
+                          }),
+                        ),
+                        const SizedBox(height: 10),
+                      ],
+                      _RoundButton(emoji: '💬', label: 'تفاعل', color: AppColors.gold, onTap: _openReactions),
+                    ],
+                  ),
+                ),
+              // تحت يسار: السجل والصوت
+              PositionedDirectional(
+                bottom: 10,
+                end: 10,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    ValueListenableBuilder(
+                      valueListenable: Sfx.muted,
+                      builder: (context, muted, _) => _RoundButton(
+                        icon: muted ? 'mute' : 'sound',
+                        label: muted ? 'شغّل الصوت' : 'اكتم الصوت',
+                        size: 40,
+                        onTap: Sfx.toggle,
                       ),
                     ),
-                  ),
-                ],
+                    const SizedBox(width: 8),
+                    _RoundButton(icon: 'scroll', label: 'السجل', size: 40, onTap: () => showGameLog(context, v)),
+                  ],
+                ),
               ),
-              if (v.phase == Phase.gameOver && _scenes.isEmpty) _GameOver(view: v, room: _room),
+              // حركتك أنت
+              ..._actionLayer(v, pickHint),
+              if (_claimPending(v))
+                Center(
+                  child: _ClaimPrompt(
+                    count: v.claimCount!,
+                    president: v.claimCount == 3,
+                    busy: _busy,
+                    onClaim: (policies) => _act({
+                      'type': 'claim',
+                      'policies': [for (final p in policies) p.code],
+                    }),
+                    onLater: () => setState(() => _claimDismissedRound = v.round),
+                  ),
+                ),
+              if (over && _scenes.isEmpty) _GameOver(view: v, room: _room),
               if (_scenes.isNotEmpty)
                 Positioned.fill(
                   child: EventOverlay(
@@ -682,43 +641,374 @@ class _GameScreenState extends State<GameScreen> {
       ),
     );
   }
+
+  /// شكل الكروت اللي لابسه اللاعب من المتجر.
+  CardSkin get _skin => cardSkin(Backend.instance.profile.value.cards);
+
+  /// الأزرار والكروت اللي تطلع لما يكون الدور عليك: التصويت جنب مقعدك، والكروت في نص الطاولة.
+  List<Widget> _actionLayer(GameView v, String? pickHint) {
+    if (pickHint != null) {
+      return [
+        _banner(
+          pickHint,
+          onCancel: () => setState(() {
+            _pendingReaction = null;
+            _seerPicking = false;
+          }),
+        ),
+      ];
+    }
+    if (!v.me.alive) return const [];
+    switch (v.phase) {
+      case Phase.nomination when v.amPresident:
+        return [_banner('👑 أنت الرئيس! اختر وزير من الطاولة')];
+      case Phase.election when !v.me.hasVoted:
+        return [
+          _besideSeat(
+            yes: GameButton(
+              label: 'موافق',
+              semantics: 'موافق',
+              tone: ButtonTone.green,
+              height: 50,
+              onPressed: _busy ? null : () => _act({'type': 'vote', 'ja': true}),
+            ),
+            no: GameButton(
+              label: 'رافض',
+              semantics: 'رافض',
+              tone: ButtonTone.red,
+              height: 50,
+              onPressed: _busy ? null : () => _act({'type': 'vote', 'ja': false}),
+            ),
+          ),
+        ];
+      case Phase.vetoResponse when v.amPresident:
+        return [
+          _banner('✋ الوزير يبي يرمي الكرتين. توافق؟', bottom: 184),
+          _besideSeat(
+            yes: GameButton(
+              label: 'موافق',
+              tone: ButtonTone.green,
+              height: 50,
+              onPressed: _busy ? null : () => _act({'type': 'respondVeto', 'accept': true}),
+            ),
+            no: GameButton(
+              label: 'رافض',
+              tone: ButtonTone.red,
+              height: 50,
+              onPressed: _busy ? null : () => _act({'type': 'respondVeto', 'accept': false}),
+            ),
+          ),
+        ];
+      case Phase.presidentDiscard when v.amPresident:
+        return [
+          _hand(
+            '🃏 اختر الكرت اللي بترميه (سري)',
+            _cards(v.hand, (i) => _act({'type': 'discard', 'index': i}), 'ارمِ'),
+          ),
+        ];
+      case Phase.chancellorEnact when v.amNominee:
+        return [
+          _hand(
+            '📜 اختر الكرت اللي بتمرره',
+            _cards(v.hand, (i) => _act({'type': 'enact', 'index': i}), 'مرّر'),
+            extra: v.canVeto
+                ? TextButton(
+                    onPressed: _busy ? null : () => _act({'type': 'proposeVeto'}),
+                    child: const Text('✋ اطلب فيتو (نرمي الاثنين)'),
+                  )
+                : null,
+          ),
+        ];
+      case Phase.power when v.amPresident && v.pendingPower == Power.peek:
+        return [
+          _hand(
+            '👁️ أول ٣ كروت في الكومة (لك بس)',
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                for (final p in v.peeked ?? const <Policy>[])
+                  Padding(
+                    padding: const EdgeInsets.all(4),
+                    child: PolicyCard(policy: p, skin: _skin, width: 66),
+                  ),
+              ],
+            ),
+            extra: SizedBox(
+              width: 160,
+              child: GameButton(
+                label: 'تمام',
+                height: 42,
+                fontSize: 16,
+                onPressed: _busy ? null : () => _act({'type': 'acknowledgePeek'}),
+              ),
+            ),
+          ),
+        ];
+      case Phase.power when v.amPresident:
+        return [_banner('${powerEmoji[v.pendingPower]} ${powerName[v.pendingPower]}: اختر لاعب من الطاولة')];
+      default:
+        return const [];
+    }
+  }
+
+  /// سطر تعليمات فوق مقعدك.
+  Widget _banner(String text, {VoidCallback? onCancel, double bottom = 112}) => Positioned(
+    bottom: bottom,
+    left: 0,
+    right: 0,
+    child: Center(
+      child: Container(
+        padding: EdgeInsets.fromLTRB(14, 6, onCancel == null ? 14 : 6, 6),
+        decoration: BoxDecoration(
+          color: AppColors.panel.withValues(alpha: .92),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: AppColors.gold.withValues(alpha: .6), width: 1.5),
+          boxShadow: const [BoxShadow(color: Colors.black54, blurRadius: 10)],
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              text,
+              style: const TextStyle(fontFamily: kufi, fontSize: 14, fontWeight: FontWeight.w700),
+            ),
+            if (onCancel != null) ...[
+              const SizedBox(width: 6),
+              TextButton(
+                style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
+                onPressed: onCancel,
+                child: const Text('إلغاء'),
+              ),
+            ],
+          ],
+        ),
+      ),
+    ),
+  );
+
+  /// زرين فوق مقعدك، على السجادة (وقت التصويت تكون مظلمة أصلاً).
+  Widget _besideSeat({required Widget yes, required Widget no}) => Positioned(
+    bottom: 124,
+    left: 0,
+    right: 0,
+    child: Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        SizedBox(width: 130, child: yes),
+        const SizedBox(width: 16),
+        SizedBox(width: 130, child: no),
+      ],
+    ),
+  );
+
+  /// الكروت في نص الطاولة.
+  Widget _hand(String hint, Widget cards, {Widget? extra}) => Center(
+    child: Container(
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
+      decoration: BoxDecoration(
+        color: AppColors.panel.withValues(alpha: .9),
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: AppColors.gold.withValues(alpha: .6), width: 2),
+        boxShadow: const [BoxShadow(color: Colors.black87, blurRadius: 24)],
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            hint,
+            style: const TextStyle(fontFamily: kufi, fontSize: 15, fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 8),
+          cards,
+          if (extra != null) ...[const SizedBox(height: 6), extra],
+        ],
+      ),
+    ),
+  );
+
+  Widget _cards(List<Policy> hand, void Function(int) onPick, String verb) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        for (final (i, p) in hand.indexed)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 6),
+            child: TweenAnimationBuilder<double>(
+              tween: Tween(begin: 0, end: 1),
+              duration: Duration(milliseconds: 300 + i * 120),
+              curve: Curves.easeOutBack,
+              builder: (context, t, child) => Transform.translate(
+                offset: Offset(0, 40 * (1 - t)),
+                child: Opacity(opacity: t.clamp(0, 1), child: child),
+              ),
+              child: PolicyCard(
+                policy: p,
+                skin: _skin,
+                width: 84,
+                label: '$verb كرت ${i + 1} ${p == Policy.loyal ? 'أوفياء' : 'خونة'}',
+                onTap: _busy
+                    ? null
+                    : () {
+                        Sfx.play('flip');
+                        onPick(i);
+                      },
+              ),
+            ),
+          ),
+      ],
+    );
+  }
 }
 
-/// اللوحة الجانبية بالعرض: فوق الجولة والمسارات، وتحت حركتك والردود السريعة.
-class _SidePanel extends StatelessWidget {
-  const _SidePanel({required this.header, required this.tracks, required this.action, this.footer});
+/// فوق يمين: الجولة، ودورك (تضغطه يطلع لك بطاقة دورك).
+class _RoundHud extends StatelessWidget {
+  const _RoundHud({
+    required this.view,
+    required this.roleName,
+    required this.roleColor,
+    required this.special,
+    required this.onRole,
+    this.onBack,
+  });
 
-  final Widget header;
-  final Widget tracks;
-  final Widget action;
-  final Widget? footer;
+  final GameView view;
+  final String roleName;
+  final Color roleColor;
+  final Special? special;
+  final VoidCallback onRole;
+  final VoidCallback? onBack;
 
   @override
   Widget build(BuildContext context) {
+    final deadline = view.deadline;
+    final left = deadline == null || view.phase == Phase.gameOver
+        ? null
+        : deadline.difference(DateTime.now()).inSeconds.clamp(0, 99);
     return Container(
-      width: 290,
-      padding: const EdgeInsets.fromLTRB(10, 4, 10, 8),
+      padding: const EdgeInsets.fromLTRB(10, 4, 10, 6),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [Color(0xEE221A46), Color(0xEE160F2E)],
-        ),
-        borderRadius: const BorderRadiusDirectional.horizontal(end: Radius.circular(24)),
-        border: BorderDirectional(end: BorderSide(color: AppColors.gold.withValues(alpha: .35), width: 2)),
+        color: AppColors.panel.withValues(alpha: .85),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.gold.withValues(alpha: .35)),
       ),
       child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          header,
-          FittedBox(
-            fit: BoxFit.scaleDown,
-            child: SizedBox(width: 380, child: tracks),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (onBack != null) GestureDetector(onTap: onBack, child: const Icon(Icons.arrow_forward, size: 18)),
+              Text(
+                'الجولة ${arabicNumber(view.round)}',
+                style: const TextStyle(fontFamily: kufi, fontWeight: FontWeight.w700, fontSize: 15),
+              ),
+              if (left != null) ...[
+                const SizedBox(width: 8),
+                Text(
+                  '⏳${arabicNumber(left)}',
+                  style: TextStyle(
+                    fontFamily: kufi,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 13,
+                    color: left <= 5 ? AppColors.traitorLight : AppColors.gold,
+                  ),
+                ),
+              ],
+            ],
           ),
-          Divider(height: 12, color: AppColors.gold.withValues(alpha: .2)),
-          Expanded(child: action),
-          if (footer != null) ...[const SizedBox(height: 6), footer!],
+          GestureDetector(
+            onTap: onRole,
+            child: Container(
+              margin: const EdgeInsets.only(top: 2),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 1),
+              decoration: BoxDecoration(
+                color: roleColor.withValues(alpha: .18),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: roleColor.withValues(alpha: .6)),
+              ),
+              child: Text(
+                '$roleName${special == null ? '' : ' ${special == Special.seer ? '🔮' : '🛡️'}'}',
+                style: TextStyle(
+                  color: roleColor == AppColors.loyal ? AppColors.loyalLight : AppColors.traitorLight,
+                  fontWeight: FontWeight.w800,
+                  fontSize: 12,
+                ),
+              ),
+            ),
+          ),
         ],
       ),
+    );
+  }
+}
+
+/// زر دائري يطفو في الزاوية.
+class _RoundButton extends StatelessWidget {
+  const _RoundButton({
+    required this.label,
+    required this.onTap,
+    this.emoji,
+    this.icon,
+    this.color = AppColors.muted,
+    this.size = 52,
+    this.active = false,
+  });
+
+  final String label;
+  final VoidCallback onTap;
+  final String? emoji;
+  final String? icon;
+  final Color color;
+  final double size;
+  final bool active;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      label: label,
+      excludeSemantics: true,
+      child: GestureDetector(
+        onTap: () {
+          Sfx.play('tap');
+          onTap();
+        },
+        child: Container(
+          width: size,
+          height: size,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: active ? color.withValues(alpha: .45) : AppColors.panel.withValues(alpha: .88),
+            border: Border.all(color: color.withValues(alpha: .8), width: 2),
+            boxShadow: [BoxShadow(color: active ? color : Colors.black54, blurRadius: active ? 14 : 8)],
+          ),
+          child: emoji != null
+              ? Text(emoji!, style: TextStyle(fontSize: size * .45))
+              : GameIcon(icon!, size: size * .5, color: color),
+        ),
+      ),
+    );
+  }
+}
+
+/// شريط الوقت على حافة الشاشة فوق. يحمر في آخر ٥ ثواني.
+class _TopTimer extends StatelessWidget {
+  const _TopTimer({required this.view});
+
+  final GameView view;
+
+  @override
+  Widget build(BuildContext context) {
+    final total = _phaseSeconds[view.phase] ?? 30;
+    final left = view.deadline!.difference(DateTime.now()).inMilliseconds.clamp(0, total * 1000) / 1000;
+    final urgent = left <= 5;
+    return LinearProgressIndicator(
+      value: left / total,
+      minHeight: 4,
+      backgroundColor: Colors.transparent,
+      color: urgent ? AppColors.traitor : AppColors.gold,
     );
   }
 }
@@ -774,271 +1064,6 @@ class _TableCenter extends StatelessWidget {
           ],
         ),
       ),
-    );
-  }
-}
-
-/// شريط الوقت المتبقي للدور. يحمر في آخر ٥ ثواني.
-class _TurnTimer extends StatelessWidget {
-  const _TurnTimer({required this.view});
-
-  final GameView view;
-
-  @override
-  Widget build(BuildContext context) {
-    final total = _phaseSeconds[view.phase] ?? 30;
-    final left = view.deadline!.difference(DateTime.now()).inSeconds.clamp(0, total);
-    final urgent = left <= 5;
-    final color = urgent ? AppColors.traitor : AppColors.gold;
-    return Row(
-      children: [
-        Text('⏳', style: TextStyle(fontSize: urgent ? 16 : 14)),
-        const SizedBox(width: 8),
-        Expanded(
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(6),
-            child: LinearProgressIndicator(
-              value: left / total,
-              minHeight: 8,
-              backgroundColor: Colors.black.withValues(alpha: .4),
-              color: color,
-            ),
-          ),
-        ),
-        const SizedBox(width: 8),
-        SizedBox(
-          width: 28,
-          child: Text(
-            arabicNumber(left),
-            textAlign: TextAlign.center,
-            style: TextStyle(fontFamily: kufi, color: color, fontWeight: FontWeight.w700),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _ActionPanel extends StatelessWidget {
-  const _ActionPanel({
-    required this.view,
-    required this.busy,
-    required this.name,
-    required this.pickHint,
-    required this.claimPending,
-    required this.onAct,
-    required this.onCancelPick,
-  });
-
-  final GameView view;
-  final bool busy;
-  final String Function(String?) name;
-
-  /// تختار لاعب من الطاولة (رد أو كشف العرّاف).
-  final String? pickHint;
-  final bool claimPending;
-  final ValueChanged<Map<String, dynamic>> onAct;
-  final VoidCallback onCancelPick;
-
-  /// شكل الكروت اللي لابسه اللاعب من المتجر.
-  CardSkin get _skin => cardSkin(Backend.instance.profile.value.cards);
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        if (view.deadline != null && view.phase != Phase.gameOver) ...[
-          _TurnTimer(view: view),
-          const SizedBox(height: 6),
-        ],
-        Expanded(
-          child: Center(child: SingleChildScrollView(child: _main(context))),
-        ),
-      ],
-    );
-  }
-
-  Widget _hint(String text) => Padding(
-    padding: const EdgeInsets.only(bottom: 10),
-    child: Text(
-      text,
-      textAlign: TextAlign.center,
-      style: const TextStyle(color: Color(0xFFD9CFFF), fontSize: 14, fontWeight: FontWeight.w600),
-    ),
-  );
-
-  Widget _main(BuildContext context) {
-    final v = view;
-    if (pickHint != null) {
-      return Column(
-        children: [
-          _hint(pickHint!),
-          TextButton(onPressed: onCancelPick, child: const Text('إلغاء')),
-        ],
-      );
-    }
-    final required = _required(v);
-    if (required != null) return required;
-    if (claimPending) return _hint('📢 قول للكل وش وصلك من كروت 👈');
-    return _waiting(v);
-  }
-
-  /// الحركة المطلوبة منك الحين، لو فيه. لها أولوية على الادعاء.
-  Widget? _required(GameView v) {
-    switch (v.phase) {
-      case Phase.nomination when v.amPresident:
-        return _hint('👑 أنت الرئيس! اختر وزير من الطاولة 👆');
-      case Phase.election when !v.me.hasVoted && v.me.alive:
-        return Column(
-          children: [
-            const Text(
-              'صوّت على الحكومة',
-              style: TextStyle(fontFamily: kufi, fontSize: 20, fontWeight: FontWeight.w700),
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: GameButton(
-                    label: 'موافق',
-                    semantics: 'موافق',
-                    tone: ButtonTone.green,
-                    onPressed: busy ? null : () => onAct({'type': 'vote', 'ja': true}),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: GameButton(
-                    label: 'رافض',
-                    semantics: 'رافض',
-                    tone: ButtonTone.red,
-                    onPressed: busy ? null : () => onAct({'type': 'vote', 'ja': false}),
-                  ),
-                ),
-              ],
-            ),
-          ],
-        );
-      case Phase.presidentDiscard when v.amPresident:
-        return Column(
-          children: [
-            _hint('🃏 اختر الكرت اللي بترميه (سري)، والباقي يروح للوزير'),
-            _cards(v.hand, (i) => onAct({'type': 'discard', 'index': i}), 'ارمِ'),
-          ],
-        );
-      case Phase.chancellorEnact when v.amNominee:
-        return Column(
-          children: [
-            _hint('📜 اختر الكرت اللي بتمرره'),
-            _cards(v.hand, (i) => onAct({'type': 'enact', 'index': i}), 'مرّر'),
-            if (v.canVeto)
-              TextButton(
-                onPressed: busy ? null : () => onAct({'type': 'proposeVeto'}),
-                child: const Text('✋ اطلب فيتو (نرمي الاثنين)'),
-              ),
-          ],
-        );
-      case Phase.vetoResponse when v.amPresident:
-        return Column(
-          children: [
-            _hint('✋ الوزير يبي يرمي الكرتين. توافق؟'),
-            Row(
-              children: [
-                Expanded(
-                  child: GameButton(
-                    label: 'موافق',
-                    tone: ButtonTone.green,
-                    onPressed: busy ? null : () => onAct({'type': 'respondVeto', 'accept': true}),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: GameButton(
-                    label: 'رافض',
-                    tone: ButtonTone.red,
-                    onPressed: busy ? null : () => onAct({'type': 'respondVeto', 'accept': false}),
-                  ),
-                ),
-              ],
-            ),
-          ],
-        );
-      case Phase.power when v.amPresident && v.pendingPower == Power.peek:
-        return Column(
-          children: [
-            _hint('👁️ هذي أول ٣ كروت في الكومة (لك بس)'),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                for (final p in v.peeked ?? const <Policy>[])
-                  Padding(
-                    padding: const EdgeInsets.all(4),
-                    child: PolicyCard(policy: p, skin: _skin, width: 66),
-                  ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            GameButton(
-              label: 'تمام',
-              height: 46,
-              fontSize: 17,
-              onPressed: busy ? null : () => onAct({'type': 'acknowledgePeek'}),
-            ),
-          ],
-        );
-      case Phase.power when v.amPresident:
-        return _hint('${powerEmoji[v.pendingPower]} ${powerName[v.pendingPower]}: اختر لاعب من الطاولة 👆');
-      default:
-        return null;
-    }
-  }
-
-  Widget _waiting(GameView v) {
-    switch (v.phase) {
-      case Phase.election:
-        final waiting = v.alive.where((p) => !p.hasVoted).length;
-        return _hint('⏳ ننتظر ${arabicNumber(waiting)} يصوّتون…');
-      case Phase.gameOver:
-        return const SizedBox.shrink();
-      default:
-        final who = switch (v.phase) {
-          Phase.chancellorEnact => name(v.nomineeId),
-          _ => name(v.presidentId),
-        };
-        return _hint('⏳ ننتظر $who…');
-    }
-  }
-
-  Widget _cards(List<Policy> hand, void Function(int) onPick, String verb) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        for (final (i, p) in hand.indexed)
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 5),
-            child: TweenAnimationBuilder<double>(
-              tween: Tween(begin: 0, end: 1),
-              duration: Duration(milliseconds: 300 + i * 120),
-              curve: Curves.easeOutBack,
-              builder: (context, t, child) => Transform.translate(
-                offset: Offset(0, 40 * (1 - t)),
-                child: Opacity(opacity: t.clamp(0, 1), child: child),
-              ),
-              child: PolicyCard(
-                policy: p,
-                skin: _skin,
-                width: hand.length == 3 ? 72 : 80,
-                label: '$verb كرت ${i + 1} ${p == Policy.loyal ? 'أوفياء' : 'خونة'}',
-                onTap: busy
-                    ? null
-                    : () {
-                        Sfx.play('flip');
-                        onPick(i);
-                      },
-              ),
-            ),
-          ),
-      ],
     );
   }
 }

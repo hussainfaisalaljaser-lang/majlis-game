@@ -50,10 +50,11 @@ class GameTable extends StatelessWidget {
       builder: (context, box) {
         final w = box.maxWidth;
         final h = box.maxHeight;
-        const seatW = 80.0, seatH = 106.0;
+        const seatW = 88.0, seatH = 114.0;
         final rx = (w - seatW) / 2;
         final ry = (h - seatH) / 2;
-        final rug = math.min(w * .82, h * .78);
+        final rug = math.min(w * .82, h * .92);
+        final angles = _seatAngles(n, rx, ry);
         return Stack(
           children: [
             Center(
@@ -82,7 +83,7 @@ class GameTable extends StatelessWidget {
               Builder(
                 builder: (context) {
                   final offset = (p.seat - mySeat) % n;
-                  final angle = math.pi / 2 + 2 * math.pi * offset / n;
+                  final angle = angles[offset];
                   return Positioned(
                     left: rx - rx * math.cos(angle),
                     top: ry + ry * math.sin(angle),
@@ -118,6 +119,33 @@ class GameTable extends StatelessWidget {
       },
     );
   }
+}
+
+/// زوايا المقاعد حول السجادة. نوزعهم بمسافات متساوية على محيط الشكل البيضاوي (مو بزوايا متساوية)،
+/// عشان بالعرض ينحط أكثرهم فوق وتحت، وما يتكدسون على الجنبين. نبدأ منك تحت في النص.
+List<double> _seatAngles(int n, double rx, double ry) {
+  const steps = 720;
+  final lengths = <double>[0];
+  for (var i = 1; i <= steps; i++) {
+    final a0 = math.pi / 2 + 2 * math.pi * (i - 1) / steps;
+    final a1 = math.pi / 2 + 2 * math.pi * i / steps;
+    final dx = rx * (math.cos(a1) - math.cos(a0));
+    final dy = ry * (math.sin(a1) - math.sin(a0));
+    lengths.add(lengths.last + math.sqrt(dx * dx + dy * dy));
+  }
+  final total = lengths.last;
+  final out = <double>[];
+  var j = 0;
+  for (var k = 0; k < n; k++) {
+    final target = total * k / n;
+    while (j < steps && lengths[j + 1] < target) {
+      j++;
+    }
+    final seg = lengths[j + 1] - lengths[j];
+    final f = seg == 0 ? 0.0 : (target - lengths[j]) / seg;
+    out.add(math.pi / 2 + 2 * math.pi * (j + f) / steps);
+  }
+  return out;
 }
 
 const noteColors = {
@@ -192,7 +220,7 @@ class _SeatView extends StatelessWidget {
                         avatar: rp?.avatar ?? 'masked',
                         frame: frame,
                         style: frameStyle(rp?.frame),
-                        size: 54,
+                        size: 62,
                         dead: !p.alive,
                       ),
                     ),
