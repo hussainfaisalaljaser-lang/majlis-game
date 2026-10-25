@@ -12,3 +12,5 @@ GeneratedPluginRegistrant.java
 key.properties
 **/*.keystore
 **/*.jks
+# مفتاح النسخ التجريبية بس (بصمته مسجلة في Firebase). مفتاح Google Play ما ينرفع أبداً.
+!app/majlis-test.keystore
