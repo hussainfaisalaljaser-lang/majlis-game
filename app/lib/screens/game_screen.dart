@@ -191,6 +191,10 @@ class _GameScreenState extends State<GameScreen> {
       );
     }
     _seerSeen = view.seerSees;
+    if (!_dangerShown && _introDone && view.traitorPolicies >= 3 && view.phase != Phase.gameOver) {
+      _dangerShown = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) => _showLeaderDanger(view.yourRole));
+    }
     if (!_roleShown) {
       _roleShown = true;
       _seenInvestigations = view.investigations.length;
@@ -342,6 +346,88 @@ class _GameScreenState extends State<GameScreen> {
   }
 
   bool _introDone = false;
+
+  /// تنبيه "الزعيم لو صار وزير" الكبير يطلع مرة وحدة.
+  bool _dangerShown = false;
+
+  /// أول ما يصير عند الخونة ٣ قرارات: تنبيه كبير للكل، كل واحد بكلام يناسب دوره.
+  Future<void> _showLeaderDanger(Role role) async {
+    if (!mounted) return;
+    HapticFeedback.heavyImpact();
+    await showGeneralDialog<void>(
+      context: context,
+      barrierDismissible: true,
+      barrierLabel: 'تنبيه',
+      barrierColor: Colors.black.withValues(alpha: .75),
+      transitionDuration: const Duration(milliseconds: 450),
+      transitionBuilder: (context, a, _, child) => ScaleTransition(
+        scale: CurvedAnimation(parent: a, curve: Curves.easeOutBack),
+        child: FadeTransition(opacity: a, child: child),
+      ),
+      pageBuilder: (context, _, _) => Center(
+        child: Material(
+          color: Colors.transparent,
+          child: Container(
+            width: 520,
+            padding: const EdgeInsets.fromLTRB(22, 18, 22, 16),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [Color(0xFF5A0F18), Color(0xFF22060B)],
+              ),
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(color: AppColors.traitor, width: 2),
+              boxShadow: [BoxShadow(color: AppColors.traitor.withValues(alpha: .55), blurRadius: 40)],
+            ),
+            child: Row(
+              children: [
+                const _LeaderSeal(size: 110),
+                const SizedBox(width: 18),
+                Expanded(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'انتبهوا! الخونة عندهم ٣ قرارات',
+                        style: TextStyle(fontFamily: kufi, fontSize: 20, fontWeight: FontWeight.w700),
+                      ),
+                      const SizedBox(height: 8),
+                      const Text(
+                        'من الحين: لو زعيم الخونة صار وزير وانتخبتوا حكومته، يفوزون الخونة على طول.',
+                        style: TextStyle(fontSize: 15, height: 1.5, fontWeight: FontWeight.w700),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        switch (role) {
+                          Role.loyal => '🔵 دقّقوا في كل وزير قبل لا توافقون.',
+                          Role.traitor => '🔴 فرصتكم: رشّحوا الزعيم وزير، وصوّتوا له.',
+                          Role.leader => '👑 أنت الزعيم: لو صرت وزير، تفوزون!',
+                        },
+                        style: const TextStyle(color: AppColors.gold, fontSize: 14, fontWeight: FontWeight.w800),
+                      ),
+                      const SizedBox(height: 14),
+                      Align(
+                        alignment: AlignmentDirectional.centerEnd,
+                        child: GameButton(
+                          label: 'فهمت',
+                          tone: ButtonTone.red,
+                          height: 42,
+                          fontSize: 16,
+                          onPressed: () => Navigator.pop(context),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 
   void _showRole() {
     final view = _view;
@@ -658,6 +744,9 @@ class _GameScreenState extends State<GameScreen> {
                 ),
               ),
               if (v.deadline != null && !over) Positioned(top: 0, left: 0, right: 0, child: _TopTimer(view: v)),
+              // بعد ٣ قرارات للخونة: لو الزعيم صار وزير يفوزون. نذكّر الكل وقت الترشيح والتصويت.
+              if (v.traitorPolicies >= 3 && (v.phase == Phase.nomination || v.phase == Phase.election))
+                Positioned(top: 10, left: 0, right: 0, child: Center(child: _LeaderDanger(role: v.yourRole))),
               // فوق يمين: الجولة ودورك
               PositionedDirectional(
                 top: 8,
@@ -1233,8 +1322,6 @@ class _TableCenter extends StatelessWidget {
     };
     final showMinister = v.phase != Phase.power && v.phase != Phase.gameOver;
     String name(String? id) => id == null ? '' : (id == v.you ? 'أنت' : v.player(id).name);
-    // بعد ٣ قرارات للخونة: لو الزعيم صار وزير، الخونة يفوزون. نذكّر الكل وقت الترشيح والتصويت.
-    final danger = v.traitorPolicies >= 3 && (v.phase == Phase.nomination || v.phase == Phase.election);
     return FittedBox(
       fit: BoxFit.scaleDown,
       child: Column(
@@ -1262,23 +1349,6 @@ class _TableCenter extends StatelessWidget {
               ],
             ],
           ),
-          if (danger)
-            Container(
-              margin: const EdgeInsets.only(top: 4),
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-              decoration: BoxDecoration(color: AppColors.traitor, borderRadius: BorderRadius.circular(10)),
-              child: const Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  GameIcon('dagger', size: 14, color: Colors.white),
-                  SizedBox(width: 5),
-                  Text(
-                    'خطر! لو صار الزعيم وزير، يفوزون الخونة',
-                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: Colors.white),
-                  ),
-                ],
-              ),
-            ),
         ],
       ),
     );
@@ -1683,6 +1753,84 @@ class _GameOver extends StatelessWidget {
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// ختم الخونة وفوقه تاج: رمز زعيم الخونة.
+class _LeaderSeal extends StatelessWidget {
+  const _LeaderSeal({required this.size});
+
+  final double size;
+
+  @override
+  Widget build(BuildContext context) => SizedBox(
+    width: size,
+    height: size * 1.12,
+    child: Stack(
+      alignment: Alignment.bottomCenter,
+      children: [
+        Seal(loyal: false, size: size),
+        Positioned(top: 0, child: GameIcon('crown', size: size * .42, color: AppColors.gold)),
+      ],
+    ),
+  );
+}
+
+/// شريط التنبيه فوق وقت الترشيح والتصويت (بعد ٣ قرارات للخونة). ينبض عشان ينتبه له الكل.
+class _LeaderDanger extends StatefulWidget {
+  const _LeaderDanger({required this.role});
+
+  final Role role;
+
+  @override
+  State<_LeaderDanger> createState() => _LeaderDangerState();
+}
+
+class _LeaderDangerState extends State<_LeaderDanger> with SingleTickerProviderStateMixin {
+  late final _c = AnimationController(vsync: this, duration: const Duration(milliseconds: 1100))..repeat(reverse: true);
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final mine = widget.role == Role.leader;
+    return AnimatedBuilder(
+      animation: _c,
+      builder: (context, child) => Container(
+        padding: const EdgeInsetsDirectional.fromSTEB(6, 4, 14, 4),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(colors: [Color(0xFF6B111C), Color(0xFF2A070C)]),
+          borderRadius: BorderRadius.circular(30),
+          border: Border.all(color: Color.lerp(AppColors.traitor, Colors.white, _c.value * .35)!, width: 1.6),
+          boxShadow: [BoxShadow(color: AppColors.traitor.withValues(alpha: .25 + _c.value * .4), blurRadius: 18)],
+        ),
+        child: child,
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const _LeaderSeal(size: 34),
+          const SizedBox(width: 8),
+          Text.rich(
+            TextSpan(
+              children: [
+                TextSpan(
+                  text: mine ? 'لو صرت وزير ' : 'الزعيم وزير ',
+                  style: const TextStyle(color: AppColors.gold),
+                ),
+                const TextSpan(text: '= '),
+                const TextSpan(text: 'فوز الخونة', style: TextStyle(color: Color(0xFFFF8A8A))),
+              ],
+            ),
+            style: const TextStyle(fontFamily: kufi, fontSize: 15, fontWeight: FontWeight.w700),
+          ),
+        ],
       ),
     );
   }
