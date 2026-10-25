@@ -34,6 +34,11 @@ jobs:
         run: |
           echo "$SA" > "$RUNNER_TEMP/sa.json"
           export GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/sa.json"
+          # دوال قديمة ما عاد نحتاجها، وفايربيس ما يقدر يشيلها لحاله (مثل الجدولة اللي تحتاج صلاحية ما عندنا).
+          gcloud auth activate-service-account --key-file "$RUNNER_TEMP/sa.json" --quiet
+          for f in weeklyChampions; do
+            gcloud functions delete "$f" --gen2 --region europe-west1 --project majlis-game-1d739 --quiet 2>&1 || true
+          done
           set +e
           npx firebase deploy --only functions,firestore:rules,firestore:indexes --project majlis-game-1d739 --non-interactive --force 2>&1 | tee "$RUNNER_TEMP/deploy.log"
           code=${PIPESTATUS[0]}
