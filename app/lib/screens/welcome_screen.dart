@@ -71,7 +71,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                     GoogleButton(onPressed: _busy ? null : _google),
                     const SizedBox(height: 8),
                     const Text(
-                      '🎁 ٥٠٠ ذهب هدية، وحسابك ينحفظ لو غيّرت جوالك',
+                      '٥٠٠ ذهب هدية، وحسابك ينحفظ لو غيّرت جوالك',
                       textAlign: TextAlign.center,
                       style: TextStyle(color: AppColors.gold, fontSize: 13, fontWeight: FontWeight.w700),
                     ),

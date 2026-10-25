@@ -1,30 +1,84 @@
 import 'package:flutter/material.dart';
 
-/// حركة الإطار: ثابت، يدور، ينبض، أو يدور وحوله لمعات.
-enum FrameFx { none, spin, pulse, sparkle }
+import 'catalog.dart';
 
-/// شكل إطار الصورة: ألوان الحلقة والتوهج والحركة.
+export 'catalog.dart';
+
+/// حركات الإطار (تترسم في widgets/fx.dart → FramePainter).
+enum FrameFx {
+  spin,
+  pulse,
+  sparkle,
+  comet,
+  dual,
+  flame,
+  orbit,
+  electric,
+  wave,
+  snow,
+  leaves,
+  smoke,
+  stars,
+  heartbeat,
+  shine,
+  rays,
+  ornament,
+  crown,
+  sand,
+}
+
+/// شكل إطار الصورة: ألوان الحلقة والتوهج والحركات.
 class FrameStyle {
-  const FrameStyle(this.colors, {this.glow, this.fx = FrameFx.none});
+  const FrameStyle(this.colors, {this.glow, this.accent, this.fx = const []});
 
   final List<Color> colors;
   final Color? glow;
-  final FrameFx fx;
+
+  /// لون اللمعات والجزيئات.
+  final Color? accent;
+  final List<FrameFx> fx;
 }
 
-/// شكل الطاولة: السجادة والصينية اللي بالنص.
-class TableSkin {
-  const TableSkin(this.carpet, this.tray);
-
-  final String carpet;
-  final String tray;
-
-  static const majlis = TableSkin('assets/images/carpet_wide.png', 'assets/images/tray_wide.png');
-
-  const TableSkin.of(String id) : carpet = 'assets/tables/carpet_$id.webp', tray = 'assets/tables/tray_$id.webp';
+/// حركات فقاعة الكلام (widgets/fx.dart → BubblePainter).
+enum BubbleFx {
+  shimmer,
+  glow,
+  sparkle,
+  flame,
+  snow,
+  stars,
+  rainbow,
+  neon,
+  electric,
+  sand,
+  bubbles,
+  steam,
+  leaves,
+  spin,
+  smoke,
 }
 
-/// شكل الكروت: ألوان كل وجه، وإطار الكرت، والرمز.
+/// شكل فقاعة الكلام اللي يشوفها الكل فوق راسك.
+class BubbleStyle {
+  const BubbleStyle({required this.bg, required this.border, required this.text, this.fx = const []});
+
+  final List<Color> bg;
+  final Color border;
+  final Color text;
+  final List<BubbleFx> fx;
+}
+
+/// خلفية الشخصيات المميزة المتحركة.
+enum AvatarFx { aurora, rays, sparkle, embers, pulse, smoke, stars, bubbles }
+
+class AvatarArt {
+  const AvatarArt(this.colors, this.fx);
+
+  final List<Color> colors;
+  final AvatarFx fx;
+}
+
+/// شكل الكروت: ألوان الختم وإطار الكرت، والرمز (صورة في assets/icons/card_*.png).
 class CardSkin {
   const CardSkin({
     required this.loyal,
@@ -41,13 +95,25 @@ class CardSkin {
   final Color? border;
 }
 
-enum ShopSlot { frame, cards, table, avatar, reactions }
+/// شكل الطاولة: السجادة والصينية اللي بالنص.
+class TableSkin {
+  const TableSkin(this.carpet, this.tray);
+
+  final String carpet;
+  final String tray;
+
+  static const majlis = TableSkin.of('majlis');
+
+  const TableSkin.of(String id) : carpet = 'assets/tables/carpet_$id.webp', tray = 'assets/tables/tray_$id.webp';
+}
+
+enum ShopSlot { frame, avatar, table, cards, bubble, reactions }
 
 enum Rarity {
   common('عادي', Color(0xFF9097B3)),
-  rare('نادر', Color(0xFF9CC4FF)),
-  epic('ملحمي', Color(0xFFD4BBFF)),
-  legendary('أسطوري', Color(0xFFFFD27A));
+  rare('نادر', Color(0xFF7FB2FF)),
+  epic('ملحمي', Color(0xFFC79BFF)),
+  legendary('أسطوري', Color(0xFFFFC94D));
 
   const Rarity(this.label, this.color);
   final String label;
@@ -62,11 +128,17 @@ class ShopItem {
     required this.rarity,
     this.coins,
     this.diamonds,
+    this.level,
+    this.champion,
+    this.season,
     this.frame,
+    this.bubble,
     this.cards,
     this.table,
     this.avatar,
-    this.preview,
+    this.avatarArt,
+    this.stickers,
+    this.phrases = false,
   });
 
   final String id;
@@ -75,301 +147,167 @@ class ShopItem {
   final Rarity rarity;
   final int? coins;
   final int? diamonds;
+
+  /// هدية مستوى (ما ينشرى).
+  final int? level;
+
+  /// لأبطال الأسبوع (المركز).
+  final int? champion;
+
+  /// من الباتل باس.
+  final String? season;
+
   final FrameStyle? frame;
+  final BubbleStyle? bubble;
   final CardSkin? cards;
   final TableSkin? table;
 
-  /// الشخصية اللي يعطيها (للشخصيات المميزة).
+  /// الشخصية اللي يعطيها (assets/avatars/<الاسم>.webp).
   final String? avatar;
+  final AvatarArt? avatarArt;
 
-  /// عينة من ردود الباقة.
-  final String? preview;
+  /// ملصقات الباقة.
+  final List<String>? stickers;
 
-  /// ينلبس (إطار، كروت، طاولة)، مو شي تملكه وبس.
-  bool get equippable => slot == ShopSlot.frame || slot == ShopSlot.cards || slot == ShopSlot.table;
+  /// باقة كلام (سوالف المجلس).
+  final bool phrases;
 
-  bool get isDefault => coins == null && diamonds == null;
+  bool get isDefault => coins == null && diamonds == null && level == null && champion == null && season == null;
+
+  bool get buyable => coins != null || diamonds != null;
+
+  /// ينلبس (إطار، كروت، طاولة، فقاعة)، مو شي تملكه وبس.
+  bool get equippable =>
+      slot == ShopSlot.frame || slot == ShopSlot.cards || slot == ShopSlot.table || slot == ShopSlot.bubble;
+
+  /// من وين ينكسب لو ما ينشرى.
+  String get source => switch (this) {
+    ShopItem(level: final int l) => 'هدية مستوى $l',
+    ShopItem(champion: final int c) => c == 1 ? 'لبطل الأسبوع' : (c == 2 ? 'لوصيف الأسبوع' : 'لثالث الأسبوع'),
+    ShopItem(season: final String _) => 'من الباتل باس',
+    _ => '',
+  };
 }
+
+/// ملصق (ميم مرسوم للعبة) في assets/stickers/<المعرف>.webp.
+class Sticker {
+  const Sticker(this.id, this.pack, this.caption);
+
+  final String id;
+  final String pack;
+  final String caption;
+
+  String get asset => 'assets/stickers/$id.webp';
+}
+
+/// كلام سريع للطاولة. [say] فيه % مكان اسم اللاعب.
+class TextReaction {
+  const TextReaction(this.id, this.label, this.say, {this.target = false, this.pack, this.icon});
+
+  final String id;
+  final String label;
+  final String say;
+  final bool target;
+  final String? pack;
+
+  /// أيقونة صغيرة (assets/icons/gfx_<الاسم>.png).
+  final String? icon;
+
+  String text(String? name) => say.replaceAll('%', name ?? '');
+}
+
+/// مكافأة (مستوى، أو درجة في الباتل باس، أو بطولة).
+class LevelReward {
+  const LevelReward(this.level, {this.coins = 0, this.diamonds = 0, this.items = const []});
+
+  final int level;
+  final int coins;
+  final int diamonds;
+  final List<String> items;
+}
+
+/// موسم الباتل باس.
+class Season {
+  const Season({
+    required this.id,
+    required this.name,
+    required this.start,
+    required this.end,
+    required this.price,
+    required this.tierPoints,
+    required this.tiers,
+    required this.free,
+    required this.premium,
+  });
+
+  final String id;
+  final String name;
+  final DateTime start;
+  final DateTime end;
+
+  /// سعر المسار المدفوع بالجواهر.
+  final int price;
+  final int tierPoints;
+  final int tiers;
+  final Map<int, LevelReward> free;
+  final Map<int, LevelReward> premium;
+
+  bool get active {
+    final now = DateTime.now();
+    return now.isAfter(start) && now.isBefore(end);
+  }
+
+  int tierFor(int points) => (points ~/ tierPoints).clamp(0, tiers);
+}
+
+final Map<String, ShopItem> _byId = {for (final i in catalog) i.id: i};
+
+ShopItem? shopItem(String? id) => _byId[id];
+
+/// الأغراض اللي تنشرى (للمتجر).
+final shopItems = [
+  for (final i in catalog)
+    if (i.buyable || i.isDefault) i,
+];
+
+FrameStyle? frameStyle(String? id) => shopItem(id)?.frame;
+
+BubbleStyle bubbleStyle(String? id) => shopItem(id)?.bubble ?? shopItem('bubble_classic')!.bubble!;
 
 const _classicCards = CardSkin(
   loyal: [Color(0xFF5B9BFF), Color(0xFF1F4FB3)],
   traitor: [Color(0xFFF05252), Color(0xFFA32020)],
-  loyalIcon: '🛡️',
-  traitorIcon: '⚔️',
+  loyalIcon: 'shield',
+  traitorIcon: 'dagger',
 );
-
-/// نفس functions/src/shop.ts (الأسعار والمعرفات).
-const shopItems = [
-  ShopItem(id: 'frame_none', slot: ShopSlot.frame, name: 'بدون إطار', rarity: Rarity.common),
-  ShopItem(
-    id: 'frame_ice',
-    slot: ShopSlot.frame,
-    name: 'جليد',
-    rarity: Rarity.rare,
-    coins: 3000,
-    frame: FrameStyle([Color(0xFF5EE0FF), Color(0xFFB8F4FF)], glow: Color(0xFF5EE0FF)),
-  ),
-  ShopItem(
-    id: 'frame_fire',
-    slot: ShopSlot.frame,
-    name: 'نار',
-    rarity: Rarity.epic,
-    coins: 8000,
-    frame: FrameStyle([Color(0xFFFF3D00), Color(0xFFFFB300)], glow: Color(0xFFFF6D00), fx: FrameFx.pulse),
-  ),
-  ShopItem(
-    id: 'frame_lightning',
-    slot: ShopSlot.frame,
-    name: 'برق',
-    rarity: Rarity.epic,
-    coins: 10000,
-    frame: FrameStyle(
-      [Color(0xFF2979FF), Color(0xFFFFFFFF), Color(0xFF7C4DFF), Color(0xFF00E5FF)],
-      glow: Color(0xFF448AFF),
-      fx: FrameFx.spin,
-    ),
-  ),
-  ShopItem(
-    id: 'frame_rainbow',
-    slot: ShopSlot.frame,
-    name: 'قوس قزح',
-    rarity: Rarity.epic,
-    coins: 15000,
-    frame: FrameStyle(
-      [Color(0xFFFF1744), Color(0xFFFFEA00), Color(0xFF00E676), Color(0xFF00B0FF), Color(0xFFD500F9)],
-      glow: Color(0xFFFFFFFF),
-      fx: FrameFx.spin,
-    ),
-  ),
-  ShopItem(
-    id: 'frame_emerald',
-    slot: ShopSlot.frame,
-    name: 'زمرد',
-    rarity: Rarity.epic,
-    diamonds: 15,
-    frame: FrameStyle([Color(0xFF00C853), Color(0xFF69F0AE), Color(0xFF00897B)], glow: Color(0xFF00E676)),
-  ),
-  ShopItem(
-    id: 'frame_blood',
-    slot: ShopSlot.frame,
-    name: 'دم الخونة',
-    rarity: Rarity.epic,
-    diamonds: 20,
-    frame: FrameStyle(
-      [Color(0xFFB71C1C), Color(0xFF1A0000), Color(0xFFFF1744)],
-      glow: Color(0xFFFF1744),
-      fx: FrameFx.pulse,
-    ),
-  ),
-  ShopItem(
-    id: 'frame_king',
-    slot: ShopSlot.frame,
-    name: 'الملك',
-    rarity: Rarity.legendary,
-    diamonds: 40,
-    frame: FrameStyle(
-      [Color(0xFFFFD54F), Color(0xFFFF8F00), Color(0xFFFFF8E1), Color(0xFFFFB300)],
-      glow: Color(0xFFFFC107),
-      fx: FrameFx.sparkle,
-    ),
-  ),
-  ShopItem(
-    id: 'frame_galaxy',
-    slot: ShopSlot.frame,
-    name: 'مجرة',
-    rarity: Rarity.legendary,
-    diamonds: 45,
-    frame: FrameStyle(
-      [Color(0xFF7C4DFF), Color(0xFFFF4081), Color(0xFF18FFFF), Color(0xFF311B92)],
-      glow: Color(0xFFB388FF),
-      fx: FrameFx.sparkle,
-    ),
-  ),
-  ShopItem(id: 'cards_classic', slot: ShopSlot.cards, name: 'كلاسيك', rarity: Rarity.common, cards: _classicCards),
-  ShopItem(
-    id: 'cards_oasis',
-    slot: ShopSlot.cards,
-    name: 'واحة',
-    rarity: Rarity.rare,
-    coins: 5000,
-    cards: CardSkin(
-      loyal: [Color(0xFF26C6DA), Color(0xFF00695C)],
-      traitor: [Color(0xFFFF8A65), Color(0xFFBF360C)],
-      loyalIcon: '🌴',
-      traitorIcon: '🦂',
-      border: Color(0xFFFFE0B2),
-    ),
-  ),
-  ShopItem(
-    id: 'cards_night',
-    slot: ShopSlot.cards,
-    name: 'ليل الصحراء',
-    rarity: Rarity.epic,
-    coins: 12000,
-    cards: CardSkin(
-      loyal: [Color(0xFF3949AB), Color(0xFF0D1440)],
-      traitor: [Color(0xFF8E24AA), Color(0xFF2A0636)],
-      loyalIcon: '🌙',
-      traitorIcon: '🐺',
-      border: Color(0xFFB0BEC5),
-    ),
-  ),
-  ShopItem(
-    id: 'cards_dragon',
-    slot: ShopSlot.cards,
-    name: 'التنين',
-    rarity: Rarity.epic,
-    diamonds: 20,
-    cards: CardSkin(
-      loyal: [Color(0xFF00B0FF), Color(0xFF01579B)],
-      traitor: [Color(0xFFD50000), Color(0xFF3E0000)],
-      loyalIcon: '🐉',
-      traitorIcon: '🔥',
-      border: Color(0xFFFF5252),
-    ),
-  ),
-  ShopItem(
-    id: 'cards_royal',
-    slot: ShopSlot.cards,
-    name: 'الذهب الملكي',
-    rarity: Rarity.legendary,
-    diamonds: 50,
-    cards: CardSkin(
-      loyal: [Color(0xFF1E88E5), Color(0xFF0B2F6B)],
-      traitor: [Color(0xFFE53935), Color(0xFF5B0E0E)],
-      loyalIcon: '👑',
-      traitorIcon: '🗡️',
-      border: Color(0xFFFFD54F),
-    ),
-  ),
-  ShopItem(id: 'table_majlis', slot: ShopSlot.table, name: 'المجلس', rarity: Rarity.common, table: TableSkin.majlis),
-  ShopItem(
-    id: 'table_sand',
-    slot: ShopSlot.table,
-    name: 'رمال',
-    rarity: Rarity.rare,
-    coins: 6000,
-    table: TableSkin.of('sand'),
-  ),
-  ShopItem(
-    id: 'table_oasis',
-    slot: ShopSlot.table,
-    name: 'واحة',
-    rarity: Rarity.rare,
-    coins: 8000,
-    table: TableSkin.of('oasis'),
-  ),
-  ShopItem(
-    id: 'table_night',
-    slot: ShopSlot.table,
-    name: 'ليل نجد',
-    rarity: Rarity.epic,
-    coins: 15000,
-    table: TableSkin.of('night'),
-  ),
-  ShopItem(
-    id: 'table_palace',
-    slot: ShopSlot.table,
-    name: 'القصر',
-    rarity: Rarity.epic,
-    diamonds: 25,
-    table: TableSkin.of('palace'),
-  ),
-  ShopItem(
-    id: 'table_gold',
-    slot: ShopSlot.table,
-    name: 'الذهب الأسود',
-    rarity: Rarity.legendary,
-    diamonds: 50,
-    table: TableSkin.of('gold'),
-  ),
-  ShopItem(
-    id: 'avatar_detective',
-    slot: ShopSlot.avatar,
-    name: 'المحقق',
-    rarity: Rarity.rare,
-    coins: 6000,
-    avatar: 'detective',
-  ),
-  ShopItem(
-    id: 'avatar_falconer',
-    slot: ShopSlot.avatar,
-    name: 'الصقّار',
-    rarity: Rarity.epic,
-    coins: 12000,
-    avatar: 'falconer',
-  ),
-  ShopItem(
-    id: 'avatar_lady_gold',
-    slot: ShopSlot.avatar,
-    name: 'الأميرة',
-    rarity: Rarity.epic,
-    coins: 12000,
-    avatar: 'lady_gold',
-  ),
-  ShopItem(
-    id: 'avatar_assassin',
-    slot: ShopSlot.avatar,
-    name: 'الملثّم',
-    rarity: Rarity.epic,
-    diamonds: 20,
-    avatar: 'assassin',
-  ),
-  ShopItem(
-    id: 'avatar_emir',
-    slot: ShopSlot.avatar,
-    name: 'الأمير',
-    rarity: Rarity.legendary,
-    diamonds: 35,
-    avatar: 'emir',
-  ),
-  ShopItem(
-    id: 'avatar_sultana',
-    slot: ShopSlot.avatar,
-    name: 'السلطانة',
-    rarity: Rarity.legendary,
-    diamonds: 35,
-    avatar: 'sultana',
-  ),
-  ShopItem(
-    id: 'pack_emoji',
-    slot: ShopSlot.reactions,
-    name: 'إيموجي زيادة',
-    rarity: Rarity.rare,
-    coins: 2500,
-    preview: '🔥 💀 🤡 😱',
-  ),
-  ShopItem(
-    id: 'pack_phrases',
-    slot: ShopSlot.reactions,
-    name: 'سوالف المجلس',
-    rarity: Rarity.epic,
-    coins: 4000,
-    preview: 'متأكد ١٠٠٪\nفلان خاين!',
-  ),
-  ShopItem(
-    id: 'pack_vip',
-    slot: ShopSlot.reactions,
-    name: 'الفخامة',
-    rarity: Rarity.legendary,
-    diamonds: 12,
-    preview: '🗡️ طعنني!\n🍿 ☕ 🦅',
-  ),
-];
-
-ShopItem? shopItem(String? id) => shopItems.where((i) => i.id == id).firstOrNull;
-
-FrameStyle? frameStyle(String? id) => shopItem(id)?.frame;
 
 CardSkin cardSkin(String? id) => shopItem(id)?.cards ?? _classicCards;
 
 TableSkin tableSkin(String? id) => shopItem(id)?.table ?? TableSkin.majlis;
 
-/// الشخصيات المميزة من المتجر (نفس functions/src/profile.ts → PREMIUM_AVATARS).
+/// الشخصيات المميزة (متجر، مستويات، موسم، أبطال).
 final premiumAvatars = [
-  for (final i in shopItems)
+  for (final i in catalog)
     if (i.avatar != null) i.avatar!,
 ];
+
+final Map<String, AvatarArt> _arts = {
+  for (final i in catalog)
+    if (i.avatar != null) i.avatar!: i.avatarArt!,
+};
+
+/// خلفية الشخصية المتحركة (للمميزة بس).
+AvatarArt? avatarArt(String avatar) => _arts[avatar];
+
+ShopItem? avatarItem(String avatar) => shopItem('avatar_$avatar');
+
+final Map<String, Sticker> _stickers = {for (final s in stickers) s.id: s};
+
+Sticker? stickerById(String id) => _stickers[id];
+
+final Map<String, TextReaction> _texts = {for (final t in textReactions) t.id: t};
+
+TextReaction? textReaction(String id) => _texts[id];
 
 /// باقات الجواهر (تحتاج ربط Google Play Billing قبل ما تشتغل).
 const diamondPacks = [

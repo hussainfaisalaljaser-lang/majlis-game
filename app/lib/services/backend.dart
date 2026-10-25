@@ -250,8 +250,29 @@ class Backend {
 
   Future<void> clearOpinion(String code, String target) => _call('clearOpinion', {'code': code, 'target': target});
 
-  Future<void> react(String code, ReactionKind kind, {String? target}) =>
-      _call('react', {'code': code, 'kind': kind.name, 'target': ?target});
+  /// رد في الطاولة: كلام (textReactions) أو ملصق (stickers).
+  Future<void> react(String code, String kind, {String? target}) =>
+      _call('react', {'code': code, 'kind': kind, 'target': ?target});
+
+  /// يشيل الهدايا اللي شافها.
+  Future<void> ackGifts() => _call('ackGifts', const {});
+
+  /// يشتري المسار المدفوع في الباتل باس.
+  Future<void> buyPass() => _call('buyPass', const {});
+
+  /// يستلم مكافآت الباتل باس. يرجّع اللي أخذه.
+  Future<({int coins, int diamonds, List<String> items})> claimPassRewards() async {
+    final r = await _call('claimPassRewards', const {});
+    return (
+      coins: (r['coins'] as num?)?.toInt() ?? 0,
+      diamonds: (r['diamonds'] as num?)?.toInt() ?? 0,
+      items: [for (final i in (r['items'] as List?) ?? const []) i as String],
+    );
+  }
+
+  /// أبطال الأسبوع الحاليين (meta/champions).
+  Stream<Champions?> watchChampions() =>
+      _db.doc('meta/champions').snapshots().map((s) => s.exists ? Champions.fromJson(s.data()!) : null);
 
   Stream<Room?> watchRoom(String code) =>
       _db.doc('rooms/$code').snapshots().map((s) => s.exists ? Room.fromJson(s.data()!) : null);

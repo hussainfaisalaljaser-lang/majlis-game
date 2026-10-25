@@ -1,4 +1,5 @@
 import 'missions.dart';
+import 'shop.dart';
 
 /// ملف اللاعب كما يحفظه السيرفر (functions/src/profile.ts).
 class Profile {
@@ -21,6 +22,10 @@ class Profile {
     this.frame = 'frame_none',
     this.cards = 'cards_classic',
     this.table = 'table_majlis',
+    this.bubble = 'bubble_classic',
+    this.temp = const {},
+    this.gifts = const [],
+    this.pass = const PassState(),
   });
 
   factory Profile.fromJson(Map<String, dynamic> j) => Profile(
@@ -42,6 +47,13 @@ class Profile {
     frame: (j['equipped'] as Map?)?['frame'] as String? ?? 'frame_none',
     cards: (j['equipped'] as Map?)?['cards'] as String? ?? 'cards_classic',
     table: (j['equipped'] as Map?)?['table'] as String? ?? 'table_majlis',
+    bubble: (j['equipped'] as Map?)?['bubble'] as String? ?? 'bubble_classic',
+    temp: {
+      for (final MapEntry(:key, :value) in ((j['temp'] as Map?) ?? const {}).entries)
+        key as String: DateTime.fromMillisecondsSinceEpoch((value as num).toInt()),
+    },
+    gifts: [for (final g in (j['gifts'] as List?) ?? const []) Gift.fromJson(Map<String, dynamic>.from(g as Map))],
+    pass: PassState.fromJson((j['pass'] as Map?)?.cast<String, dynamic>()),
   );
 
   /// للعرض التجريبي بدون سيرفر (نسخة الويب).
@@ -82,6 +94,27 @@ class Profile {
   final String frame;
   final String cards;
   final String table;
+  final String bubble;
+
+  /// أغراض مؤقتة (أبطال الأسبوع) ولين متى.
+  final Map<String, DateTime> temp;
+
+  /// هدايا وصلت وما شافها (مستويات أو بطولة).
+  final List<Gift> gifts;
+
+  /// الباتل باس للموسم الحالي.
+  final PassState pass;
+
+  /// يملك الغرض؟ (الأساسي، أو اشتراه أو أخذه هدية، أو مؤقت وما خلص). نفس functions/src/profile.ts → owns.
+  bool owns(String id) {
+    if (shopItem(id)?.isDefault ?? false) return true;
+    if (owned.contains(id)) return true;
+    final until = temp[id];
+    return until != null && until.isAfter(DateTime.now());
+  }
+
+  /// يقدر يختار هالشخصية؟
+  bool ownsAvatar(String avatar) => freeAvatars.contains(avatar) || owns('avatar_$avatar');
 
   /// مهام اليوم (لو المحفوظ من أمس تبدأ من الصفر).
   MissionState get missions => missionsRaw.forDay(gulfDay(DateTime.now()));
@@ -126,3 +159,62 @@ const dailyRewards = [
 
 /// تاريخ اليوم بتوقيت الخليج (UTC+3).
 String gulfDay(DateTime t) => t.toUtc().add(const Duration(hours: 3)).toIso8601String().substring(0, 10);
+
+/// هدية وصلت اللاعب (functions/src/profile.ts → Gift).
+class Gift {
+  Gift.fromJson(Map<String, dynamic> j)
+    : champion = j['kind'] == 'champion',
+      n = (j['n'] as num).toInt(),
+      coins = (j['coins'] as num?)?.toInt() ?? 0,
+      diamonds = (j['diamonds'] as num?)?.toInt() ?? 0,
+      items = [for (final i in (j['items'] as List?) ?? const []) i as String];
+
+  /// بطولة الأسبوع (وإلا هدية مستوى).
+  final bool champion;
+
+  /// المستوى، أو المركز للبطولة.
+  final int n;
+  final int coins;
+  final int diamonds;
+  final List<String> items;
+}
+
+/// الباتل باس (functions/src/rewards.ts → PassState).
+class PassState {
+  const PassState({this.points = 0, this.premium = false, this.free = 0, this.prem = 0});
+
+  factory PassState.fromJson(Map<String, dynamic>? j) {
+    if (j == null || j['season'] != season.id) return const PassState();
+    return PassState(
+      points: (j['points'] as num?)?.toInt() ?? 0,
+      premium: j['premium'] as bool? ?? false,
+      free: (j['free'] as num?)?.toInt() ?? 0,
+      prem: (j['prem'] as num?)?.toInt() ?? 0,
+    );
+  }
+
+  final int points;
+  final bool premium;
+
+  /// آخر درجة استلمها في المجاني والمدفوع.
+  final int free;
+  final int prem;
+
+  int get tier => season.tierFor(points);
+
+  /// نقاطه داخل الدرجة الحالية.
+  int get pointsInTier => tier >= season.tiers ? season.tierPoints : points - tier * season.tierPoints;
+
+  /// فيه مكافآت وصلها وما استلمها؟
+  bool get claimable {
+    for (var t = free + 1; t <= tier; t++) {
+      if (season.free.containsKey(t)) return true;
+    }
+    if (premium) {
+      for (var t = prem + 1; t <= tier; t++) {
+        if (season.premium.containsKey(t)) return true;
+      }
+    }
+    return false;
+  }
+}

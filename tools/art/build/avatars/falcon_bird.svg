@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="512" height="512">
+<defs>
+  <pattern id="shemagh" width="10" height="10" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+    <rect width="10" height="10" fill="#FBF7F2"/><rect width="5" height="5" fill="#C8262E"/><rect x="5" y="5" width="5" height="5" fill="#C8262E"/>
+  </pattern>
+  <clipPath id="c"><circle cx="100" cy="100" r="100"/></clipPath>
+</defs>
+<g clip-path="url(#c)"><path d="M30 200 Q40 152 100 146 Q160 152 170 200 Z" fill="#8B5E34"/><path d="M50 120 Q44 60 100 48 Q156 60 150 120 Q146 156 100 162 Q54 156 50 120 Z" fill="#A47148"/><path d="M64 120 Q66 92 100 88 Q134 92 136 120 Q132 152 100 156 Q68 152 64 120 Z" fill="#F5E6CC"/><path d="M60 84 Q80 70 96 84 Q80 96 60 84 Z M140 84 Q120 70 104 84 Q120 96 140 84 Z" fill="#3B2410"/><circle cx="80" cy="84" r="8" fill="#FBBF24" stroke="#111" stroke-width="2.5"/><circle cx="120" cy="84" r="8" fill="#FBBF24" stroke="#111" stroke-width="2.5"/><circle cx="80" cy="84" r="4" fill="#111"/><circle cx="120" cy="84" r="4" fill="#111"/><path d="M88 96 Q100 90 112 96 L106 120 Q100 128 94 120 Z" fill="#FCD34D" stroke="#92400E" stroke-width="2.5"/><path d="M94 120 Q100 112 106 120" fill="none" stroke="#92400E" stroke-width="2"/><path d="M76 134 q4 4 8 0" stroke="#6B4423" stroke-width="2" fill="none"/><path d="M76 144 q4 4 8 0" stroke="#6B4423" stroke-width="2" fill="none"/><path d="M92 134 q4 4 8 0" stroke="#6B4423" stroke-width="2" fill="none"/><path d="M92 144 q4 4 8 0" stroke="#6B4423" stroke-width="2" fill="none"/><path d="M108 134 q4 4 8 0" stroke="#6B4423" stroke-width="2" fill="none"/><path d="M108 144 q4 4 8 0" stroke="#6B4423" stroke-width="2" fill="none"/></g>
+</svg>

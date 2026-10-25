@@ -7,6 +7,7 @@ import '../widgets/account.dart';
 import 'dev_screen.dart';
 import 'shop_screen.dart';
 import '../widgets/common.dart';
+import '../widgets/item_preview.dart';
 import '../widgets/ui.dart';
 
 /// اختيار الاسم والشخصية. يطلع أول مرة يفتح اللاعب اللعبة، ومن الملف الشخصي للتعديل.
@@ -24,22 +25,28 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   late final _name = TextEditingController(
     text: widget.firstTime ? (Backend.instance.googleName ?? '') : _profile.name,
   );
-  late String _avatar = avatarIds.contains(_profile.avatar) || _profile.owned.contains('avatar_${_profile.avatar}')
-      ? _profile.avatar
-      : 'falcon';
+  late String _avatar = _profile.ownsAvatar(_profile.avatar) ? _profile.avatar : 'falcon';
   bool _saving = false;
   String? _error;
 
-  /// شخصية في القائمة. المقفلة (من المتجر وما اشتراها) تودّيه للمتجر.
+  /// المقفلة: اللي تنشرى تودّيه للمتجر، والباقي يقول له من وين تنكسب (مستوى، موسم، بطولة).
+  void _locked(String a) {
+    final item = avatarItem(a);
+    if (item != null && item.buyable) {
+      Navigator.of(context)
+          .push(MaterialPageRoute(builder: (_) => const ShopScreen(initialTab: ShopScreen.avatarsTab)))
+          .then((_) => setState(() {}));
+    } else if (item != null) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('"${item.name}" ${item.source}')));
+    }
+  }
+
+  /// شخصية في القائمة.
   Widget _avatarChoice(String a, {required bool locked}) => Semantics(
     button: true,
     label: 'صورة $a',
     child: GestureDetector(
-      onTap: locked
-          ? () =>
-                Navigator.of(context)
-                    .push(MaterialPageRoute(builder: (_) => const ShopScreen(initialTab: ShopScreen.avatarsTab)))
-          : () => setState(() => _avatar = a),
+      onTap: locked ? () => _locked(a) : () => setState(() => _avatar = a),
       child: AnimatedScale(
         scale: a == _avatar ? 1.06 : .92,
         duration: const Duration(milliseconds: 180),
@@ -52,9 +59,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 avatar: a,
                 frame: a == _avatar ? AppColors.gold : (premiumAvatars.contains(a) ? AppColors.diamond : null),
                 size: 62,
+                animate: a == _avatar,
               ),
             ),
-            if (locked) const Text('🔒', style: TextStyle(fontSize: 22)),
+            if (locked) const Gfx('lock', size: 26),
           ],
         ),
       ),
@@ -100,7 +108,12 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                       ),
                     ],
                     const Spacer(),
-                    PlayerAvatar(avatar: _avatar, frame: AppColors.gold, size: 96),
+                    PlayerAvatar(
+                      avatar: _avatar,
+                      style: frameStyle(_profile.frame),
+                      frame: frameStyle(_profile.frame) == null ? AppColors.gold : null,
+                      size: 96,
+                    ),
                     const SizedBox(height: 10),
                     TextField(
                       controller: _name,
@@ -112,7 +125,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                     ),
                     const Spacer(),
                     GameButton(
-                      label: _saving ? 'لحظة…' : (widget.firstTime ? 'يلا نبدأ 🚀' : 'حفظ'),
+                      label: _saving ? 'لحظة…' : (widget.firstTime ? 'يلا نبدأ' : 'حفظ'),
                       semantics: widget.firstTime ? 'يلا نبدأ' : 'حفظ',
                       height: 50,
                       onPressed: _saving ? null : _save,
@@ -130,10 +143,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 crossAxisSpacing: 6,
                 children: [
                   for (final a in [...avatarIds, ...premiumAvatars])
-                    _avatarChoice(
-                      a,
-                      locked: premiumAvatars.contains(a) && !Backend.instance.profile.value.owned.contains('avatar_$a'),
-                    ),
+                    _avatarChoice(a, locked: !Backend.instance.profile.value.ownsAvatar(a)),
                 ],
               ),
             ),
@@ -178,14 +188,18 @@ class ProfileScreen extends StatelessWidget {
                       child: TextButton(
                         onPressed: () =>
                             Navigator.of(context).push(MaterialPageRoute(builder: (_) => const EditProfileScreen())),
-                        child: const Text('✏️ تعديل الاسم والشخصية'),
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [Gfx('edit', size: 22), SizedBox(width: 6), Text('تعديل الاسم والشخصية')],
+                        ),
                       ),
                     ),
                   if (Backend.instance.isReady) const AccountCard(),
                   if (p.dev) ...[
                     const SizedBox(height: 10),
                     GameButton(
-                      label: '🛠️ وضع المطور',
+                      label: 'وضع المطور',
+                      icon: const Gfx('tools', size: 26),
                       tone: ButtonTone.ghost,
                       height: 44,
                       fontSize: 15,
@@ -238,6 +252,8 @@ class ProfileScreen extends StatelessWidget {
                       ],
                     ),
                   ),
+                  const SizedBox(height: 10),
+                  LevelRoad(level: p.level),
                   const SizedBox(height: 10),
                   Row(
                     children: [
@@ -293,4 +309,105 @@ class _Stat extends StatelessWidget {
       ],
     ),
   );
+}
+
+/// طريق المستويات: هدايا كل ٥ مستويات، وكل ١٠ إطار وشخصية خاصة.
+class LevelRoad extends StatelessWidget {
+  const LevelRoad({super.key, required this.level});
+
+  final int level;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = Backend.instance.profile.value;
+    // بعد آخر هدية في القائمة: كل ٥ مستويات ذهب وجواهر (نعرض اللي جاي منها).
+    final rewards = [...levelRewards];
+    for (var l = levelRewards.last.level + lateReward.every; l <= level + 10; l += lateReward.every) {
+      rewards.add(LevelReward(l, coins: lateReward.coins, diamonds: lateReward.diamonds));
+    }
+    final next = rewards.where((r) => r.level > level).firstOrNull;
+    return Panel(
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Gfx('gift', size: 24),
+              const SizedBox(width: 6),
+              const Text(
+                'هدايا المستويات',
+                style: TextStyle(fontFamily: kufi, fontWeight: FontWeight.w700, fontSize: 16),
+              ),
+              const Spacer(),
+              if (next != null)
+                Text(
+                  'الهدية الجاية بعد ${arabicNumber(next.level - level)} ${next.level - level == 1 ? 'مستوى' : 'مستويات'}',
+                  style: const TextStyle(color: AppColors.gold, fontSize: 12.5, fontWeight: FontWeight.w700),
+                ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          SizedBox(
+            height: 128,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              itemCount: rewards.length,
+              separatorBuilder: (_, _) => const SizedBox(width: 8),
+              itemBuilder: (context, i) {
+                final r = rewards[i];
+                final got = level >= r.level;
+                final isNext = r == next;
+                final item = r.items.isEmpty ? null : shopItem(r.items.first);
+                return Container(
+                  width: 104,
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: got ? AppColors.green.withValues(alpha: .08) : AppColors.card,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(
+                      color: isNext ? AppColors.gold : (got ? AppColors.green.withValues(alpha: .6) : AppColors.line),
+                      width: isNext ? 2 : 1.2,
+                    ),
+                  ),
+                  child: Column(
+                    children: [
+                      Text(
+                        'مستوى ${arabicNumber(r.level)}',
+                        style: TextStyle(
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w800,
+                          color: got ? AppColors.green : (isNext ? AppColors.gold : AppColors.muted),
+                        ),
+                      ),
+                      Expanded(
+                        child: Opacity(
+                          opacity: got || isNext ? 1 : .6,
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: item != null
+                                ? ItemPreview(item: item, profile: p)
+                                : Gfx(r.diamonds > 0 ? 'gems' : 'coin', size: 54),
+                          ),
+                        ),
+                      ),
+                      Text(
+                        item != null
+                            ? (r.items.length > 1 ? '${item.name} +' : item.name)
+                            : '${arabicNumber(r.coins)} ذهب',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700),
+                      ),
+                      if (got) const Gfx('check', size: 16),
+                    ],
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }

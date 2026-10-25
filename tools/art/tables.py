@@ -1,4 +1,5 @@
-"""أشكال الطاولات للمتجر: سجادة عريضة وصينية لكل شكل (نفس تصميم rug_wide.py بألوان وزخارف مختلفة)."""
+"""أشكال الطاولات: سجادة عريضة وصينية لكل شكل، بدقة عالية (WebP).
+تشغيل:  python3 tools/art/tables.py app/assets/tables"""
 import os, subprocess, sys, math
 from PIL import Image
 OUT = sys.argv[1]
@@ -11,10 +12,12 @@ def render(name, svg, w, h):
     png = os.path.join(OUT, f'{name}.png')
     subprocess.run(['inkscape', path, '-o', png, '-w', str(w), '-h', str(h)], check=True, capture_output=True)
     # WebP: أصغر بكثير من PNG وبدون خطوط في التدرج.
-    Image.open(png).convert('RGBA').save(png[:-4] + '.webp', quality=88, method=6)
+    Image.open(png).convert('RGBA').save(png[:-4] + '.webp', quality=86, method=6)
     os.remove(png)
 
 THEMES = {
+    'majlis': (('#A3303F', '#6E1A2B', '#46101D'), '#E8B04B', '#E9D6A8', 'diamond', 'brass'),
+    's1':     (('#16656B', '#0D3B45', '#061E28'), '#FCD34D', '#E9D6A8', 'crescent', 'gold'),
     # id: (rug stops, accent, fringe, motif, tray)
     'sand':   (('#E3C590', '#C79A5B', '#8E6534'), '#6B3F1A', '#F5E6C4', 'diamond', 'copper'),
     'oasis':  (('#2F9E6E', '#1B6B4A', '#0E3F2B'), '#F2C14E', '#E9D6A8', 'palm', 'brass'),
@@ -63,6 +66,20 @@ def motif(kind, a):
             x = i * 105
             g += f'<path d="M{x-34} 130 V-40 Q{x-34} -110 {x} -140 Q{x+34} -110 {x+34} -40 V130" stroke-width="3"/>'
         g += '<path d="M0 -180 L40 -40 L180 0 L40 40 L0 180 L-40 40 L-180 0 L-40 -40 Z" opacity=".7"/>'
+    elif kind == 'crescent':
+        g += '<ellipse rx="236" ry="132"/><ellipse rx="250" ry="142" opacity=".5"/>'
+        for sx in (-1, 1):
+            x = sx * 340
+            g += (f'<path d="M{x + 22} -60 Q{x - 40} -50 {x - 40} 0 Q{x - 36} 52 {x + 22} 60 Q{x - 14} 36 {x - 14} 0 Q{x - 14} -36 {x + 22} -60 Z" '
+                  f'fill="{a}" stroke="none" opacity=".9"/>')
+        import random; random.seed(11)
+        for _ in range(40):
+            x, y = random.uniform(-470, 470), random.uniform(-200, 200)
+            if (x / 250) ** 2 + (y / 142) ** 2 < 1.15 or abs(abs(x) - 340) < 70: continue
+            r = random.choice((2, 2.5, 3))
+            g += f'<circle cx="{x:.0f}" cy="{y:.0f}" r="{r}" fill="{a}" stroke="none"/>'
+        for x, y in ((-230, -170), (230, 170), (0, -185), (0, 185)):
+            g += f'<path d="M{x} {y - 12} L{x + 4} {y - 4} L{x + 12} {y} L{x + 4} {y + 4} L{x} {y + 12} L{x - 4} {y + 4} L{x - 12} {y} L{x - 4} {y - 4} Z" fill="{a}" stroke="none"/>'
     elif kind == 'sun':
         g += '<ellipse rx="236" ry="132" stroke-width="4"/><ellipse rx="252" ry="144" opacity=".5"/>'
         for i in range(32):
@@ -98,7 +115,7 @@ for tid, (stops, a, fr, kind, tray) in THEMES.items():
 <g fill="{a}" opacity=".85">{beads}</g>
 {corners}
 {motif(kind, a)}
-</svg>''', 1500, 600*1500//1260)
+</svg>''', 2400, 600*2400//1260)
     rim, hi, mid, lo, shine = TRAYS[tray]
     render(f'tray_{tid}', f'''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 200">
 <defs><radialGradient id="m" cx="40%" cy="35%" r="70%"><stop offset="0" stop-color="{hi}"/><stop offset=".6" stop-color="{mid}"/><stop offset="1" stop-color="{lo}"/></radialGradient></defs>
@@ -107,5 +124,5 @@ for tid, (stops, a, fr, kind, tray) in THEMES.items():
 <ellipse cx="160" cy="100" rx="144" ry="84" fill="url(#m)"/>
 <ellipse cx="160" cy="100" rx="132" ry="74" fill="none" stroke="{lo}" stroke-width="2.5"/>
 <ellipse cx="160" cy="100" rx="125" ry="68" fill="none" stroke="{shine}" stroke-width="1.2" opacity=".6"/>
-</svg>''', 640, 400)
+</svg>''', 1100, 688)
 print('ok')

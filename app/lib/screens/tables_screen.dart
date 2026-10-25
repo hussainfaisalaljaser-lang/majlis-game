@@ -53,7 +53,7 @@ class _TablesScreenState extends State<TablesScreen> {
     final code = await showDialog<String>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('🔑 ادخل كود الروم'),
+        title: const Row(children: [Gfx('key', size: 28), SizedBox(width: 8), Text('ادخل كود الروم')]),
         content: TextField(
           controller: controller,
           autofocus: true,
@@ -77,7 +77,7 @@ class _TablesScreenState extends State<TablesScreen> {
   Widget build(BuildContext context) {
     return NightScaffold(
       appBar: AppBar(
-        title: const Text('🕵️ مجلس الخونة', style: TextStyle(fontWeight: FontWeight.w800)),
+        title: const Text('مجلس الخونة', style: TextStyle(fontWeight: FontWeight.w800)),
       ),
       body: SafeArea(
         top: false,
@@ -101,7 +101,8 @@ class _TablesScreenState extends State<TablesScreen> {
                     ),
                     const Spacer(),
                     GameButton(
-                      label: _busy ? 'لحظة…' : '▶ العب الحين',
+                      label: _busy ? 'لحظة…' : 'العب الحين',
+                      icon: const Gfx('games', size: 28),
                       semantics: 'العب الحين',
                       onPressed: _busy
                           ? null
@@ -112,7 +113,8 @@ class _TablesScreenState extends State<TablesScreen> {
                     ),
                     const SizedBox(height: 10),
                     GameButton(
-                      label: '➕ روم خاص',
+                      label: 'روم خاص',
+                      icon: const Gfx('plus', size: 26),
                       semantics: 'أنشئ روم خاص',
                       tone: ButtonTone.purple,
                       height: 46,
@@ -127,7 +129,8 @@ class _TablesScreenState extends State<TablesScreen> {
                     ),
                     const SizedBox(height: 10),
                     GameButton(
-                      label: '🔑 ادخل بكود',
+                      label: 'ادخل بكود',
+                      icon: const Gfx('key', size: 26),
                       semantics: 'ادخل بكود صديق',
                       tone: ButtonTone.ghost,
                       height: 46,
@@ -212,13 +215,17 @@ class _TierTile extends StatelessWidget {
           ),
           child: Row(
             children: [
+              Opacity(opacity: locked ? .5 : 1, child: Gfx(tier.icon, size: 40)),
+              const SizedBox(width: 10),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      '${tier.emoji} ${tier.name}${locked ? ' 🔒' : ''}',
-                      style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
+                    Row(
+                      children: [
+                        Text(tier.name, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
+                        if (locked) ...[const SizedBox(width: 5), const Gfx('lock', size: 18)],
+                      ],
                     ),
                     if (hint != null) Text(hint, style: const TextStyle(color: AppColors.muted, fontSize: 12)),
                   ],

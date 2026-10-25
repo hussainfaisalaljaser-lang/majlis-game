@@ -1,15 +1,16 @@
 import 'profile.dart';
 
-/// سطر في جدول الترتيب (functions/src/profile.ts → toLeaderboard).
 /// أنواع جدول الترتيب.
 enum Board { weekly, allTime, level }
 
+/// سطر في جدول الترتيب (functions/src/profile.ts → toLeaderboard).
 class LeaderboardEntry {
   LeaderboardEntry.fromJson(this.uid, Map<String, dynamic> j)
     : name = j['name'] as String,
       avatar = j['avatar'] as String,
       frame = j['frame'] as String?,
       level = j['level'] as int,
+      xp = (j['xp'] as num?)?.toInt() ?? 0,
       gamesWon = j['gamesWon'] as int,
       gamesPlayed = j['gamesPlayed'] as int,
       weeklyWins = j['weeklyWins'] as int? ?? 0;
@@ -19,6 +20,7 @@ class LeaderboardEntry {
   final String avatar;
   final String? frame;
   final int level;
+  final int xp;
   final int gamesWon;
   final int gamesPlayed;
   final int weeklyWins;
@@ -28,4 +30,25 @@ class LeaderboardEntry {
 String gulfWeek(DateTime now) {
   final days = DateTime.parse('${gulfDay(now)}T00:00:00Z').millisecondsSinceEpoch ~/ 86400000;
   return 'W${((days - 3) / 7).floor()}';
+}
+
+/// أبطال الأسبوع اللي فات (meta/champions): أول ٣ ومعهم أغراض خاصة لين التتويج الجاي.
+class Champions {
+  Champions.fromJson(Map<String, dynamic> j)
+    : until = DateTime.fromMillisecondsSinceEpoch((j['until'] as num).toInt()),
+      list = [
+        for (final c in (j['list'] as List?) ?? const [])
+          (
+            uid: (c as Map)['uid'] as String,
+            rank: (c['rank'] as num).toInt(),
+            name: c['name'] as String,
+            avatar: c['avatar'] as String,
+            wins: (c['wins'] as num).toInt(),
+          ),
+      ];
+
+  final DateTime until;
+  final List<({String uid, int rank, String name, String avatar, int wins})> list;
+
+  bool get active => until.isAfter(DateTime.now());
 }

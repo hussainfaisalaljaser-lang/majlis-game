@@ -50,7 +50,10 @@ class PolicyCard extends StatelessWidget {
           border: Border.all(color: skin.border!, width: 2.5),
           boxShadow: const [BoxShadow(color: Colors.black38, blurRadius: 4, offset: Offset(0, 2))],
         ),
-        child: Text(loyal ? skin.loyalIcon : skin.traitorIcon, style: TextStyle(fontSize: width * .26)),
+        child: Padding(
+          padding: EdgeInsets.all(width * .07),
+          child: Image.asset('assets/icons/gfx_card_${loyal ? skin.loyalIcon : skin.traitorIcon}.png'),
+        ),
       );
     }
 

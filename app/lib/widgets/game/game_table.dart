@@ -8,7 +8,9 @@ import '../../models/shop.dart';
 import '../../services/backend.dart';
 import '../../services/notes.dart';
 import '../../theme.dart';
+import '../bubble.dart';
 import '../common.dart';
+import '../fx.dart';
 import '../ui.dart';
 
 /// سجادة المجلس: اللاعبين قاعدين حولها، وفي النص صينية نحاس فيها رسالة المرحلة.
@@ -108,28 +110,26 @@ class GameTable extends StatelessWidget {
                     height: seatH,
                     child: ListenableBuilder(
                       listenable: notes,
-                      builder: (context, _) => AnimatedOpacity(
-                        // وقت التصويت الكل يظلم إلا الحكومة، بس الخونة اللي تعرفهم يبقون واضحين.
-                        opacity: spotlight == null || spotlight!.contains(p.id)
-                            ? 1
-                            : (p.id != view.you && (p.knownRole == Role.traitor || p.knownRole == Role.leader)
-                                  ? .85
-                                  : .3),
+                      builder: (context, _) => AnimatedScale(
+                        scale: spotlight != null && spotlight!.contains(p.id) ? 1.15 : 1,
                         duration: const Duration(milliseconds: 400),
-                        child: AnimatedScale(
-                          scale: spotlight != null && spotlight!.contains(p.id) ? 1.15 : 1,
-                          duration: const Duration(milliseconds: 400),
-                          curve: Curves.easeOutBack,
-                          child: _SeatView(
-                            player: p,
-                            view: view,
-                            room: room,
-                            note: notes.of(p.id),
-                            now: now ?? DateTime.now(),
-                            selectable: selectable.contains(p.id),
-                            onTap: selectable.contains(p.id) ? () => onSelect?.call(p.id) : null,
-                            onLongPress: p.id == view.you ? null : () => onNote?.call(p.id),
-                          ),
+                        curve: Curves.easeOutBack,
+                        child: _SeatView(
+                          player: p,
+                          view: view,
+                          room: room,
+                          note: notes.of(p.id),
+                          now: now ?? DateTime.now(),
+                          selectable: selectable.contains(p.id),
+                          // وقت التصويت الكل يظلم إلا الحكومة، بس الخونة اللي تعرفهم يبقون واضحين.
+                          // (الكلام والملصقات تبقى واضحة دايم)
+                          dim: spotlight == null || spotlight!.contains(p.id)
+                              ? 1
+                              : (p.id != view.you && (p.knownRole == Role.traitor || p.knownRole == Role.leader)
+                                    ? .85
+                                    : .3),
+                          onTap: selectable.contains(p.id) ? () => onSelect?.call(p.id) : null,
+                          onLongPress: p.id == view.you ? null : () => onNote?.call(p.id),
                         ),
                       ),
                     ),
@@ -267,15 +267,25 @@ class _CardBack extends StatelessWidget {
         borderRadius: BorderRadius.circular(width * .08),
         border: Border.all(color: AppColors.gold.withValues(alpha: .5), width: 1),
       ),
-      child: Text(
-        '✦',
-        style: TextStyle(color: AppColors.gold, fontSize: width * .38, height: 1),
-      ),
+      child: CustomPaint(size: Size.square(width * .42), painter: _StarPainter()),
     ),
   );
 }
 
-/// نسبة عرض السجادة لطولها (assets/images/carpet_wide.png).
+/// نجمة ذهبية على ظهر الكرت.
+class _StarPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final c = size.center(Offset.zero);
+    canvas.drawPath(star4(c, size.width / 2), Paint()..color = AppColors.gold);
+    canvas.drawCircle(c, size.width * .09, Paint()..color = AppColors.goldLight);
+  }
+
+  @override
+  bool shouldRepaint(_StarPainter old) => false;
+}
+
+/// نسبة عرض السجادة لطولها (assets/tables/carpet_*.webp).
 const _rugAspect = 1500 / 714;
 
 const noteColors = {
@@ -286,6 +296,7 @@ const noteColors = {
 
 class _SeatView extends StatelessWidget {
   const _SeatView({
+    this.dim = 1,
     required this.player,
     required this.view,
     required this.room,
@@ -304,6 +315,9 @@ class _SeatView extends StatelessWidget {
   final bool selectable;
   final VoidCallback? onTap;
   final VoidCallback? onLongPress;
+
+  /// شفافية المقعد (يظلم وقت التصويت).
+  final double dim;
 
   @override
   Widget build(BuildContext context) {
@@ -338,100 +352,116 @@ class _SeatView extends StatelessWidget {
           clipBehavior: Clip.none,
           alignment: Alignment.topCenter,
           children: [
-            Column(
-              children: [
-                Stack(
-                  clipBehavior: Clip.none,
-                  children: [
-                    AnimatedScale(
-                      scale: selectable ? 1.1 : 1,
-                      duration: const Duration(milliseconds: 250),
-                      child: PlayerAvatar(
-                        avatar: rp?.avatar ?? 'masked',
-                        frame: frame,
-                        style: frameStyle(rp?.frame),
-                        size: 62,
-                        dead: !p.alive,
+            AnimatedOpacity(
+              opacity: dim,
+              duration: const Duration(milliseconds: 400),
+              child: Column(
+                children: [
+                  Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      AnimatedScale(
+                        scale: selectable ? 1.1 : 1,
+                        duration: const Duration(milliseconds: 250),
+                        child: PlayerAvatar(
+                          avatar: rp?.avatar ?? 'masked',
+                          frame: frame,
+                          style: frameStyle(rp?.frame),
+                          size: 62,
+                          dead: !p.alive,
+                        ),
+                      ),
+                      if (!p.alive) const Positioned.fill(child: Center(child: Gfx('skull', size: 34))),
+                      if (p.id == view.presidentId) const Positioned(top: -26, left: 0, right: 0, child: _Crown()),
+                      // ختم أحمر على كل خاين تعرفه (يبقى حتى لو صار رئيس أو وزير وتغيّر لون الإطار).
+                      if (!isMe && (role == Role.traitor || role == Role.leader))
+                        Positioned(
+                          left: -8,
+                          bottom: -4,
+                          child: role == Role.leader ? const LeaderSeal(size: 32) : const Seal(loyal: false, size: 26),
+                        ),
+                      if (p.knownSpecial == Special.guardian && !isMe) const _Badge('shield', left: -6, bottom: -2),
+                      if (rp?.bot ?? false) const _Badge('bot', right: -8, top: 16),
+                      if (view.phase == Phase.election && p.hasVoted) const _Badge('check', left: -6, top: -4),
+                      if (note != null)
+                        Positioned(
+                          bottom: -2,
+                          left: 0,
+                          right: 0,
+                          child: Center(
+                            child: Container(
+                              width: 14,
+                              height: 14,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: noteColors[note],
+                                border: Border.all(color: AppColors.bg, width: 2),
+                              ),
+                            ),
+                          ),
+                        ),
+                      if (opinion != null && (opinion.suspect > 0 || opinion.trust > 0))
+                        Positioned(
+                          top: -6,
+                          right: -14,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                            decoration: BoxDecoration(
+                              color: AppColors.bg,
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(
+                                color: opinion.suspect >= opinion.trust ? AppColors.traitor : AppColors.green,
+                                width: 1.2,
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Gfx(opinion.suspect >= opinion.trust ? 'suspect' : 'trust', size: 15),
+                                const SizedBox(width: 2),
+                                Text(
+                                  arabicNumber(opinion.suspect >= opinion.trust ? opinion.suspect : opinion.trust),
+                                  style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w800),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 3),
+                  if (p.id == view.presidentId)
+                    const _Office('الرئيس', AppColors.gold, AppColors.goldInk)
+                  else if (p.id == view.nomineeId)
+                    const _Office('الوزير', Color(0xFFA78BFA), Color(0xFF1E0F4A)),
+                  // الاسم على خلفية داكنة عشان يبان فوق أي لون (السجادة أو الخلفية).
+                  Container(
+                    constraints: const BoxConstraints(maxWidth: 92),
+                    padding: const EdgeInsets.symmetric(horizontal: 7),
+                    decoration: BoxDecoration(
+                      color: const Color(0xD90B0818),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.white.withValues(alpha: .14)),
+                    ),
+                    child: Text(
+                      isMe ? 'أنت' : p.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 12,
+                        height: 1.35,
+                        fontWeight: FontWeight.w800,
+                        color: p.alive ? AppColors.text : AppColors.muted,
                       ),
                     ),
-                    if (!p.alive)
-                      const Positioned.fill(
-                        child: Center(child: Text('💀', style: TextStyle(fontSize: 26))),
-                      ),
-                    if (p.id == view.presidentId) const Positioned(top: -26, left: 0, right: 0, child: _Crown()),
-                    // ختم أحمر على كل خاين تعرفه (يبقى حتى لو صار رئيس أو وزير وتغيّر لون الإطار).
-                    if (!isMe && (role == Role.traitor || role == Role.leader))
-                      Positioned(
-                        left: -8,
-                        bottom: -4,
-                        child: role == Role.leader ? const LeaderSeal(size: 32) : const Seal(loyal: false, size: 26),
-                      ),
-                    if (p.knownSpecial == Special.guardian && !isMe) const _Badge('🛡️', left: -6, bottom: -2),
-                    if (rp?.bot ?? false) const _Badge('🤖', right: -8, top: 16),
-                    if (view.phase == Phase.election && p.hasVoted) const _Badge('✅', left: -6, top: -4),
-                    if (note != null)
-                      Positioned(
-                        bottom: -2,
-                        left: 0,
-                        right: 0,
-                        child: Center(
-                          child: Container(
-                            width: 14,
-                            height: 14,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: noteColors[note],
-                              border: Border.all(color: AppColors.bg, width: 2),
-                            ),
-                          ),
-                        ),
-                      ),
-                    if (opinion != null && (opinion.suspect > 0 || opinion.trust > 0))
-                      Positioned(
-                        top: -6,
-                        right: -14,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-                          decoration: BoxDecoration(
-                            color: AppColors.bg,
-                            borderRadius: BorderRadius.circular(10),
-                            border: Border.all(
-                              color: opinion.suspect >= opinion.trust ? AppColors.traitor : AppColors.green,
-                              width: 1.2,
-                            ),
-                          ),
-                          child: Text(
-                            opinion.suspect >= opinion.trust
-                                ? '🤨${arabicNumber(opinion.suspect)}'
-                                : '🤝${arabicNumber(opinion.trust)}',
-                            style: const TextStyle(fontSize: 10.5),
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-                const SizedBox(height: 3),
-                if (p.id == view.presidentId)
-                  const _Office('الرئيس', AppColors.gold, AppColors.goldInk)
-                else if (p.id == view.nomineeId)
-                  const _Office('الوزير', Color(0xFFA78BFA), Color(0xFF1E0F4A)),
-                Text(
-                  isMe ? 'أنت' : p.name,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 12.5,
-                    fontWeight: FontWeight.w800,
-                    color: p.alive ? AppColors.text : AppColors.muted,
-                    shadows: const [Shadow(color: Colors.black, blurRadius: 4)],
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
             if (reaction != null)
               Positioned(
-                top: -28,
-                child: _Bubble(reaction: reaction, view: view),
+                top: stickerById(reaction.kind) != null ? -62 : -30,
+                child: _Bubble(reaction: reaction, view: view, bubble: rp?.bubble),
               ),
           ],
         ),
@@ -451,7 +481,7 @@ class _Crown extends StatelessWidget {
         shape: BoxShape.circle,
         boxShadow: [BoxShadow(color: AppColors.goldLight.withValues(alpha: .55), blurRadius: 14)],
       ),
-      child: const Text('👑', style: TextStyle(fontSize: 30, height: 1)),
+      child: const Gfx('crown', size: 36),
     ),
   );
 }
@@ -481,58 +511,42 @@ class _Office extends StatelessWidget {
 }
 
 class _Badge extends StatelessWidget {
-  const _Badge(this.emoji, {this.left, this.right, this.top, this.bottom});
+  const _Badge(this.icon, {this.left, this.right, this.top, this.bottom});
 
-  final String emoji;
+  /// أيقونة ملونة (assets/icons/gfx_*.png).
+  final String icon;
   final double? left, right, top, bottom;
 
   @override
-  Widget build(BuildContext context) => Positioned(
-    left: left,
-    right: right,
-    top: top,
-    bottom: bottom,
-    child: Text(
-      emoji,
-      textAlign: TextAlign.center,
-      style: const TextStyle(fontSize: 17, shadows: [Shadow(blurRadius: 4)]),
-    ),
-  );
+  Widget build(BuildContext context) =>
+      Positioned(left: left, right: right, top: top, bottom: bottom, child: Gfx(icon, size: 24));
 }
 
+/// اللي قاله اللاعب: ملصق، أو كلام بفقاعته من المتجر.
 class _Bubble extends StatelessWidget {
-  const _Bubble({required this.reaction, required this.view});
+  const _Bubble({required this.reaction, required this.view, required this.bubble});
 
   final Reaction reaction;
   final GameView view;
+  final String? bubble;
 
   @override
   Widget build(BuildContext context) {
+    final sticker = stickerById(reaction.kind);
+    if (sticker != null) return StickerView(sticker: sticker, size: 70);
     final target = reaction.target;
     final targetName = target == null
         ? null
         : target == view.you
         ? 'أنت'
         : view.players.where((p) => p.id == target).firstOrNull?.name;
-    final text = reaction.kind.say(targetName);
+    final text = textReaction(reaction.kind)?.text(targetName) ?? '…';
     return TweenAnimationBuilder<double>(
       tween: Tween(begin: .6, end: 1),
       duration: const Duration(milliseconds: 350),
       curve: Curves.elasticOut,
       builder: (context, v, child) => Transform.scale(scale: v, child: child),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-        decoration: BoxDecoration(
-          color: AppColors.parchment,
-          borderRadius: BorderRadius.circular(10),
-          boxShadow: const [BoxShadow(color: Colors.black45, blurRadius: 6)],
-        ),
-        child: Text(
-          text,
-          maxLines: 1,
-          style: const TextStyle(color: AppColors.ink, fontSize: 11.5, fontWeight: FontWeight.w800),
-        ),
-      ),
+      child: ChatBubble(style: bubbleStyle(bubble), text: text),
     );
   }
 }

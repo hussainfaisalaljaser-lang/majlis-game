@@ -28,18 +28,18 @@ class WaitingScreen extends StatefulWidget {
 
 class _WaitingScreenState extends State<WaitingScreen> {
   static const _demoPlayers = [
-    ('👩', 'نورة'),
-    ('🧔', 'خالد'),
-    ('👨‍🦱', 'سعد'),
-    ('👴', 'عمر'),
-    ('👱‍♀️', 'ريم'),
-    ('🧑', 'فهد'),
-    ('👩‍🦰', 'سارة'),
-    ('👨', 'ناصر'),
-    ('🧕', 'هيا'),
+    ('pearl', 'نورة'),
+    ('desert', 'خالد'),
+    ('cool', 'سعد'),
+    ('sheikh', 'عمر'),
+    ('rose', 'ريم'),
+    ('youth', 'فهد'),
+    ('jasmine', 'سارة'),
+    ('merchant', 'ناصر'),
+    ('sky', 'هيا'),
   ];
 
-  final _demoJoined = [const RoomPlayer(uid: 'me', name: 'أنت', avatar: '😎')];
+  final _demoJoined = [const RoomPlayer(uid: 'me', name: 'أنت', avatar: 'falcon')];
   StreamSubscription<Room?>? _sub;
   Timer? _timer;
   Room? _room;
@@ -156,7 +156,16 @@ class _WaitingScreenState extends State<WaitingScreen> {
       canPop: false,
       onPopInvokedWithResult: (didPop, _) => didPop ? null : _leave(),
       child: NightScaffold(
-        appBar: AppBar(title: Text(tier == null ? 'روم خاص 🔒' : 'طاولة ${tier.name} ${tier.emoji}')),
+        appBar: AppBar(
+          title: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Gfx(tier == null ? 'key' : tier.icon, size: 30),
+              const SizedBox(width: 8),
+              Text(tier == null ? 'روم خاص' : 'طاولة ${tier.name}'),
+            ],
+          ),
+        ),
         body: SafeArea(
           top: false,
           child: Row(
@@ -170,10 +179,10 @@ class _WaitingScreenState extends State<WaitingScreen> {
                     children: [
                       Text(
                         isPrivate
-                            ? '👥 اعزم أصحابك بالكود'
+                            ? 'اعزم أصحابك بالكود'
                             : full
-                            ? '✅ اكتملت الطاولة! اللعبة بتبدأ…'
-                            : '🔍 نبحث عن لاعبين…',
+                            ? 'اكتملت الطاولة! اللعبة بتبدأ…'
+                            : 'نبحث عن لاعبين…',
                         style: const TextStyle(color: AppColors.muted, fontSize: 14),
                       ),
                       const SizedBox(height: 8),
@@ -191,7 +200,7 @@ class _WaitingScreenState extends State<WaitingScreen> {
                         isPrivate
                             ? '${arabicNumber(players.length)} من ${arabicNumber(max)} · يحتاج ٥ لاعبين على الأقل'
                             : _botCountdown != null && _botCountdown! > 0
-                            ? '${arabicNumber(players.length)} من ${arabicNumber(max)} · لو ما اكتملت خلال ${arabicNumber(_botCountdown!)} ثانية نكمّلها ببوتات 🤖'
+                            ? '${arabicNumber(players.length)} من ${arabicNumber(max)} · لو ما اكتملت خلال ${arabicNumber(_botCountdown!)} ثانية نكمّلها ببوتات'
                             : '${arabicNumber(players.length)} من ${arabicNumber(max)} · تبدأ تلقائياً لما تكتمل',
                         textAlign: TextAlign.center,
                         style: const TextStyle(color: AppColors.muted, fontSize: 12),
@@ -210,7 +219,8 @@ class _WaitingScreenState extends State<WaitingScreen> {
                           children: [
                             Expanded(
                               child: GameButton(
-                                label: '🤖 أضف بوت',
+                                label: 'أضف بوت',
+                                icon: const Gfx('bot', size: 26),
                                 tone: ButtonTone.purple,
                                 height: 48,
                                 fontSize: 16,
@@ -220,7 +230,7 @@ class _WaitingScreenState extends State<WaitingScreen> {
                             const SizedBox(width: 10),
                             Expanded(
                               child: GameButton(
-                                label: _starting ? 'لحظة…' : '▶ ابدأ',
+                                label: _starting ? 'لحظة…' : 'ابدأ',
                                 semantics: 'ابدأ',
                                 height: 48,
                                 fontSize: 16,
@@ -240,7 +250,8 @@ class _WaitingScreenState extends State<WaitingScreen> {
                         const SizedBox(height: 10),
                       ],
                       GameButton(
-                        label: '✖ خروج',
+                        label: 'خروج',
+                        icon: const Gfx('exit', size: 26),
                         semantics: 'خروج',
                         tone: ButtonTone.ghost,
                         height: 44,
@@ -272,7 +283,7 @@ class _WaitingScreenState extends State<WaitingScreen> {
                       for (var i = 0; i < max; i++)
                         i < players.length
                             ? _Seat(
-                                emoji: players[i].avatar,
+                                avatar: players[i].avatar,
                                 name: players[i].uid == myUid ? 'أنت' : players[i].name,
                                 bot: players[i].bot,
                                 onTap: isPrivate && isHost && players[i].bot ? () => _removeBot(players[i]) : null,
@@ -281,7 +292,7 @@ class _WaitingScreenState extends State<WaitingScreen> {
                                     ? AppColors.gold
                                     : null,
                               )
-                            : const _Seat(emoji: '＋', name: 'ينتظر…', empty: true),
+                            : const _Seat(avatar: '', name: 'ينتظر…', empty: true),
                     ],
                   ),
                 ),
@@ -351,7 +362,7 @@ class _PotBox extends StatelessWidget {
 
 class _Seat extends StatelessWidget {
   const _Seat({
-    required this.emoji,
+    required this.avatar,
     required this.name,
     this.frame,
     this.style,
@@ -360,7 +371,7 @@ class _Seat extends StatelessWidget {
     this.onTap,
   });
 
-  final String emoji;
+  final String avatar;
   final String name;
   final Color? frame;
   final FrameStyle? style;
@@ -384,13 +395,13 @@ class _Seat extends StatelessWidget {
                     shape: BoxShape.circle,
                     border: Border.all(color: AppColors.line, width: 2),
                   ),
-                  child: const Text('＋', style: TextStyle(color: AppColors.muted, fontSize: 22)),
+                  child: const Icon(Icons.add_rounded, color: AppColors.muted, size: 28),
                 )
               : Stack(
                   clipBehavior: Clip.none,
                   children: [
-                    PlayerAvatar(avatar: emoji, frame: frame, style: style, size: 58),
-                    if (bot) const Positioned(bottom: -4, left: -4, child: Text('🤖', style: TextStyle(fontSize: 18))),
+                    PlayerAvatar(avatar: avatar, frame: frame, style: style, size: 58),
+                    if (bot) const Positioned(bottom: -4, left: -4, child: Gfx('bot', size: 24)),
                   ],
                 ),
           const SizedBox(height: 5),

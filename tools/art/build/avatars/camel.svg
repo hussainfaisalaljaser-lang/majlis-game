@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="512" height="512">
+<defs>
+  <pattern id="shemagh" width="10" height="10" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+    <rect width="10" height="10" fill="#FBF7F2"/><rect width="5" height="5" fill="#C8262E"/><rect x="5" y="5" width="5" height="5" fill="#C8262E"/>
+  </pattern>
+  <clipPath id="c"><circle cx="100" cy="100" r="100"/></clipPath>
+</defs>
+<g clip-path="url(#c)"><path d="M30 200 Q40 150 100 146 Q160 150 170 200 Z" fill="#C68642"/><ellipse cx="62" cy="64" rx="10" ry="18" fill="#B87333" transform="rotate(-25 62 64)"/><ellipse cx="138" cy="64" rx="10" ry="18" fill="#B87333" transform="rotate(25 138 64)"/><ellipse cx="100" cy="92" rx="40" ry="44" fill="#D9A066"/><ellipse cx="100" cy="132" rx="30" ry="22" fill="#E8C097"/><ellipse cx="90" cy="130" rx="4" ry="6" fill="#5A3A22"/><ellipse cx="110" cy="130" rx="4" ry="6" fill="#5A3A22"/><path d="M88 146 Q100 152 112 146" fill="none" stroke="#5A3A22" stroke-width="3" stroke-linecap="round"/><ellipse cx="82" cy="88" rx="7" ry="9" fill="#2B1B10"/><ellipse cx="118" cy="88" rx="7" ry="9" fill="#2B1B10"/><circle cx="84" cy="85" r="2.5" fill="#fff"/><circle cx="120" cy="85" r="2.5" fill="#fff"/><path d="M72 78 Q82 72 92 78 M108 78 Q118 72 128 78" stroke="#2B1B10" stroke-width="3" fill="none" stroke-linecap="round"/><path d="M74 54 Q100 40 126 54 L126 62 Q100 48 74 62 Z" fill="#E11D48"/><path d="M74 62 Q100 50 126 62" stroke="#FCD34D" stroke-width="3" fill="none"/></g>
+</svg>

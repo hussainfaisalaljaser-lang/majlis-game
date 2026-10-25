@@ -1,8 +1,7 @@
-import 'dart:math' as math;
-
 import 'package:flutter/material.dart';
 
 import '../models/shop.dart';
+import 'fx.dart';
 
 /// يحول الأرقام للأرقام العربية مع فاصل الآلاف: 12500 ← ١٢٬٥٠٠
 String arabicNumber(int n) {
@@ -100,33 +99,24 @@ class CurrencyPill extends StatelessWidget {
   }
 }
 
-/// الشخصيات المرسومة (نفس functions/src/profile.ts → AVATARS).
-const avatarIds = [
-  'falcon',
-  'sheikh',
-  'cool',
-  'scholar',
-  'desert',
-  'hawk',
-  'merchant',
-  'youth',
-  'pearl',
-  'rose',
-  'night',
-  'jasmine',
-  'amber',
-  'sky',
-  'masked',
-  'shadow',
-];
+/// الشخصيات المجانية (نفس functions/src/catalog.ts → FREE_AVATARS).
+const avatarIds = freeAvatars;
 
 String avatarAsset(String id) =>
-    'assets/avatars/${avatarIds.contains(id) || premiumAvatars.contains(id) ? id : 'masked'}.png';
+    'assets/avatars/${avatarIds.contains(id) || premiumAvatars.contains(id) ? id : 'masked'}.webp';
 
 /// صورة اللاعب. [frame] لون للتمييز (مثل الرئيس أو المختار)، و[style] إطار من المتجر.
-/// لو الاثنين موجودين، لون التمييز يغلب.
+/// لو الاثنين موجودين، لون التمييز يغلب. الشخصيات المميزة لها خلفية متحركة تضوي.
 class PlayerAvatar extends StatelessWidget {
-  const PlayerAvatar({super.key, required this.avatar, this.frame, this.style, this.size = 52, this.dead = false});
+  const PlayerAvatar({
+    super.key,
+    required this.avatar,
+    this.frame,
+    this.style,
+    this.size = 52,
+    this.dead = false,
+    this.animate = true,
+  });
 
   final String avatar;
   final Color? frame;
@@ -134,33 +124,56 @@ class PlayerAvatar extends StatelessWidget {
   final double size;
   final bool dead;
 
+  /// الحركات (ممكن تنطفي في القوائم الطويلة).
+  final bool animate;
+
   @override
   Widget build(BuildContext context) {
-    Widget img = ClipOval(
-      child: Image.asset(avatarAsset(avatar), width: size, height: size, fit: BoxFit.cover),
-    );
-    if (dead) {
-      img = ColorFiltered(colorFilter: const ColorFilter.matrix(_grey), child: img);
+    final art = avatarArt(avatar);
+    Widget img = Image.asset(avatarAsset(avatar), width: size, height: size, fit: BoxFit.cover);
+    if (art != null) {
+      img = Stack(
+        children: [
+          Positioned.fill(
+            child: animate
+                ? FxClock(builder: (context, t) => CustomPaint(painter: AvatarBgPainter(art, t)))
+                : CustomPaint(painter: AvatarBgPainter(art, const AlwaysStoppedAnimation(0))),
+          ),
+          img,
+        ],
+      );
     }
+    img = ClipOval(
+      child: SizedBox(width: size, height: size, child: img),
+    );
+    if (dead) img = ColorFiltered(colorFilter: const ColorFilter.matrix(_grey), child: img);
     final style = this.style;
-    final ring = size * .065;
+    final ring = size * .07;
+    final outer = size + ring * 2;
     if (frame == null && style != null) {
-      if (style.fx != FrameFx.none) return _AnimatedFrame(style: style, size: size, ring: ring, child: img);
-      return Container(
-        width: size + ring * 2,
-        height: size + ring * 2,
-        padding: EdgeInsets.all(ring),
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          gradient: SweepGradient(colors: [...style.colors, style.colors.first]),
-          boxShadow: style.glow == null ? null : [BoxShadow(color: style.glow!.withValues(alpha: .6), blurRadius: 14)],
+      final painter = animate
+          ? FxClock(
+              builder: (context, t) => CustomPaint(painter: FramePainter(style, t, ring: ring)),
+            )
+          : CustomPaint(painter: FramePainter(style, const AlwaysStoppedAnimation(0), ring: ring));
+      return SizedBox(
+        width: outer,
+        height: outer,
+        child: Stack(
+          clipBehavior: Clip.none,
+          alignment: Alignment.center,
+          children: [
+            img,
+            Positioned.fill(
+              child: RepaintBoundary(child: IgnorePointer(child: painter)),
+            ),
+          ],
         ),
-        child: img,
       );
     }
     return Container(
-      width: size + ring * 2,
-      height: size + ring * 2,
+      width: outer,
+      height: outer,
       padding: EdgeInsets.all(ring),
       decoration: BoxDecoration(
         shape: BoxShape.circle,
@@ -177,94 +190,4 @@ class PlayerAvatar extends StatelessWidget {
     .33, .33, .33, 0, 0,
     0, 0, 0, .55, 0,
   ];
-}
-
-/// إطار متحرك من المتجر: الحلقة تدور، أو التوهج ينبض، أو لمعات تلف حول الصورة.
-class _AnimatedFrame extends StatefulWidget {
-  const _AnimatedFrame({required this.style, required this.size, required this.ring, required this.child});
-
-  final FrameStyle style;
-  final double size;
-  final double ring;
-  final Widget child;
-
-  @override
-  State<_AnimatedFrame> createState() => _AnimatedFrameState();
-}
-
-class _AnimatedFrameState extends State<_AnimatedFrame> with SingleTickerProviderStateMixin {
-  late final _c = AnimationController(
-    vsync: this,
-    duration: Duration(milliseconds: widget.style.fx == FrameFx.pulse ? 1400 : 3200),
-  )..repeat();
-
-  @override
-  void dispose() {
-    _c.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final style = widget.style;
-    final outer = widget.size + widget.ring * 2;
-    final glow = style.glow ?? style.colors.first;
-    return AnimatedBuilder(
-      animation: _c,
-      child: widget.child,
-      builder: (context, child) {
-        final t = _c.value;
-        // النبض: يكبر التوهج ويصغر مرتين في الدورة الواحدة.
-        final beat = style.fx == FrameFx.pulse ? (math.sin(t * math.pi * 2) + 1) / 2 : .5;
-        return SizedBox(
-          width: outer,
-          height: outer,
-          child: Stack(
-            clipBehavior: Clip.none,
-            alignment: Alignment.center,
-            children: [
-              Container(
-                width: outer,
-                height: outer,
-                padding: EdgeInsets.all(widget.ring),
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: SweepGradient(
-                    colors: [...style.colors, style.colors.first],
-                    transform: GradientRotation(style.fx == FrameFx.pulse ? 0 : t * math.pi * 2),
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: glow.withValues(alpha: .35 + beat * .5),
-                      blurRadius: 10 + beat * 14,
-                      spreadRadius: beat * 2,
-                    ),
-                  ],
-                ),
-                child: child,
-              ),
-              if (style.fx == FrameFx.sparkle)
-                for (var i = 0; i < 3; i++) _spark(outer, t + i / 3, style.colors[i % style.colors.length]),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  /// لمعة تلف حول الإطار وتطفي وتشتعل.
-  Widget _spark(double outer, double t, Color color) {
-    final a = t * math.pi * 2;
-    final r = outer / 2;
-    final s = outer * .16 * (.6 + .4 * math.sin(t * math.pi * 6).abs());
-    return Transform.translate(
-      offset: Offset(math.cos(a) * r, math.sin(a) * r),
-      child: Icon(
-        Icons.auto_awesome,
-        size: s,
-        color: Color.lerp(color, Colors.white, .5),
-        shadows: [Shadow(color: color, blurRadius: 8)],
-      ),
-    );
-  }
 }

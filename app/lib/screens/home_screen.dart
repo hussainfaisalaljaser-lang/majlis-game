@@ -6,10 +6,12 @@ import '../services/music.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
 import '../widgets/daily_reward.dart';
+import '../widgets/gifts.dart';
 import '../widgets/ui.dart';
 import 'game_screen.dart';
 import 'leaderboard_screen.dart';
 import 'missions_screen.dart';
+import 'pass_screen.dart';
 import 'profile_screen.dart';
 import 'shop_screen.dart';
 import 'tables_screen.dart';
@@ -33,7 +35,7 @@ class HomeScreen extends StatelessWidget {
           children: [
             CircularProgressIndicator(color: AppColors.gold),
             SizedBox(width: 16),
-            Text('نجهّز المجلس… 🤖'),
+            Text('نجهّز المجلس…'),
           ],
         ),
       ),
@@ -55,95 +57,102 @@ class HomeScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return NightScaffold(
-      body: SafeArea(
-        child: Row(
-          children: [
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsetsDirectional.fromSTEB(14, 8, 10, 12),
-                child: Column(
-                  children: [
-                    const _Header(),
-                    const SizedBox(height: 10),
-                    Expanded(
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          Expanded(flex: 10, child: _Hero(onPlay: () => _push(context, const TablesScreen()))),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            flex: 11,
-                            child: Column(
-                              children: [
-                                Expanded(
-                                  flex: 3,
-                                  child: Row(
-                                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                                    children: [
-                                      Expanded(
-                                        child: _Tile(
-                                          icon: 'friends',
-                                          title: 'مع أصحابك',
-                                          colors: const [Color(0xFF2FBF71), Color(0xFF145C38)],
-                                          shadow: const Color(0xFF0B3A22),
-                                          onTap: () => _push(context, const TablesScreen()),
+      body: GiftWatcher(
+        child: SafeArea(
+          child: Row(
+            children: [
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsetsDirectional.fromSTEB(14, 8, 10, 12),
+                  child: Column(
+                    children: [
+                      const _Header(),
+                      const SizedBox(height: 10),
+                      Expanded(
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Expanded(flex: 10, child: _Hero(onPlay: () => _push(context, const TablesScreen()))),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              flex: 11,
+                              child: Column(
+                                children: [
+                                  Expanded(
+                                    flex: 3,
+                                    child: Row(
+                                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                                      children: [
+                                        Expanded(
+                                          child: _Tile(
+                                            icon: 'friends',
+                                            title: 'مع أصحابك',
+                                            colors: const [Color(0xFF2FBF71), Color(0xFF145C38)],
+                                            shadow: const Color(0xFF0B3A22),
+                                            onTap: () => _push(context, const TablesScreen()),
+                                          ),
                                         ),
-                                      ),
-                                      const SizedBox(width: 10),
-                                      Expanded(
-                                        child: _Tile(
-                                          icon: 'bot',
-                                          title: 'تدريب',
-                                          subtitle: 'أنت و٤ بوتات',
-                                          colors: const [Color(0xFF7C5CFF), Color(0xFF3A1F9C)],
-                                          shadow: const Color(0xFF23125E),
-                                          onTap: () => _startPractice(context),
+                                        const SizedBox(width: 10),
+                                        Expanded(
+                                          child: _Tile(
+                                            icon: 'bot',
+                                            title: 'تدريب',
+                                            subtitle: 'أنت و٤ بوتات',
+                                            colors: const [Color(0xFF7C5CFF), Color(0xFF3A1F9C)],
+                                            shadow: const Color(0xFF23125E),
+                                            onTap: () => _startPractice(context),
+                                          ),
                                         ),
-                                      ),
-                                      const SizedBox(width: 10),
-                                      Expanded(
-                                        child: _Tile(
-                                          icon: 'trophy',
-                                          title: 'الدوري',
-                                          colors: const [Color(0xFFF2B53A), Color(0xFF9C5E06)],
-                                          shadow: const Color(0xFF5C3603),
-                                          onTap: () => _push(context, const LeaderboardScreen()),
+                                        const SizedBox(width: 10),
+                                        Expanded(
+                                          child: ValueListenableBuilder(
+                                            valueListenable: Backend.instance.profile,
+                                            builder: (context, p, _) => _Tile(
+                                              icon: 'pass',
+                                              title: 'الموسم',
+                                              subtitle: 'الدرجة ${arabicNumber(p.pass.tier)}',
+                                              badge: p.pass.claimable,
+                                              colors: const [Color(0xFF14B8A6), Color(0xFF134E4A)],
+                                              shadow: const Color(0xFF062F2C),
+                                              onTap: () => _push(context, const PassScreen()),
+                                            ),
+                                          ),
                                         ),
-                                      ),
-                                    ],
+                                      ],
+                                    ),
                                   ),
-                                ),
-                                const SizedBox(height: 12),
-                                Expanded(
-                                  flex: 2,
-                                  child: Row(
-                                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                                    children: [
-                                      Expanded(child: _DailyCard(onTap: () => showDailyReward(context))),
-                                      const SizedBox(width: 10),
-                                      SizedBox(
-                                        width: 128,
-                                        child: _MissionsCard(onTap: () => _push(context, const MissionsScreen())),
-                                      ),
-                                    ],
+                                  const SizedBox(height: 12),
+                                  Expanded(
+                                    flex: 2,
+                                    child: Row(
+                                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                                      children: [
+                                        Expanded(child: _DailyCard(onTap: () => showDailyReward(context))),
+                                        const SizedBox(width: 10),
+                                        SizedBox(
+                                          width: 128,
+                                          child: _MissionsCard(onTap: () => _push(context, const MissionsScreen())),
+                                        ),
+                                      ],
+                                    ),
                                   ),
-                                ),
-                              ],
+                                ],
+                              ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
-            ),
-            _SideNav(
-              onShop: () => _push(context, const ShopScreen()),
-              onRank: () => _push(context, const LeaderboardScreen()),
-              onProfile: () => _push(context, const ProfileScreen()),
-            ),
-          ],
+              _SideNav(
+                onShop: () => _push(context, const ShopScreen()),
+                onRank: () => _push(context, const LeaderboardScreen()),
+                onProfile: () => _push(context, const ProfileScreen()),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -242,7 +251,7 @@ class _Header extends StatelessWidget {
             builder: (context, muted, _) => IconButton(
               tooltip: muted ? 'شغّل الموسيقى' : 'اكتم الموسيقى',
               onPressed: Music.toggle,
-              icon: Text(muted ? '🔇' : '🎵', style: const TextStyle(fontSize: 20)),
+              icon: Gfx(muted ? 'music_off' : 'music', size: 30),
             ),
           ),
         ],
@@ -301,7 +310,14 @@ class _Hero extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                   decoration: BoxDecoration(color: AppColors.traitor, borderRadius: BorderRadius.circular(8)),
-                  child: const Text('🔥 الأكثر لعباً', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800)),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Gfx('fire', size: 14),
+                      SizedBox(width: 3),
+                      Text('الأكثر لعباً', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800)),
+                    ],
+                  ),
                 ),
                 const SizedBox(height: 4),
                 const Text(
@@ -334,7 +350,8 @@ class _Hero extends StatelessWidget {
                 SizedBox(
                   width: double.infinity,
                   child: GameButton(
-                    label: '▶ العب الحين',
+                    label: 'العب الحين',
+                    icon: const Gfx('games', size: 30),
                     semantics: 'العب الحين',
                     height: 48,
                     fontSize: 18,
@@ -358,11 +375,15 @@ class _Tile extends StatelessWidget {
     required this.shadow,
     required this.onTap,
     this.subtitle,
+    this.badge = false,
   });
 
   final String icon;
   final String title;
   final String? subtitle;
+
+  /// نقطة حمراء (فيه شي جاهز يستلمه).
+  final bool badge;
   final List<Color> colors;
   final Color shadow;
   final VoidCallback onTap;
@@ -388,7 +409,18 @@ class _Tile extends StatelessWidget {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              GameIcon(icon, size: 36),
+              Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  Gfx(icon, size: 46),
+                  if (badge)
+                    const PositionedDirectional(
+                      top: -2,
+                      end: -4,
+                      child: CircleAvatar(radius: 7, backgroundColor: AppColors.traitor),
+                    ),
+                ],
+              ),
               const SizedBox(height: 6),
               Text(
                 title,
@@ -432,7 +464,7 @@ class _DailyCard extends StatelessWidget {
                   Stack(
                     clipBehavior: Clip.none,
                     children: [
-                      const GameIcon('gift', size: 40, color: AppColors.goldLight),
+                      const Gfx('gift', size: 46),
                       if (available)
                         const Positioned(
                           top: -2,
@@ -452,7 +484,7 @@ class _DailyCard extends StatelessWidget {
                           style: TextStyle(fontFamily: kufi, fontWeight: FontWeight.w700, fontSize: 15),
                         ),
                         Text(
-                          available ? 'يوم ${arabicNumber(p.nextDailyDay)} من ٧ · جاهزة!' : 'تعال بكرة 😉',
+                          available ? 'يوم ${arabicNumber(p.nextDailyDay)} من ٧ · جاهزة!' : 'تعال بكرة',
                           style: const TextStyle(fontSize: 12, color: Color(0xFFFFD3E3)),
                         ),
                       ],
@@ -499,12 +531,19 @@ class _MissionsCard extends StatelessWidget {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Text(
-                    'المهام',
-                    style: TextStyle(fontFamily: kufi, fontWeight: FontWeight.w700, fontSize: 15),
+                  const Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Gfx('missions', size: 24),
+                      SizedBox(width: 4),
+                      Text(
+                        'المهام',
+                        style: TextStyle(fontFamily: kufi, fontWeight: FontWeight.w700, fontSize: 15),
+                      ),
+                    ],
                   ),
                   Text(
-                    claimable > 0 ? '🎁 ${arabicNumber(claimable)} جاهزة' : '${arabicNumber(claimed)}/٥ ✦',
+                    claimable > 0 ? '${arabicNumber(claimable)} جاهزة للاستلام' : '${arabicNumber(claimed)} من ٥',
                     style: const TextStyle(fontSize: 12, color: AppColors.gold, fontWeight: FontWeight.w700),
                   ),
                   const SizedBox(height: 5),
@@ -554,7 +593,7 @@ class _SideNav extends StatelessWidget {
                   color: on ? AppColors.gold.withValues(alpha: .16) : null,
                   borderRadius: BorderRadius.circular(14),
                 ),
-                child: GameIcon(icon, size: 26, color: on ? AppColors.gold : AppColors.muted),
+                child: Opacity(opacity: on ? 1 : .75, child: Gfx(icon, size: 34)),
               ),
               const SizedBox(height: 2),
               Text(

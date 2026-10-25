@@ -22,7 +22,7 @@ class _MissionsScreenState extends State<MissionsScreen> {
     try {
       final coins = await Backend.instance.claimMission(m.id);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('+${arabicNumber(coins)} 🪙 ${m.title}')));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('+${arabicNumber(coins)} ذهب · ${m.title}')));
       }
     } on BackendException catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
@@ -34,7 +34,12 @@ class _MissionsScreenState extends State<MissionsScreen> {
   @override
   Widget build(BuildContext context) {
     return NightScaffold(
-      appBar: AppBar(title: const Text('✅ المهام اليومية')),
+      appBar: AppBar(
+        title: const Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [Gfx('missions', size: 30), SizedBox(width: 8), Text('المهام اليومية')],
+        ),
+      ),
       body: ValueListenableBuilder(
         valueListenable: Backend.instance.profile,
         builder: (context, p, _) {
@@ -93,7 +98,7 @@ class _MissionTile extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Text(mission.emoji, style: const TextStyle(fontSize: 30)),
+          Gfx(mission.icon, size: 40),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
@@ -124,7 +129,7 @@ class _MissionTile extends StatelessWidget {
           ),
           const SizedBox(width: 12),
           claimed
-              ? const Text('✅', style: TextStyle(fontSize: 24))
+              ? const Gfx('check', size: 32)
               : FilledButton(
                   style: FilledButton.styleFrom(
                     minimumSize: const Size(84, 40),

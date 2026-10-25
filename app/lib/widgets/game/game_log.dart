@@ -4,7 +4,6 @@ import '../../models/game_view.dart';
 import '../../theme.dart';
 import '../common.dart';
 import 'policy_card.dart';
-import 'tracks.dart';
 
 /// سجل اللعبة: كل تصويت وادعاء وتمرير، مع تنبيه لما تتناقض الادعاءات.
 void showGameLog(BuildContext context, GameView view) {
@@ -48,7 +47,14 @@ class _GameLog extends StatelessWidget {
         ),
         const Padding(
           padding: EdgeInsets.all(12),
-          child: Text('📜 سجل اللعبة', style: TextStyle(fontSize: 19, fontWeight: FontWeight.w800)),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Gfx('log', size: 28),
+              SizedBox(width: 6),
+              Text('سجل اللعبة', style: TextStyle(fontSize: 19, fontWeight: FontWeight.w800)),
+            ],
+          ),
         ),
         if (entries.isEmpty)
           const Padding(
@@ -86,15 +92,25 @@ class _RoundCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final lines = <Widget>[];
+    // سطر بأيقونة مرسومة في أوله.
+    Widget line(String icon, String text, [Widget? tail]) => Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Gfx(icon, size: 20),
+        const SizedBox(width: 6),
+        Flexible(child: Text(text)),
+        ?tail,
+      ],
+    );
     Policy? enacted;
     for (final e in events) {
       final d = e.data;
       switch (e.type) {
         case 'nominated':
-          lines.add(Text('👑 ${name(d['president'] as String)} رشّح 📜 ${name(d['chancellor'] as String)}'));
+          lines.add(line('crown', '${name(d['president'] as String)} رشّح ${name(d['chancellor'] as String)} وزير'));
         case 'voteResult':
           final votes = Map<String, bool>.from(d['votes'] as Map);
-          lines.add(Text(d['passed'] == true ? '✅ الحكومة انتخبت' : '❌ الحكومة رُفضت'));
+          lines.add(d['passed'] == true ? line('check', 'الحكومة انتخبت') : line('cross', 'الحكومة رُفضت'));
           lines.add(
             Wrap(
               spacing: 4,
@@ -107,9 +123,19 @@ class _RoundCard extends StatelessWidget {
                       color: value ? const Color(0xFF162A1D) : const Color(0xFF5C1F26),
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    child: Text(
-                      '${value ? '✅' : '❌'} ${name(key)}',
-                      style: TextStyle(fontSize: 12, color: value ? const Color(0xFF8EE4AB) : const Color(0xFFFFB0B0)),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Gfx(value ? 'check' : 'cross', size: 14),
+                        const SizedBox(width: 3),
+                        Text(
+                          name(key),
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: value ? const Color(0xFF8EE4AB) : const Color(0xFFFFB0B0),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
               ],
@@ -119,39 +145,35 @@ class _RoundCard extends StatelessWidget {
           enacted = Policy.parse(d['policy']);
           final chaos = d['chaos'] == true;
           lines.add(
-            Row(
-              children: [
-                Text(chaos ? '🌪️ فوضى! تمرر تلقائياً: ' : '⚖️ تمرر: '),
-                MiniPolicies([enacted]),
-              ],
-            ),
+            line(chaos ? 'chaos' : 'scales', chaos ? 'فوضى! تمرر تلقائياً: ' : 'تمرر: ', MiniPolicies([enacted])),
           );
         case 'claim':
           final c = d['claim'] as Map;
           lines.add(
-            Row(
-              children: [
-                Text('📢 ${name(c['by'] as String)} ${c['office'] == 'president' ? '(الرئيس)' : '(الوزير)'} ادّعى '),
-                MiniPolicies([for (final p in c['policies'] as List) Policy.parse(p)]),
-              ],
+            line(
+              'megaphone',
+              '${name(c['by'] as String)} ${c['office'] == 'president' ? '(الرئيس)' : '(الوزير)'} ادّعى ',
+              MiniPolicies([for (final p in c['policies'] as List) Policy.parse(p)]),
             ),
           );
         case 'vetoed':
-          lines.add(const Text('✋ الحكومة استخدمت الفيتو'));
+          lines.add(line('hand', 'الحكومة استخدمت الفيتو'));
         case 'vetoRejected':
-          lines.add(const Text('🙅 الرئيس رفض الفيتو'));
+          lines.add(line('cross', 'الرئيس رفض الفيتو'));
         case 'investigated':
-          lines.add(Text('🔍 ${name(d['by'] as String)} حقق مع ${name(d['target'] as String)}'));
+          lines.add(line('search', '${name(d['by'] as String)} حقق مع ${name(d['target'] as String)}'));
         case 'peeked':
-          lines.add(Text('👁️ ${name(d['by'] as String)} تلصص على الكروت'));
+          lines.add(line('eye', '${name(d['by'] as String)} تلصص على الكروت'));
         case 'specialElection':
-          lines.add(Text('🗳️ ${name(d['by'] as String)} اختار ${name(d['target'] as String)} رئيس'));
+          lines.add(line('ballot', '${name(d['by'] as String)} اختار ${name(d['target'] as String)} رئيس'));
         case 'executed':
-          lines.add(Text('🗡️ ${name(d['by'] as String)} طرد ${name(d['target'] as String)}'));
+          lines.add(line('dagger', '${name(d['by'] as String)} طرد ${name(d['target'] as String)}'));
         case 'guarded':
-          lines.add(Text('🛡️ ${name(d['by'] as String)} حاول يطرد ${name(d['target'] as String)}، ونجا لأنه حارس'));
+          lines.add(
+            line('shield', '${name(d['by'] as String)} حاول يطرد ${name(d['target'] as String)}، ونجا لأنه حارس'),
+          );
         case 'gameOver':
-          lines.add(Text(d['winner'] == 'loyal' ? '🏆 فاز الأوفياء' : '🏆 فاز الخونة'));
+          lines.add(line('trophy', d['winner'] == 'loyal' ? 'فاز الأوفياء' : 'فاز الخونة'));
       }
     }
 
@@ -184,9 +206,16 @@ class _RoundCard extends StatelessWidget {
                   borderRadius: BorderRadius.circular(10),
                   border: Border.all(color: const Color(0xFF7A2E38)),
                 ),
-                child: const Text(
-                  '⚠️ تناقض! واحد منهم يكذب',
-                  style: TextStyle(color: Color(0xFFFFC2C2), fontWeight: FontWeight.w700),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Gfx('warning', size: 20),
+                    SizedBox(width: 6),
+                    Text(
+                      'تناقض! واحد منهم يكذب',
+                      style: TextStyle(color: Color(0xFFFFC2C2), fontWeight: FontWeight.w700),
+                    ),
+                  ],
                 ),
               ),
           ],
@@ -195,6 +224,3 @@ class _RoundCard extends StatelessWidget {
     );
   }
 }
-
-/// اسم القدرة مع الإيموجي، للاستخدام في أماكن ثانية.
-String powerLabel(Power p) => '${powerEmoji[p]} ${powerName[p]}';

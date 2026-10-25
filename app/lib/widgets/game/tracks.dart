@@ -5,7 +5,13 @@ import '../../theme.dart';
 import '../common.dart';
 import '../ui.dart';
 
-const powerEmoji = {Power.investigate: '🔍', Power.peek: '👁️', Power.specialElection: '🗳️', Power.execute: '🗡️'};
+/// أيقونة كل قدرة (assets/icons/gfx_*.png).
+const powerIcon = {
+  Power.investigate: 'search',
+  Power.peek: 'eye',
+  Power.specialElection: 'ballot',
+  Power.execute: 'dagger',
+};
 
 const powerName = {
   Power.investigate: 'تحقيق',
@@ -29,7 +35,7 @@ class PolicyTracks extends StatelessWidget {
           filled: view.loyalPolicies,
           total: 5,
           loyal: true,
-          icons: const [null, null, null, null, '🏆'],
+          icons: const [null, null, null, null, 'trophy'],
         ),
         const SizedBox(height: 6),
         _Track(
@@ -38,15 +44,17 @@ class PolicyTracks extends StatelessWidget {
           total: 6,
           loyal: false,
           icons: [
-            for (final (i, p) in view.traitorTrackPowers.indexed) i == 5 ? '☠️' : (p == null ? null : powerEmoji[p]),
+            for (final (i, p) in view.traitorTrackPowers.indexed) i == 5 ? 'skull' : (p == null ? null : powerIcon[p]),
           ],
         ),
         const SizedBox(height: 6),
         Row(
           children: [
             const SizedBox(width: 6),
+            const Gfx('chaos', size: 20),
+            const SizedBox(width: 3),
             const Text(
-              '🌪️ الفوضى',
+              'الفوضى',
               style: TextStyle(color: AppColors.muted, fontSize: 12, fontWeight: FontWeight.w700),
             ),
             const SizedBox(width: 8),
@@ -77,7 +85,7 @@ class PolicyTracks extends StatelessWidget {
                 border: Border.all(color: AppColors.line),
               ),
               child: Text(
-                '🂠 سحب ${arabicNumber(view.drawPileCount)} · 🗑️ رمي ${arabicNumber(view.discardPileCount)}',
+                'سحب ${arabicNumber(view.drawPileCount)} · رمي ${arabicNumber(view.discardPileCount)}',
                 style: const TextStyle(color: AppColors.muted, fontSize: 12, fontWeight: FontWeight.w700),
               ),
             ),
@@ -202,7 +210,7 @@ class _Socket extends StatelessWidget {
                 boxShadow: last ? [BoxShadow(color: AppColors.gold.withValues(alpha: .35), blurRadius: 8)] : null,
               ),
             ),
-            if (!filled && icon != null) Text(icon!, style: TextStyle(fontSize: last ? 17 : 14)),
+            if (!filled && icon != null) Gfx(icon!, size: last ? 24 : 20),
             if (v > 0)
               Transform.scale(
                 scale: v.clamp(0, 1.25),
@@ -279,9 +287,23 @@ class MiniTracks extends StatelessWidget {
               row(false, view.traitorPolicies, 6),
               if (view.electionTracker > 0) ...[
                 const SizedBox(height: 3),
-                Text(
-                  '🌪️ ${'●' * view.electionTracker}${'○' * (3 - view.electionTracker)}',
-                  style: const TextStyle(fontSize: 10, color: AppColors.gold),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Gfx('chaos', size: 13),
+                    const SizedBox(width: 2),
+                    for (var i = 0; i < 3; i++)
+                      Container(
+                        width: 6,
+                        height: 6,
+                        margin: const EdgeInsetsDirectional.only(end: 2),
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: i < view.electionTracker ? AppColors.gold : Colors.transparent,
+                          border: Border.all(color: AppColors.gold, width: 1),
+                        ),
+                      ),
+                  ],
                 ),
               ],
             ],
@@ -308,10 +330,25 @@ void showTracksBoard(BuildContext context, GameView view) {
             _DeckSum(view: view),
             const SizedBox(height: 10),
             const Text(
-              '٥ قرارات زرقا = فوز الأوفياء · ٦ حمرا = فوز الخونة\n'
-              'كل قرار أحمر يعطي الرئيس قدرة: 🔍 تحقيق · 👁️ تلصص · 🗳️ انتخاب خاص · 🗡️ طرد',
+              '٥ قرارات زرقا = فوز الأوفياء · ٦ حمرا = فوز الخونة\nكل قرار أحمر يعطي الرئيس قدرة:',
               textAlign: TextAlign.center,
               style: TextStyle(color: AppColors.muted, fontSize: 12.5, height: 1.6),
+            ),
+            const SizedBox(height: 4),
+            Wrap(
+              alignment: WrapAlignment.center,
+              spacing: 12,
+              children: [
+                for (final p in powerIcon.keys)
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Gfx(powerIcon[p]!, size: 20),
+                      const SizedBox(width: 3),
+                      Text(powerName[p]!, style: const TextStyle(color: AppColors.muted, fontSize: 12.5)),
+                    ],
+                  ),
+              ],
             ),
           ],
         ),

@@ -1,11 +1,19 @@
 class RoomPlayer {
-  const RoomPlayer({required this.uid, required this.name, required this.avatar, this.frame, this.bot = false});
+  const RoomPlayer({
+    required this.uid,
+    required this.name,
+    required this.avatar,
+    this.frame,
+    this.bubble,
+    this.bot = false,
+  });
 
   factory RoomPlayer.fromJson(Map<String, dynamic> j) => RoomPlayer(
     uid: j['uid'] as String,
     name: j['name'] as String,
     avatar: j['avatar'] as String,
     frame: j['frame'] as String?,
+    bubble: j['bubble'] as String?,
     bot: j['bot'] as bool? ?? false,
   );
 
@@ -18,62 +26,24 @@ class RoomPlayer {
 
   /// إطار الصورة من المتجر.
   final String? frame;
+
+  /// شكل فقاعة الكلام من المتجر.
+  final String? bubble;
 }
 
 enum RoomStatus { waiting, playing, finished }
 
-/// الردود السريعة المسموحة (نفس functions/src/index.ts → REACTIONS).
-/// [needsTarget] يعني لازم تختار لاعب (مثل أشك في فلان)، و[pack] باقة المتجر اللي تفتحه.
-/// [bubble] اللي يطلع فوق راس اللاعب، و% مكان اسم اللي اختاره.
-enum ReactionKind {
-  suspect('🤨', 'أشك في…', true, bubble: '🤨 أشك في %'),
-  trust('🤝', 'أثق في…', true, bubble: '🤝 أثق في %'),
-  liar('❌', 'كذاب', true, bubble: '❌ % كذاب'),
-  pick('👉', 'جربوا فلان', true, bubble: '👉 جربوا %'),
-  innocent('🙏', 'أنا بريء', false),
-  laugh('😂', '', false),
-  think('🤔', '', false),
-  angry('😡', '', false),
-  eyes('👀', '', false),
-  zip('🤐', '', false),
-  smirk('😏', '', false),
-  fire('🔥', '', false, pack: 'pack_emoji'),
-  skull('💀', '', false, pack: 'pack_emoji'),
-  clown('🤡', '', false, pack: 'pack_emoji'),
-  shock('😱', '', false, pack: 'pack_emoji'),
-  sweat('😅', '', false, pack: 'pack_emoji'),
-  mask('🎭', '', false, pack: 'pack_emoji'),
-  sure('💯', 'متأكد ١٠٠٪', false, pack: 'pack_phrases'),
-  khayin('🫵', 'فلان خاين!', true, pack: 'pack_phrases', bubble: '🫵 % خاين!'),
-  calm('😌', 'هدّوا اللعب', false, pack: 'pack_phrases'),
-  hurry('⏱️', 'يلا بسرعة', false, pack: 'pack_phrases'),
-  trustme('🫡', 'ثقوا فيني', false, pack: 'pack_phrases'),
-  stab('🗡️', 'طعنني!', true, pack: 'pack_vip', bubble: '🗡️ % طعنني!'),
-  popcorn('🍿', 'استانس', false, pack: 'pack_vip'),
-  coffee('☕', 'قهوة؟', false, pack: 'pack_vip'),
-  falcon('🦅', 'صقر', false, pack: 'pack_vip'),
-  gg('👏', 'قيم مرتب', false, pack: 'pack_vip');
-
-  const ReactionKind(this.emoji, this.label, this.needsTarget, {this.pack, this.bubble});
-  final String emoji;
-  final String label;
-  final bool needsTarget;
-  final String? pack;
-  final String? bubble;
-
-  /// النص اللي يطلع للطاولة.
-  String say(String? target) => bubble?.replaceAll('%', target ?? '') ?? (label.isEmpty ? emoji : '$emoji $label');
-}
-
 class Reaction {
   Reaction.fromJson(Map<String, dynamic> j)
     : from = j['from'] as String,
-      kind = ReactionKind.values.asNameMap()[j['kind']] ?? ReactionKind.eyes,
+      kind = j['kind'] as String,
       target = j['target'] as String?,
       at = DateTime.fromMillisecondsSinceEpoch(j['at'] as int);
 
   final String from;
-  final ReactionKind kind;
+
+  /// كلام (models/catalog.dart → textReactions) أو ملصق (stickers).
+  final String kind;
   final String? target;
   final DateTime at;
 }

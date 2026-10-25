@@ -35,6 +35,7 @@ flutter:
     - assets/voice/
     - assets/music/
     - assets/tables/
+    - assets/stickers/
 
   fonts:
     - family: Tajawal

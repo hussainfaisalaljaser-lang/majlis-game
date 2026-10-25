@@ -16,8 +16,8 @@ const roleInfo = {
 };
 
 const specialInfo = {
-  Special.seer: ('🔮 العرّاف', 'مرة وحدة في اللعبة تقدر تكشف فريق أي لاعب. اختر الوقت الصح، ولا تنكشف!'),
-  Special.guardian: ('🛡️ الحارس', 'لو أحد حاول يطردك، تنجو مرة وحدة ويبان للكل إنك حارس'),
+  Special.seer: ('العرّاف', 'مرة وحدة في اللعبة تقدر تكشف فريق أي لاعب. اختر الوقت الصح، ولا تنكشف!', 'seer'),
+  Special.guardian: ('الحارس', 'لو أحد حاول يطردك، تنجو مرة وحدة ويبان للكل إنك حارس', 'shield'),
 };
 
 /// كشف الدور: بطاقة مقلوبة تنقلب وتطلع دورك.
@@ -92,9 +92,16 @@ class _RoleRevealState extends State<_RoleReveal> with SingleTickerProviderState
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
                   decoration: BoxDecoration(color: dark, borderRadius: BorderRadius.circular(10)),
-                  child: Text(
-                    specialInfo[special]!.$1,
-                    style: const TextStyle(fontFamily: kufi, fontWeight: FontWeight.w700),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Gfx(specialInfo[special]!.$3, size: 22),
+                      const SizedBox(width: 5),
+                      Text(
+                        specialInfo[special]!.$1,
+                        style: const TextStyle(fontFamily: kufi, fontWeight: FontWeight.w700),
+                      ),
+                    ],
                   ),
                 ),
             ],
@@ -117,12 +124,13 @@ class _RoleRevealState extends State<_RoleReveal> with SingleTickerProviderState
                     alignment: WrapAlignment.center,
                     children: [
                       if (seerTarget != null)
-                        _Known(room: widget.room, player: seerTarget, label: '🔴 خائن: ${seerTarget.name}'),
+                        _Known(room: widget.room, player: seerTarget, label: 'خائن: ${seerTarget.name}'),
                       for (final m in mates)
                         _Known(
                           room: widget.room,
                           player: m,
-                          label: '${m.knownRole == Role.leader ? '🦹 الزعيم' : '🔴 خائن'}: ${m.name}',
+                          label: '${m.knownRole == Role.leader ? 'الزعيم' : 'خائن'}: ${m.name}',
+                          leader: m.knownRole == Role.leader,
                         ),
                     ],
                   ),
@@ -160,7 +168,7 @@ class _RoleRevealState extends State<_RoleReveal> with SingleTickerProviderState
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             const Text(
-              '❖ غطِّ الشاشة! ❖',
+              'غطِّ الشاشة!',
               style: TextStyle(fontFamily: kufi, color: AppColors.goldLight, fontSize: 16, letterSpacing: 1),
             ),
             const SizedBox(height: 10),
@@ -187,7 +195,7 @@ class _RoleRevealState extends State<_RoleReveal> with SingleTickerProviderState
               child: AnimatedBuilder(
                 animation: _flip,
                 builder: (context, _) => GameButton(
-                  label: 'فهمت 🤫',
+                  label: 'فهمت',
                   semantics: 'فهمت',
                   tone: v.yourRole == Role.loyal ? ButtonTone.purple : ButtonTone.red,
                   height: 48,
@@ -203,11 +211,12 @@ class _RoleRevealState extends State<_RoleReveal> with SingleTickerProviderState
 }
 
 class _Known extends StatelessWidget {
-  const _Known({required this.room, required this.player, required this.label});
+  const _Known({required this.room, required this.player, required this.label, this.leader = false});
 
   final Room? room;
   final ViewPlayer player;
   final String label;
+  final bool leader;
 
   @override
   Widget build(BuildContext context) => Column(
@@ -215,9 +224,16 @@ class _Known extends StatelessWidget {
     children: [
       PlayerAvatar(avatar: room?.player(player.id)?.avatar ?? 'masked', frame: AppColors.traitor, size: 40),
       const SizedBox(height: 3),
-      Text(
-        label,
-        style: const TextStyle(color: AppColors.ink, fontSize: 12, fontWeight: FontWeight.w800),
+      Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          leader ? const LeaderSeal(size: 20) : const Seal(loyal: false, size: 18),
+          const SizedBox(width: 3),
+          Text(
+            label,
+            style: const TextStyle(color: AppColors.ink, fontSize: 12, fontWeight: FontWeight.w800),
+          ),
+        ],
       ),
     ],
   );
@@ -330,7 +346,10 @@ class VoteReveal extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const GoldText('🗳️ نتيجة التصويت', size: 24),
+            const Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [Gfx('ballot', size: 32), SizedBox(width: 8), GoldText('نتيجة التصويت', size: 24)],
+            ),
             const SizedBox(height: 10),
             Wrap(
               spacing: 10,
@@ -380,14 +399,21 @@ class VoteReveal extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 14),
-            Text(
-              passed ? '✅ الحكومة انتخبت' : '❌ الحكومة انرفضت',
-              style: TextStyle(
-                fontFamily: kufi,
-                fontSize: 20,
-                fontWeight: FontWeight.w700,
-                color: passed ? AppColors.green : AppColors.traitorLight,
-              ),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Gfx(passed ? 'check' : 'cross', size: 28),
+                const SizedBox(width: 8),
+                Text(
+                  passed ? 'الحكومة انتخبت' : 'الحكومة انرفضت',
+                  style: TextStyle(
+                    fontFamily: kufi,
+                    fontSize: 20,
+                    fontWeight: FontWeight.w700,
+                    color: passed ? AppColors.green : AppColors.traitorLight,
+                  ),
+                ),
+              ],
             ),
           ],
         ),
@@ -419,7 +445,13 @@ class EnactStamp extends StatelessWidget {
           child: Seal(loyal: loyal, size: 170),
         ),
         const SizedBox(height: 12),
-        GoldText(chaos ? '🌪️ فوضى! تمرر تلقائياً' : 'تمرر قرار ${loyal ? 'للأوفياء' : 'للخونة'}', size: 26),
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (chaos) ...[const Gfx('chaos', size: 34), const SizedBox(width: 6)],
+            GoldText(chaos ? 'فوضى! تمرر تلقائياً' : 'تمرر قرار ${loyal ? 'للأوفياء' : 'للخونة'}', size: 26),
+          ],
+        ),
       ],
     );
   }
@@ -452,12 +484,12 @@ class ExecutionScene extends StatelessWidget {
                 size: 130,
                 dead: !guarded,
               ),
-              Text(guarded ? '🛡️' : '🗡️', style: const TextStyle(fontSize: 64, shadows: [Shadow(blurRadius: 12)])),
+              Gfx(guarded ? 'shield' : 'dagger', size: 90),
             ],
           ),
         ),
         const SizedBox(height: 16),
-        GoldText(guarded ? '$name نجا! طلع حارس 🛡️' : '$name انطرد', size: 28),
+        GoldText(guarded ? '$name نجا! طلع حارس' : '$name انطرد', size: 28),
         if (!guarded)
           const Padding(
             padding: EdgeInsets.only(top: 6),

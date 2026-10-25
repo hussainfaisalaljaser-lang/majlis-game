@@ -64,12 +64,12 @@ Future<bool> connectGoogle(BuildContext context, {bool fresh = false}) async {
   try {
     switch (await Backend.instance.linkGoogle()) {
       case GoogleLinked(:final reward):
-        say(reward > 0 ? '✅ انربط حسابك بقوقل! +${arabicNumber(reward)} 🪙' : '✅ حسابك مربوط بقوقل');
+        say(reward > 0 ? 'انربط حسابك بقوقل! +${arabicNumber(reward)} ذهب' : 'حسابك مربوط بقوقل');
         return true;
       case GoogleTaken(:final credential):
         if (!fresh && !(context.mounted && await _confirmSwitch(context))) return false;
         await Backend.instance.switchToGoogle(credential);
-        say('👋 أهلاً فيك من جديد! رجعنا لك حسابك');
+        say('أهلاً فيك من جديد! رجعنا لك حسابك');
         return true;
       case GoogleCancelled():
         return false;
@@ -84,7 +84,7 @@ Future<bool> _confirmSwitch(BuildContext context) async =>
     await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('عندك حساب محفوظ 👀', textAlign: TextAlign.center),
+        title: const Text('عندك حساب محفوظ', textAlign: TextAlign.center),
         content: const Text(
           'حساب قوقل هذا مربوط بلاعب ثاني من قبل. تبي تدخل عليه؟\nتقدّمك الحالي كضيف بيضيع.',
           textAlign: TextAlign.center,
@@ -190,13 +190,19 @@ class _AccountCardState extends State<AccountCard> {
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          '⚠️ أنت تلعب كضيف',
-          style: TextStyle(fontFamily: kufi, fontWeight: FontWeight.w700, fontSize: 17),
+        const Row(
+          children: [
+            Gfx('warning', size: 24),
+            SizedBox(width: 6),
+            Text(
+              'أنت تلعب كضيف',
+              style: TextStyle(fontFamily: kufi, fontWeight: FontWeight.w700, fontSize: 17),
+            ),
+          ],
         ),
         const SizedBox(height: 4),
         const Text(
-          'لو حذفت اللعبة أو غيّرت جوالك يضيع ذهبك ومستواك. اربطه بقوقل واحصل على ٥٠٠ 🪙 هدية!',
+          'لو حذفت اللعبة أو غيّرت جوالك يضيع ذهبك ومستواك. اربطه بقوقل واحصل على ٥٠٠ ذهب هدية!',
           style: TextStyle(color: AppColors.muted, fontSize: 13),
         ),
         const SizedBox(height: 12),
@@ -224,7 +230,7 @@ class _AccountCardState extends State<AccountCard> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Text(
-                '✅ حسابك محفوظ',
+                'حسابك محفوظ',
                 style: TextStyle(fontFamily: kufi, fontWeight: FontWeight.w700, fontSize: 16),
               ),
               Text(

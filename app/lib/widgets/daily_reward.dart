@@ -43,7 +43,10 @@ class _DailyRewardDialogState extends State<_DailyRewardDialog> {
 
     return AlertDialog(
       backgroundColor: AppColors.panel,
-      title: const Text('🎁 الهدية اليومية', textAlign: TextAlign.center),
+      title: const Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [Gfx('gift', size: 34), SizedBox(width: 8), Text('الهدية اليومية')],
+      ),
       content: SizedBox(
         width: 560,
         child: Column(
@@ -69,7 +72,7 @@ class _DailyRewardDialogState extends State<_DailyRewardDialog> {
             if (_claimed != null) ...[
               const SizedBox(height: 14),
               Text(
-                '+${arabicNumber(_claimed!.coins)} 🪙${_claimed!.diamonds > 0 ? '  +${arabicNumber(_claimed!.diamonds)} 💎' : ''}',
+                '+${arabicNumber(_claimed!.coins)} ذهب${_claimed!.diamonds > 0 ? '  +${arabicNumber(_claimed!.diamonds)} جوهرة' : ''}',
                 style: const TextStyle(color: AppColors.gold, fontSize: 22, fontWeight: FontWeight.w800),
               ),
             ],
@@ -82,12 +85,9 @@ class _DailyRewardDialogState extends State<_DailyRewardDialog> {
       ),
       actions: [
         if (available)
-          FilledButton(onPressed: _claiming ? null : _claim, child: Text(_claiming ? 'لحظة…' : 'استلم 🎁'))
+          FilledButton(onPressed: _claiming ? null : _claim, child: Text(_claiming ? 'لحظة…' : 'استلم'))
         else
-          FilledButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text(_claimed != null ? 'تمام' : 'تعال بكرة 😉'),
-          ),
+          FilledButton(onPressed: () => Navigator.pop(context), child: Text(_claimed != null ? 'تمام' : 'تعال بكرة')),
       ],
     );
   }
@@ -121,7 +121,7 @@ class _DayTile extends StatelessWidget {
       child: Column(
         children: [
           Text('يوم ${arabicNumber(day)}', style: const TextStyle(fontSize: 11, color: AppColors.muted)),
-          done ? const Text('✅', style: TextStyle(fontSize: 20)) : Gfx(diamonds > 0 ? 'gem' : 'coin', size: 26),
+          done ? const Gfx('check', size: 26) : Gfx(diamonds > 0 ? 'gem' : 'coin', size: 26),
           Text(
             diamonds > 0 ? '${arabicNumber(coins)} + ${arabicNumber(diamonds)}' : arabicNumber(coins),
             style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),

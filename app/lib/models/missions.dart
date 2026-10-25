@@ -1,20 +1,22 @@
 /// المهام اليومية (نفس functions/src/missions.ts).
 class MissionDef {
-  const MissionDef(this.id, this.emoji, this.title, this.target, this.coins);
+  const MissionDef(this.id, this.icon, this.title, this.target, this.coins);
 
   final String id;
-  final String emoji;
+
+  /// أيقونة المهمة (assets/icons/gfx_*.png).
+  final String icon;
   final String title;
   final int target;
   final int coins;
 }
 
 const missionDefs = [
-  MissionDef('play3', '🎮', 'العب ٣ ألعاب', 3, 300),
-  MissionDef('win1', '🏆', 'فز بلعبة', 1, 400),
-  MissionDef('legislate1', '📜', 'مرّر قرار وأنت رئيس أو وزير', 1, 250),
-  MissionDef('claim2', '📢', 'ادّعِ مرتين بعد ما تحكم', 2, 200),
-  MissionDef('react5', '🤨', 'أرسل ٥ ردود سريعة', 5, 100),
+  MissionDef('play3', 'games', 'العب ٣ ألعاب', 3, 300),
+  MissionDef('win1', 'trophy', 'فز بلعبة', 1, 400),
+  MissionDef('legislate1', 'log', 'مرّر قرار وأنت رئيس أو وزير', 1, 250),
+  MissionDef('claim2', 'megaphone', 'ادّعِ مرتين بعد ما تحكم', 2, 200),
+  MissionDef('react5', 'chat', 'أرسل ٥ ردود سريعة', 5, 100),
 ];
 
 /// تقدم اللاعب في مهام اليوم.

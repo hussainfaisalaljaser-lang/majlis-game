@@ -25,7 +25,7 @@ class _DevScreenState extends State<DevScreen> {
     setState(() => _busy = true);
     try {
       await job();
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('✅ $done')));
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(done)));
     } on BackendException catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
     } finally {
@@ -73,7 +73,12 @@ class _DevScreenState extends State<DevScreen> {
     );
 
     return NightScaffold(
-      appBar: AppBar(title: const Text('🛠️ وضع المطور')),
+      appBar: AppBar(
+        title: const Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [Gfx('tools', size: 30), SizedBox(width: 8), Text('وضع المطور')],
+        ),
+      ),
       body: SafeArea(
         top: false,
         child: Row(
@@ -113,6 +118,28 @@ class _DevScreenState extends State<DevScreen> {
                   tool('حط المستوى', 'تغيّر المستوى', () => backend.devTool('level', {'level': _level.round()})),
                   const SizedBox(height: 8),
                   tool('افتح كل أغراض المتجر', 'انفتح كل شي', () => backend.devTool('unlockAll')),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: tool(
+                          '+٣ درجات بالباتل باس',
+                          'انضافت نقاط الموسم',
+                          () => backend.devTool('passPoints', {'points': 450}),
+                          tone: ButtonTone.green,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: tool(
+                          'توّج أبطال الأسبوع الحين',
+                          'تتوّجوا الأبطال',
+                          () => backend.devTool('crown'),
+                          tone: ButtonTone.purple,
+                        ),
+                      ),
+                    ],
+                  ),
                   const SizedBox(height: 8),
                   Row(
                     children: [
@@ -166,7 +193,11 @@ class _DevScreenState extends State<DevScreen> {
                     (v) => _special = v,
                   ),
                   const SizedBox(height: 14),
-                  GameButton(label: '▶ ابدأ لعبة مع بوتات', onPressed: _busy ? null : _practice),
+                  GameButton(
+                    label: 'ابدأ لعبة مع بوتات',
+                    icon: const Gfx('bot', size: 28),
+                    onPressed: _busy ? null : _practice,
+                  ),
                   const SizedBox(height: 6),
                   const Text(
                     'العرّاف والحارس يخلّونك وفي تلقائياً.',

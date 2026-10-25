@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="512" height="512">
+<defs>
+  <pattern id="shemagh" width="10" height="10" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+    <rect width="10" height="10" fill="#FBF7F2"/><rect width="5" height="5" fill="#C8262E"/><rect x="5" y="5" width="5" height="5" fill="#C8262E"/>
+  </pattern>
+  <clipPath id="c"><circle cx="100" cy="100" r="100"/></clipPath>
+</defs>
+<g clip-path="url(#c)"><path d="M30 200 Q40 150 100 146 Q160 150 170 200 Z" fill="#475569"/><path d="M52 30 L78 66 L58 80 Z M148 30 L122 66 L142 80 Z" fill="#64748B"/><path d="M58 42 L74 64 L62 72 Z M142 42 L126 64 L138 72 Z" fill="#F9A8D4"/><path d="M56 80 Q56 52 100 50 Q144 52 144 80 Q152 118 124 140 L100 156 L76 140 Q48 118 56 80 Z" fill="#94A3B8"/><path d="M78 110 Q100 96 122 110 Q118 140 100 152 Q82 140 78 110 Z" fill="#E2E8F0"/><path d="M70 92 L90 98 L84 106 Z M130 92 L110 98 L116 106 Z" fill="#FDE047" stroke="#111" stroke-width="2"/><circle cx="86" cy="100" r="2.5" fill="#111"/><circle cx="114" cy="100" r="2.5" fill="#111"/><path d="M92 120 Q100 114 108 120 L100 130 Z" fill="#111"/><path d="M100 130 V138 M92 140 Q100 146 108 140" stroke="#111" stroke-width="2.5" fill="none"/></g>
+</svg>
