@@ -5,6 +5,7 @@ import '../services/backend.dart';
 import '../theme.dart';
 import '../widgets/account.dart';
 import 'dev_screen.dart';
+import 'shop_screen.dart';
 import '../widgets/common.dart';
 import '../widgets/ui.dart';
 
@@ -23,9 +24,42 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   late final _name = TextEditingController(
     text: widget.firstTime ? (Backend.instance.googleName ?? '') : _profile.name,
   );
-  late String _avatar = avatarIds.contains(_profile.avatar) ? _profile.avatar : 'falcon';
+  late String _avatar = avatarIds.contains(_profile.avatar) || _profile.owned.contains('avatar_${_profile.avatar}')
+      ? _profile.avatar
+      : 'falcon';
   bool _saving = false;
   String? _error;
+
+  /// شخصية في القائمة. المقفلة (من المتجر وما اشتراها) تودّيه للمتجر.
+  Widget _avatarChoice(String a, {required bool locked}) => Semantics(
+    button: true,
+    label: 'صورة $a',
+    child: GestureDetector(
+      onTap: locked
+          ? () =>
+                Navigator.of(context)
+                    .push(MaterialPageRoute(builder: (_) => const ShopScreen(initialTab: ShopScreen.avatarsTab)))
+          : () => setState(() => _avatar = a),
+      child: AnimatedScale(
+        scale: a == _avatar ? 1.06 : .92,
+        duration: const Duration(milliseconds: 180),
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            Opacity(
+              opacity: locked ? .45 : 1,
+              child: PlayerAvatar(
+                avatar: a,
+                frame: a == _avatar ? AppColors.gold : (premiumAvatars.contains(a) ? AppColors.diamond : null),
+                size: 62,
+              ),
+            ),
+            if (locked) const Text('🔒', style: TextStyle(fontSize: 22)),
+          ],
+        ),
+      ),
+    ),
+  );
 
   Future<void> _save() async {
     final name = _name.text.trim();
@@ -95,20 +129,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 mainAxisSpacing: 10,
                 crossAxisSpacing: 6,
                 children: [
-                  for (final a in avatarIds)
-                    Semantics(
-                      button: true,
-                      label: 'صورة $a',
-                      child: GestureDetector(
-                        onTap: () => setState(() => _avatar = a),
-                        child: AnimatedScale(
-                          scale: a == _avatar ? 1.06 : .92,
-                          duration: const Duration(milliseconds: 180),
-                          child: Center(
-                            child: PlayerAvatar(avatar: a, frame: a == _avatar ? AppColors.gold : null, size: 62),
-                          ),
-                        ),
-                      ),
+                  for (final a in [...avatarIds, ...premiumAvatars])
+                    _avatarChoice(
+                      a,
+                      locked: premiumAvatars.contains(a) && !Backend.instance.profile.value.owned.contains('avatar_$a'),
                     ),
                 ],
               ),

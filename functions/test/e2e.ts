@@ -400,8 +400,29 @@ async function main(): Promise<void> {
   const devAfter = await dev.profile();
   assert.equal(devAfter.coins, devCoins + 10000);
   assert.equal(devAfter.level, 5);
-  await deleteApp(dev.app);
   console.log('✓ وضع المطور: لإيميل المطور بس');
+
+  // المتجر الجديد: الطاولة تنلبس، والشخصية المميزة تصير صورته، والباقة تفتح ردودها
+  await dev.call('devTool', { action: 'grant', coins: 30000, diamonds: 100 });
+  await expectError(dev.call('updateProfile', { name: 'المطور', avatar: 'emir' }), 'permission-denied');
+  await dev.call('buyItem', { id: 'table_night' });
+  await dev.call('buyItem', { id: 'avatar_emir' });
+  const shopper = await dev.profile();
+  assert.equal(shopper.equipped.table, 'table_night');
+  assert.equal(shopper.avatar, 'emir');
+  await dev.call('updateProfile', { name: 'المطور', avatar: 'falcon' });
+  await dev.call('updateProfile', { name: 'المطور', avatar: 'emir' });
+  await dev.call('equipItem', { id: 'table_majlis' });
+  assert.equal((await dev.profile()).equipped.table, 'table_majlis');
+  await expectError(dev.call('equipItem', { id: 'pack_emoji' }), 'invalid-argument');
+  const { code: packRoom } = await dev.call<{ code: string }>('createRoom', { maxPlayers: 5 });
+  for (let i = 0; i < 4; i++) await dev.call('addBots', { code: packRoom });
+  await dev.call('startGame', { code: packRoom });
+  await expectError(dev.call('react', { code: packRoom, kind: 'fire' }), 'permission-denied');
+  await dev.call('buyItem', { id: 'pack_emoji' });
+  await dev.call('react', { code: packRoom, kind: 'fire' });
+  console.log('✓ المتجر الجديد: طاولة، شخصية مميزة، وباقة ردود');
+  await deleteApp(dev.app);
 
   await Promise.all(players.map((p) => deleteApp(p.app)));
   console.log('\nكل الاختبارات نجحت ✅');

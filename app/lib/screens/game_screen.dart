@@ -425,12 +425,16 @@ class _GameScreenState extends State<GameScreen> {
 
   /// الردود السريعة: زر واحد يفتح القائمة، بدال الشات.
   void _openReactions() {
+    final owned = _backend.profile.value.owned;
+    final locked = ReactionKind.values.where((k) => k.pack != null && !owned.contains(k.pack)).length;
     showModalBottomSheet<void>(
       context: context,
       backgroundColor: AppColors.panel,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      isScrollControlled: true,
+      constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(context).height * .9),
       builder: (context) => SafeArea(
-        child: Padding(
+        child: SingleChildScrollView(
           padding: const EdgeInsets.fromLTRB(20, 14, 20, 18),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -446,33 +450,46 @@ class _GameScreenState extends State<GameScreen> {
                 alignment: WrapAlignment.center,
                 children: [
                   for (final k in ReactionKind.values)
-                    Semantics(
-                      button: true,
-                      label: 'رد ${k.name}',
-                      excludeSemantics: true,
-                      child: GestureDetector(
-                        onTap: () {
-                          Navigator.pop(context);
-                          k.needsTarget ? setState(() => _pendingReaction = k) : _react(k);
-                        },
-                        child: Container(
-                          height: 46,
-                          padding: EdgeInsets.symmetric(horizontal: k.label.isEmpty ? 12 : 16),
-                          alignment: Alignment.center,
-                          decoration: BoxDecoration(
-                            color: AppColors.card,
-                            borderRadius: BorderRadius.circular(23),
-                            border: Border.all(color: AppColors.gold.withValues(alpha: .35), width: 1.5),
-                          ),
-                          child: Text(
-                            k.label.isEmpty ? k.emoji : '${k.emoji} ${k.label}',
-                            style: TextStyle(fontSize: k.label.isEmpty ? 24 : 15, fontWeight: FontWeight.w700),
+                    if (k.pack == null || owned.contains(k.pack))
+                      Semantics(
+                        button: true,
+                        label: 'رد ${k.name}',
+                        excludeSemantics: true,
+                        child: GestureDetector(
+                          onTap: () {
+                            Navigator.pop(context);
+                            k.needsTarget ? setState(() => _pendingReaction = k) : _react(k);
+                          },
+                          child: Container(
+                            height: 46,
+                            padding: EdgeInsets.symmetric(horizontal: k.label.isEmpty ? 12 : 16),
+                            decoration: BoxDecoration(
+                              color: k.pack == null ? AppColors.card : const Color(0xFF2E2346),
+                              borderRadius: BorderRadius.circular(23),
+                              border: Border.all(
+                                color: (k.pack == null ? AppColors.gold : AppColors.diamond).withValues(alpha: .45),
+                                width: 1.5,
+                              ),
+                            ),
+                            child: Center(
+                              widthFactor: 1,
+                              child: Text(
+                                k.label.isEmpty ? k.emoji : '${k.emoji} ${k.label}',
+                                style: TextStyle(fontSize: k.label.isEmpty ? 24 : 15, fontWeight: FontWeight.w700),
+                              ),
+                            ),
                           ),
                         ),
                       ),
-                    ),
                 ],
               ),
+              if (locked > 0) ...[
+                const SizedBox(height: 10),
+                Text(
+                  '🔒 فيه ${arabicNumber(locked)} رد زيادة في المتجر (تبويب الردود)',
+                  style: const TextStyle(color: AppColors.muted, fontSize: 12.5),
+                ),
+              ],
               if ((_room?.opinions[_backend.uid] ?? const {}).isNotEmpty) ...[
                 const SizedBox(height: 12),
                 TextButton(

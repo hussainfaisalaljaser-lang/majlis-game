@@ -20,6 +20,7 @@ class Profile {
     this.owned = const {},
     this.frame = 'frame_none',
     this.cards = 'cards_classic',
+    this.table = 'table_majlis',
   });
 
   factory Profile.fromJson(Map<String, dynamic> j) => Profile(
@@ -40,6 +41,7 @@ class Profile {
     owned: {for (final o in (j['owned'] as List?) ?? const []) o as String},
     frame: (j['equipped'] as Map?)?['frame'] as String? ?? 'frame_none',
     cards: (j['equipped'] as Map?)?['cards'] as String? ?? 'cards_classic',
+    table: (j['equipped'] as Map?)?['table'] as String? ?? 'table_majlis',
   );
 
   /// للعرض التجريبي بدون سيرفر (نسخة الويب).
@@ -79,6 +81,7 @@ class Profile {
   final Set<String> owned;
   final String frame;
   final String cards;
+  final String table;
 
   /// مهام اليوم (لو المحفوظ من أمس تبدأ من الصفر).
   MissionState get missions => missionsRaw.forDay(gulfDay(DateTime.now()));

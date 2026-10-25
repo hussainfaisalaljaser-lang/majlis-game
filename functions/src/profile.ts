@@ -2,7 +2,7 @@ import { FieldValue, type Firestore, type Transaction } from 'firebase-admin/fir
 import { HttpsError } from 'firebase-functions/v2/https';
 import { DAILY_REWARDS, STARTING_COINS, gulfDay, levelFor, previousDay } from './economy.js';
 import type { MissionState } from './missions.js';
-import { DEFAULT_EQUIPPED, type Slot } from './shop.js';
+import { DEFAULT_EQUIPPED, SHOP_ITEMS, avatarOfItem, type EquipSlot } from './shop.js';
 
 /** الشخصيات المرسومة (app/assets/avatars). */
 export const AVATARS = [
@@ -30,7 +30,7 @@ export interface Profile {
   weeklyWins?: number;
   /** أغراض المتجر اللي اشتراها، واللي لابسها الحين. */
   owned?: string[];
-  equipped?: Record<Slot, string>;
+  equipped?: Partial<Record<EquipSlot, string>>;
   /** أجهزة اللاعب للإشعارات. */
   fcmTokens?: string[];
   /** انطرد من لعبة لأنه ما لعب: ممنوع يدخل ألعاب لين هالوقت (ملي ثانية). */
@@ -90,7 +90,7 @@ export function newProfile(): Profile {
   };
 }
 
-export function equippedOf(p: Profile): Record<Slot, string> {
+export function equippedOf(p: Profile): Record<EquipSlot, string> {
   return { ...DEFAULT_EQUIPPED, ...p.equipped };
 }
 
@@ -122,8 +122,14 @@ export function cleanName(raw: unknown): string {
   return name;
 }
 
-export function cleanAvatar(raw: unknown): string {
-  if (typeof raw !== 'string' || !AVATARS.includes(raw)) throw new HttpsError('invalid-argument', 'صورة مو معروفة');
+/** الشخصيات المميزة من المتجر (لازم يشتريها قبل ما يختارها). */
+export const PREMIUM_AVATARS = SHOP_ITEMS.filter((i) => i.slot === 'avatar').map((i) => avatarOfItem(i.id));
+
+export function cleanAvatar(raw: unknown, owned: string[] = []): string {
+  if (typeof raw !== 'string') throw new HttpsError('invalid-argument', 'صورة مو معروفة');
+  if (AVATARS.includes(raw)) return raw;
+  if (!PREMIUM_AVATARS.includes(raw)) throw new HttpsError('invalid-argument', 'صورة مو معروفة');
+  if (!owned.includes(`avatar_${raw}`)) throw new HttpsError('permission-denied', 'هذي الشخصية من المتجر، اشترها أول');
   return raw;
 }
 

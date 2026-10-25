@@ -9,16 +9,19 @@ import '../widgets/common.dart';
 import '../widgets/ui.dart';
 import '../widgets/game/policy_card.dart';
 
-/// المتجر: إطارات للصورة، وأشكال للكروت، وباقات الجواهر.
+/// المتجر: إطارات وشخصيات وطاولات وكروت وردود، وباقات الجواهر.
 class ShopScreen extends StatelessWidget {
   const ShopScreen({super.key, this.initialTab = 0});
 
   final int initialTab;
 
+  static const avatarsTab = 1;
+  static const diamondsTab = 5;
+
   @override
   Widget build(BuildContext context) {
     return DefaultTabController(
-      length: 3,
+      length: 6,
       initialIndex: initialTab,
       child: NightScaffold(
         appBar: AppBar(
@@ -37,12 +40,17 @@ class ShopScreen extends StatelessWidget {
             ),
           ],
           bottom: const TabBar(
+            isScrollable: true,
+            tabAlignment: TabAlignment.center,
             indicatorColor: AppColors.gold,
             labelColor: AppColors.gold,
             unselectedLabelColor: AppColors.muted,
             tabs: [
               Tab(text: '🖼️ الإطارات'),
+              Tab(text: '👤 الشخصيات'),
+              Tab(text: '🟫 الطاولات'),
               Tab(text: '🃏 الكروت'),
+              Tab(text: '💬 الردود'),
               Tab(text: '💎 الجواهر'),
             ],
           ),
@@ -50,7 +58,10 @@ class ShopScreen extends StatelessWidget {
         body: const TabBarView(
           children: [
             _ItemsGrid(slot: ShopSlot.frame),
+            _ItemsGrid(slot: ShopSlot.avatar),
+            _ItemsGrid(slot: ShopSlot.table),
             _ItemsGrid(slot: ShopSlot.cards),
+            _ItemsGrid(slot: ShopSlot.reactions),
             _DiamondPacks(),
           ],
         ),
@@ -84,13 +95,19 @@ class _ItemsGridState extends State<_ItemsGrid> {
   }
 
   Future<void> _buy(ShopItem item) async {
-    final price = item.coins != null ? '${arabicNumber(item.coins!)} 🪙' : '${arabicNumber(item.diamonds!)} 💎';
+    final price = item.coins != null ? '${arabicNumber(item.coins!)} ذهب' : '${arabicNumber(item.diamonds!)} جوهرة';
+    final after = switch (item.slot) {
+      ShopSlot.avatar => 'وبتصير صورتك على طول',
+      ShopSlot.reactions => 'وتقدر تستخدم ردودها في كل لعبة',
+      ShopSlot.table => 'وبتشوفها في كل لعبة',
+      _ => 'وبتلبسه على طول',
+    };
     final ok = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: AppColors.panel,
         title: Text('تشتري "${item.name}"؟'),
-        content: Text('بـ $price، وبتلبسه على طول'),
+        content: Text('بـ $price، $after'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('لا')),
           FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('اشترِ')),
@@ -107,8 +124,8 @@ class _ItemsGridState extends State<_ItemsGrid> {
       valueListenable: Backend.instance.profile,
       builder: (context, p, _) => GridView.builder(
         padding: const EdgeInsets.fromLTRB(14, 10, 14, 14),
-        gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-          maxCrossAxisExtent: 190,
+        gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
+          maxCrossAxisExtent: widget.slot == ShopSlot.table ? 260 : 190,
           mainAxisSpacing: 10,
           crossAxisSpacing: 10,
           mainAxisExtent: 196,
@@ -116,7 +133,13 @@ class _ItemsGridState extends State<_ItemsGrid> {
         itemCount: items.length,
         itemBuilder: (context, i) {
           final item = items[i];
-          final equipped = (widget.slot == ShopSlot.frame ? p.frame : p.cards) == item.id;
+          final equipped = switch (widget.slot) {
+            ShopSlot.frame => p.frame == item.id,
+            ShopSlot.cards => p.cards == item.id,
+            ShopSlot.table => p.table == item.id,
+            ShopSlot.avatar => p.avatar == item.avatar,
+            ShopSlot.reactions => false,
+          };
           final owned = item.isDefault || p.owned.contains(item.id);
           return _ItemCard(
             item: item,
@@ -125,9 +148,15 @@ class _ItemsGridState extends State<_ItemsGrid> {
             owned: owned,
             busy: _busy == item.id,
             onBuy: Backend.instance.isReady ? () => _buy(item) : null,
-            onEquip: Backend.instance.isReady
-                ? () => _run(item.id, () => Backend.instance.equipItem(item.id), '✅ لبست "${item.name}"')
-                : null,
+            onEquip: !Backend.instance.isReady
+                ? null
+                : item.slot == ShopSlot.avatar
+                ? () => _run(
+                    item.id,
+                    () => Backend.instance.updateProfile(name: p.name, avatar: item.avatar!),
+                    '✅ صارت صورتك "${item.name}"',
+                  )
+                : () => _run(item.id, () => Backend.instance.equipItem(item.id), '✅ لبست "${item.name}"'),
           );
         },
       ),
@@ -158,10 +187,15 @@ class _ItemCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final affordable = item.coins != null ? profile.coins >= item.coins! : profile.diamonds >= (item.diamonds ?? 0);
     final Widget action;
-    if (equipped) {
-      action = const OutlinedButton(onPressed: null, child: Text('✅ لابسه'));
+    if (owned && item.slot == ShopSlot.reactions) {
+      action = const OutlinedButton(onPressed: null, child: Text('✅ عندك'));
+    } else if (equipped) {
+      action = OutlinedButton(onPressed: null, child: Text(item.slot == ShopSlot.avatar ? '✅ صورتك' : '✅ لابسه'));
     } else if (owned) {
-      action = OutlinedButton(onPressed: busy ? null : onEquip, child: const Text('البس'));
+      action = OutlinedButton(
+        onPressed: busy ? null : onEquip,
+        child: Text(item.slot == ShopSlot.avatar ? 'استخدمها' : 'البس'),
+      );
     } else {
       action = FilledButton(
         onPressed: busy || !affordable ? null : onBuy,
@@ -199,16 +233,24 @@ class _ItemCard extends StatelessWidget {
           ),
           Expanded(
             child: Center(
-              child: item.slot == ShopSlot.frame
-                  ? PlayerAvatar(avatar: profile.avatar, style: item.frame, size: 72)
-                  : Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        PolicyCard(policy: Policy.loyal, skin: item.cards, width: 50),
-                        const SizedBox(width: 6),
-                        PolicyCard(policy: Policy.traitor, skin: item.cards, width: 50),
-                      ],
-                    ),
+              child: switch (item.slot) {
+                ShopSlot.frame => PlayerAvatar(avatar: profile.avatar, style: item.frame, size: 72),
+                ShopSlot.avatar => PlayerAvatar(avatar: item.avatar!, style: frameStyle(profile.frame), size: 80),
+                ShopSlot.table => _TablePreview(skin: item.table!),
+                ShopSlot.reactions => Text(
+                  item.preview!,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, height: 1.5),
+                ),
+                ShopSlot.cards => Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    PolicyCard(policy: Policy.loyal, skin: item.cards, width: 50),
+                    const SizedBox(width: 6),
+                    PolicyCard(policy: Policy.traitor, skin: item.cards, width: 50),
+                  ],
+                ),
+              },
             ),
           ),
           Text(item.name, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
@@ -221,6 +263,32 @@ class _ItemCard extends StatelessWidget {
       ),
     );
   }
+}
+
+/// السجادة والصينية مصغرة، مثل ما تطلع في اللعبة.
+class _TablePreview extends StatelessWidget {
+  const _TablePreview({required this.skin});
+
+  final TableSkin skin;
+
+  @override
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, c) {
+      final w = c.maxWidth;
+      final h = w / 2.1;
+      return SizedBox(
+        width: w,
+        height: h,
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            Image.asset(skin.carpet, width: w, height: h, fit: BoxFit.fill),
+            Image.asset(skin.tray, width: w * .46, height: h * .56, fit: BoxFit.fill),
+          ],
+        ),
+      );
+    },
+  );
 }
 
 class _DiamondPacks extends StatelessWidget {
@@ -240,7 +308,7 @@ class _DiamondPacks extends StatelessWidget {
           ),
           child: const Text(
             '🚧 شراء الجواهر بفلوس حقيقية يشتغل بعد ما نربط اللعبة بـ Google Play.\n'
-            'للحين تقدر تجمع جواهر من الهدية اليومية (اليوم السابع: ١٠ 💎).',
+            'للحين تقدر تجمع جواهر من الهدية اليومية (اليوم السابع: ١٠ جواهر).',
             textAlign: TextAlign.center,
             style: TextStyle(color: Color(0xFFC9BFFF), height: 1.6),
           ),

@@ -231,7 +231,9 @@ class _Header extends StatelessWidget {
           CurrencyPill(
             icon: 'gem',
             amount: p.diamonds,
-            onAdd: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ShopScreen(initialTab: 2))),
+            onAdd: () =>
+                Navigator.of(context)
+                    .push(MaterialPageRoute(builder: (_) => const ShopScreen(initialTab: ShopScreen.diamondsTab))),
           ),
           const SizedBox(width: 4),
           ValueListenableBuilder(

@@ -38,7 +38,7 @@ import {
   toLeaderboard,
   type Profile,
 } from './profile.js';
-import { SHOP_ITEMS, isDefault, itemById, slotOf } from './shop.js';
+import { SHOP_ITEMS, avatarOfItem, isDefault, itemById, slotOf } from './shop.js';
 
 initializeApp();
 setGlobalOptions({ region: 'europe-west1', maxInstances: 10 });
@@ -98,26 +98,47 @@ export interface Room {
 
 export interface Reaction {
   from: string;
-  kind: ReactionKind;
+  kind: string;
   target: string | null;
   at: number;
 }
 
-/** الردود المسموحة. ما فيه كتابة حرة أبداً. */
-const REACTIONS = {
-  suspect: true, // 🤨 أشك في…
-  trust: true, // 🤝 أثق في…
-  liar: true, // ❌ كذاب
-  pick: true, // 👉 جربوا فلان
-  innocent: false, // 🙏 أنا بريء
-  laugh: false, // 😂
-  think: false, // 🤔
-  angry: false, // 😡
-  eyes: false, // 👀
-  zip: false, // 🤐
-  smirk: false, // 😏
-} as const;
-type ReactionKind = keyof typeof REACTIONS;
+/**
+ * الردود المسموحة. ما فيه كتابة حرة أبداً.
+ * target: لازم يختار لاعب. pack: باقة من المتجر لازم يملكها (نفس app/lib/models/room.dart).
+ */
+const REACTIONS: Record<string, { target: boolean; pack?: string }> = {
+  suspect: { target: true }, // 🤨 أشك في…
+  trust: { target: true }, // 🤝 أثق في…
+  liar: { target: true }, // ❌ كذاب
+  pick: { target: true }, // 👉 جربوا فلان
+  innocent: { target: false }, // 🙏 أنا بريء
+  laugh: { target: false }, // 😂
+  think: { target: false }, // 🤔
+  angry: { target: false }, // 😡
+  eyes: { target: false }, // 👀
+  zip: { target: false }, // 🤐
+  smirk: { target: false }, // 😏
+  // باقة الإيموجي
+  fire: { target: false, pack: 'pack_emoji' },
+  skull: { target: false, pack: 'pack_emoji' },
+  clown: { target: false, pack: 'pack_emoji' },
+  shock: { target: false, pack: 'pack_emoji' },
+  sweat: { target: false, pack: 'pack_emoji' },
+  mask: { target: false, pack: 'pack_emoji' },
+  // باقة الكلام
+  wallah: { target: false, pack: 'pack_phrases' },
+  khayin: { target: true, pack: 'pack_phrases' },
+  calm: { target: false, pack: 'pack_phrases' },
+  hurry: { target: false, pack: 'pack_phrases' },
+  trustme: { target: false, pack: 'pack_phrases' },
+  // باقة الفخامة
+  stab: { target: true, pack: 'pack_vip' },
+  popcorn: { target: false, pack: 'pack_vip' },
+  coffee: { target: false, pack: 'pack_vip' },
+  falcon: { target: false, pack: 'pack_vip' },
+  gg: { target: false, pack: 'pack_vip' },
+};
 const MAX_REACTIONS = 40;
 
 // بدون الحروف اللي تتلخبط مثل O و 0 و I و 1.
@@ -369,7 +390,6 @@ async function forceRole(uid: string, code: string, role: unknown, special: unkn
 export const updateProfile = onCall(async (req) => {
   const uid = requireAuth(req);
   const name = cleanName(req.data?.name);
-  const avatar = cleanAvatar(req.data?.avatar);
   const key = nameKey(name);
   if (BOTS.some((b) => nameKey(b.name) === key)) throw new HttpsError('already-exists', 'هذا الاسم محجوز، اختر اسم ثاني');
   await db.runTransaction(async (tx) => {
@@ -377,6 +397,7 @@ export const updateProfile = onCall(async (req) => {
     const nameRef = db.doc(`names/${key}`);
     const taken = await tx.get(nameRef);
     const old = await readProfile(db, tx, uid);
+    const avatar = cleanAvatar(req.data?.avatar, old.owned);
     if (taken.exists && taken.data()!.uid !== uid) throw new HttpsError('already-exists', 'هذا الاسم مأخوذ، اختر اسم ثاني');
     if (old.nameKey && old.nameKey !== key) tx.delete(db.doc(`names/${old.nameKey}`));
     tx.set(nameRef, { uid });
@@ -797,12 +818,17 @@ export const buyItem = onCall(async (req) => {
     if (balance < item.price) {
       throw new HttpsError('failed-precondition', item.currency === 'coins' ? 'ما عندك ذهب كافي 🪙' : 'ما عندك جواهر كافية 💎');
     }
-    tx.set(userRef(uid), {
+    // الإطار والكروت والطاولة تنلبس على طول، والشخصية تصير صورته.
+    const slot = slotOf(item.id);
+    const updated: Profile = {
       ...p,
       [item.currency]: balance - item.price,
       owned: [...owned, item.id],
-      equipped: { ...equippedOf(p), [item.slot]: item.id },
-    });
+      ...(slot ? { equipped: { ...equippedOf(p), [slot]: item.id } } : {}),
+      ...(item.slot === 'avatar' ? { avatar: avatarOfItem(item.id) } : {}),
+    };
+    tx.set(userRef(uid), updated);
+    if (item.slot === 'frame' || item.slot === 'avatar') tx.set(boardRef(uid), toLeaderboard(updated));
   });
   return {};
 });
@@ -875,9 +901,10 @@ export const clearOpinion = onCall(async (req) => {
 export const react = onCall(async (req) => {
   const uid = requireAuth(req);
   const code = String(req.data?.code ?? '');
-  const kind = req.data?.kind as ReactionKind;
-  if (!(kind in REACTIONS)) throw new HttpsError('invalid-argument', 'رد مو معروف');
-  const target = REACTIONS[kind] ? String(req.data?.target ?? '') : null;
+  const kind = String(req.data?.kind ?? '');
+  const spec = Object.hasOwn(REACTIONS, kind) ? REACTIONS[kind] : null;
+  if (!spec) throw new HttpsError('invalid-argument', 'رد مو معروف');
+  const target = spec.target ? String(req.data?.target ?? '') : null;
 
   await db.runTransaction(async (tx) => {
     const ref = db.doc(`rooms/${code}`);
@@ -885,6 +912,9 @@ export const react = onCall(async (req) => {
     const profile = await readProfile(db, tx, uid);
     if (!room || room.status !== 'playing') throw new HttpsError('failed-precondition', 'اللعبة مو شغالة');
     if (!room.players.some((p) => p.uid === uid)) throw new HttpsError('permission-denied', 'أنت مو في هذي الطاولة');
+    if (spec.pack && !(profile.owned ?? []).includes(spec.pack)) {
+      throw new HttpsError('permission-denied', 'هذا الرد من المتجر، اشترِ الباقة أول');
+    }
     if (target !== null && (target === uid || !room.players.some((p) => p.uid === target))) {
       throw new HttpsError('invalid-argument', 'اختار لاعب ثاني');
     }

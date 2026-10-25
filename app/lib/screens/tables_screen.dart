@@ -42,7 +42,9 @@ class _TablesScreenState extends State<TablesScreen> {
   void _openWaiting(String? code, TableTier? tier) {
     if (!mounted) return;
     Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => WaitingScreen(tier: tier, playerCount: _playerCount, code: code)),
+      MaterialPageRoute(
+        builder: (_) => WaitingScreen(tier: tier, playerCount: _playerCount, code: code),
+      ),
     );
   }
 
@@ -74,7 +76,9 @@ class _TablesScreenState extends State<TablesScreen> {
   @override
   Widget build(BuildContext context) {
     return NightScaffold(
-      appBar: AppBar(title: const Text('🕵️ مجلس الخونة', style: TextStyle(fontWeight: FontWeight.w800))),
+      appBar: AppBar(
+        title: const Text('🕵️ مجلس الخونة', style: TextStyle(fontWeight: FontWeight.w800)),
+      ),
       body: SafeArea(
         top: false,
         child: Row(
@@ -90,8 +94,7 @@ class _TablesScreenState extends State<TablesScreen> {
                       showSelectedIcon: false,
                       style: const ButtonStyle(visualDensity: VisualDensity.compact),
                       segments: [
-                        for (final n in playerCounts)
-                          ButtonSegment(value: n, label: Text('${arabicNumber(n)} لاعبين')),
+                        for (final n in playerCounts) ButtonSegment(value: n, label: Text('${arabicNumber(n)} لاعبين')),
                       ],
                       selected: {_playerCount},
                       onSelectionChanged: (s) => setState(() => _playerCount = s.first),
@@ -103,9 +106,9 @@ class _TablesScreenState extends State<TablesScreen> {
                       onPressed: _busy
                           ? null
                           : () => _enter(
-                                () => Backend.instance.quickMatch(maxPlayers: _playerCount, tierId: _tier.id),
-                                tier: _tier,
-                              ),
+                              () => Backend.instance.quickMatch(maxPlayers: _playerCount, tierId: _tier.id),
+                              tier: _tier,
+                            ),
                     ),
                     const SizedBox(height: 10),
                     GameButton(
@@ -117,10 +120,10 @@ class _TablesScreenState extends State<TablesScreen> {
                       onPressed: _busy
                           ? null
                           : () => _enter(
-                                Backend.instance.isReady
-                                    ? () => Backend.instance.createRoom(maxPlayers: _playerCount)
-                                    : null,
-                              ),
+                              Backend.instance.isReady
+                                  ? () => Backend.instance.createRoom(maxPlayers: _playerCount)
+                                  : null,
+                            ),
                     ),
                     const SizedBox(height: 10),
                     GameButton(
@@ -193,8 +196,8 @@ class _TierTile extends StatelessWidget {
     final hint = locked
         ? (tier.vipOnly ? 'لأعضاء VIP فقط' : 'يفتح في مستوى ${arabicNumber(tier.requiredLevel)}')
         : poor
-            ? 'ما عندك ذهب كافي'
-            : null;
+        ? 'ما عندك ذهب كافي'
+        : null;
     return Opacity(
       opacity: locked || poor ? .45 : 1,
       child: InkWell(

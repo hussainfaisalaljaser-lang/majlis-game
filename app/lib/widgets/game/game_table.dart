@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../../models/game_view.dart';
 import '../../models/room.dart';
 import '../../models/shop.dart';
+import '../../services/backend.dart';
 import '../../services/notes.dart';
 import '../../theme.dart';
 import '../common.dart';
@@ -43,6 +44,8 @@ class GameTable extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // كل لاعب يشوف الطاولة اللي لابسها من المتجر.
+    final skin = tableSkin(Backend.instance.profile.value.table);
     final players = [...view.players]..sort((a, b) => a.seat.compareTo(b.seat));
     final mySeat = view.me.seat;
     final n = players.length;
@@ -72,9 +75,9 @@ class GameTable extends StatelessWidget {
                     AnimatedOpacity(
                       opacity: spotlight == null ? 1 : .35,
                       duration: const Duration(milliseconds: 400),
-                      child: Image.asset('assets/images/carpet_wide.png', width: rugW, height: rugH, fit: BoxFit.fill),
+                      child: Image.asset(skin.carpet, width: rugW, height: rugH, fit: BoxFit.fill),
                     ),
-                    Image.asset('assets/images/tray_wide.png', width: trayW, height: trayH, fit: BoxFit.fill),
+                    Image.asset(skin.tray, width: trayW, height: trayH, fit: BoxFit.fill),
                     // كومة السحب (يمين) وكومة الرمي (يسار)، بين الصينية وحافة السجادة.
                     Positioned(
                       right: rugW * .11,
@@ -519,14 +522,7 @@ class _Bubble extends StatelessWidget {
         : target == view.you
         ? 'أنت'
         : view.players.where((p) => p.id == target).firstOrNull?.name;
-    final text = switch (reaction.kind) {
-      ReactionKind.suspect => '🤨 أشك في $targetName',
-      ReactionKind.trust => '🤝 أثق في $targetName',
-      ReactionKind.liar => '❌ $targetName كذاب',
-      ReactionKind.pick => '👉 جربوا $targetName',
-      ReactionKind.innocent => '🙏 أنا بريء',
-      final k => k.emoji,
-    };
+    final text = reaction.kind.say(targetName);
     return TweenAnimationBuilder<double>(
       tween: Tween(begin: .6, end: 1),
       duration: const Duration(milliseconds: 350),

@@ -22,30 +22,53 @@ class RoomPlayer {
 
 enum RoomStatus { waiting, playing, finished }
 
-/// الردود السريعة المسموحة. [needsTarget] يعني لازم تختار لاعب (مثل أشك في فلان).
+/// الردود السريعة المسموحة (نفس functions/src/index.ts → REACTIONS).
+/// [needsTarget] يعني لازم تختار لاعب (مثل أشك في فلان)، و[pack] باقة المتجر اللي تفتحه.
+/// [bubble] اللي يطلع فوق راس اللاعب، و% مكان اسم اللي اختاره.
 enum ReactionKind {
-  suspect('🤨', 'أشك في…', true),
-  trust('🤝', 'أثق في…', true),
-  liar('❌', 'كذاب', true),
-  pick('👉', 'جربوا فلان', true),
+  suspect('🤨', 'أشك في…', true, bubble: '🤨 أشك في %'),
+  trust('🤝', 'أثق في…', true, bubble: '🤝 أثق في %'),
+  liar('❌', 'كذاب', true, bubble: '❌ % كذاب'),
+  pick('👉', 'جربوا فلان', true, bubble: '👉 جربوا %'),
   innocent('🙏', 'أنا بريء', false),
   laugh('😂', '', false),
   think('🤔', '', false),
   angry('😡', '', false),
   eyes('👀', '', false),
   zip('🤐', '', false),
-  smirk('😏', '', false);
+  smirk('😏', '', false),
+  fire('🔥', '', false, pack: 'pack_emoji'),
+  skull('💀', '', false, pack: 'pack_emoji'),
+  clown('🤡', '', false, pack: 'pack_emoji'),
+  shock('😱', '', false, pack: 'pack_emoji'),
+  sweat('😅', '', false, pack: 'pack_emoji'),
+  mask('🎭', '', false, pack: 'pack_emoji'),
+  wallah('🤚', 'والله العظيم!', false, pack: 'pack_phrases'),
+  khayin('🫵', 'فلان خاين!', true, pack: 'pack_phrases', bubble: '🫵 % خاين!'),
+  calm('😌', 'هدّوا اللعب', false, pack: 'pack_phrases'),
+  hurry('⏱️', 'يلا بسرعة', false, pack: 'pack_phrases'),
+  trustme('🫡', 'ثقوا فيني', false, pack: 'pack_phrases'),
+  stab('🗡️', 'طعنني!', true, pack: 'pack_vip', bubble: '🗡️ % طعنني!'),
+  popcorn('🍿', 'استانس', false, pack: 'pack_vip'),
+  coffee('☕', 'قهوة؟', false, pack: 'pack_vip'),
+  falcon('🦅', 'صقر', false, pack: 'pack_vip'),
+  gg('👏', 'قيم مرتب', false, pack: 'pack_vip');
 
-  const ReactionKind(this.emoji, this.label, this.needsTarget);
+  const ReactionKind(this.emoji, this.label, this.needsTarget, {this.pack, this.bubble});
   final String emoji;
   final String label;
   final bool needsTarget;
+  final String? pack;
+  final String? bubble;
+
+  /// النص اللي يطلع للطاولة.
+  String say(String? target) => bubble?.replaceAll('%', target ?? '') ?? (label.isEmpty ? emoji : '$emoji $label');
 }
 
 class Reaction {
   Reaction.fromJson(Map<String, dynamic> j)
     : from = j['from'] as String,
-      kind = ReactionKind.values.byName(j['kind'] as String),
+      kind = ReactionKind.values.asNameMap()[j['kind']] ?? ReactionKind.eyes,
       target = j['target'] as String?,
       at = DateTime.fromMillisecondsSinceEpoch(j['at'] as int);
 
