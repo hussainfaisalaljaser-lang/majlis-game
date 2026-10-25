@@ -82,6 +82,9 @@ class Backend {
 
   Future<void> act(String code, Map<String, dynamic> action) => _call('act', {'code': code, 'action': action});
 
+  Future<void> react(String code, ReactionKind kind, {String? target}) =>
+      _call('react', {'code': code, 'kind': kind.name, 'target': ?target});
+
   Stream<Room?> watchRoom(String code) => _db
       .doc('rooms/$code')
       .snapshots()

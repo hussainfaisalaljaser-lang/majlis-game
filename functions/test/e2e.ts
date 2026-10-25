@@ -100,12 +100,22 @@ async function main(): Promise<void> {
   }
   console.log('✓ الحالة الكاملة مقفلة، وكل لاعب يشوف أسراره هو بس');
 
-  // ٣. حركة غلط ترفض
+  // ٣. الردود السريعة
+  await rest[0].call('react', { code, kind: 'suspect', target: rest[1].uid });
+  await rest[1].call('react', { code, kind: 'laugh' });
+  await expectError(rest[0].call('react', { code, kind: 'trust', target: rest[0].uid }), 'invalid-argument');
+  await expectError(rest[2].call('react', { code, kind: 'hello' }), 'invalid-argument');
+  const roomDoc = (await getDoc(doc(getFirestore(host.app), `rooms/${code}`))).data()!;
+  assert.equal(roomDoc.reactions.length, 2);
+  assert.equal(roomDoc.opinions[rest[0].uid][rest[1].uid], 'suspect');
+  console.log('✓ الردود السريعة تنحفظ، ومؤشر الشك يتحدث، والردود الغلط ترفض');
+
+  // ٤. حركة غلط ترفض
   const notPresident = players.find((p) => p.uid !== views[0].presidentId)!;
   await expectError(notPresident.call('act', { code, action: { type: 'nominate', chancellor: host.uid } }), 'failed-precondition');
   console.log('✓ السيرفر يرفض الحركات الغلط');
 
-  // ٤. نكمل اللعب لين النهاية
+  // ٥. نكمل اللعب لين النهاية
   let moves = 0;
   for (;;) {
     const current = await Promise.all(players.map((p) => p.view(code)));
@@ -126,7 +136,7 @@ async function main(): Promise<void> {
     assert.ok(moves < 500, 'اللعبة طولت');
   }
 
-  // ٥. المطابقة العشوائية: ٥ لاعبين يضغطون "العب الحين" وتبدأ تلقائياً
+  // ٦. المطابقة العشوائية: ٥ لاعبين يضغطون "العب الحين" وتبدأ تلقائياً
   const codes = new Set<string>();
   for (const p of players) codes.add((await p.call<{ code: string }>('quickMatch', { maxPlayers: 5, tierId: 'starter' })).code);
   assert.equal(codes.size, 1, 'كلهم لازم يدخلون نفس الروم');

@@ -33,7 +33,35 @@ export interface Room {
   tierId: string | null;
   players: RoomPlayer[];
   createdAt: FieldValue;
+  /** آخر الردود السريعة في الطاولة (أشك، أثق، إيموجي…). */
+  reactions?: Reaction[];
+  /** رأي كل لاعب في الباقين: opinions[من][في] = أشك أو أثق. منه نحسب مؤشر الشك. */
+  opinions?: Record<string, Record<string, 'suspect' | 'trust'>>;
 }
+
+export interface Reaction {
+  from: string;
+  kind: ReactionKind;
+  target: string | null;
+  at: number;
+}
+
+/** الردود المسموحة. ما فيه كتابة حرة أبداً. */
+const REACTIONS = {
+  suspect: true, // 🤨 أشك في…
+  trust: true, // 🤝 أثق في…
+  liar: true, // ❌ كذاب
+  pick: true, // 👉 جربوا فلان
+  innocent: false, // 🙏 أنا بريء
+  laugh: false, // 😂
+  think: false, // 🤔
+  angry: false, // 😡
+  eyes: false, // 👀
+  zip: false, // 🤐
+  smirk: false, // 😏
+} as const;
+type ReactionKind = keyof typeof REACTIONS;
+const MAX_REACTIONS = 40;
 
 // بدون الحروف اللي تتلخبط مثل O و 0 و I و 1.
 const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -210,6 +238,33 @@ export const act = onCall(async (req) => {
     }
     writeGame(tx, code, next);
     if (next.phase === 'gameOver') tx.update(db.doc(`rooms/${code}`), { status: 'finished' });
+  });
+  return {};
+});
+
+/** رد سريع في الطاولة. بعض الردود تحتاج لاعب مستهدف (مثل أشك في فلان). */
+export const react = onCall(async (req) => {
+  const uid = requireAuth(req);
+  const code = String(req.data?.code ?? '');
+  const kind = req.data?.kind as ReactionKind;
+  if (!(kind in REACTIONS)) throw new HttpsError('invalid-argument', 'رد مو معروف');
+  const target = REACTIONS[kind] ? String(req.data?.target ?? '') : null;
+
+  await db.runTransaction(async (tx) => {
+    const ref = db.doc(`rooms/${code}`);
+    const room = (await tx.get(ref)).data() as Room | undefined;
+    if (!room || room.status !== 'playing') throw new HttpsError('failed-precondition', 'اللعبة مو شغالة');
+    if (!room.players.some((p) => p.uid === uid)) throw new HttpsError('permission-denied', 'أنت مو في هذي الطاولة');
+    if (target !== null && (target === uid || !room.players.some((p) => p.uid === target))) {
+      throw new HttpsError('invalid-argument', 'اختار لاعب ثاني');
+    }
+    const now = Date.now();
+    const recent = (room.reactions ?? []).filter((r) => r.from === uid && now - r.at < 1500);
+    if (recent.length > 0) throw new HttpsError('resource-exhausted', 'شوي شوي 😅');
+    const reactions = [...(room.reactions ?? []), { from: uid, kind, target, at: now }].slice(-MAX_REACTIONS);
+    const update: Record<string, unknown> = { reactions };
+    if (kind === 'suspect' || kind === 'trust') update[`opinions.${uid}.${target}`] = kind;
+    tx.update(ref, update);
   });
   return {};
 });

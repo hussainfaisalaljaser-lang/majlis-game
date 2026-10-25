@@ -11,6 +11,39 @@ class RoomPlayer {
 
 enum RoomStatus { waiting, playing, finished }
 
+/// الردود السريعة المسموحة. [needsTarget] يعني لازم تختار لاعب (مثل أشك في فلان).
+enum ReactionKind {
+  suspect('🤨', 'أشك في…', true),
+  trust('🤝', 'أثق في…', true),
+  liar('❌', 'كذاب', true),
+  pick('👉', 'جربوا فلان', true),
+  innocent('🙏', 'أنا بريء', false),
+  laugh('😂', '', false),
+  think('🤔', '', false),
+  angry('😡', '', false),
+  eyes('👀', '', false),
+  zip('🤐', '', false),
+  smirk('😏', '', false);
+
+  const ReactionKind(this.emoji, this.label, this.needsTarget);
+  final String emoji;
+  final String label;
+  final bool needsTarget;
+}
+
+class Reaction {
+  Reaction.fromJson(Map<String, dynamic> j)
+      : from = j['from'] as String,
+        kind = ReactionKind.values.byName(j['kind'] as String),
+        target = j['target'] as String?,
+        at = DateTime.fromMillisecondsSinceEpoch(j['at'] as int);
+
+  final String from;
+  final ReactionKind kind;
+  final String? target;
+  final DateTime at;
+}
+
 class Room {
   const Room({
     required this.code,
@@ -20,6 +53,8 @@ class Room {
     required this.maxPlayers,
     required this.tierId,
     required this.players,
+    this.reactions = const [],
+    this.opinions = const {},
   });
 
   factory Room.fromJson(Map<String, dynamic> j) => Room(
@@ -30,6 +65,15 @@ class Room {
         maxPlayers: j['maxPlayers'] as int,
         tierId: j['tierId'] as String?,
         players: [for (final p in j['players'] as List) RoomPlayer.fromJson(Map<String, dynamic>.from(p as Map))],
+        reactions: [
+          for (final r in (j['reactions'] as List?) ?? const []) Reaction.fromJson(Map<String, dynamic>.from(r as Map)),
+        ],
+        opinions: {
+          for (final MapEntry(:key, :value) in ((j['opinions'] as Map?) ?? const {}).entries)
+            key as String: {
+              for (final o in (value as Map).entries) o.key as String: o.value == 'suspect',
+            },
+        },
       );
 
   final String code;
@@ -39,4 +83,21 @@ class Room {
   final int maxPlayers;
   final String? tierId;
   final List<RoomPlayer> players;
+  final List<Reaction> reactions;
+
+  /// opinions[من][في] = true لو يشك فيه، false لو يثق فيه.
+  final Map<String, Map<String, bool>> opinions;
+
+  RoomPlayer? player(String uid) => players.where((p) => p.uid == uid).firstOrNull;
+
+  /// كم واحد يشك في هذا اللاعب، وكم واحد يثق فيه.
+  ({int suspect, int trust}) opinionOf(String uid) {
+    var suspect = 0, trust = 0;
+    for (final o in opinions.values) {
+      final v = o[uid];
+      if (v == true) suspect++;
+      if (v == false) trust++;
+    }
+    return (suspect: suspect, trust: trust);
+  }
 }
