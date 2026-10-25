@@ -15,6 +15,9 @@ on:
     branches: ['**']
     paths: ['tools/voice/**', '.github/workflows/voice.yml']
 
+permissions:
+  contents: write
+
 jobs:
   tts:
     runs-on: ubuntu-latest
@@ -44,3 +47,13 @@ jobs:
         with:
           name: voice
           path: out
+      # نرفع الملفات كمان على فرع voice-output، عشان نقدر نسحبها بـ git
+      - name: Push to voice-output branch
+        run: |
+          cd out
+          git init -q -b voice-output
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -qm "Narrator audio from run ${{ github.run_id }}"
+          git push -qf "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" voice-output
