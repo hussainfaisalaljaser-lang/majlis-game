@@ -20,6 +20,7 @@ import {
 } from 'firebase/firestore';
 import { connectFunctionsEmulator, getFunctions, httpsCallable } from 'firebase/functions';
 import type { PlayerView } from '../../engine/src/index.js';
+import { seasonActive } from '../src/rewards.js';
 
 const PROJECT = 'majlis-game-1d739';
 
@@ -174,7 +175,8 @@ async function main(): Promise<void> {
 
   // ٣. الردود السريعة
   await rest[0].call('react', { code, kind: 'suspect', target: rest[1].uid });
-  await rest[1].call('react', { code, kind: 'laugh' });
+  await rest[1].call('react', { code, kind: 'b_laugh' });
+  await expectError(rest[1].call('react', { code, kind: 'shock_jaw' }), 'permission-denied');
   await expectError(rest[0].call('react', { code, kind: 'trust', target: rest[0].uid }), 'invalid-argument');
   await expectError(rest[2].call('react', { code, kind: 'hello' }), 'invalid-argument');
   const roomDoc = (await getDoc(doc(getFirestore(host.app), `rooms/${code}`))).data()!;
@@ -398,7 +400,7 @@ async function main(): Promise<void> {
   await dev.call('devTool', { action: 'grant', coins: 10000 });
   await dev.call('devTool', { action: 'level', level: 5 });
   const devAfter = await dev.profile();
-  assert.equal(devAfter.coins, devCoins + 10000);
+  assert.equal(devAfter.coins, devCoins + 10000 + 1000, 'ومعها هدية مستوى ٥');
   assert.equal(devAfter.level, 5);
   console.log('✓ وضع المطور: لإيميل المطور بس');
 
@@ -417,14 +419,70 @@ async function main(): Promise<void> {
   await dev.call('updateProfile', { name: 'المطور', avatar: 'emir' });
   await dev.call('equipItem', { id: 'table_majlis' });
   assert.equal((await dev.profile()).equipped.table, 'table_majlis');
-  await expectError(dev.call('equipItem', { id: 'pack_emoji' }), 'invalid-argument');
+  await expectError(dev.call('equipItem', { id: 'stk_shock' }), 'invalid-argument');
   const { code: packRoom } = await dev.call<{ code: string }>('createRoom', { maxPlayers: 5 });
   for (let i = 0; i < 4; i++) await dev.call('addBots', { code: packRoom });
   await dev.call('startGame', { code: packRoom });
-  await expectError(dev.call('react', { code: packRoom, kind: 'fire' }), 'permission-denied');
-  await dev.call('buyItem', { id: 'pack_emoji' });
-  await dev.call('react', { code: packRoom, kind: 'fire' });
-  console.log('✓ المتجر الجديد: طاولة، شخصية مميزة، وباقة ردود');
+  await expectError(dev.call('react', { code: packRoom, kind: 'shock_jaw' }), 'permission-denied');
+  await dev.call('buyItem', { id: 'stk_shock' });
+  await dev.call('react', { code: packRoom, kind: 'shock_jaw' });
+  await dev.call('buyItem', { id: 'bubble_neon' });
+  await dev.call('equipItem', { id: 'bubble_neon' });
+  const { code: bubbleRoom } = await dev.call<{ code: string }>('createRoom', { maxPlayers: 5 });
+  const bubbleRoomData = (await getDoc(doc(getFirestore(dev.app), `rooms/${bubbleRoom}`))).data()!;
+  assert.equal(bubbleRoomData.players[0].bubble, 'bubble_neon', 'الفقاعة تطلع للكل في الطاولة');
+  await dev.call('leaveRoom', { code: bubbleRoom });
+  console.log('✓ المتجر الجديد: طاولة، شخصية مميزة، باقة ملصقات، وفقاعة');
+
+  // هدايا المستويات: كل ٥ مستويات شي، وكل ١٠ إطار وشخصية. ما تنعطى مرتين.
+  await expectError(dev.call('buyItem', { id: 'frame_lv10' }), 'failed-precondition');
+  await dev.call('devTool', { action: 'level', level: 1 });
+  await dev.call('ackGifts');
+  const beforeLevels = await dev.profile();
+  await dev.call('devTool', { action: 'level', level: 10 });
+  const leveled = await dev.profile();
+  for (const id of ['bubble_lv5', 'frame_lv10', 'avatar_lv10']) assert.ok(leveled.owned.includes(id), id);
+  assert.equal(leveled.coins, beforeLevels.coins + 3000);
+  assert.equal(leveled.diamonds, beforeLevels.diamonds + 5);
+  assert.deepEqual(leveled.gifts.map((g: { n: number }) => g.n), [5, 10]);
+  await dev.call('ackGifts');
+  assert.deepEqual((await dev.profile()).gifts, []);
+  await dev.call('equipItem', { id: 'frame_lv10' });
+  await dev.call('updateProfile', { name: 'المطور', avatar: 'lv10' });
+  await dev.call('devTool', { action: 'level', level: 10 });
+  assert.equal((await dev.profile()).coins, leveled.coins, 'نفس المستوى ما يعطي مرة ثانية');
+  console.log('✓ هدايا المستويات: مستوى ٥ و١٠، مرة وحدة بس');
+
+  // الباتل باس: المجاني للكل، والمدفوع يفتح مكافآته (حتى اللي فاتت)
+  if (seasonActive(Date.now())) {
+    await dev.call('devTool', { action: 'passPoints', points: 450 });
+    const free = await dev.call<{ coins: number; items: string[] }>('claimPassRewards');
+    assert.equal(free.coins, 300, 'المجاني: درجة ٢');
+    assert.deepEqual(free.items, []);
+    await dev.call('buyPass');
+    await expectError(dev.call('buyPass'), 'already-exists');
+    const prem = await dev.call<{ coins: number; items: string[] }>('claimPassRewards');
+    assert.equal(prem.coins, 1500, 'المدفوع: درجة ٢ و٣');
+    assert.deepEqual(prem.items, ['avatar_s1a']);
+    const again = await dev.call<{ coins: number; items: string[] }>('claimPassRewards');
+    assert.equal(again.coins, 0);
+    assert.ok((await dev.profile()).owned.includes('avatar_s1a'));
+    console.log('✓ الباتل باس: المجاني والمدفوع، والاستلام مرة وحدة');
+  }
+
+  // أبطال الأسبوع: أول ٣ ياخذون إطار وشخصية مؤقتة
+  const { champions } = await dev.call<{ champions: string[] }>('devTool', { action: 'crown' });
+  assert.ok(champions.length >= 1, 'فيه فايزين هالأسبوع');
+  const champ = players.find((p) => p.uid === champions[0])!;
+  const champProfile = await champ.profile();
+  assert.equal(champProfile.equipped.frame, 'frame_champ1');
+  assert.equal(champProfile.avatar, 'champ1');
+  assert.ok(champProfile.temp.frame_champ1 > Date.now());
+  assert.ok(!champProfile.owned?.includes('frame_champ1'), 'مؤقت، مو ملك دائم');
+  assert.equal(champProfile.gifts.at(-1).kind, 'champion');
+  const meta = (await getDoc(doc(getFirestore(dev.app), 'meta/champions'))).data()!;
+  assert.equal(meta.uids[0], champ.uid);
+  console.log(`✓ أبطال الأسبوع: ${champions.length} تتوّجوا بإطار وشخصية لأسبوع`);
   await deleteApp(dev.app);
 
   await Promise.all(players.map((p) => deleteApp(p.app)));

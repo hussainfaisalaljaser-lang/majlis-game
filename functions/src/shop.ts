@@ -1,13 +1,13 @@
 /**
- * المتجر: إطارات للصورة، أشكال للكروت والطاولة، شخصيات مميزة، وباقات ردود.
- * التطبيق عنده نسخة بالشكل والأسماء (app/lib/models/shop.dart).
+ * المتجر فوق الكتالوج (catalog.ts المولّد من tools/catalog/catalog.py).
+ * التطبيق عنده نفس الكتالوج مع الأشكال (app/lib/models/catalog.dart).
  */
+import { CATALOG, DEFAULT_EQUIPPED, type CatalogItem, type EquipSlot, type Slot } from './catalog.js';
 
-export type Slot = 'frame' | 'cards' | 'table' | 'avatar' | 'reactions';
-/** الأغراض اللي "تنلبس" (واحد بس في كل نوع). */
-export type EquipSlot = 'frame' | 'cards' | 'table';
+export { DEFAULT_EQUIPPED, type EquipSlot, type Slot };
 export type Currency = 'coins' | 'diamonds';
 
+/** غرض ينشرى بالذهب أو الجواهر. */
 export interface ShopItem {
   id: string;
   slot: Slot;
@@ -15,56 +15,33 @@ export interface ShopItem {
   price: number;
 }
 
-/** اللي يملكه كل لاعب من البداية. */
-export const DEFAULT_EQUIPPED: Record<EquipSlot, string> = {
-  frame: 'frame_none',
-  cards: 'cards_classic',
-  table: 'table_majlis',
-};
+export const SHOP_ITEMS: ShopItem[] = CATALOG.flatMap((i): ShopItem[] => {
+  if (i.coins !== undefined) return [{ id: i.id, slot: i.slot, currency: 'coins', price: i.coins }];
+  if (i.diamonds !== undefined) return [{ id: i.id, slot: i.slot, currency: 'diamonds', price: i.diamonds }];
+  return [];
+});
 
-export const SHOP_ITEMS: ShopItem[] = [
-  { id: 'frame_ice', slot: 'frame', currency: 'coins', price: 3000 },
-  { id: 'frame_fire', slot: 'frame', currency: 'coins', price: 8000 },
-  { id: 'frame_lightning', slot: 'frame', currency: 'coins', price: 10000 },
-  { id: 'frame_rainbow', slot: 'frame', currency: 'coins', price: 15000 },
-  { id: 'frame_emerald', slot: 'frame', currency: 'diamonds', price: 15 },
-  { id: 'frame_blood', slot: 'frame', currency: 'diamonds', price: 20 },
-  { id: 'frame_king', slot: 'frame', currency: 'diamonds', price: 40 },
-  { id: 'frame_galaxy', slot: 'frame', currency: 'diamonds', price: 45 },
-  { id: 'cards_oasis', slot: 'cards', currency: 'coins', price: 5000 },
-  { id: 'cards_night', slot: 'cards', currency: 'coins', price: 12000 },
-  { id: 'cards_dragon', slot: 'cards', currency: 'diamonds', price: 20 },
-  { id: 'cards_royal', slot: 'cards', currency: 'diamonds', price: 50 },
-  { id: 'table_sand', slot: 'table', currency: 'coins', price: 6000 },
-  { id: 'table_oasis', slot: 'table', currency: 'coins', price: 8000 },
-  { id: 'table_night', slot: 'table', currency: 'coins', price: 15000 },
-  { id: 'table_palace', slot: 'table', currency: 'diamonds', price: 25 },
-  { id: 'table_gold', slot: 'table', currency: 'diamonds', price: 50 },
-  { id: 'avatar_detective', slot: 'avatar', currency: 'coins', price: 6000 },
-  { id: 'avatar_falconer', slot: 'avatar', currency: 'coins', price: 12000 },
-  { id: 'avatar_lady_gold', slot: 'avatar', currency: 'coins', price: 12000 },
-  { id: 'avatar_assassin', slot: 'avatar', currency: 'diamonds', price: 20 },
-  { id: 'avatar_emir', slot: 'avatar', currency: 'diamonds', price: 35 },
-  { id: 'avatar_sultana', slot: 'avatar', currency: 'diamonds', price: 35 },
-  { id: 'pack_emoji', slot: 'reactions', currency: 'coins', price: 2500 },
-  { id: 'pack_phrases', slot: 'reactions', currency: 'coins', price: 4000 },
-  { id: 'pack_vip', slot: 'reactions', currency: 'diamonds', price: 12 },
-];
-
-/** الشخصية اللي يعطيها غرض المتجر (avatar_emir ← emir). */
+/** الشخصية اللي يعطيها غرض الكتالوج (avatar_emir ← emir). */
 export const avatarOfItem = (id: string): string => id.replace(/^avatar_/, '');
 
+/** غرض ينشرى (مو هدية مستوى ولا للأبطال). */
 export function itemById(id: unknown): ShopItem | null {
   return SHOP_ITEMS.find((i) => i.id === id) ?? null;
+}
+
+export function catalogItem(id: unknown): CatalogItem | null {
+  return CATALOG.find((i) => i.id === id) ?? null;
 }
 
 export function isDefault(id: string): boolean {
   return Object.values(DEFAULT_EQUIPPED).includes(id);
 }
 
+const EQUIP_SLOTS = new Set<string>(Object.keys(DEFAULT_EQUIPPED));
+
 /** نوع الغرض لو كان ينلبس، وإلا null. */
 export function slotOf(id: string): EquipSlot | null {
   for (const [slot, def] of Object.entries(DEFAULT_EQUIPPED)) if (id === def) return slot as EquipSlot;
-  const slot = itemById(id)?.slot;
-  return slot === 'frame' || slot === 'cards' || slot === 'table' ? slot : null;
+  const slot = catalogItem(id)?.slot;
+  return slot && EQUIP_SLOTS.has(slot) ? (slot as EquipSlot) : null;
 }

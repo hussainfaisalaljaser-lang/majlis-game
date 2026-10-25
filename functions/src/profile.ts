@@ -2,13 +2,22 @@ import { FieldValue, type Firestore, type Transaction } from 'firebase-admin/fir
 import { HttpsError } from 'firebase-functions/v2/https';
 import { DAILY_REWARDS, STARTING_COINS, gulfDay, levelFor, previousDay } from './economy.js';
 import type { MissionState } from './missions.js';
-import { DEFAULT_EQUIPPED, SHOP_ITEMS, avatarOfItem, type EquipSlot } from './shop.js';
+import { CATALOG, FREE_AVATARS } from './catalog.js';
+import type { PassState } from './rewards.js';
+import { DEFAULT_EQUIPPED, avatarOfItem, isDefault, type EquipSlot } from './shop.js';
 
-/** الشخصيات المرسومة (app/assets/avatars). */
-export const AVATARS = [
-  'falcon', 'sheikh', 'cool', 'scholar', 'desert', 'hawk', 'merchant', 'youth',
-  'pearl', 'rose', 'night', 'jasmine', 'amber', 'sky', 'masked', 'shadow',
-];
+/** الشخصيات المجانية (app/assets/avatars). */
+export const AVATARS = FREE_AVATARS;
+
+/** هدية وصلت اللاعب (مستوى أو بطولة الأسبوع). التطبيق يعرضها ويشيلها بـ ackGifts. */
+export interface Gift {
+  kind: 'level' | 'champion';
+  /** المستوى (للمستويات) أو المركز (للأبطال). */
+  n: number;
+  coins: number;
+  diamonds: number;
+  items: string[];
+}
 
 export interface Profile {
   name: string;
@@ -31,6 +40,16 @@ export interface Profile {
   /** أغراض المتجر اللي اشتراها، واللي لابسها الحين. */
   owned?: string[];
   equipped?: Partial<Record<EquipSlot, string>>;
+  /** أغراض مؤقتة (أبطال الأسبوع): المعرف ← لين متى (ملي ثانية). */
+  temp?: Record<string, number>;
+  /** اللي كان لابسه قبل أغراض البطولة، يرجع له لما تخلص. */
+  restore?: { frame?: string; avatar?: string };
+  /** هدايا ما شافها للحين. */
+  gifts?: Gift[];
+  /** آخر مستوى أخذ هداياه (عشان ما تنعطى مرتين). */
+  rewardedLevel?: number;
+  /** الباتل باس (rewards.ts → PassState). */
+  pass?: PassState;
   /** أجهزة اللاعب للإشعارات. */
   fcmTokens?: string[];
   /** انطرد من لعبة لأنه ما لعب: ممنوع يدخل ألعاب لين هالوقت (ملي ثانية). */
@@ -61,7 +80,7 @@ export interface LeaderboardEntry {
 export function toLeaderboard(p: Profile): LeaderboardEntry {
   return {
     name: p.name,
-    avatar: p.avatar,
+    avatar: avatarOf(p),
     frame: equippedOf(p).frame,
     level: p.level,
     xp: p.xp,
@@ -90,8 +109,27 @@ export function newProfile(): Profile {
   };
 }
 
-export function equippedOf(p: Profile): Record<EquipSlot, string> {
-  return { ...DEFAULT_EQUIPPED, ...p.equipped };
+/** يملك الغرض؟ (الأساسي، أو اشتراه أو أخذه هدية، أو مؤقت وما خلص وقته). */
+export function owns(p: Profile, id: string, now = Date.now()): boolean {
+  return isDefault(id) || (p.owned ?? []).includes(id) || (p.temp?.[id] ?? 0) > now;
+}
+
+/** اللي لابسه الحين. لو كان لابس غرض بطولة خلص وقته، يرجع للي كان لابسه قبل. */
+export function equippedOf(p: Profile, now = Date.now()): Record<EquipSlot, string> {
+  const out = { ...DEFAULT_EQUIPPED, ...p.equipped };
+  for (const slot of Object.keys(out) as EquipSlot[]) {
+    if (owns(p, out[slot], now)) continue;
+    const back = slot === 'frame' ? p.restore?.frame : undefined;
+    out[slot] = back && owns(p, back, now) ? back : DEFAULT_EQUIPPED[slot];
+  }
+  return out;
+}
+
+/** صورته الحين، بنفس الفكرة (شخصية البطولة ترجع للي قبلها لما يخلص الأسبوع). */
+export function avatarOf(p: Profile, now = Date.now()): string {
+  if (AVATARS.includes(p.avatar) || owns(p, `avatar_${p.avatar}`, now)) return p.avatar;
+  const back = p.restore?.avatar;
+  return back && (AVATARS.includes(back) || owns(p, `avatar_${back}`, now)) ? back : AVATARS[0];
 }
 
 /** يقرا ملف اللاعب داخل عملية، ويسويه لو ما كان موجود. */
@@ -122,14 +160,14 @@ export function cleanName(raw: unknown): string {
   return name;
 }
 
-/** الشخصيات المميزة من المتجر (لازم يشتريها قبل ما يختارها). */
-export const PREMIUM_AVATARS = SHOP_ITEMS.filter((i) => i.slot === 'avatar').map((i) => avatarOfItem(i.id));
+/** الشخصيات المميزة (من المتجر أو هدايا المستويات أو للأبطال). */
+export const PREMIUM_AVATARS = CATALOG.filter((i) => i.slot === 'avatar').map((i) => avatarOfItem(i.id));
 
-export function cleanAvatar(raw: unknown, owned: string[] = []): string {
+export function cleanAvatar(raw: unknown, p?: Profile): string {
   if (typeof raw !== 'string') throw new HttpsError('invalid-argument', 'صورة مو معروفة');
   if (AVATARS.includes(raw)) return raw;
   if (!PREMIUM_AVATARS.includes(raw)) throw new HttpsError('invalid-argument', 'صورة مو معروفة');
-  if (!owned.includes(`avatar_${raw}`)) throw new HttpsError('permission-denied', 'هذي الشخصية من المتجر، اشترها أول');
+  if (!p || !owns(p, `avatar_${raw}`)) throw new HttpsError('permission-denied', 'هذي الشخصية ما تملكها للحين');
   return raw;
 }
 

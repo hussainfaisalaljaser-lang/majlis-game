@@ -4,6 +4,7 @@ import { FieldValue, getFirestore, type Transaction } from 'firebase-admin/fires
 import { getMessaging } from 'firebase-admin/messaging';
 import { logger, setGlobalOptions } from 'firebase-functions/v2';
 import { HttpsError, onCall, type CallableRequest } from 'firebase-functions/v2/https';
+import { onSchedule } from 'firebase-functions/v2/scheduler';
 import {
   MAX_PLAYERS,
   MIN_PLAYERS,
@@ -23,22 +24,36 @@ import {
   type GameState,
 } from '../../engine/src/index.js';
 import { BOT_THINK_JITTER_MS, botThink, scenesDelay, startGrace } from './pacing.js';
-import { xpForLevel, LINK_REWARD, XP_PER_GAME, XP_PER_WIN, levelFor, tierById, type TableTier } from './economy.js';
+import {
+  xpForLevel,
+  LINK_REWARD,
+  MISSION_PASS_POINTS,
+  XP_PER_GAME,
+  XP_PER_WIN,
+  levelFor,
+  tierById,
+  type TableTier,
+} from './economy.js';
 import { MISSIONS, bumpMissions, gulfWeek, todaysMissions, type MissionId } from './missions.js';
 import { isDev } from './dev.js';
 import { whoToNotify, type Note } from './notify.js';
 import {
+  avatarOf,
   cleanAvatar,
   cleanName,
   nameKey,
   dailyClaim,
   equippedOf,
   newProfile,
+  owns,
   readProfile,
   toLeaderboard,
+  type LeaderboardEntry,
   type Profile,
 } from './profile.js';
-import { SHOP_ITEMS, avatarOfItem, isDefault, itemById, slotOf } from './shop.js';
+import { CATALOG, CHAMPION_REWARDS, REACTIONS, SEASON } from './catalog.js';
+import { addPassPoints, applyLevelRewards, claimPass, passOf, seasonActive } from './rewards.js';
+import { avatarOfItem, itemById, slotOf } from './shop.js';
 
 initializeApp();
 setGlobalOptions({ region: 'europe-west1', maxInstances: 10 });
@@ -50,20 +65,23 @@ export interface RoomPlayer {
   avatar: string;
   /** إطار الصورة من المتجر، يشوفه الكل في الطاولة. */
   frame: string;
+  /** شكل فقاعة الكلام من المتجر، يشوفها الكل. */
+  bubble?: string;
   /** لاعب آلي. يطلع للكل إنه بوت. */
   bot?: boolean;
 }
 
+// البوتات لابسة أغراض من المتجر، عشان اللاعب يشوفها في اللعب.
 const BOTS: Omit<RoomPlayer, 'uid'>[] = [
-  { name: 'سلمان', avatar: 'sheikh', frame: 'frame_none' },
-  { name: 'مها', avatar: 'pearl', frame: 'frame_none' },
-  { name: 'بدر', avatar: 'desert', frame: 'frame_none' },
-  { name: 'لولوة', avatar: 'jasmine', frame: 'frame_none' },
-  { name: 'تركي', avatar: 'hawk', frame: 'frame_none' },
-  { name: 'جود', avatar: 'rose', frame: 'frame_none' },
-  { name: 'ماجد', avatar: 'merchant', frame: 'frame_none' },
-  { name: 'العنود', avatar: 'sky', frame: 'frame_none' },
-  { name: 'فيصل', avatar: 'youth', frame: 'frame_none' },
+  { name: 'سلمان', avatar: 'sheikh', frame: 'frame_king', bubble: 'bubble_gold' },
+  { name: 'مها', avatar: 'pearl', frame: 'frame_pearl', bubble: 'bubble_rose' },
+  { name: 'بدر', avatar: 'desert', frame: 'frame_sand', bubble: 'bubble_desert' },
+  { name: 'لولوة', avatar: 'jasmine', frame: 'frame_oasis', bubble: 'bubble_emerald' },
+  { name: 'تركي', avatar: 'hawk', frame: 'frame_fire', bubble: 'bubble_fire' },
+  { name: 'جود', avatar: 'rose', frame: 'frame_rainbow', bubble: 'bubble_rainbow' },
+  { name: 'ماجد', avatar: 'merchant', frame: 'frame_ice', bubble: 'bubble_ice' },
+  { name: 'العنود', avatar: 'sky', frame: 'frame_night', bubble: 'bubble_night' },
+  { name: 'فيصل', avatar: 'youth', frame: 'frame_lightning', bubble: 'bubble_neon' },
 ];
 
 /** الطاولة العامة تنتظر كذا قبل ما نسمح نكملها بالبوتات. */
@@ -103,42 +121,7 @@ export interface Reaction {
   at: number;
 }
 
-/**
- * الردود المسموحة. ما فيه كتابة حرة أبداً.
- * target: لازم يختار لاعب. pack: باقة من المتجر لازم يملكها (نفس app/lib/models/room.dart).
- */
-const REACTIONS: Record<string, { target: boolean; pack?: string }> = {
-  suspect: { target: true }, // 🤨 أشك في…
-  trust: { target: true }, // 🤝 أثق في…
-  liar: { target: true }, // ❌ كذاب
-  pick: { target: true }, // 👉 جربوا فلان
-  innocent: { target: false }, // 🙏 أنا بريء
-  laugh: { target: false }, // 😂
-  think: { target: false }, // 🤔
-  angry: { target: false }, // 😡
-  eyes: { target: false }, // 👀
-  zip: { target: false }, // 🤐
-  smirk: { target: false }, // 😏
-  // باقة الإيموجي
-  fire: { target: false, pack: 'pack_emoji' },
-  skull: { target: false, pack: 'pack_emoji' },
-  clown: { target: false, pack: 'pack_emoji' },
-  shock: { target: false, pack: 'pack_emoji' },
-  sweat: { target: false, pack: 'pack_emoji' },
-  mask: { target: false, pack: 'pack_emoji' },
-  // باقة الكلام
-  sure: { target: false, pack: 'pack_phrases' },
-  khayin: { target: true, pack: 'pack_phrases' },
-  calm: { target: false, pack: 'pack_phrases' },
-  hurry: { target: false, pack: 'pack_phrases' },
-  trustme: { target: false, pack: 'pack_phrases' },
-  // باقة الفخامة
-  stab: { target: true, pack: 'pack_vip' },
-  popcorn: { target: false, pack: 'pack_vip' },
-  coffee: { target: false, pack: 'pack_vip' },
-  falcon: { target: false, pack: 'pack_vip' },
-  gg: { target: false, pack: 'pack_vip' },
-};
+// الردود المسموحة (REACTIONS) في الكتالوج: كلام وملصقات، ما فيه كتابة حرة أبداً.
 const MAX_REACTIONS = 40;
 
 // بدون الحروف اللي تتلخبط مثل O و 0 و I و 1.
@@ -163,12 +146,10 @@ async function newRoomCode(): Promise<string> {
 
 const userRef = (uid: string) => db.doc(`users/${uid}`);
 const boardRef = (uid: string) => db.doc(`leaderboard/${uid}`);
-const asPlayer = (uid: string, p: Profile): RoomPlayer => ({
-  uid,
-  name: p.name,
-  avatar: p.avatar,
-  frame: equippedOf(p).frame,
-});
+const asPlayer = (uid: string, p: Profile): RoomPlayer => {
+  const eq = equippedOf(p);
+  return { uid, name: p.name, avatar: avatarOf(p), frame: eq.frame, bubble: eq.bubble };
+};
 
 /**
  * يرسل الإشعارات بعد ما تنحفظ الحركة. أي خطأ هنا ما يأثر على اللعبة.
@@ -313,8 +294,11 @@ export const ensureProfile = onCall(async (req) => {
   const dev = isDev(req);
   await db.runTransaction(async (tx) => {
     const snap = await tx.get(userRef(uid));
-    if (!snap.exists) tx.set(userRef(uid), { ...newProfile(), dev });
-    else if ((snap.data()!.dev ?? false) !== dev) tx.update(userRef(uid), { dev });
+    if (!snap.exists) return tx.set(userRef(uid), { ...newProfile(), dev });
+    const p = snap.data() as Profile;
+    // هدايا مستويات ما أخذها (مثلاً وصل المستوى قبل ما تنضاف الهدايا).
+    const rewarded = applyLevelRewards(p);
+    if (rewarded !== p || (p.dev ?? false) !== dev) tx.set(userRef(uid), { ...rewarded, dev });
   });
   return {};
 });
@@ -329,7 +313,8 @@ export const devTool = onCall(async (req) => {
   if (!isDev(req)) throw new HttpsError('permission-denied', 'هذي للمطور بس');
   const action = String(req.data?.action ?? '');
   if (action === 'forceRole') return forceRole(uid, String(req.data?.code ?? ''), req.data?.role, req.data?.special);
-  await db.runTransaction(async (tx) => {
+  if (action === 'crown') return { champions: await crownChampions(gulfWeek(Date.now()), Date.now()) };
+  return db.runTransaction(async (tx) => {
     const p = await readProfile(db, tx, uid);
     let next: Profile = p;
     switch (action) {
@@ -338,12 +323,20 @@ export const devTool = onCall(async (req) => {
         break;
       case 'level': {
         const level = clampInt(req.data?.level, 1, 100);
-        next = { ...p, xp: xpForLevel(level), level };
+        // ينزل المستوى؟ نرجّع الهدايا من جديد عشان يقدر يجربها مرة ثانية.
+        const back = level < p.level ? { rewardedLevel: level } : {};
+        next = applyLevelRewards({ ...p, ...back, xp: xpForLevel(level), level });
         break;
       }
       case 'unlockAll':
-        next = { ...p, owned: SHOP_ITEMS.map((i) => i.id) };
+        next = { ...p, owned: CATALOG.map((i) => i.id) };
         break;
+      case 'passPoints': {
+        const s = passOf(p);
+        next = { ...p, pass: { ...s, points: s.points + clampInt(req.data?.points, 0, 100_000) } };
+        break;
+      }
+
       case 'resetDaily':
         next = { ...p, lastDaily: null };
         break;
@@ -355,8 +348,8 @@ export const devTool = onCall(async (req) => {
     }
     tx.set(userRef(uid), next);
     tx.set(boardRef(uid), toLeaderboard(next));
+    return {};
   });
-  return {};
 });
 
 function clampInt(raw: unknown, min: number, max: number): number {
@@ -398,7 +391,7 @@ export const updateProfile = onCall(async (req) => {
     const nameRef = db.doc(`names/${key}`);
     const taken = await tx.get(nameRef);
     const old = await readProfile(db, tx, uid);
-    const avatar = cleanAvatar(req.data?.avatar, old.owned);
+    const avatar = cleanAvatar(req.data?.avatar, old);
     if (taken.exists && taken.data()!.uid !== uid) throw new HttpsError('already-exists', 'هذا الاسم مأخوذ، اختر اسم ثاني');
     if (old.nameKey && old.nameKey !== key) tx.delete(db.doc(`names/${old.nameKey}`));
     tx.set(nameRef, { uid });
@@ -706,7 +699,7 @@ async function finishTurn(
     const xp = XP_PER_GAME + (won ? XP_PER_WIN : 0);
     const coins = won ? share : 0;
     results[player.id] = { won, coins, xp };
-    const updated: Profile = {
+    const base: Profile = {
       ...p,
       coins: p.coins + coins,
       xp: p.xp + xp,
@@ -717,6 +710,8 @@ async function finishTurn(
       weeklyWins: (p.week === week ? (p.weeklyWins ?? 0) : 0) + (won ? 1 : 0),
       missions: bumpMissions(p.missions, now, { ...bumps.get(player.id), play3: 1, ...(won ? { win1: 1 } : {}) }),
     };
+    // نقاط الموسم نفس الخبرة، وهدايا المستويات لو طلع مستوى.
+    const updated = applyLevelRewards(addPassPoints(base, xp, now));
     tx.set(userRef(player.id), updated);
     tx.set(boardRef(player.id), toLeaderboard(updated));
   });
@@ -810,11 +805,15 @@ export const timeout = onCall(async (req) => {
 export const buyItem = onCall(async (req) => {
   const uid = requireAuth(req);
   const item = itemById(req.data?.id);
-  if (!item) throw new HttpsError('invalid-argument', 'غرض مو معروف');
+  if (!item) {
+    const special = CATALOG.find((i) => i.id === req.data?.id);
+    if (special) throw new HttpsError('failed-precondition', 'هذا الغرض ما ينشرى، ينكسب بالمستويات أو الموسم أو البطولة');
+    throw new HttpsError('invalid-argument', 'غرض مو معروف');
+  }
   await db.runTransaction(async (tx) => {
     const p = await readProfile(db, tx, uid);
     const owned = p.owned ?? [];
-    if (owned.includes(item.id)) throw new HttpsError('already-exists', 'عندك هذا الغرض');
+    if (owns(p, item.id)) throw new HttpsError('already-exists', 'عندك هذا الغرض');
     const balance = item.currency === 'coins' ? p.coins : p.diamonds;
     // المطور يشتري ببلاش عشان يجرب كل شي.
     const price = p.dev ? 0 : item.price;
@@ -844,7 +843,7 @@ export const equipItem = onCall(async (req) => {
   if (!slot) throw new HttpsError('invalid-argument', 'غرض مو معروف');
   await db.runTransaction(async (tx) => {
     const p = await readProfile(db, tx, uid);
-    if (!isDefault(id) && !(p.owned ?? []).includes(id)) throw new HttpsError('permission-denied', 'ما تملك هذا الغرض');
+    if (!owns(p, id)) throw new HttpsError('permission-denied', 'ما تملك هذا الغرض');
     const updated = { ...p, equipped: { ...equippedOf(p), [slot]: id } };
     tx.set(userRef(uid), updated);
     tx.set(boardRef(uid), toLeaderboard(updated));
@@ -865,6 +864,117 @@ export const registerPushToken = onCall(async (req) => {
   return {};
 });
 
+/** يشيل الهدايا اللي شافها (التطبيق يعرضها ويناديها بعدين). */
+export const ackGifts = onCall(async (req) => {
+  const uid = requireAuth(req);
+  await db.runTransaction(async (tx) => {
+    const p = await readProfile(db, tx, uid);
+    if (p.gifts?.length) tx.set(userRef(uid), { ...p, gifts: [] });
+  });
+  return {};
+});
+
+/** يشتري المسار المدفوع في الباتل باس (بالجواهر، والمطور ببلاش). */
+export const buyPass = onCall(async (req) => {
+  const uid = requireAuth(req);
+  await db.runTransaction(async (tx) => {
+    const p = await readProfile(db, tx, uid);
+    if (!seasonActive(Date.now())) throw new HttpsError('failed-precondition', 'الموسم مو شغال الحين');
+    const s = passOf(p);
+    if (s.premium) throw new HttpsError('already-exists', 'عندك الباتل باس');
+    const price = p.dev ? 0 : SEASON.price;
+    if (p.diamonds < price) throw new HttpsError('failed-precondition', 'ما عندك جواهر كافية');
+    tx.set(userRef(uid), { ...p, diamonds: p.diamonds - price, pass: { ...s, premium: true } });
+  });
+  return {};
+});
+
+/** يستلم كل مكافآت الباتل باس اللي وصلها (المجانية، والمدفوعة لو شراه). يرجّع اللي أخذه. */
+export const claimPassRewards = onCall(async (req) => {
+  const uid = requireAuth(req);
+  return db.runTransaction(async (tx) => {
+    const p = await readProfile(db, tx, uid);
+    const { profile, got } = claimPass(p);
+    tx.set(userRef(uid), profile);
+    if (got.items.some((id) => id.startsWith('avatar_') || id.startsWith('frame_'))) tx.set(boardRef(uid), toLeaderboard(profile));
+    return got;
+  });
+});
+
+const CHAMPION_IDS = new Set(Object.values(CHAMPION_REWARDS).flatMap((r) => r.items));
+
+/**
+ * أبطال الأسبوع: أول ٣ في الترتيب الأسبوعي ياخذون إطار وشخصية خاصة لين التتويج الجاي (أسبوع)، مع ذهب.
+ * اللي كانوا أبطال قبل ترجع لهم أشكالهم. يرجّع معرفات الأبطال الجدد.
+ */
+async function crownChampions(week: string, now: number): Promise<string[]> {
+  const snap = await db.collection('leaderboard').where('week', '==', week).orderBy('weeklyWins', 'desc').limit(10).get();
+  const top = snap.docs
+    .map((d) => ({ ...(d.data() as LeaderboardEntry), uid: d.id }))
+    .filter((e) => e.weeklyWins > 0)
+    .sort((a, b) => b.weeklyWins - a.weeklyWins || b.gamesWon - a.gamesWon || b.level - a.level)
+    .slice(0, 3);
+  const until = now + 7 * 86400_000;
+  const metaRef = db.doc('meta/champions');
+  const before = ((await metaRef.get()).data()?.uids ?? []) as string[];
+  const dropChampionItems = (p: Profile) =>
+    Object.fromEntries(Object.entries(p.temp ?? {}).filter(([id]) => !CHAMPION_IDS.has(id)));
+
+  // الأبطال القدام: تخلص أغراضهم ويرجعون لأشكالهم.
+  for (const uid of before.filter((u) => !top.some((t) => t.uid === u))) {
+    await db.runTransaction(async (tx) => {
+      const p = await readProfile(db, tx, uid);
+      const back: Profile = { ...p, temp: dropChampionItems(p) };
+      const fixed: Profile = { ...back, avatar: avatarOf(back, now), equipped: equippedOf(back, now), restore: {} };
+      tx.set(userRef(uid), fixed);
+      tx.set(boardRef(uid), toLeaderboard(fixed));
+    });
+  }
+
+  const list: { uid: string; rank: number; name: string; avatar: string; wins: number }[] = [];
+  for (const [i, e] of top.entries()) {
+    const rank = i + 1;
+    const reward = CHAMPION_REWARDS[rank];
+    const frame = reward.items.find((id) => id.startsWith('frame_'))!;
+    const avatar = avatarOfItem(reward.items.find((id) => id.startsWith('avatar_'))!);
+    await db.runTransaction(async (tx) => {
+      const p = await readProfile(db, tx, e.uid);
+      const temp: Record<string, number> = dropChampionItems(p);
+      for (const id of reward.items) temp[id] = until;
+      // اللي لابسه الحين (لو مو من البطولة) يرجع له بعد الأسبوع.
+      const eq = equippedOf(p, now);
+      const current = avatarOf(p, now);
+      const restore = {
+        frame: CHAMPION_IDS.has(eq.frame) ? p.restore?.frame : eq.frame,
+        avatar: CHAMPION_IDS.has(`avatar_${current}`) ? p.restore?.avatar : current,
+      };
+      const gift = { kind: 'champion' as const, n: rank, coins: reward.coins, diamonds: reward.diamonds, items: reward.items };
+      const next: Profile = {
+        ...p,
+        coins: p.coins + reward.coins,
+        diamonds: p.diamonds + reward.diamonds,
+        temp,
+        restore,
+        avatar,
+        equipped: { ...eq, frame },
+        gifts: [...(p.gifts ?? []), gift].slice(-10),
+      };
+      tx.set(userRef(e.uid), next);
+      tx.set(boardRef(e.uid), toLeaderboard(next));
+    });
+    list.push({ uid: e.uid, rank, name: e.name, avatar, wins: e.weeklyWins });
+  }
+  await metaRef.set({ week, uids: list.map((c) => c.uid), list, until, at: now });
+  return list.map((c) => c.uid);
+}
+
+/** كل أحد ١٢:٠٢ بالليل (الخليج): تتويج أبطال الأسبوع اللي خلص. */
+export const weeklyChampions = onSchedule({ schedule: '2 0 * * 0', timeZone: 'Asia/Riyadh' }, async () => {
+  const now = Date.now();
+  const champions = await crownChampions(gulfWeek(now - 3600_000), now);
+  logger.info('أبطال الأسبوع', { champions });
+});
+
 /** يستلم مكافأة مهمة خلصها اليوم. */
 export const claimMission = onCall(async (req) => {
   const uid = requireAuth(req);
@@ -877,16 +987,12 @@ export const claimMission = onCall(async (req) => {
     if ((today.progress[mission.id] ?? 0) < mission.target) {
       throw new HttpsError('failed-precondition', 'ما خلصت المهمة للحين');
     }
-    tx.set(userRef(uid), {
-      ...p,
-      coins: p.coins + mission.coins,
-      missions: { ...today, claimed: [...today.claimed, mission.id] },
-    });
+    const claimed = { ...p, coins: p.coins + mission.coins, missions: { ...today, claimed: [...today.claimed, mission.id] } };
+    tx.set(userRef(uid), addPassPoints(claimed, MISSION_PASS_POINTS, Date.now()));
     return { coins: mission.coins };
   });
 });
 
-/** رد سريع في الطاولة. بعض الردود تحتاج لاعب مستهدف (مثل أشك في فلان). */
 /** يشيل رأيك (أشك أو أثق) في لاعب، لو غيّرت رأيك. */
 export const clearOpinion = onCall(async (req) => {
   const uid = requireAuth(req);
@@ -901,6 +1007,7 @@ export const clearOpinion = onCall(async (req) => {
   return {};
 });
 
+/** رد سريع في الطاولة (كلام أو ملصق). بعض الكلام يحتاج لاعب مستهدف (مثل أشك في فلان). */
 export const react = onCall(async (req) => {
   const uid = requireAuth(req);
   const code = String(req.data?.code ?? '');
@@ -915,8 +1022,8 @@ export const react = onCall(async (req) => {
     const profile = await readProfile(db, tx, uid);
     if (!room || room.status !== 'playing') throw new HttpsError('failed-precondition', 'اللعبة مو شغالة');
     if (!room.players.some((p) => p.uid === uid)) throw new HttpsError('permission-denied', 'أنت مو في هذي الطاولة');
-    if (spec.pack && !(profile.owned ?? []).includes(spec.pack)) {
-      throw new HttpsError('permission-denied', 'هذا الرد من المتجر، اشترِ الباقة أول');
+    if (spec.pack && !owns(profile, spec.pack)) {
+      throw new HttpsError('permission-denied', 'هذا الرد من باقة ما تملكها للحين');
     }
     if (target !== null && (target === uid || !room.players.some((p) => p.uid === target))) {
       throw new HttpsError('invalid-argument', 'اختار لاعب ثاني');

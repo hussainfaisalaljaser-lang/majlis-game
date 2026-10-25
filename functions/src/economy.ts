@@ -36,6 +36,9 @@ export const DAILY_REWARDS: { coins: number; diamonds: number }[] = [
   { coins: 1500, diamonds: 10 },
 ];
 
+/** نقاط الموسم (الباتل باس) لكل مهمة يومية يستلمها. نقاط اللعب نفس الخبرة. */
+export const MISSION_PASS_POINTS = 25;
+
 export const XP_PER_GAME = 20;
 export const XP_PER_WIN = 30;
 /**
