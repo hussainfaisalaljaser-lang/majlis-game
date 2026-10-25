@@ -70,6 +70,9 @@ class _GameScreenState extends State<GameScreen> {
   /// رد ينتظر تختار له لاعب (مثل أشك في…).
   ReactionKind? _pendingReaction;
 
+  /// تختار لاعب تشيل رأيك فيه (أشك أو أثق).
+  bool _clearPick = false;
+
   /// العرّاف ضغط "اكشف" وينتظر يختار لاعب.
   bool _seerPicking = false;
   String? _seerSeen;
@@ -173,6 +176,9 @@ class _GameScreenState extends State<GameScreen> {
   }
 
   void _afterUpdate(GameView view) {
+    if (view.autopilot.contains(view.you) && view.phase != Phase.gameOver) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _kicked());
+    }
     if (view.seerSees != null && _seerSeen == null && _roleShown) {
       final target = view.player(view.seerSees!);
       final traitor = target.knownRole != Role.loyal;
@@ -277,9 +283,25 @@ class _GameScreenState extends State<GameScreen> {
     }
   }
 
+  /// رأيي الحالي في لاعب: true أشك، false أثق، null ما عندي رأي.
+  bool? _myOpinion(String target) => _room?.opinions[_backend.uid]?[target];
+
   Future<void> _react(ReactionKind kind, {String? target}) async {
-    setState(() => _pendingReaction = null);
+    setState(() {
+      _pendingReaction = null;
+      _clearPick = false;
+    });
     try {
+      // نفس الرأي مرة ثانية على نفس اللاعب = تشيله (غيّرت رأيك).
+      final same =
+          target != null &&
+          ((kind == ReactionKind.suspect && _myOpinion(target) == true) ||
+              (kind == ReactionKind.trust && _myOpinion(target) == false));
+      if (same) {
+        await _backend.clearOpinion(widget.code, target);
+        _toast('شلت رأيك');
+        return;
+      }
       await _backend.react(widget.code, kind, target: target);
     } on BackendException catch (e) {
       _toast(e.message);
@@ -451,6 +473,19 @@ class _GameScreenState extends State<GameScreen> {
                     ),
                 ],
               ),
+              if ((_room?.opinions[_backend.uid] ?? const {}).isNotEmpty) ...[
+                const SizedBox(height: 12),
+                TextButton(
+                  onPressed: () {
+                    Navigator.pop(context);
+                    setState(() {
+                      _pendingReaction = null;
+                      _clearPick = true;
+                    });
+                  },
+                  child: const Text('↩ أشيل رأيي في لاعب'),
+                ),
+              ],
             ],
           ),
         ),
@@ -460,6 +495,20 @@ class _GameScreenState extends State<GameScreen> {
 
   /// اللاعبين اللي ينفع تختارهم من الطاولة الحين، ووش يصير لما تختار.
   (Set<String>, void Function(String)?) _selection(GameView v) {
+    if (_clearPick) {
+      return (
+        (_room?.opinions[_backend.uid] ?? const {}).keys.toSet(),
+        (id) async {
+          setState(() => _clearPick = false);
+          try {
+            await _backend.clearOpinion(widget.code, id);
+            _toast('شلت رأيك');
+          } on BackendException catch (e) {
+            _toast(e.message);
+          }
+        },
+      );
+    }
     if (_seerPicking) {
       return (
         {
@@ -557,7 +606,9 @@ class _GameScreenState extends State<GameScreen> {
     final (roleName, _, roleColor, _) = roleInfo[v.yourRole]!;
     final special = v.yourSpecial;
 
-    final pickHint = _seerPicking
+    final pickHint = _clearPick
+        ? 'اختر اللاعب اللي تبي تشيل رأيك فيه'
+        : _seerPicking
         ? '🔮 اختر لاعب تكشف فريقه (سراً)'
         : _pendingReaction == null
         ? null
@@ -565,7 +616,10 @@ class _GameScreenState extends State<GameScreen> {
     final over = v.phase == Phase.gameOver;
 
     return PopScope(
-      canPop: over,
+      canPop: over || _leaving,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _confirmLeave();
+      },
       child: NightScaffold(
         body: SafeArea(
           child: Stack(
@@ -597,7 +651,7 @@ class _GameScreenState extends State<GameScreen> {
                   roleColor: roleColor,
                   special: special,
                   onRole: _showRole,
-                  onBack: over ? () => Navigator.of(context).maybePop() : null,
+                  onBack: over ? () => Navigator.of(context).maybePop() : _confirmLeave,
                 ),
               ),
               // فوق يسار: النقاط مصغرة، تنضغط وتكبر
@@ -694,6 +748,79 @@ class _GameScreenState extends State<GameScreen> {
     );
   }
 
+  bool _leaving = false;
+  bool _kickShown = false;
+
+  /// تطلع من اللعبة؟ يكمل عنك بوت، وما تاخذ فوز ولا جائزة.
+  Future<void> _confirmLeave() async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('تطلع من اللعبة؟', textAlign: TextAlign.center),
+        content: const Text('بيكمل عنك بوت لين تخلص، وما تاخذ فوز ولا جائزة من هالجولة.', textAlign: TextAlign.center),
+        actions: [
+          Row(
+            children: [
+              Expanded(
+                child: GameButton(
+                  label: 'أكمل',
+                  tone: ButtonTone.ghost,
+                  height: 46,
+                  fontSize: 16,
+                  onPressed: () => Navigator.pop(context, false),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: GameButton(
+                  label: 'اطلع',
+                  tone: ButtonTone.red,
+                  height: 46,
+                  fontSize: 16,
+                  onPressed: () => Navigator.pop(context, true),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+    setState(() => _leaving = true);
+    try {
+      await _backend.leaveGame(widget.code);
+    } on BackendException catch (e) {
+      _toast(e.message);
+    }
+    if (mounted) Navigator.of(context).popUntil((r) => r.isFirst);
+  }
+
+  /// انطردت لأنك ما لعبت دورين: نقولك ونرجعك للرئيسية.
+  void _kicked() {
+    if (_kickShown || _leaving) return;
+    _kickShown = true;
+    _leaving = true;
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        title: const Text('انطردت من اللعبة', textAlign: TextAlign.center),
+        content: const Text(
+          'ما لعبت دورك مرتين ورا بعض، فكمّل عنك بوت.\nتقدر ترجع تلعب بعد ٥ دقايق.',
+          textAlign: TextAlign.center,
+        ),
+        actions: [
+          GameButton(
+            label: 'تمام',
+            height: 46,
+            fontSize: 16,
+            onPressed: () => Navigator.of(context).popUntil((r) => r.isFirst),
+          ),
+        ],
+      ),
+    );
+  }
+
   /// شكل الكروت اللي لابسه اللاعب من المتجر.
   CardSkin get _skin => cardSkin(Backend.instance.profile.value.cards);
 
@@ -706,6 +833,7 @@ class _GameScreenState extends State<GameScreen> {
           onCancel: () => setState(() {
             _pendingReaction = null;
             _seerPicking = false;
+            _clearPick = false;
           }),
         ),
       ];
@@ -842,8 +970,14 @@ class _GameScreenState extends State<GameScreen> {
   Widget _besideSeat({required Widget yes, required Widget no}) => Positioned.fill(
     child: Stack(
       children: [
-        Align(alignment: const Alignment(.5, .1), child: SizedBox(width: 130, child: yes)),
-        Align(alignment: const Alignment(-.5, .1), child: SizedBox(width: 130, child: no)),
+        Align(
+          alignment: const Alignment(.5, .1),
+          child: SizedBox(width: 130, child: yes),
+        ),
+        Align(
+          alignment: const Alignment(-.5, .1),
+          child: SizedBox(width: 130, child: no),
+        ),
       ],
     ),
   );
@@ -1082,28 +1216,52 @@ class _TableCenter extends StatelessWidget {
     };
     final showMinister = v.phase != Phase.power && v.phase != Phase.gameOver;
     String name(String? id) => id == null ? '' : (id == v.you ? 'أنت' : v.player(id).name);
+    // بعد ٣ قرارات للخونة: لو الزعيم صار وزير، الخونة يفوزون. نذكّر الكل وقت الترشيح والتصويت.
+    final danger = v.traitorPolicies >= 3 && (v.phase == Phase.nomination || v.phase == Phase.election);
     return FittedBox(
       fit: BoxFit.scaleDown,
-      child: Row(
+      child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          _TraySeat(
-            avatar: room?.player(v.presidentId)?.avatar,
-            name: name(v.presidentId),
-            crown: true,
-            cards: cardsWithPresident ? 3 : 0,
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _TraySeat(
+                avatar: room?.player(v.presidentId)?.avatar,
+                name: name(v.presidentId),
+                crown: true,
+                cards: cardsWithPresident ? 3 : 0,
+              ),
+              const SizedBox(width: 10),
+              _PhaseIcon(icon: icon, pulse: v.phase == Phase.election || v.phase == Phase.power),
+              if (showMinister) ...[
+                const SizedBox(width: 10),
+                _TraySeat(
+                  avatar: v.nomineeId == null ? null : room?.player(v.nomineeId!)?.avatar,
+                  name: v.nomineeId == null ? 'الوزير؟' : name(v.nomineeId),
+                  waiting: v.nomineeId == null,
+                  cards: cardsWithMinister ? 2 : 0,
+                ),
+              ],
+            ],
           ),
-          const SizedBox(width: 10),
-          _PhaseIcon(icon: icon, pulse: v.phase == Phase.election || v.phase == Phase.power),
-          if (showMinister) ...[
-            const SizedBox(width: 10),
-            _TraySeat(
-              avatar: v.nomineeId == null ? null : room?.player(v.nomineeId!)?.avatar,
-              name: v.nomineeId == null ? 'الوزير؟' : name(v.nomineeId),
-              waiting: v.nomineeId == null,
-              cards: cardsWithMinister ? 2 : 0,
+          if (danger)
+            Container(
+              margin: const EdgeInsets.only(top: 4),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+              decoration: BoxDecoration(color: AppColors.traitor, borderRadius: BorderRadius.circular(10)),
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  GameIcon('dagger', size: 14, color: Colors.white),
+                  SizedBox(width: 5),
+                  Text(
+                    'خطر! لو صار الزعيم وزير، يفوزون الخونة',
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: Colors.white),
+                  ),
+                ],
+              ),
             ),
-          ],
         ],
       ),
     );
@@ -1160,7 +1318,12 @@ class _TraySeat extends StatelessWidget {
                 textAlign: TextAlign.center,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: AppColors.goldInk, height: 1.2),
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.goldInk,
+                  height: 1.2,
+                ),
               ),
             ),
           ),

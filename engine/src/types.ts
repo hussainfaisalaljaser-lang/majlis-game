@@ -96,6 +96,10 @@ export interface GameState {
   investigations: Investigation[];
   /** الخائن اللي يعرفه العرّاف من البداية. */
   seerSees: PlayerId | null;
+  /** لاعبين طلعوا أو انطردوا لأنهم ما لعبوا، ويلعب بدالهم بوت لين تخلص اللعبة (السيرفر يعبّيها). */
+  autopilot?: PlayerId[];
+  /** كم دور ورا بعض خلص وقته على اللاعب بدون ما يلعب (السيرفر يعدّها للطرد). */
+  misses?: Record<PlayerId, number>;
   /** الحارس استخدم حمايته؟ */
   guardianUsed: boolean;
   winner: Team | null;

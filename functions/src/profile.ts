@@ -33,6 +33,10 @@ export interface Profile {
   equipped?: Record<Slot, string>;
   /** أجهزة اللاعب للإشعارات. */
   fcmTokens?: string[];
+  /** انطرد من لعبة لأنه ما لعب: ممنوع يدخل ألعاب لين هالوقت (ملي ثانية). */
+  bannedUntil?: number;
+  /** مفتاح اسمه المحجوز في names/ (عشان محد ياخذ نفس الاسم). */
+  nameKey?: string;
   /** ربط حسابه بقوقل وأخذ المكافأة. */
   linked?: boolean;
   createdAt?: FieldValue;
@@ -89,6 +93,20 @@ export function equippedOf(p: Profile): Record<Slot, string> {
 export async function readProfile(db: Firestore, tx: Transaction, uid: string): Promise<Profile> {
   const snap = await tx.get(db.doc(`users/${uid}`));
   return snap.exists ? (snap.data() as Profile) : newProfile();
+}
+
+/**
+ * مفتاح الاسم للمقارنة: نفس الاسم بأشكال مختلفة يعتبر واحد
+ * (الهمزات، التاء المربوطة، الألف المقصورة، التشكيل، المسافات، الحروف الكبيرة).
+ */
+export function nameKey(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/[\u064B-\u0652\u0640]/g, '')
+    .replace(/[أإآٱ]/g, 'ا')
+    .replace(/ة/g, 'ه')
+    .replace(/ى/g, 'ي')
+    .replace(/\s+/g, '');
 }
 
 export function cleanName(raw: unknown): string {

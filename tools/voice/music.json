@@ -1,9 +1,9 @@
 {
   "length_ms": 60000,
   "tracks": {
-    "menu_a": "Warm Arabian lounge music for a Gulf majlis at night: soft oud melody, gentle qanun, light darbuka and riq rhythm, cozy and welcoming, coffee and dates mood, seamless loop, instrumental, no vocals.",
-    "menu_b": "Elegant Middle Eastern background music for a game menu: oud and ney lead, warm strings, slow khaleeji rhythm on frame drums, inviting and friendly, loopable, instrumental, no vocals.",
-    "game_a": "Mysterious suspense music for a social deduction game set in an Arabian council at night: low drones, sparse oud plucks, soft frame drum heartbeat, tension without being loud, leaves room for a narrator voice, seamless loop, instrumental, no vocals.",
-    "game_b": "Dark and intriguing Middle Eastern underscore for a game of traitors and secrets: muted darbuka pulse, low strings, occasional ney phrases, quiet and tense, subtle, loopable, instrumental, no vocals."
+    "menu_c": "Mysterious game menu theme for a social deduction game about hidden traitors: dark cinematic strings, soft ticking clock, low piano notes, a subtle eerie music box melody, intriguing and inviting, seamless loop, instrumental, no vocals.",
+    "menu_d": "Noir mystery lobby music for a detective party game: muted jazzy upright bass, brushed drums, sly pizzicato strings, smoky and secretive mood, playful suspense, seamless loop, instrumental, no vocals.",
+    "game_c": "Tense mystery underscore for a game where players hunt a traitor among them: pulsing low synth, ticking clock, quiet heartbeat percussion, dissonant string swells, suspicious atmosphere like Among Us or Werewolf, stays low under dialogue, seamless loop, instrumental, no vocals.",
+    "game_d": "Dark suspense loop for a hidden-role thriller game: slow ostinato on low strings, creeping piano, distant whispers of wind, subtle tension rising and falling, mysterious and paranoid, quiet enough for a narrator, seamless loop, instrumental, no vocals."
   }
 }

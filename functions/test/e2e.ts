@@ -130,6 +130,10 @@ async function main(): Promise<void> {
   const afterSetup = await host.profile();
   assert.deepEqual([afterSetup.name, afterSetup.avatar, afterSetup.setupDone, afterSetup.coins], ['أبو فيصل', 'cool', true, 2200]);
   for (const [i, p] of rest.entries()) await p.call('updateProfile', { name: `لاعب ${i + 1}`, avatar: 'falcon' });
+  // الاسم لواحد بس، حتى لو اختلفت الهمزة أو المسافات، وأسماء البوتات محجوزة
+  await expectError(rest[0].call('updateProfile', { name: 'ابو  فيصل', avatar: 'falcon' }), 'already-exists');
+  await expectError(rest[0].call('updateProfile', { name: 'سلمان', avatar: 'falcon' }), 'already-exists');
+  await host.call('updateProfile', { name: 'أبو فيصل', avatar: 'cool' });
   console.log('✓ الملف الشخصي: ٢٠٠٠ ذهب للبداية، والاسم يتحقق منه، والهدية اليومية مرة وحدة');
 
   // ١. روم خاص بكود
@@ -176,7 +180,10 @@ async function main(): Promise<void> {
   const roomDoc = (await getDoc(doc(getFirestore(host.app), `rooms/${code}`))).data()!;
   assert.equal(roomDoc.reactions.length, 2);
   assert.equal(roomDoc.opinions[rest[0].uid][rest[1].uid], 'suspect');
-  console.log('✓ الردود السريعة تنحفظ، ومؤشر الشك يتحدث، والردود الغلط ترفض');
+  await rest[0].call('clearOpinion', { code, target: rest[1].uid });
+  const cleared = (await getDoc(doc(getFirestore(host.app), `rooms/${code}`))).data()!;
+  assert.equal(cleared.opinions[rest[0].uid]?.[rest[1].uid], undefined, 'الرأي ينشال لو غيّر رأيه');
+  console.log('✓ الردود السريعة تنحفظ، ومؤشر الشك يتحدث وينشال، والردود الغلط ترفض');
 
   // ٤. حركة غلط ترفض
   const notPresident = players.find((p) => p.uid !== views[0].presidentId)!;
@@ -341,6 +348,18 @@ async function main(): Promise<void> {
   const botBoard = await getDoc(doc(getFirestore(host.app), `leaderboard/${removed}`));
   assert.equal(botBoard.exists(), false, 'البوت ما يدخل الترتيب');
   console.log('✓ البوتات: تنضاف وتنشال، وتلعب بنفسها لين النهاية، وما تدخل الترتيب');
+
+  // الخروج من لعبة شغالة: يكمل عنه بوت، وما يقدر يلعب بعدها
+  const { code: leaveRoom } = await host.call<{ code: string }>('createRoom', { maxPlayers: 5 });
+  for (let i = 0; i < 4; i++) await host.call('addBots', { code: leaveRoom });
+  await host.call('startGame', { code: leaveRoom });
+  await host.call('leaveGame', { code: leaveRoom });
+  const leftView = (await host.view(leaveRoom)) as PlayerView & { autopilot: string[] };
+  assert.ok(leftView.autopilot.includes(host.uid), 'البوت يلعب عنه');
+  const leftRoom = (await getDoc(doc(getFirestore(host.app), `rooms/${leaveRoom}`))).data()!;
+  assert.equal(leftRoom.players.find((p: { uid: string }) => p.uid === host.uid).bot, true, 'يطلع جنبه 🤖 للكل');
+  await expectError(host.call('act', { code: leaveRoom, action: { type: 'vote', ja: true } }), 'failed-precondition');
+  console.log('✓ الخروج: البوت يكمل عنه، وما يقدر يلعب بعدها');
 
   // ١١. الطاولة العامة: ما تتكمل بالبوتات قبل ٢٠ ثانية
   const { code: lonelyQm } = await host.call<{ code: string }>('quickMatch', { maxPlayers: 5, tierId: 'starter' });

@@ -239,6 +239,11 @@ class Backend {
 
   Future<void> act(String code, Map<String, dynamic> action) => _call('act', {'code': code, 'action': action});
 
+  /// يطلع من لعبة شغالة، ويكمل عنه بوت.
+  Future<void> leaveGame(String code) => _call('leaveGame', {'code': code});
+
+  Future<void> clearOpinion(String code, String target) => _call('clearOpinion', {'code': code, 'target': target});
+
   Future<void> react(String code, ReactionKind kind, {String? target}) =>
       _call('react', {'code': code, 'kind': kind.name, 'target': ?target});
 

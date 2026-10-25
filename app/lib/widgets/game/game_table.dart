@@ -8,6 +8,7 @@ import '../../models/shop.dart';
 import '../../services/notes.dart';
 import '../../theme.dart';
 import '../common.dart';
+import '../ui.dart';
 
 /// سجادة المجلس: اللاعبين قاعدين حولها، وفي النص صينية نحاس فيها رسالة المرحلة.
 class GameTable extends StatelessWidget {
@@ -101,7 +102,10 @@ class GameTable extends StatelessWidget {
                     child: ListenableBuilder(
                       listenable: notes,
                       builder: (context, _) => AnimatedOpacity(
-                        opacity: spotlight == null || spotlight!.contains(p.id) ? 1 : .3,
+                        // وقت التصويت الكل يظلم إلا الحكومة، بس الخونة اللي تعرفهم يبقون واضحين.
+                        opacity: spotlight == null || spotlight!.contains(p.id)
+                            ? 1
+                            : (p.id != view.you && (p.knownRole == Role.traitor || p.knownRole == Role.leader) ? .85 : .3),
                         duration: const Duration(milliseconds: 400),
                         child: AnimatedScale(
                           scale: spotlight != null && spotlight!.contains(p.id) ? 1.15 : 1,
@@ -340,7 +344,21 @@ class _SeatView extends StatelessWidget {
                         child: Center(child: Text('💀', style: TextStyle(fontSize: 26))),
                       ),
                     if (p.id == view.presidentId) const Positioned(top: -26, left: 0, right: 0, child: _Crown()),
-                    if (role == Role.leader && !isMe) const _Badge('🦹', left: -6, bottom: -2),
+                    // ختم أحمر على كل خاين تعرفه (يبقى حتى لو صار رئيس أو وزير وتغيّر لون الإطار).
+                    if (!isMe && (role == Role.traitor || role == Role.leader))
+                      Positioned(
+                        left: -8,
+                        bottom: -4,
+                        child: Stack(
+                          alignment: Alignment.center,
+                          clipBehavior: Clip.none,
+                          children: [
+                            const Seal(loyal: false, size: 26),
+                            if (role == Role.leader)
+                              const Positioned(top: -10, child: GameIcon('crown', size: 14, color: AppColors.gold)),
+                          ],
+                        ),
+                      ),
                     if (p.knownSpecial == Special.guardian && !isMe) const _Badge('🛡️', left: -6, bottom: -2),
                     if (rp?.bot ?? false) const _Badge('🤖', right: -8, top: 16),
                     if (view.phase == Phase.election && p.hasVoted) const _Badge('✅', left: -6, top: -4),

@@ -29,6 +29,7 @@ import { whoToNotify, type Note } from './notify.js';
 import {
   cleanAvatar,
   cleanName,
+  nameKey,
   dailyClaim,
   equippedOf,
   newProfile,
@@ -209,6 +210,13 @@ function startGameTx(tx: Transaction, room: Room): GameState {
 
 const isBot = (id: string) => id.startsWith('bot_');
 
+/** يلعب عنه البوت: بوت أصلاً، أو لاعب طلع أو انطرد من اللعبة. */
+const botPlays = (s: GameState) => (id: string) => isBot(id) || (s.autopilot ?? []).includes(id);
+
+/** كم دور يفوّته اللاعب ورا بعض قبل ما ينطرد، وكم يتعاقب (ما يدخل ألعاب). */
+const MAX_MISSES = 2;
+const AFK_BAN_MS = 5 * 60_000;
+
 /**
  * آخر وقت للدور الحالي (بالملي ثانية). [waitMs] وقت ننتظره قبل ما يبدأ الدور (الترحيب، أو مشاهد
  * الأحداث اللي صارت للتو) عشان ما يركب شي على شي. لو الدور على بوت، يفكر ٣–٥ ثواني،
@@ -218,7 +226,7 @@ function deadlineFor(state: GameState, now: number, waitMs = 0): number | null {
   if (state.phase === 'gameOver') return null;
   const start = now + waitMs;
   const actors = currentActors(state);
-  if (actors.length > 0 && actors.every(isBot)) return start + botThink(randomInt(BOT_THINK_JITTER_MS));
+  if (actors.length > 0 && actors.every(botPlays(state))) return start + botThink(randomInt(BOT_THINK_JITTER_MS));
   return start + PHASE_SECONDS[state.phase] * 1000;
 }
 
@@ -230,7 +238,7 @@ function runInstantBots(state: GameState): GameState {
     const leg = s.lastLegislature;
     if (leg) {
       for (const [office, id] of [['president', leg.government.president], ['chancellor', leg.government.chancellor]] as const) {
-        if (isBot(id) && !leg.claimed.includes(id) && s.players.find((p) => p.id === id)?.alive) {
+        if (botPlays(s)(id) && !leg.claimed.includes(id) && s.players.find((p) => p.id === id)?.alive) {
           s = applyAction(s, id, { type: 'claim', policies: botClaim(s, id, office, Math.random) });
           changed = true;
         }
@@ -238,7 +246,7 @@ function runInstantBots(state: GameState): GameState {
     }
     // العرّاف البوت يستخدم كشفه لما يجي وقته (من الجولة الثانية).
     for (const p of s.players) {
-      if (!isBot(p.id)) continue;
+      if (!botPlays(s)(p.id)) continue;
       const target = botSeerReveal(s, p.id);
       if (target) {
         s = applyAction(s, p.id, { type: 'seerReveal', target });
@@ -246,7 +254,7 @@ function runInstantBots(state: GameState): GameState {
       }
     }
     if (s.phase === 'election') {
-      for (const id of currentActors(s).filter(isBot)) {
+      for (const id of currentActors(s).filter(botPlays(s))) {
         if (s.phase !== 'election') break;
         s = applyAction(s, id, botAction(s, id)!);
         changed = true;
@@ -262,7 +270,7 @@ function writeGame(tx: Transaction, code: string, state: GameState, deadline: nu
   const gameRef = db.doc(`games/${code}`);
   tx.set(gameRef, { ...state, deadline, turnKey: turnKey(state) });
   for (const p of state.players) {
-    tx.set(gameRef.collection('views').doc(p.id), { ...viewFor(state, p.id), deadline });
+    tx.set(gameRef.collection('views').doc(p.id), { ...viewFor(state, p.id), deadline, autopilot: state.autopilot ?? [] });
   }
 }
 
@@ -289,8 +297,17 @@ export const updateProfile = onCall(async (req) => {
   const uid = requireAuth(req);
   const name = cleanName(req.data?.name);
   const avatar = cleanAvatar(req.data?.avatar);
+  const key = nameKey(name);
+  if (BOTS.some((b) => nameKey(b.name) === key)) throw new HttpsError('already-exists', 'هذا الاسم محجوز، اختر اسم ثاني');
   await db.runTransaction(async (tx) => {
-    const p = { ...(await readProfile(db, tx, uid)), name, avatar, setupDone: true };
+    // كل اسم لواحد بس: نحجزه في names/ ونفك الاسم القديم.
+    const nameRef = db.doc(`names/${key}`);
+    const taken = await tx.get(nameRef);
+    const old = await readProfile(db, tx, uid);
+    if (taken.exists && taken.data()!.uid !== uid) throw new HttpsError('already-exists', 'هذا الاسم مأخوذ، اختر اسم ثاني');
+    if (old.nameKey && old.nameKey !== key) tx.delete(db.doc(`names/${old.nameKey}`));
+    tx.set(nameRef, { uid });
+    const p = { ...old, name, nameKey: key, avatar, setupDone: true };
     tx.set(userRef(uid), p);
     tx.set(boardRef(uid), toLeaderboard(p));
   });
@@ -332,6 +349,7 @@ export const createRoom = onCall(async (req) => {
   const code = await newRoomCode();
   await db.runTransaction(async (tx) => {
     const p = await readProfile(db, tx, uid);
+    requireNotBanned(p);
     const room: Room = {
       code,
       hostId: uid,
@@ -362,6 +380,7 @@ export const joinRoom = onCall(async (req) => {
     if (room.status !== 'waiting') throw new HttpsError('failed-precondition', 'اللعبة بدأت');
     if (room.players.length >= room.maxPlayers) throw new HttpsError('failed-precondition', 'الروم مليان');
     const p = await readProfile(db, tx, uid);
+    requireNotBanned(p);
     const tier = tierById(room.tierId);
     if (tier) checkTier(p, tier);
     if (room.entryFee > 0) chargeEntry(tx, uid, p, room.entryFee);
@@ -393,6 +412,7 @@ export const quickMatch = onCall(async (req) => {
     const joined = await db.runTransaction(async (tx): Promise<{ started: GameState | null } | null> => {
       const room = (await tx.get(doc.ref)).data() as Room | undefined;
       const p = await readProfile(db, tx, uid);
+      requireNotBanned(p);
       if (!room || room.status !== 'waiting' || room.players.length >= room.maxPlayers) return null;
       if (room.players.some((x) => x.uid === uid)) return { started: null };
       checkTier(p, tier);
@@ -408,6 +428,7 @@ export const quickMatch = onCall(async (req) => {
   const code = await newRoomCode();
   await db.runTransaction(async (tx) => {
     const p = await readProfile(db, tx, uid);
+    requireNotBanned(p);
     checkTier(p, tier);
     chargeEntry(tx, uid, p, tier.entryFee);
     const room: Room = {
@@ -523,9 +544,13 @@ export const act = onCall(async (req) => {
     const snap = await tx.get(db.doc(`games/${code}`));
     if (!snap.exists) throw new HttpsError('not-found', 'اللعبة مو موجودة');
     const prev = splitGame(snap.data() as StoredGame);
+    if ((prev.state.autopilot ?? []).includes(uid)) {
+      throw new HttpsError('failed-precondition', 'طلعت من هذي اللعبة، والبوت يكمل عنك');
+    }
     let next: GameState;
     try {
       next = applyAction(prev.state, uid, action);
+      if (next.misses?.[uid]) next = { ...next, misses: { ...next.misses, [uid]: 0 } };
     } catch (e) {
       if (e instanceof RuleError) throw new HttpsError('failed-precondition', e.message, { code: e.code });
       throw e;
@@ -580,7 +605,8 @@ async function finishTurn(
   const week = gulfWeek(now);
   const results: Record<string, GameResult> = {};
   humans.forEach((player, i) => {
-    const won = teamOf(player.role) === next.winner;
+    // اللي طلع أو انطرد قبل النهاية ما ياخذ فوز ولا جائزة.
+    const won = teamOf(player.role) === next.winner && !(next.autopilot ?? []).includes(player.id);
     const p = profiles[i];
     const xp = XP_PER_GAME + (won ? XP_PER_WIN : 0);
     const coins = won ? share : 0;
@@ -604,6 +630,46 @@ async function finishTurn(
 }
 
 /**
+ * يسلّم مقاعد لاعبين للبوت: يطلع جنبهم 🤖 للكل. [banUntil] عقاب اللي انطرد لأنه ما لعب.
+ * كتابة بس (الروم مقروء من بداية العملية)، لأن Firestore يبي كل القراءات قبل الكتابات.
+ */
+function handOver(tx: Transaction, room: Room, uids: string[], banUntil?: number): void {
+  tx.update(db.doc(`rooms/${room.code}`), {
+    players: room.players.map((p) => (uids.includes(p.uid) ? { ...p, bot: true } : p)),
+  });
+  if (banUntil) for (const uid of uids) tx.set(userRef(uid), { bannedUntil: banUntil }, { merge: true });
+}
+
+/** اللي انطرد لأنه ما لعب، ما يدخل ألعاب لين يخلص عقابه. */
+function requireNotBanned(p: Profile): void {
+  const left = (p.bannedUntil ?? 0) - Date.now();
+  if (left > 0) {
+    const minutes = Math.ceil(left / 60_000);
+    throw new HttpsError('failed-precondition', `انطردت لأنك ما لعبت دورك. تقدر ترجع تلعب بعد ${minutes} دقيقة`);
+  }
+}
+
+/** اللاعب يطلع من لعبة شغالة: يكمل عنه بوت لين النهاية، وما ياخذ فوز ولا جائزة. */
+export const leaveGame = onCall(async (req) => {
+  const uid = requireAuth(req);
+  const code = String(req.data?.code ?? '');
+  const notes = await db.runTransaction(async (tx): Promise<Note[] | null> => {
+    const snap = await tx.get(db.doc(`games/${code}`));
+    if (!snap.exists) throw new HttpsError('not-found', 'اللعبة مو موجودة');
+    const prev = splitGame(snap.data() as StoredGame);
+    if (!prev.state.players.some((p) => p.id === uid)) throw new HttpsError('permission-denied', 'أنت مو في هذي اللعبة');
+    if (prev.state.phase === 'gameOver' || (prev.state.autopilot ?? []).includes(uid)) return null;
+    const room = (await tx.get(db.doc(`rooms/${code}`))).data() as Room;
+    const next = runInstantBots({ ...prev.state, autopilot: [...(prev.state.autopilot ?? []), uid] });
+    const notes = await finishTurn(tx, code, { ...prev, key: '' }, next, new Map());
+    handOver(tx, room, [uid]);
+    return notes;
+  });
+  if (notes) await sendPush(code, notes);
+  return {};
+});
+
+/**
  * أي لاعب في الطاولة يطلبها لما يخلص الوقت. السيرفر يتأكد إن الوقت خلص فعلاً،
  * ثم يلعب بدال اللي تأخر. لو أكثر من واحد طلبها بنفس اللحظة، وحدة بس تنفذ.
  */
@@ -616,15 +682,30 @@ export const timeout = onCall(async (req) => {
     const prev = splitGame(snap.data() as StoredGame);
     if (!prev.state.players.some((p) => p.id === uid)) throw new HttpsError('permission-denied', 'أنت مو في هذي اللعبة');
     if (prev.deadline === null || Date.now() < prev.deadline) return null;
+    const room = (await tx.get(db.doc(`rooms/${code}`))).data() as Room;
 
     let next = prev.state;
+    let kicked: string[] = [];
     const actors = currentActors(prev.state);
-    if (actors.length === 1 && isBot(actors[0])) {
-      next = applyAction(next, actors[0], botAction(next, actors[0])!);
+    const plays = botPlays(prev.state);
+    if (actors.length > 0 && actors.every(plays)) {
+      for (const id of actors) next = applyAction(next, id, botAction(next, id)!);
     } else {
       for (const [id, a] of timeoutActions(prev.state, Math.random)) next = applyAction(next, id, a);
+      // اللي خلص وقته وهو ما لعب: نعدّ عليه، ولو فوّت دورين ورا بعض يلعب عنه بوت ويتعاقب.
+      const missed = actors.filter((id) => !plays(id));
+      if (missed.length) {
+        const misses = { ...(next.misses ?? {}) };
+        for (const id of missed) {
+          misses[id] = (misses[id] ?? 0) + 1;
+          if (misses[id] >= MAX_MISSES) kicked.push(id);
+        }
+        next = { ...next, misses, autopilot: [...(next.autopilot ?? []), ...kicked] };
+      }
     }
-    return finishTurn(tx, code, prev, next, new Map());
+    const notes = await finishTurn(tx, code, prev, next, new Map());
+    if (kicked.length) handOver(tx, room, kicked, Date.now() + AFK_BAN_MS);
+    return notes;
   });
   if (notes) await sendPush(code, notes);
   return { applied: notes !== null };
@@ -704,6 +785,20 @@ export const claimMission = onCall(async (req) => {
 });
 
 /** رد سريع في الطاولة. بعض الردود تحتاج لاعب مستهدف (مثل أشك في فلان). */
+/** يشيل رأيك (أشك أو أثق) في لاعب، لو غيّرت رأيك. */
+export const clearOpinion = onCall(async (req) => {
+  const uid = requireAuth(req);
+  const code = String(req.data?.code ?? '');
+  const target = String(req.data?.target ?? '');
+  await db.runTransaction(async (tx) => {
+    const ref = db.doc(`rooms/${code}`);
+    const room = (await tx.get(ref)).data() as Room | undefined;
+    if (!room || !room.players.some((p) => p.uid === uid)) throw new HttpsError('permission-denied', 'أنت مو في هذي الطاولة');
+    tx.update(ref, { [`opinions.${uid}.${target}`]: FieldValue.delete() });
+  });
+  return {};
+});
+
 export const react = onCall(async (req) => {
   const uid = requireAuth(req);
   const code = String(req.data?.code ?? '');

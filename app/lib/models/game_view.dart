@@ -78,6 +78,7 @@ class GameView {
         yourSpecial = j['yourSpecial'] == null ? null : Special.values.byName(j['yourSpecial'] as String),
         seerSees = j['seerSees'] as String?,
         seerReady = j['seerReady'] as bool? ?? false,
+        autopilot = {for (final id in (j['autopilot'] as List?) ?? const []) id as String},
         players = [for (final p in j['players'] as List) ViewPlayer.fromJson(_map(p))],
         phase = Phase.values.byName(j['phase'] as String),
         round = j['round'] as int,
@@ -112,6 +113,9 @@ class GameView {
 
   /// أنت العرّاف وكشفك لسا ما استخدمته.
   final bool seerReady;
+
+  /// لاعبين طلعوا أو انطردوا، ويلعب بدالهم بوت.
+  final Set<String> autopilot;
   final List<ViewPlayer> players;
   final Phase phase;
   final int round;
