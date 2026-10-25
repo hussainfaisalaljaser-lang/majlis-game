@@ -186,6 +186,8 @@ class _GameScreenState extends State<GameScreen> {
       _roleShown = true;
       _seenInvestigations = view.investigations.length;
       _seenLog = view.log.length;
+      // الترحيب بس في بداية اللعبة (مو لو رجعت لها في النص)، وبعده جملة دورك لما تنقلب البطاقة.
+      if (view.round == 1 && view.log.isEmpty) Sfx.say('intro');
       WidgetsBinding.instance.addPostFrameCallback((_) => _showRole());
     }
     _queueScenes(view);
