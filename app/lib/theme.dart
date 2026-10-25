@@ -30,7 +30,7 @@ abstract final class AppColors {
 }
 
 /// خط العناوين الكوفي.
-const kufi = 'ReemKufi';
+const kufi = 'Marhey';
 
 ThemeData buildTheme() {
   final base = ThemeData(
