@@ -4,7 +4,7 @@ import 'package:flutter/semantics.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
 import 'screens/home_screen.dart';
-import 'screens/profile_screen.dart';
+import 'screens/welcome_screen.dart';
 import 'services/backend.dart';
 import 'services/push.dart';
 import 'services/sfx.dart';
@@ -39,7 +39,7 @@ class MajlisApp extends StatelessWidget {
   }
 }
 
-/// أول مرة: يطلب من اللاعب يختار اسمه وصورته. بعدها: الرئيسية.
+/// أول مرة: الترحيب (قوقل أو ضيف) واختيار الاسم والصورة. بعدها: الرئيسية.
 class _Gate extends StatelessWidget {
   const _Gate();
 
@@ -53,7 +53,7 @@ class _Gate extends StatelessWidget {
           ? const NightScaffold(body: Center(child: CircularProgressIndicator(color: AppColors.gold)))
           : ValueListenableBuilder(
               valueListenable: backend.profile,
-              builder: (context, p, _) => p.setupDone ? const HomeScreen() : const EditProfileScreen(firstTime: true),
+              builder: (context, p, _) => p.setupDone ? const HomeScreen() : const WelcomeScreen(),
             ),
     );
   }

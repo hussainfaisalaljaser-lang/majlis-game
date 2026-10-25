@@ -21,7 +21,7 @@ import {
   type Action,
   type GameState,
 } from '../../engine/src/index.js';
-import { XP_PER_GAME, XP_PER_WIN, levelFor, tierById, type TableTier } from './economy.js';
+import { LINK_REWARD, XP_PER_GAME, XP_PER_WIN, levelFor, tierById, type TableTier } from './economy.js';
 import { MISSIONS, bumpMissions, gulfWeek, todaysMissions, type MissionId } from './missions.js';
 import { whoToNotify, type Note } from './notify.js';
 import {
@@ -282,6 +282,19 @@ export const updateProfile = onCall(async (req) => {
     tx.set(boardRef(uid), toLeaderboard(p));
   });
   return {};
+});
+
+/** مكافأة ربط الحساب بقوقل، مرة وحدة بس. التوكن لازم يكون فيه هوية قوقل. */
+export const claimLinkReward = onCall(async (req) => {
+  const uid = requireAuth(req);
+  const identities = (req.auth!.token.firebase?.identities ?? {}) as Record<string, unknown>;
+  if (!identities['google.com']) throw new HttpsError('failed-precondition', 'اربط حسابك بقوقل أول');
+  return db.runTransaction(async (tx) => {
+    const p = await readProfile(db, tx, uid);
+    if (p.linked) return { coins: 0 };
+    tx.set(userRef(uid), { ...p, linked: true, coins: p.coins + LINK_REWARD });
+    return { coins: LINK_REWARD };
+  });
 });
 
 export const claimDaily = onCall(async (req) => {

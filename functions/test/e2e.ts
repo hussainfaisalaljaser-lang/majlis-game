@@ -4,7 +4,7 @@
  */
 import assert from 'node:assert/strict';
 import { deleteApp, initializeApp, type FirebaseApp } from 'firebase/app';
-import { connectAuthEmulator, getAuth, signInAnonymously } from 'firebase/auth';
+import { GoogleAuthProvider, connectAuthEmulator, getAuth, linkWithCredential, signInAnonymously } from 'firebase/auth';
 import {
   collection,
   connectFirestoreEmulator,
@@ -334,6 +334,20 @@ async function main(): Promise<void> {
   await host.call('addBots', { code: lonelyQm });
   assert.equal((await host.view(lonelyQm)).phase, 'nomination');
   console.log('✓ الطاولة العامة: بعد ٢٠ ثانية تتكمل بالبوتات وتبدأ');
+
+  // ١٢. ربط الحساب بقوقل: المكافأة بس للي ربط، ومرة وحدة
+  const linker = players[1];
+  await expectError(linker.call('claimLinkReward'), 'failed-precondition');
+  const linkerCoins = (await linker.profile()).coins;
+  const auth = getAuth(linker.app);
+  // المحاكي يقبل توكن قوقل وهمي بصيغة JSON.
+  await linkWithCredential(auth.currentUser!, GoogleAuthProvider.credential('{"sub":"g-123","email":"tester@example.com"}'));
+  await auth.currentUser!.getIdToken(true);
+  assert.equal(auth.currentUser!.uid, linker.uid, 'نفس الحساب بعد الربط، والتقدم ما يضيع');
+  assert.deepEqual(await linker.call('claimLinkReward'), { coins: 500 });
+  assert.deepEqual(await linker.call('claimLinkReward'), { coins: 0 });
+  assert.equal((await linker.profile()).coins, linkerCoins + 500);
+  console.log('✓ ربط قوقل: نفس الحساب، و٥٠٠ ذهب مرة وحدة');
 
   await Promise.all(players.map((p) => deleteApp(p.app)));
   console.log('\nكل الاختبارات نجحت ✅');

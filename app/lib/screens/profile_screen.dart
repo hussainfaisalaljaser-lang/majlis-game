@@ -4,6 +4,7 @@ import '../models/profile.dart';
 import '../models/shop.dart';
 import '../services/backend.dart';
 import '../theme.dart';
+import '../widgets/account.dart';
 import '../widgets/common.dart';
 import '../widgets/ui.dart';
 
@@ -19,7 +20,9 @@ class EditProfileScreen extends StatefulWidget {
 
 class _EditProfileScreenState extends State<EditProfileScreen> {
   final _profile = Backend.instance.profile.value;
-  late final _name = TextEditingController(text: widget.firstTime ? '' : _profile.name);
+  late final _name = TextEditingController(
+    text: widget.firstTime ? (Backend.instance.googleName ?? '') : _profile.name,
+  );
   late String _avatar = avatarIds.contains(_profile.avatar) ? _profile.avatar : 'falcon';
   bool _saving = false;
   String? _error;
@@ -161,6 +164,7 @@ class ProfileScreen extends StatelessWidget {
                 ),
               ),
             const SizedBox(height: 10),
+            if (Backend.instance.isReady) ...[const AccountCard(), const SizedBox(height: 12)],
             Panel(
               gradient: const LinearGradient(colors: [Color(0xFF2E2266), Color(0xFF1C1638)]),
               child: Column(

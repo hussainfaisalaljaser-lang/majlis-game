@@ -22,6 +22,9 @@ export function tierById(id: unknown): TableTier | null {
 /** ذهب البداية لكل لاعب جديد. يكفي يجرب طاولة المدينة مرتين. */
 export const STARTING_COINS = 2000;
 
+/** مكافأة أول مرة يربط حسابه بقوقل. */
+export const LINK_REWARD = 500;
+
 /** مكافأة الدخول اليومي حسب اليوم في السلسلة (١ إلى ٧). اليوم السابع فيه جواهر. */
 export const DAILY_REWARDS: { coins: number; diamonds: number }[] = [
   { coins: 200, diamonds: 0 },

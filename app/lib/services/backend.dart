@@ -1,8 +1,11 @@
+import 'dart:async';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 
 import '../firebase_options.dart';
 import '../models/leaderboard.dart';
@@ -32,6 +35,11 @@ class Backend {
   /// هل وصل الملف من السيرفر؟ قبلها ما نعرف إذا اختار اسمه.
   final profileLoaded = ValueNotifier<bool>(false);
 
+  /// إيميل قوقل لو الحساب مربوط، و null لو ضيف.
+  final googleEmail = ValueNotifier<String?>(null);
+
+  StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? _profileSub;
+
   /// يتصل بـ Firebase ويسجل دخول كضيف. يرجع false لو المنصة ما لها إعدادات (مثل الويب حالياً).
   Future<bool> init() async {
     final options = DefaultFirebaseOptions.currentPlatform;
@@ -49,16 +57,121 @@ class Backend {
         await FirebaseAuth.instance.signInAnonymously();
       }
       _ready = true;
-      _db.doc('users/$uid').snapshots().listen((s) {
-        if (!s.exists) return;
-        profile.value = Profile.fromJson(s.data()!);
-        profileLoaded.value = true;
-      });
-      await _call('ensureProfile', {});
+      FirebaseAuth.instance.userChanges().listen((u) => googleEmail.value = _googleOf(u)?.email ?? _googleOf(u)?.uid);
+      await _openAccount();
     } catch (e) {
       debugPrint('Firebase init failed: $e');
     }
     return _ready;
+  }
+
+  /// يتابع ملف الحساب الحالي. ينعاد بعد كل تبديل حساب.
+  Future<void> _openAccount() async {
+    await _profileSub?.cancel();
+    profileLoaded.value = false;
+    _profileSub = _db.doc('users/$uid').snapshots().listen((s) {
+      if (!s.exists) return;
+      profile.value = Profile.fromJson(s.data()!);
+      profileLoaded.value = true;
+    });
+    await _call('ensureProfile', {});
+  }
+
+  static UserInfo? _googleOf(User? u) =>
+      u?.providerData.where((p) => p.providerId == GoogleAuthProvider.PROVIDER_ID).firstOrNull;
+
+  bool get isLinked => _googleOf(FirebaseAuth.instance.currentUser) != null;
+
+  /// اسمه في قوقل، نقترحه عليه أول مرة يختار اسمه.
+  String? get googleName {
+    final name = _googleOf(FirebaseAuth.instance.currentUser)?.displayName?.trim();
+    if (name == null || name.isEmpty) return null;
+    final first = name.split(' ').first;
+    return first.length > 16 ? first.substring(0, 16) : first;
+  }
+
+  /// عميل الويب من google-services.json، قوقل ترجع توكن له عشان Firebase تتحقق منه.
+  static const _webClientId = '1041177786311-gma3962uiqmqb1lbtfqdal99usg7hjj3.apps.googleusercontent.com';
+  bool _googleReady = false;
+
+  /// يفتح نافذة اختيار الحساب من الجوال نفسه (مو متصفح). null لو سكّرها.
+  Future<AuthCredential?> _googleCredential() async {
+    final google = GoogleSignIn.instance;
+    if (!_googleReady) {
+      await google.initialize(serverClientId: _webClientId);
+      _googleReady = true;
+    }
+    try {
+      final account = await google.authenticate();
+      return GoogleAuthProvider.credential(idToken: account.authentication.idToken);
+    } on GoogleSignInException catch (e) {
+      if (e.code == GoogleSignInExceptionCode.canceled || e.code == GoogleSignInExceptionCode.interrupted) {
+        return null;
+      }
+      debugPrint('Google sign-in failed: ${e.code} ${e.description}');
+      throw BackendException('ما قدرنا نوصل لحسابك في قوقل، جرّب مرة ثانية');
+    }
+  }
+
+  /// يربط حساب الضيف الحالي بقوقل، فيبقى نفس الحساب بكل تقدمه.
+  /// لو حساب قوقل هذا مربوط من قبل بلاعب ثاني، يرجع [GoogleLink.taken] ومعه اللي نحتاجه عشان ندخل عليه.
+  Future<GoogleLink> linkGoogle() async {
+    final user = FirebaseAuth.instance.currentUser!;
+    AuthCredential? credential;
+    try {
+      if (kIsWeb) {
+        await user.linkWithPopup(GoogleAuthProvider()..setCustomParameters({'prompt': 'select_account'}));
+      } else {
+        credential = await _googleCredential();
+        if (credential == null) return const GoogleLink.cancelled();
+        await user.linkWithCredential(credential);
+      }
+    } on FirebaseAuthException catch (e) {
+      switch (e.code) {
+        case 'credential-already-in-use' || 'email-already-in-use':
+          return GoogleLink.taken(e.credential ?? credential);
+        case 'provider-already-linked':
+          break;
+        case 'popup-closed-by-user' || 'cancelled-popup-request':
+          return const GoogleLink.cancelled();
+        default:
+          debugPrint('Google link failed: ${e.code} ${e.message}');
+          throw BackendException('ما قدرنا نربط حسابك بقوقل، جرّب مرة ثانية');
+      }
+    }
+    // التوكن الجديد فيه هوية قوقل، والسيرفر يتأكد منها قبل يعطي المكافأة.
+    await user.getIdToken(true);
+    await user.reload();
+    final r = await _call('claimLinkReward', {});
+    return GoogleLink.linked(r['coins'] as int);
+  }
+
+  /// يترك حساب الضيف ويدخل على حساب قوقل اللي مربوط من قبل.
+  Future<void> switchToGoogle(AuthCredential? credential) async {
+    final auth = FirebaseAuth.instance;
+    try {
+      if (credential != null) {
+        await auth.signInWithCredential(credential);
+      } else if (kIsWeb) {
+        await auth.signInWithPopup(GoogleAuthProvider());
+      } else {
+        final fresh = await _googleCredential();
+        if (fresh == null) return;
+        await auth.signInWithCredential(fresh);
+      }
+    } on FirebaseAuthException catch (e) {
+      debugPrint('Google sign-in failed: ${e.code} ${e.message}');
+      throw BackendException('ما قدرنا ندخل على حسابك، جرّب مرة ثانية');
+    }
+    await _openAccount();
+  }
+
+  /// يطلع من حساب قوقل ويبدأ كضيف جديد. الحساب يبقى محفوظ ويرجع له متى ما دخل بقوقل.
+  Future<void> signOut() async {
+    if (!kIsWeb && _googleReady) await GoogleSignIn.instance.signOut();
+    await FirebaseAuth.instance.signOut();
+    await FirebaseAuth.instance.signInAnonymously();
+    await _openAccount();
   }
 
   Future<Map<String, dynamic>> _call(String name, Map<String, dynamic> data) async {
@@ -145,4 +258,26 @@ class BackendException implements Exception {
 
   @override
   String toString() => message;
+}
+
+/// نتيجة محاولة ربط الحساب بقوقل.
+sealed class GoogleLink {
+  const GoogleLink();
+  const factory GoogleLink.linked(int reward) = GoogleLinked;
+  const factory GoogleLink.taken(AuthCredential? credential) = GoogleTaken;
+  const factory GoogleLink.cancelled() = GoogleCancelled;
+}
+
+class GoogleLinked extends GoogleLink {
+  const GoogleLinked(this.reward);
+  final int reward;
+}
+
+class GoogleTaken extends GoogleLink {
+  const GoogleTaken(this.credential);
+  final AuthCredential? credential;
+}
+
+class GoogleCancelled extends GoogleLink {
+  const GoogleCancelled();
 }

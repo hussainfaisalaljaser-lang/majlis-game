@@ -33,6 +33,8 @@ export interface Profile {
   equipped?: Record<Slot, string>;
   /** أجهزة اللاعب للإشعارات. */
   fcmTokens?: string[];
+  /** ربط حسابه بقوقل وأخذ المكافأة. */
+  linked?: boolean;
   createdAt?: FieldValue;
 }
 

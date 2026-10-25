@@ -12,7 +12,20 @@
           "package_name": "com.majlis.majlis"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "1041177786311-jmjejmp1dtak230ooc7cali3lpqpmjvn.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.majlis.majlis",
+            "certificate_hash": "0169f63595b231ce6dba12dfaf1eaf5e9c1a44dc"
+          }
+        },
+        {
+          "client_id": "1041177786311-gma3962uiqmqb1lbtfqdal99usg7hjj3.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyBvUqssl1P_-P6Zd7CaJmzLKYlZeYYVmwQ"
@@ -20,7 +33,12 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "1041177786311-gma3962uiqmqb1lbtfqdal99usg7hjj3.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
         }
       }
     }
