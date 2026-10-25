@@ -5,5 +5,9 @@
     "menu_d": "Noir mystery lobby music for a detective party game: muted jazzy upright bass, brushed drums, sly pizzicato strings, smoky and secretive mood, playful suspense, seamless loop, instrumental, no vocals.",
     "game_c": "Tense mystery underscore for a game where players hunt a traitor among them: pulsing low synth, ticking clock, quiet heartbeat percussion, dissonant string swells, suspicious atmosphere like Among Us or Werewolf, stays low under dialogue, seamless loop, instrumental, no vocals.",
     "game_d": "Dark suspense loop for a hidden-role thriller game: slow ostinato on low strings, creeping piano, distant whispers of wind, subtle tension rising and falling, mysterious and paranoid, quiet enough for a narrator, seamless loop, instrumental, no vocals."
+  },
+  "chosen": {
+    "menu": "menu_c",
+    "game": "game_c"
   }
 }
