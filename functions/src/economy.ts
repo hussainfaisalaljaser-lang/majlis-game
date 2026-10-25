@@ -38,10 +38,28 @@ export const DAILY_REWARDS: { coins: number; diamonds: number }[] = [
 
 export const XP_PER_GAME = 20;
 export const XP_PER_WIN = 30;
-export const XP_PER_LEVEL = 100;
+/**
+ * كل مستوى أصعب من اللي قبله: من مستوى ١ لـ ٢ تحتاج ١٠٠ خبرة، وكل مستوى بعده يزيد ٥٠
+ * (١٠٠، ١٥٠، ٢٠٠…). نفس الحسبة في التطبيق (app/lib/models/profile.dart).
+ */
+export const XP_FIRST_LEVEL = 100;
+export const XP_LEVEL_STEP = 50;
+
+/** الخبرة اللي تحتاجها من مستوى [level] للي بعده. */
+export function xpToNext(level: number): number {
+  return XP_FIRST_LEVEL + XP_LEVEL_STEP * (level - 1);
+}
+
+/** مجموع الخبرة اللي توصلك لبداية مستوى [level]. */
+export function xpForLevel(level: number): number {
+  const n = level - 1;
+  return XP_FIRST_LEVEL * n + (XP_LEVEL_STEP * n * (n - 1)) / 2;
+}
 
 export function levelFor(xp: number): number {
-  return Math.floor(xp / XP_PER_LEVEL) + 1;
+  let level = 1;
+  while (xpForLevel(level + 1) <= xp) level++;
+  return level;
 }
 
 /** تاريخ اليوم بتوقيت الخليج (UTC+3)، عشان الهدية اليومية تتجدد الساعة ١٢ بالليل عندنا. */

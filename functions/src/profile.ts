@@ -48,6 +48,8 @@ export interface LeaderboardEntry {
   avatar: string;
   frame: string;
   level: number;
+  /** للترتيب بين اللي بنفس المستوى. */
+  xp: number;
   gamesWon: number;
   gamesPlayed: number;
   week: string | null;
@@ -60,6 +62,7 @@ export function toLeaderboard(p: Profile): LeaderboardEntry {
     avatar: p.avatar,
     frame: equippedOf(p).frame,
     level: p.level,
+    xp: p.xp,
     gamesWon: p.gamesWon,
     gamesPlayed: p.gamesPlayed,
     week: p.week ?? null,

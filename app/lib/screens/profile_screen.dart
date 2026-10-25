@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../models/profile.dart';
 import '../models/shop.dart';
 import '../services/backend.dart';
 import '../theme.dart';
@@ -184,7 +183,7 @@ class ProfileScreen extends StatelessWidget {
                             ),
                             const Spacer(),
                             Text(
-                              '${arabicNumber(p.xpInLevel)} / ${arabicNumber(Profile.xpPerLevel)} خبرة',
+                              '${arabicNumber(p.xpInLevel)} / ${arabicNumber(p.xpToNext)} خبرة',
                               style: const TextStyle(color: AppColors.muted, fontSize: 13),
                             ),
                           ],
@@ -193,7 +192,7 @@ class ProfileScreen extends StatelessWidget {
                         ClipRRect(
                           borderRadius: BorderRadius.circular(8),
                           child: LinearProgressIndicator(
-                            value: p.xpInLevel / Profile.xpPerLevel,
+                            value: p.levelProgress,
                             minHeight: 12,
                             backgroundColor: Colors.black.withValues(alpha: .35),
                             color: AppColors.gold,
@@ -201,7 +200,7 @@ class ProfileScreen extends StatelessWidget {
                         ),
                         const SizedBox(height: 8),
                         const Text(
-                          'كل لعبة +٢٠ خبرة، والفوز +٣٠ زيادة',
+                          'كل لعبة +٢٠ خبرة، والفوز +٣٠ زيادة. وكل مستوى أصعب من اللي قبله',
                           style: TextStyle(color: AppColors.muted, fontSize: 12),
                         ),
                       ],

@@ -209,12 +209,14 @@ class Backend {
   /// يطلب من السيرفر يلعب بدال اللي خلص وقته. يرجع true لو انطبق.
   Future<bool> timeout(String code) async => (await _call('timeout', {'code': code}))['applied'] == true;
 
-  /// أفضل ٥٠ لاعب: هذا الأسبوع (بعدد الفوز فيه) أو من البداية.
-  Stream<List<LeaderboardEntry>> watchLeaderboard({required bool weekly}) {
+  /// أفضل ٥٠ لاعب: هذا الأسبوع (بعدد الفوز فيه)، أو من البداية، أو بالمستوى.
+  Stream<List<LeaderboardEntry>> watchLeaderboard(Board board) {
     final col = _db.collection('leaderboard');
-    final q = weekly
-        ? col.where('week', isEqualTo: gulfWeek(DateTime.now())).orderBy('weeklyWins', descending: true)
-        : col.orderBy('gamesWon', descending: true);
+    final q = switch (board) {
+      Board.weekly => col.where('week', isEqualTo: gulfWeek(DateTime.now())).orderBy('weeklyWins', descending: true),
+      Board.allTime => col.orderBy('gamesWon', descending: true),
+      Board.level => col.orderBy('level', descending: true).orderBy('xp', descending: true),
+    };
     return q.limit(50).snapshots().map((s) => [for (final d in s.docs) LeaderboardEntry.fromJson(d.id, d.data())]);
   }
 

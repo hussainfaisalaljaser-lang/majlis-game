@@ -1,6 +1,9 @@
 import 'profile.dart';
 
 /// سطر في جدول الترتيب (functions/src/profile.ts → toLeaderboard).
+/// أنواع جدول الترتيب.
+enum Board { weekly, allTime, level }
+
 class LeaderboardEntry {
   LeaderboardEntry.fromJson(this.uid, Map<String, dynamic> j)
       : name = j['name'] as String,

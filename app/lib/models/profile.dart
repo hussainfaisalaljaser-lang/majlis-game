@@ -80,8 +80,16 @@ class Profile {
 
   int get claimableMissions => missionDefs.where(missions.isClaimable).length;
 
-  static const xpPerLevel = 100;
-  int get xpInLevel => xp % xpPerLevel;
+  /// كل مستوى أصعب: ١٠٠ خبرة للمستوى ٢، وبعدها كل مستوى يزيد ٥٠ (نفس functions/src/economy.ts).
+  static int xpForLevel(int level) {
+    final n = level - 1;
+    return 100 * n + 50 * n * (n - 1) ~/ 2;
+  }
+
+  /// الخبرة المطلوبة من مستواك الحين للي بعده.
+  int get xpToNext => 100 + 50 * (level - 1);
+  int get xpInLevel => (xp - xpForLevel(level)).clamp(0, xpToNext);
+  double get levelProgress => xpInLevel / xpToNext;
 
   int get winRate => gamesPlayed == 0 ? 0 : (gamesWon * 100 / gamesPlayed).round();
 

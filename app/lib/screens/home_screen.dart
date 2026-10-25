@@ -203,7 +203,7 @@ class _Header extends StatelessWidget {
                           child: ClipRRect(
                             borderRadius: BorderRadius.circular(4),
                             child: LinearProgressIndicator(
-                              value: p.xpInLevel / 100,
+                              value: p.levelProgress,
                               minHeight: 6,
                               backgroundColor: Colors.black.withValues(alpha: .4),
                               color: AppColors.gold,

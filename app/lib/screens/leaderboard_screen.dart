@@ -7,14 +7,14 @@ import '../theme.dart';
 import '../widgets/common.dart';
 import '../widgets/ui.dart';
 
-/// جدول الترتيب: هذا الأسبوع (يتصفر كل أحد) أو من البداية.
+/// جدول الترتيب: فوز هذا الأسبوع (يتصفر كل أحد)، أو الفوز من البداية، أو المستوى.
 class LeaderboardScreen extends StatelessWidget {
   const LeaderboardScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
     return DefaultTabController(
-      length: 2,
+      length: 3,
       child: NightScaffold(
         appBar: AppBar(
           title: const Text('🏆 الترتيب'),
@@ -22,27 +22,31 @@ class LeaderboardScreen extends StatelessWidget {
             indicatorColor: AppColors.gold,
             labelColor: AppColors.gold,
             unselectedLabelColor: AppColors.muted,
-            tabs: [Tab(text: 'هذا الأسبوع'), Tab(text: 'الكل')],
+            tabs: [Tab(text: 'هذا الأسبوع'), Tab(text: 'الكل'), Tab(text: 'المستوى')],
           ),
         ),
         body: !Backend.instance.isReady
             ? const Center(child: Text('يحتاج اتصال بالسيرفر', style: TextStyle(color: AppColors.muted)))
-            : const TabBarView(children: [_Board(weekly: true), _Board(weekly: false)]),
+            : const TabBarView(
+                children: [_Board(board: Board.weekly), _Board(board: Board.allTime), _Board(board: Board.level)],
+              ),
       ),
     );
   }
 }
 
 class _Board extends StatelessWidget {
-  const _Board({required this.weekly});
+  const _Board({required this.board});
 
-  final bool weekly;
+  final Board board;
+
+  bool get weekly => board == Board.weekly;
 
   @override
   Widget build(BuildContext context) {
     final me = Backend.instance.uid;
     return StreamBuilder(
-      stream: Backend.instance.watchLeaderboard(weekly: weekly),
+      stream: Backend.instance.watchLeaderboard(board),
       builder: (context, snap) {
         if (snap.hasError) return Center(child: Text('ما قدرنا نجيب الترتيب', style: TextStyle(color: AppColors.muted)));
         final entries = (snap.data ?? const <LeaderboardEntry>[]).where((e) => _wins(e) > 0).toList();
@@ -63,9 +67,9 @@ class _Board extends StatelessWidget {
               child: ListView(
                 padding: const EdgeInsets.all(16),
                 children: [
-                  _Podium(entries: entries.take(3).toList(), wins: _wins, me: me),
+                  _Podium(entries: entries.take(3).toList(), label: _label, me: me),
                   const SizedBox(height: 16),
-                  for (final (i, e) in entries.indexed.skip(3)) _Row(rank: i + 1, entry: e, wins: _wins(e), isMe: e.uid == me),
+                  for (final (i, e) in entries.indexed.skip(3)) _Row(rank: i + 1, entry: e, label: _label(e), isMe: e.uid == me),
                 ],
               ),
             ),
@@ -80,7 +84,7 @@ class _Board extends StatelessWidget {
                         textAlign: TextAlign.center,
                         style: const TextStyle(color: AppColors.muted),
                       )
-                    : _Row(rank: myIndex + 1, entry: entries[myIndex], wins: _wins(entries[myIndex]), isMe: true),
+                    : _Row(rank: myIndex + 1, entry: entries[myIndex], label: _label(entries[myIndex]), isMe: true),
               ),
           ],
         );
@@ -88,14 +92,21 @@ class _Board extends StatelessWidget {
     );
   }
 
-  int _wins(LeaderboardEntry e) => weekly ? e.weeklyWins : e.gamesWon;
+  int _wins(LeaderboardEntry e) => switch (board) {
+    Board.weekly => e.weeklyWins,
+    Board.allTime => e.gamesWon,
+    Board.level => e.level,
+  };
+
+  String _label(LeaderboardEntry e) =>
+      board == Board.level ? 'مستوى ${arabicNumber(e.level)}' : '🏆 ${arabicNumber(_wins(e))}';
 }
 
 class _Podium extends StatelessWidget {
-  const _Podium({required this.entries, required this.wins, required this.me});
+  const _Podium({required this.entries, required this.label, required this.me});
 
   final List<LeaderboardEntry> entries;
-  final int Function(LeaderboardEntry) wins;
+  final String Function(LeaderboardEntry) label;
   final String me;
 
   @override
@@ -126,7 +137,7 @@ class _Podium extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(fontWeight: FontWeight.w800),
                 ),
-                Text('🏆 ${arabicNumber(wins(entries[i]))}', style: const TextStyle(color: AppColors.gold, fontSize: 13)),
+                Text(label(entries[i]), style: const TextStyle(color: AppColors.gold, fontSize: 13)),
                 const SizedBox(height: 6),
                 Container(
                   height: heights[i],
@@ -152,11 +163,11 @@ class _Podium extends StatelessWidget {
 }
 
 class _Row extends StatelessWidget {
-  const _Row({required this.rank, required this.entry, required this.wins, required this.isMe});
+  const _Row({required this.rank, required this.entry, required this.label, required this.isMe});
 
   final int rank;
   final LeaderboardEntry entry;
-  final int wins;
+  final String label;
   final bool isMe;
 
   @override
@@ -186,7 +197,7 @@ class _Row extends StatelessWidget {
               ],
             ),
           ),
-          Text('🏆 ${arabicNumber(wins)}', style: const TextStyle(color: AppColors.gold, fontWeight: FontWeight.w800)),
+          Text(label, style: const TextStyle(color: AppColors.gold, fontWeight: FontWeight.w800)),
         ],
       ),
     );
