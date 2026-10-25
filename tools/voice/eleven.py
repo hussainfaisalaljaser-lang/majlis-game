@@ -2,6 +2,9 @@
 
   python eleven.py samples "ID1,ID2,..." OUT   عينة الجملة بكل صوت، عشان نختار
   python eleven.py lines VOICE_ID OUT          كل جمل اللعبة (lines.json) بالصوت المختار
+  python eleven.py preview VOICE_ID OUT        جمل مختارة (preview) بكل درجة ثبات، عشان نختار الأداء
+
+ELEVEN_STABILITY: 0 = حماسي ومعبّر، 0.5 = طبيعي، 1 = ثابت. العلامات مثل [excited] توجّه الأداء في v3.
 
 يحتاج ELEVENLABS_API_KEY. الصوت لازم يكون مضاف في حسابك (My Voices).
 """
@@ -13,10 +16,14 @@ KEY = os.environ['ELEVENLABS_API_KEY']
 MODEL = os.environ.get('ELEVEN_MODEL') or 'eleven_v3'
 
 
-def say(text, voice, path):
+def say(text, voice, path, stability=None):
+    body = {'text': text, 'model_id': MODEL, 'language_code': 'ar'}
+    stability = os.environ.get('ELEVEN_STABILITY') if stability is None else stability
+    if stability not in (None, ''):
+        body['voice_settings'] = {'stability': float(stability)}
     req = urllib.request.Request(
         f'https://api.elevenlabs.io/v1/text-to-speech/{voice}?output_format=mp3_44100_128',
-        data=json.dumps({'text': text, 'model_id': MODEL, 'language_code': 'ar'}).encode(),
+        data=json.dumps(body).encode(),
         headers={'xi-api-key': KEY, 'Content-Type': 'application/json', 'Accept': 'audio/mpeg'},
         method='POST')
     try:
@@ -43,6 +50,14 @@ def main():
         for key, text in LINES['lines'].items():
             say(text, voice, os.path.join(out, key + '.mp3'))
             print('✓', key)
+    elif mode == 'preview':
+        voice, out = sys.argv[2], sys.argv[3]
+        os.makedirs(out, exist_ok=True)
+        texts = {'sample': LINES['sample'], **LINES['lines']}
+        for key in LINES['preview']:
+            for stab, label in ((0.0, 'creative'), (0.5, 'natural')):
+                say(texts[key], voice, os.path.join(out, f'{key}_{label}.mp3'), stab)
+                print('✓', key, label)
     else:
         sys.exit(__doc__)
 

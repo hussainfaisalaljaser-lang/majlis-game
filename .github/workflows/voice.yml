@@ -9,7 +9,7 @@ on:
         description: 'elevenlabs أو google'
         default: elevenlabs
       mode:
-        description: 'samples = عينة لكل صوت، lines = كل الجمل'
+        description: 'samples = عينة لكل صوت، preview = جمل مختارة بأدائين، lines = كل الجمل'
         default: samples
       voice:
         description: 'samples: أرقام الأصوات مفصولة بفاصلة. lines: رقم صوت واحد'
@@ -40,8 +40,11 @@ jobs:
               echo "::error::أضف السر ELEVENLABS_API_KEY في Settings → Secrets and variables → Actions"
               exit 1
             fi
-            if [ "$MODE" = lines ]; then python tools/voice/eleven.py lines "$VOICE" out/voice
-            else python tools/voice/eleven.py samples "$VOICE" out/samples; fi
+            case "$MODE" in
+              lines) python tools/voice/eleven.py lines "$VOICE" out/voice ;;
+              preview) python tools/voice/eleven.py preview "$VOICE" out/preview ;;
+              *) python tools/voice/eleven.py samples "$VOICE" out/samples ;;
+            esac
           else
             echo "$SA" > "$RUNNER_TEMP/sa.json"
             export GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/sa.json"
