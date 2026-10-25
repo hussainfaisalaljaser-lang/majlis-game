@@ -12,7 +12,10 @@ on:
         description: 'samples = عينة لكل صوت، preview = جمل مختارة بأدائين، lines = كل الجمل'
         default: samples
       voice:
-        description: 'samples: أرقام الأصوات مفصولة بفاصلة. lines: رقم صوت واحد'
+        description: 'رقم الصوت'
+        default: 'KfYUTAF49N2CPU3iKuMi'
+      keys:
+        description: 'جمل محددة بس (مفصولة بفاصلة)، أو فاضي للكل'
         default: ''
 
 permissions:
@@ -33,19 +36,15 @@ jobs:
           ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
           PROVIDER: ${{ inputs.provider || 'elevenlabs' }}
           MODE: ${{ inputs.mode || 'samples' }}
-          VOICE: ${{ inputs.voice || '' }}
+          VOICE: ${{ inputs.voice || 'KfYUTAF49N2CPU3iKuMi' }}
+          KEYS: ${{ inputs.keys || '' }}
         run: |
           if [ "$PROVIDER" = elevenlabs ]; then
             if [ -z "$ELEVENLABS_API_KEY" ]; then
               echo "::error::أضف السر ELEVENLABS_API_KEY في Settings → Secrets and variables → Actions"
               exit 1
             fi
-            case "$MODE" in
-              lines) python tools/voice/eleven.py lines "$VOICE" out/voice ;;
-              preview) python tools/voice/eleven.py preview "$VOICE" out/preview ;;
-              experiment) python tools/voice/eleven.py experiment "$VOICE" out/experiment ;;
-              *) python tools/voice/eleven.py samples "$VOICE" out/samples ;;
-            esac
+            python tools/voice/eleven.py lines "$VOICE" out/voice "$KEYS"
           else
             echo "$SA" > "$RUNNER_TEMP/sa.json"
             export GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/sa.json"

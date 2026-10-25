@@ -1,67 +1,44 @@
 {
-  "sample": "[excited] يا هلا والله ومرحبا! حيّاكم في مجلس الخونة. [whispers] بس ترى فيكم خاين… منهو يا عيال؟",
-  "preview": [
-    "sample",
-    "vote",
-    "gov_passed",
-    "gov_failed",
-    "enact_traitor",
-    "chaos",
-    "executed",
-    "hurry",
-    "role_traitor",
-    "win_traitor"
-  ],
-  "lines": {
-    "intro": "[dramatic tone] حيّاكم في مجلس الخونة… [whispers] ترى فيكم خونة، انتبهوا لروحكم!",
-    "role_loyal": "[warm] انت من الأوفياء. [determined] دوّر على الخونة وافضحهم!",
-    "role_traitor": "[whispers] انت خاين… ساعد زعيمك، ولا تخليهم يكشفونك.",
-    "role_leader": "[mischievously] انت زعيم الخونة… خلّهم يثقون فيك ويختارونك.",
-    "your_turn": "[excited] يالله، دورك!",
-    "president": "[confident] انت الرئيس! اختار وزيرك.",
-    "vote": "[excited] يالله يا عيال، صوّتوا على الحكومة!",
-    "gov_passed": "[cheerful] الحكومة مشت!",
-    "gov_failed": "[disappointed] الحكومة طاحت… ما مشت.",
-    "discard": "[curious] اختار الكرت اللي بترميه.",
-    "enact": "[curious] اختار الكرت اللي بتمشّيه.",
-    "enact_loyal": "[relieved] مشى قرار للأوفياء!",
-    "enact_traitor": "[ominous] مشى قرار للخونة…",
-    "chaos": "[shouting] فوضى! مشى أول قرار من الكومة!",
-    "veto": "[surprised] الوزير يبي فيتو!",
-    "power_investigate": "[curious] الرئيس بيحقق مع واحد منكم…",
-    "power_peek": "[whispers] الرئيس بيشوف الكروت الجاية…",
-    "power_special": "[dramatic tone] الرئيس بيختار رئيس جديد!",
-    "power_execute": "[dramatic tone] الرئيس بيطيّر واحد من المجلس…",
-    "executed": "[sad] طار من المجلس… الله يعينه.",
-    "guarded": "[excited] نجا! طلع حارس!",
-    "hurry": "[excited] يالله… الوقت بيخلص!",
-    "win_loyal": "[excited] فازوا الأوفياء! ألف مبروك!",
-    "win_traitor": "[laughs] فازوا الخونة! هاردلك يا الأوفياء."
+  "config": {
+    "model": "eleven_multilingual_v2",
+    "strip_tags": true,
+    "stability": 0.3,
+    "similarity": 0.9,
+    "style": 0.6
   },
-  "experiment": {
-    "texts": {
-      "gov_passed": "[excited] الحكومة مشت! وافقوا عليها!",
-      "enact_traitor": "[sad] يا خسارة… نزل قرار للخونة.",
-      "chaos": "[surprised] يا ساتر! فوضى… القرار نزل لحاله!"
-    },
-    "configs": {
-      "A_v3_saudi_tag": {
-        "model": "eleven_v3",
-        "prefix": "[Saudi accent] ",
-        "stability": 0.0
-      },
-      "B_v3_no_lang": {
-        "model": "eleven_v3",
-        "no_lang": true,
-        "stability": 0.0
-      },
-      "C_v2_expressive": {
-        "model": "eleven_multilingual_v2",
-        "strip_tags": true,
-        "stability": 0.3,
-        "similarity": 0.9,
-        "style": 0.6
-      }
+  "overrides": {
+    "hurry": {
+      "model": "eleven_v3",
+      "stability": 0.0,
+      "strip_tags": false,
+      "similarity": null,
+      "style": null
     }
+  },
+  "lines": {
+    "intro": "حَيّاكُم في مَجْلِس الخَوَنَة… وترى بينكُم خَوَنَة! انْتِبْهوا لِروحْكُم.",
+    "role_loyal": "إنتَ مِن الأوفياء! دَوِّر على الخَوَنَة… وافْضَحْهُم.",
+    "role_traitor": "إنتَ خايِن… ساعِد زَعيمَك، ولا تْخَلِّيهُم يِكْشِفونَك.",
+    "role_leader": "إنتَ زَعيم الخَوَنَة… خَلّهُم يِثِقون فيك، ويِخْتارونَك.",
+    "your_turn": "يَلّا… دَوْرَك!",
+    "president": "إنتَ الرَّئيس! اِخْتار وَزيرَك.",
+    "vote": "يَلّا يا عيال… صَوِّتوا على الحُكومة!",
+    "gov_passed": "الحُكومة مَشَت! وافَقوا عليها!",
+    "gov_failed": "لا لا… الحُكومة طاحَت! ما مَشَت.",
+    "discard": "اِخْتار الكَرْت اللي بِتِرْمِيه.",
+    "enact": "اِخْتار الكَرْت اللي بِتْمَشِّيه.",
+    "enact_loyal": "الحَمْدُ لله! مَشَى قَرار لِلأوفياء.",
+    "enact_traitor": "يا خَسارة… نِزَل قَرار لِلخَوَنَة.",
+    "chaos": "يا ساتِر! فَوْضى… القَرار نِزَل لِحالَه!",
+    "veto": "الوَزير يَبي فيتو!",
+    "power_investigate": "الرَّئيس بِيْحَقِّق مع واحِد مِنْكُم…",
+    "power_peek": "الرَّئيس بِيْشوف الكُروت الجايَّة…",
+    "power_special": "الرَّئيس بِيْخْتار رَئيس جِديد!",
+    "power_execute": "الرَّئيس بِيْطَيِّر واحِد مِن المَجْلِس…",
+    "executed": "طار مِن المَجْلِس… الله يِعينَه.",
+    "guarded": "نَجا! طِلَع حارِس!",
+    "hurry": "[excited] يالله… الوقت بيخلص!",
+    "win_loyal": "فازوا الأوفياء! ألف مَبْروك!",
+    "win_traitor": "فازوا الخَوَنَة! هارْدْلَك يا الأوفياء."
   }
 }

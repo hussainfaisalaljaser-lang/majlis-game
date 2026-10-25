@@ -1,11 +1,8 @@
-"""صوت الراوي الخليجي بـ ElevenLabs.
+"""صوت الراوي السعودي بـ ElevenLabs.
 
-  python eleven.py samples "ID1,ID2,..." OUT   عينة الجملة بكل صوت، عشان نختار
-  python eleven.py lines VOICE_ID OUT          كل جمل اللعبة (lines.json) بالصوت المختار
-  python eleven.py preview VOICE_ID OUT        جمل مختارة (preview) بكل درجة ثبات، عشان نختار الأداء
+  python eleven.py lines VOICE_ID OUT [key1,key2]   جمل اللعبة (lines.json)، كلها أو المذكورة بس
 
-ELEVEN_STABILITY: 0 = حماسي ومعبّر، 0.5 = طبيعي، 1 = ثابت. العلامات مثل [excited] توجّه الأداء في v3.
-
+الإعداد المعتمد في lines.json → config، وأي جملة لها إعداد خاص في overrides.
 يحتاج ELEVENLABS_API_KEY. الصوت لازم يكون مضاف في حسابك (My Voices).
 """
 import json, os, re, sys, urllib.error, urllib.request
@@ -30,9 +27,9 @@ def say(text, voice, path, stability=None, cfg=None):
     settings = {}
     if stability not in (None, ''):
         settings['stability'] = float(stability)
-    if 'similarity' in cfg:
+    if cfg.get('similarity') is not None:
         settings['similarity_boost'] = cfg['similarity']
-    if 'style' in cfg:
+    if cfg.get('style') is not None:
         settings['style'] = cfg['style']
     if settings:
         body['voice_settings'] = settings
@@ -51,37 +48,20 @@ def say(text, voice, path, stability=None, cfg=None):
         f.write(data)
 
 
+def cfg_for(key):
+    """الإعداد المعتمد (config) ومعه أي تعديل خاص بهالجملة (overrides)."""
+    return {**LINES.get('config', {}), **LINES.get('overrides', {}).get(key, {})}
+
+
 def main():
     mode = sys.argv[1]
-    if mode == 'samples':
-        voices, out = [v.strip() for v in sys.argv[2].split(',') if v.strip()], sys.argv[3]
-        os.makedirs(out, exist_ok=True)
-        for v in voices:
-            say(LINES['sample'], v, os.path.join(out, v + '.mp3'))
-            print('✓', v)
-    elif mode == 'lines':
-        voice, out = sys.argv[2], sys.argv[3]
-        os.makedirs(out, exist_ok=True)
-        for key, text in LINES['lines'].items():
-            say(text, voice, os.path.join(out, key + '.mp3'))
+    voice, out = sys.argv[2], sys.argv[3]
+    os.makedirs(out, exist_ok=True)
+    keys = sys.argv[4].split(',') if len(sys.argv) > 4 and sys.argv[4] else list(LINES['lines'])
+    if mode == 'lines':
+        for key in keys:
+            say(LINES['lines'][key], voice, os.path.join(out, key + '.mp3'), cfg=cfg_for(key))
             print('✓', key)
-    elif mode == 'experiment':
-        # نفس الجمل بأكثر من إعداد (نموذج ولهجة ومشاعر)، عشان نقارن
-        voice, out = sys.argv[2], sys.argv[3]
-        os.makedirs(out, exist_ok=True)
-        exp = LINES['experiment']
-        for name, cfg in exp['configs'].items():
-            for key, text in exp['texts'].items():
-                say(text, voice, os.path.join(out, f'{name}__{key}.mp3'), cfg=cfg)
-                print('✓', name, key)
-    elif mode == 'preview':
-        voice, out = sys.argv[2], sys.argv[3]
-        os.makedirs(out, exist_ok=True)
-        texts = {'sample': LINES['sample'], **LINES['lines']}
-        for key in LINES['preview']:
-            for stab, label in ((0.0, 'creative'), (0.5, 'natural')):
-                say(texts[key], voice, os.path.join(out, f'{key}_{label}.mp3'), stab)
-                print('✓', key, label)
     else:
         sys.exit(__doc__)
 
