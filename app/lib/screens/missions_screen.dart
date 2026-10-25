@@ -131,7 +131,12 @@ class _MissionTile extends StatelessWidget {
                     textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800),
                   ),
                   onPressed: busy ? null : onClaim,
-                  child: Text('${arabicNumber(mission.coins)} 🪙'),
+                  child: Amount(
+                    'coin',
+                    arabicNumber(mission.coins),
+                    size: 18,
+                    style: const TextStyle(fontWeight: FontWeight.w800, color: Colors.black),
+                  ),
                 ),
         ],
       ),

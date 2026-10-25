@@ -253,10 +253,8 @@ class Backend {
   Future<void> react(String code, ReactionKind kind, {String? target}) =>
       _call('react', {'code': code, 'kind': kind.name, 'target': ?target});
 
-  Stream<Room?> watchRoom(String code) => _db
-      .doc('rooms/$code')
-      .snapshots()
-      .map((s) => s.exists ? Room.fromJson(s.data()!) : null);
+  Stream<Room?> watchRoom(String code) =>
+      _db.doc('rooms/$code').snapshots().map((s) => s.exists ? Room.fromJson(s.data()!) : null);
 
   /// نسخة اللاعب من اللعبة (فيها أسراره هو بس).
   Stream<Map<String, dynamic>?> watchView(String code) =>

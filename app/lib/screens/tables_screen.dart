@@ -224,9 +224,11 @@ class _TierTile extends StatelessWidget {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  Text('🪙 ${arabicNumber(tier.entryFee)}', style: const TextStyle(fontWeight: FontWeight.w800)),
-                  Text(
-                    '🏆 ${arabicNumber(tier.pot(players))}',
+                  Amount('coin', arabicNumber(tier.entryFee), size: 16),
+                  Amount(
+                    'trophy',
+                    arabicNumber(tier.pot(players)),
+                    size: 15,
                     style: const TextStyle(color: AppColors.green, fontSize: 12, fontWeight: FontWeight.w700),
                   ),
                 ],

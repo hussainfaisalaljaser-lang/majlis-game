@@ -23,13 +23,13 @@ enum Policy {
 
 class ViewPlayer {
   ViewPlayer.fromJson(Map<String, dynamic> j)
-      : id = j['id'] as String,
-        name = j['name'] as String,
-        seat = j['seat'] as int,
-        alive = j['alive'] as bool,
-        knownRole = j['knownRole'] == null ? null : Role.values.byName(j['knownRole'] as String),
-        knownSpecial = j['knownSpecial'] == null ? null : Special.values.byName(j['knownSpecial'] as String),
-        hasVoted = j['hasVoted'] as bool;
+    : id = j['id'] as String,
+      name = j['name'] as String,
+      seat = j['seat'] as int,
+      alive = j['alive'] as bool,
+      knownRole = j['knownRole'] == null ? null : Role.values.byName(j['knownRole'] as String),
+      knownSpecial = j['knownSpecial'] == null ? null : Special.values.byName(j['knownSpecial'] as String),
+      hasVoted = j['hasVoted'] as bool;
 
   final String id;
   final String name;
@@ -43,9 +43,7 @@ class ViewPlayer {
 }
 
 class Investigation {
-  Investigation.fromJson(Map<String, dynamic> j)
-      : target = j['target'] as String,
-        traitor = j['team'] == 'traitor';
+  Investigation.fromJson(Map<String, dynamic> j) : target = j['target'] as String, traitor = j['team'] == 'traitor';
 
   final String target;
   final bool traitor;
@@ -62,9 +60,7 @@ class Claim {
 
 /// حدث في السجل. نحتفظ بالبيانات الخام عشان كل نوع له حقوله.
 class GameEvent {
-  GameEvent.fromJson(this.data)
-      : type = data['type'] as String,
-        round = data['round'] as int;
+  GameEvent.fromJson(this.data) : type = data['type'] as String, round = data['round'] as int;
 
   final String type;
   final int round;
@@ -73,34 +69,34 @@ class GameEvent {
 
 class GameView {
   GameView.fromJson(Map<String, dynamic> j)
-      : you = j['you'] as String,
-        yourRole = Role.values.byName(j['yourRole'] as String),
-        yourSpecial = j['yourSpecial'] == null ? null : Special.values.byName(j['yourSpecial'] as String),
-        seerSees = j['seerSees'] as String?,
-        seerReady = j['seerReady'] as bool? ?? false,
-        autopilot = {for (final id in (j['autopilot'] as List?) ?? const []) id as String},
-        players = [for (final p in j['players'] as List) ViewPlayer.fromJson(_map(p))],
-        phase = Phase.values.byName(j['phase'] as String),
-        round = j['round'] as int,
-        presidentId = j['presidentId'] as String,
-        nomineeId = j['nomineeId'] as String?,
-        lastPresident = (j['lastElected'] as Map?)?['president'] as String?,
-        lastChancellor = (j['lastElected'] as Map?)?['chancellor'] as String?,
-        electionTracker = j['electionTracker'] as int,
-        drawPileCount = j['drawPileCount'] as int,
-        discardPileCount = j['discardPileCount'] as int? ?? 0,
-        loyalPolicies = j['loyalPolicies'] as int,
-        traitorPolicies = j['traitorPolicies'] as int,
-        pendingPower = j['pendingPower'] == null ? null : Power.values.byName(j['pendingPower'] as String),
-        hand = [for (final c in j['hand'] as List) Policy.parse(c)],
-        peeked = (j['peeked'] as List?)?.map(Policy.parse).toList(),
-        canVeto = j['canVeto'] as bool,
-        investigations = [for (final i in j['yourInvestigations'] as List) Investigation.fromJson(_map(i))],
-        claimCount = (j['claimable'] as Map?)?['count'] as int?,
-        winnerLoyal = j['winner'] == null ? null : j['winner'] == 'loyal',
-        winReason = j['winReason'] as String?,
-        log = [for (final e in j['log'] as List) GameEvent.fromJson(_map(e))],
-        deadline = j['deadline'] == null ? null : DateTime.fromMillisecondsSinceEpoch(j['deadline'] as int);
+    : you = j['you'] as String,
+      yourRole = Role.values.byName(j['yourRole'] as String),
+      yourSpecial = j['yourSpecial'] == null ? null : Special.values.byName(j['yourSpecial'] as String),
+      seerSees = j['seerSees'] as String?,
+      seerReady = j['seerReady'] as bool? ?? false,
+      autopilot = {for (final id in (j['autopilot'] as List?) ?? const []) id as String},
+      players = [for (final p in j['players'] as List) ViewPlayer.fromJson(_map(p))],
+      phase = Phase.values.byName(j['phase'] as String),
+      round = j['round'] as int,
+      presidentId = j['presidentId'] as String,
+      nomineeId = j['nomineeId'] as String?,
+      lastPresident = (j['lastElected'] as Map?)?['president'] as String?,
+      lastChancellor = (j['lastElected'] as Map?)?['chancellor'] as String?,
+      electionTracker = j['electionTracker'] as int,
+      drawPileCount = j['drawPileCount'] as int,
+      discardPileCount = j['discardPileCount'] as int? ?? 0,
+      loyalPolicies = j['loyalPolicies'] as int,
+      traitorPolicies = j['traitorPolicies'] as int,
+      pendingPower = j['pendingPower'] == null ? null : Power.values.byName(j['pendingPower'] as String),
+      hand = [for (final c in j['hand'] as List) Policy.parse(c)],
+      peeked = (j['peeked'] as List?)?.map(Policy.parse).toList(),
+      canVeto = j['canVeto'] as bool,
+      investigations = [for (final i in j['yourInvestigations'] as List) Investigation.fromJson(_map(i))],
+      claimCount = (j['claimable'] as Map?)?['count'] as int?,
+      winnerLoyal = j['winner'] == null ? null : j['winner'] == 'loyal',
+      winReason = j['winReason'] as String?,
+      log = [for (final e in j['log'] as List) GameEvent.fromJson(_map(e))],
+      deadline = j['deadline'] == null ? null : DateTime.fromMillisecondsSinceEpoch(j['deadline'] as int);
 
   static Map<String, dynamic> _map(Object? o) => Map<String, dynamic>.from(o as Map);
 
@@ -159,15 +155,15 @@ class GameView {
   }
 
   List<Claim> get claims => [
-        for (final e in log)
-          if (e.type == 'claim')
-            Claim(
-              round: e.round,
-              by: (e.data['claim'] as Map)['by'] as String,
-              president: (e.data['claim'] as Map)['office'] == 'president',
-              policies: [for (final c in (e.data['claim'] as Map)['policies'] as List) Policy.parse(c)],
-            ),
-      ];
+    for (final e in log)
+      if (e.type == 'claim')
+        Claim(
+          round: e.round,
+          by: (e.data['claim'] as Map)['by'] as String,
+          president: (e.data['claim'] as Map)['office'] == 'president',
+          policies: [for (final c in (e.data['claim'] as Map)['policies'] as List) Policy.parse(c)],
+        ),
+  ];
 
   /// القدرات حسب عدد اللاعبين، لعرضها على مسار الخونة (نفس engine/src/rules.ts).
   List<Power?> get traitorTrackPowers {

@@ -1515,10 +1515,11 @@ class _ClaimPrompt extends StatelessWidget {
 }
 
 class _Reward extends StatelessWidget {
-  const _Reward(this.text, this.color);
+  const _Reward(this.text, this.color, {required this.icon});
 
   final String text;
   final Color color;
+  final String icon;
 
   @override
   Widget build(BuildContext context) => Container(
@@ -1528,8 +1529,10 @@ class _Reward extends StatelessWidget {
       borderRadius: BorderRadius.circular(20),
       border: Border.all(color: color.withValues(alpha: .7), width: 1.5),
     ),
-    child: Text(
+    child: Amount(
+      icon,
       text,
+      size: 20,
       style: TextStyle(color: color, fontWeight: FontWeight.w800, fontSize: 16),
     ),
   );
@@ -1605,7 +1608,7 @@ class _GameOver extends StatelessWidget {
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Text(iWon ? '🏆' : '💔', style: const TextStyle(fontSize: 50)),
+                        iWon ? const Gfx('trophy', size: 64) : const Text('💔', style: TextStyle(fontSize: 50)),
                         GoldText(iWon ? 'فزت!' : 'خسرت', size: 36),
                         const SizedBox(height: 2),
                         Text(
@@ -1618,9 +1621,9 @@ class _GameOver extends StatelessWidget {
                           Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              if (r.coins > 0) _Reward('+${arabicNumber(r.coins)} 🪙', AppColors.gold),
+                              if (r.coins > 0) _Reward('+${arabicNumber(r.coins)}', AppColors.gold, icon: 'coin'),
                               if (r.coins > 0) const SizedBox(width: 10),
-                              _Reward('+${arabicNumber(r.xp)} ⭐', AppColors.diamond),
+                              _Reward('+${arabicNumber(r.xp)}', AppColors.diamond, icon: 'xp'),
                             ],
                           ),
                         ],

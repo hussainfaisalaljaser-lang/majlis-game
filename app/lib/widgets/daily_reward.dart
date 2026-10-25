@@ -94,7 +94,13 @@ class _DailyRewardDialogState extends State<_DailyRewardDialog> {
 }
 
 class _DayTile extends StatelessWidget {
-  const _DayTile({required this.day, required this.coins, required this.diamonds, required this.done, required this.current});
+  const _DayTile({
+    required this.day,
+    required this.coins,
+    required this.diamonds,
+    required this.done,
+    required this.current,
+  });
 
   final int day;
   final int coins;
@@ -115,9 +121,9 @@ class _DayTile extends StatelessWidget {
       child: Column(
         children: [
           Text('يوم ${arabicNumber(day)}', style: const TextStyle(fontSize: 11, color: AppColors.muted)),
-          Text(done ? '✅' : (diamonds > 0 ? '💎' : '🪙'), style: const TextStyle(fontSize: 20)),
+          done ? const Text('✅', style: TextStyle(fontSize: 20)) : Gfx(diamonds > 0 ? 'gem' : 'coin', size: 26),
           Text(
-            diamonds > 0 ? '${arabicNumber(coins)} + ${arabicNumber(diamonds)}💎' : arabicNumber(coins),
+            diamonds > 0 ? '${arabicNumber(coins)} + ${arabicNumber(diamonds)}' : arabicNumber(coins),
             style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
           ),
         ],

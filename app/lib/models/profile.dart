@@ -23,24 +23,24 @@ class Profile {
   });
 
   factory Profile.fromJson(Map<String, dynamic> j) => Profile(
-        name: j['name'] as String,
-        avatar: j['avatar'] as String,
-        setupDone: j['setupDone'] as bool? ?? false,
-        dev: j['dev'] as bool? ?? false,
-        coins: j['coins'] as int,
-        diamonds: j['diamonds'] as int,
-        xp: j['xp'] as int,
-        level: j['level'] as int,
-        vip: j['vip'] as bool? ?? false,
-        gamesPlayed: j['gamesPlayed'] as int,
-        gamesWon: j['gamesWon'] as int,
-        lastDaily: j['lastDaily'] as String?,
-        dailyStreak: j['dailyStreak'] as int,
-        missionsRaw: MissionState.fromJson((j['missions'] as Map?)?.cast<String, dynamic>()),
-        owned: {for (final o in (j['owned'] as List?) ?? const []) o as String},
-        frame: (j['equipped'] as Map?)?['frame'] as String? ?? 'frame_none',
-        cards: (j['equipped'] as Map?)?['cards'] as String? ?? 'cards_classic',
-      );
+    name: j['name'] as String,
+    avatar: j['avatar'] as String,
+    setupDone: j['setupDone'] as bool? ?? false,
+    dev: j['dev'] as bool? ?? false,
+    coins: j['coins'] as int,
+    diamonds: j['diamonds'] as int,
+    xp: j['xp'] as int,
+    level: j['level'] as int,
+    vip: j['vip'] as bool? ?? false,
+    gamesPlayed: j['gamesPlayed'] as int,
+    gamesWon: j['gamesWon'] as int,
+    lastDaily: j['lastDaily'] as String?,
+    dailyStreak: j['dailyStreak'] as int,
+    missionsRaw: MissionState.fromJson((j['missions'] as Map?)?.cast<String, dynamic>()),
+    owned: {for (final o in (j['owned'] as List?) ?? const []) o as String},
+    frame: (j['equipped'] as Map?)?['frame'] as String? ?? 'frame_none',
+    cards: (j['equipped'] as Map?)?['cards'] as String? ?? 'cards_classic',
+  );
 
   /// للعرض التجريبي بدون سيرفر (نسخة الويب).
   static const demo = Profile(
@@ -109,7 +109,6 @@ class Profile {
     return 1;
   }
 }
-
 
 /// مكافآت الأيام السبعة (نفس functions/src/economy.ts).
 const dailyRewards = [

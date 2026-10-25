@@ -66,7 +66,8 @@ abstract final class Sfx {
     Music.duck(true);
     final line = _queue.removeFirst();
     // في نسخة التجربة على المحاكي نطبع كل جملة، عشان الاختبارات تتأكد من التوقيت.
-    if (const bool.fromEnvironment('USE_EMULATOR')) debugPrint('narrator: $line ${DateTime.now().millisecondsSinceEpoch}');
+    if (const bool.fromEnvironment('USE_EMULATOR'))
+      debugPrint('narrator: $line ${DateTime.now().millisecondsSinceEpoch}');
     try {
       final player = _player ??= AudioPlayer()..setReleaseMode(ReleaseMode.stop);
       await player.play(AssetSource('voice/$line.mp3'));

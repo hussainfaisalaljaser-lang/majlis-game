@@ -26,7 +26,8 @@ class MissionState {
       : MissionState(
           day: j['day'] as String,
           progress: {
-            for (final MapEntry(:key, :value) in ((j['progress'] as Map?) ?? const {}).entries) key as String: value as int,
+            for (final MapEntry(:key, :value) in ((j['progress'] as Map?) ?? const {}).entries)
+              key as String: value as int,
           },
           claimed: {for (final c in (j['claimed'] as List?) ?? const []) c as String},
         );
@@ -36,7 +37,8 @@ class MissionState {
   final Set<String> claimed;
 
   /// التقدم الفعلي اليوم. لو المحفوظ من يوم قبل، يعتبر صفر.
-  MissionState forDay(String today) => day == today ? this : MissionState(day: today, progress: const {}, claimed: const {});
+  MissionState forDay(String today) =>
+      day == today ? this : MissionState(day: today, progress: const {}, claimed: const {});
 
   int progressOf(MissionDef m) => progress[m.id] ?? 0;
   bool isDone(MissionDef m) => progressOf(m) >= m.target;

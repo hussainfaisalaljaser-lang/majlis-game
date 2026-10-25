@@ -49,11 +49,13 @@ class _RoleRevealState extends State<_RoleReveal> with SingleTickerProviderState
     // البطاقة تنقلب بعد ما يخلص الترحيب، عشان جملة الدور ما تركب عليه.
     Future.delayed(const Duration(milliseconds: 500)).then((_) => Sfx.whenQuiet()).then((_) {
       if (!mounted) return;
-      _flip.forward().then((_) => Sfx.say(switch (widget.view.yourRole) {
-            Role.loyal => 'role_loyal',
-            Role.traitor => 'role_traitor',
-            Role.leader => 'role_leader',
-          }));
+      _flip.forward().then(
+        (_) => Sfx.say(switch (widget.view.yourRole) {
+          Role.loyal => 'role_loyal',
+          Role.traitor => 'role_traitor',
+          Role.leader => 'role_leader',
+        }),
+      );
     });
   }
 
@@ -82,7 +84,10 @@ class _RoleRevealState extends State<_RoleReveal> with SingleTickerProviderState
             children: [
               PlayerAvatar(avatar: me?.avatar ?? 'masked', frame: color, size: 96),
               const SizedBox(height: 4),
-              Text(name, style: TextStyle(fontFamily: kufi, fontSize: 32, fontWeight: FontWeight.w700, color: dark)),
+              Text(
+                name,
+                style: TextStyle(fontFamily: kufi, fontSize: 32, fontWeight: FontWeight.w700, color: dark),
+              ),
               if (special != null)
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
@@ -154,7 +159,10 @@ class _RoleRevealState extends State<_RoleReveal> with SingleTickerProviderState
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Text('❖ غطِّ الشاشة! ❖', style: TextStyle(fontFamily: kufi, color: AppColors.goldLight, fontSize: 16, letterSpacing: 1)),
+            const Text(
+              '❖ غطِّ الشاشة! ❖',
+              style: TextStyle(fontFamily: kufi, color: AppColors.goldLight, fontSize: 16, letterSpacing: 1),
+            ),
             const SizedBox(height: 10),
             AnimatedBuilder(
               animation: _flip,
@@ -203,13 +211,16 @@ class _Known extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          PlayerAvatar(avatar: room?.player(player.id)?.avatar ?? 'masked', frame: AppColors.traitor, size: 40),
-          const SizedBox(height: 3),
-          Text(label, style: const TextStyle(color: AppColors.ink, fontSize: 12, fontWeight: FontWeight.w800)),
-        ],
-      );
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      PlayerAvatar(avatar: room?.player(player.id)?.avatar ?? 'masked', frame: AppColors.traitor, size: 40),
+      const SizedBox(height: 3),
+      Text(
+        label,
+        style: const TextStyle(color: AppColors.ink, fontSize: 12, fontWeight: FontWeight.w800),
+      ),
+    ],
+  );
 }
 
 class _CardFace extends StatelessWidget {
@@ -227,7 +238,11 @@ class _CardFace extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(22, 16, 22, 16),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(24),
-        gradient: const LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Color(0xFFF8EBD0), AppColors.parchmentDark]),
+        gradient: const LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [Color(0xFFF8EBD0), AppColors.parchmentDark],
+        ),
         border: Border.all(color: AppColors.goldDark, width: 4),
         boxShadow: [
           BoxShadow(color: edge, spreadRadius: 4),
@@ -241,7 +256,12 @@ class _CardFace extends StatelessWidget {
 
 /// مشهد قصير يطلع فوق الطاولة ويختفي لحاله (كشف التصويت، تمرير قرار، طرد…).
 class EventOverlay extends StatefulWidget {
-  const EventOverlay({super.key, required this.child, required this.onDone, this.duration = const Duration(milliseconds: 2600)});
+  const EventOverlay({
+    super.key,
+    required this.child,
+    required this.onDone,
+    this.duration = const Duration(milliseconds: 2600),
+  });
 
   final Widget child;
   final VoidCallback onDone;
@@ -300,7 +320,11 @@ class VoteReveal extends StatelessWidget {
       constraints: const BoxConstraints(maxWidth: 720),
       padding: const EdgeInsets.symmetric(horizontal: 18),
       child: Panel(
-        gradient: const LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Color(0xFF2E2266), AppColors.panel]),
+        gradient: const LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [Color(0xFF2E2266), AppColors.panel],
+        ),
         borderColor: AppColors.gold.withValues(alpha: .5),
         padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
         child: Column(
@@ -333,7 +357,11 @@ class VoteReveal extends StatelessWidget {
                           child: Text(
                             value ? 'نعم' : 'لا',
                             textAlign: TextAlign.center,
-                            style: TextStyle(fontFamily: kufi, fontWeight: FontWeight.w700, color: value ? const Color(0xFF062814) : Colors.white),
+                            style: TextStyle(
+                              fontFamily: kufi,
+                              fontWeight: FontWeight.w700,
+                              color: value ? const Color(0xFF062814) : Colors.white,
+                            ),
                           ),
                         ),
                         SizedBox(
@@ -354,7 +382,12 @@ class VoteReveal extends StatelessWidget {
             const SizedBox(height: 14),
             Text(
               passed ? '✅ الحكومة انتخبت' : '❌ الحكومة انرفضت',
-              style: TextStyle(fontFamily: kufi, fontSize: 20, fontWeight: FontWeight.w700, color: passed ? AppColors.green : AppColors.traitorLight),
+              style: TextStyle(
+                fontFamily: kufi,
+                fontSize: 20,
+                fontWeight: FontWeight.w700,
+                color: passed ? AppColors.green : AppColors.traitorLight,
+              ),
             ),
           ],
         ),
@@ -379,7 +412,10 @@ class EnactStamp extends StatelessWidget {
           tween: Tween(begin: 2.2, end: 1),
           duration: const Duration(milliseconds: 450),
           curve: Curves.easeInCubic,
-          builder: (context, s, child) => Transform.scale(scale: s, child: Transform.rotate(angle: (s - 1) * .4, child: child)),
+          builder: (context, s, child) => Transform.scale(
+            scale: s,
+            child: Transform.rotate(angle: (s - 1) * .4, child: child),
+          ),
           child: Seal(loyal: loyal, size: 170),
         ),
         const SizedBox(height: 12),
@@ -405,14 +441,17 @@ class ExecutionScene extends StatelessWidget {
         TweenAnimationBuilder<double>(
           tween: Tween(begin: 0, end: 1),
           duration: const Duration(milliseconds: 700),
-          builder: (context, t, child) => Transform.translate(
-            offset: Offset(math.sin(t * math.pi * 6) * (1 - t) * 14, 0),
-            child: child,
-          ),
+          builder: (context, t, child) =>
+              Transform.translate(offset: Offset(math.sin(t * math.pi * 6) * (1 - t) * 14, 0), child: child),
           child: Stack(
             alignment: Alignment.center,
             children: [
-              PlayerAvatar(avatar: avatar, frame: guarded ? AppColors.loyal : AppColors.traitor, size: 130, dead: !guarded),
+              PlayerAvatar(
+                avatar: avatar,
+                frame: guarded ? AppColors.loyal : AppColors.traitor,
+                size: 130,
+                dead: !guarded,
+              ),
               Text(guarded ? '🛡️' : '🗡️', style: const TextStyle(fontSize: 64, shadows: [Shadow(blurRadius: 12)])),
             ],
           ),

@@ -84,7 +84,11 @@ class GameTable extends StatelessWidget {
                       left: rugW * .11,
                       child: CardPile(count: view.discardPileCount, label: 'الرمي', cardW: rugH * .2, messy: true),
                     ),
-                    SizedBox(width: trayW * .74, height: trayH * .72, child: Center(child: center)),
+                    SizedBox(
+                      width: trayW * .74,
+                      height: trayH * .72,
+                      child: Center(child: center),
+                    ),
                   ],
                 ),
               ),
@@ -105,7 +109,9 @@ class GameTable extends StatelessWidget {
                         // وقت التصويت الكل يظلم إلا الحكومة، بس الخونة اللي تعرفهم يبقون واضحين.
                         opacity: spotlight == null || spotlight!.contains(p.id)
                             ? 1
-                            : (p.id != view.you && (p.knownRole == Role.traitor || p.knownRole == Role.leader) ? .85 : .3),
+                            : (p.id != view.you && (p.knownRole == Role.traitor || p.knownRole == Role.leader)
+                                  ? .85
+                                  : .3),
                         duration: const Duration(milliseconds: 400),
                         child: AnimatedScale(
                           scale: spotlight != null && spotlight!.contains(p.id) ? 1.15 : 1,
@@ -210,7 +216,10 @@ class CardPile extends StatelessWidget {
           Container(
             margin: const EdgeInsets.only(top: 2),
             padding: const EdgeInsets.symmetric(horizontal: 7),
-            decoration: BoxDecoration(color: Colors.black.withValues(alpha: .55), borderRadius: BorderRadius.circular(8)),
+            decoration: BoxDecoration(
+              color: Colors.black.withValues(alpha: .55),
+              borderRadius: BorderRadius.circular(8),
+            ),
             child: AnimatedSwitcher(
               duration: const Duration(milliseconds: 250),
               transitionBuilder: (child, a) => ScaleTransition(scale: a, child: child),
@@ -236,28 +245,31 @@ class _CardBack extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-        width: width,
-        height: height,
-        padding: EdgeInsets.all(width * .08),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(width * .12),
-          gradient: const LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [Color(0xFF4A3592), Color(0xFF1C1638)],
-          ),
-          border: Border.all(color: AppColors.gold, width: 1.5),
-          boxShadow: const [BoxShadow(color: Colors.black54, blurRadius: 4, offset: Offset(0, 2))],
-        ),
-        child: Container(
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(width * .08),
-            border: Border.all(color: AppColors.gold.withValues(alpha: .5), width: 1),
-          ),
-          child: Text('✦', style: TextStyle(color: AppColors.gold, fontSize: width * .38, height: 1)),
-        ),
-      );
+    width: width,
+    height: height,
+    padding: EdgeInsets.all(width * .08),
+    decoration: BoxDecoration(
+      borderRadius: BorderRadius.circular(width * .12),
+      gradient: const LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [Color(0xFF4A3592), Color(0xFF1C1638)],
+      ),
+      border: Border.all(color: AppColors.gold, width: 1.5),
+      boxShadow: const [BoxShadow(color: Colors.black54, blurRadius: 4, offset: Offset(0, 2))],
+    ),
+    child: Container(
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(width * .08),
+        border: Border.all(color: AppColors.gold.withValues(alpha: .5), width: 1),
+      ),
+      child: Text(
+        '✦',
+        style: TextStyle(color: AppColors.gold, fontSize: width * .38, height: 1),
+      ),
+    ),
+  );
 }
 
 /// نسبة عرض السجادة لطولها (assets/images/carpet_wide.png).

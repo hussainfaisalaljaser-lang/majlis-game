@@ -56,7 +56,9 @@ class _Gate extends StatelessWidget {
     return ValueListenableBuilder(
       valueListenable: backend.profileLoaded,
       builder: (context, loaded, _) => !loaded
-          ? const NightScaffold(body: Center(child: CircularProgressIndicator(color: AppColors.gold)))
+          ? const NightScaffold(
+              body: Center(child: CircularProgressIndicator(color: AppColors.gold)),
+            )
           : ValueListenableBuilder(
               valueListenable: backend.profile,
               builder: (context, p, _) => p.setupDone ? const HomeScreen() : const WelcomeScreen(),

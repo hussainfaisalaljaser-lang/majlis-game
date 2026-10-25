@@ -37,8 +37,10 @@ class Notes extends ChangeNotifier {
     }
     notifyListeners();
     try {
-      (await SharedPreferences.getInstance())
-          .setString(_key, jsonEncode({for (final e in _marks.entries) e.key: e.value.name}));
+      (await SharedPreferences.getInstance()).setString(
+        _key,
+        jsonEncode({for (final e in _marks.entries) e.key: e.value.name}),
+      );
     } catch (_) {}
   }
 }

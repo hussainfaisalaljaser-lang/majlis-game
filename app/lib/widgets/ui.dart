@@ -23,11 +23,7 @@ class NightBackground extends StatelessWidget {
       ),
       child: DecoratedBox(
         decoration: const BoxDecoration(
-          image: DecorationImage(
-            image: AssetImage('assets/images/pattern.png'),
-            repeat: ImageRepeat.repeat,
-            scale: 2,
-          ),
+          image: DecorationImage(image: AssetImage('assets/images/pattern.png'), repeat: ImageRepeat.repeat, scale: 2),
         ),
         child: child,
       ),
@@ -89,10 +85,30 @@ class _GameButtonState extends State<GameButton> {
   bool _down = false;
 
   static const _tones = {
-    ButtonTone.gold: ([Color(0xFFFFE08A), Color(0xFFF2B53A), Color(0xFFD48B12)], Color(0xFF8E5A07), Color(0xFFFFF2C2), AppColors.goldInk),
-    ButtonTone.green: ([Color(0xFF6DE3A0), Color(0xFF2FBF71), Color(0xFF1E8E52)], Color(0xFF11603A), Color(0xFFC8FFE0), Color(0xFF062814)),
-    ButtonTone.red: ([Color(0xFFFF8C98), Color(0xFFE0314B), Color(0xFFA3172D)], Color(0xFF6B0C1C), Color(0xFFFFC9D0), Colors.white),
-    ButtonTone.purple: ([Color(0xFFA48BFF), Color(0xFF7C5CFF), Color(0xFF4B2DC2)], Color(0xFF2A1680), Color(0xFFDCD2FF), Colors.white),
+    ButtonTone.gold: (
+      [Color(0xFFFFE08A), Color(0xFFF2B53A), Color(0xFFD48B12)],
+      Color(0xFF8E5A07),
+      Color(0xFFFFF2C2),
+      AppColors.goldInk,
+    ),
+    ButtonTone.green: (
+      [Color(0xFF6DE3A0), Color(0xFF2FBF71), Color(0xFF1E8E52)],
+      Color(0xFF11603A),
+      Color(0xFFC8FFE0),
+      Color(0xFF062814),
+    ),
+    ButtonTone.red: (
+      [Color(0xFFFF8C98), Color(0xFFE0314B), Color(0xFFA3172D)],
+      Color(0xFF6B0C1C),
+      Color(0xFFFFC9D0),
+      Colors.white,
+    ),
+    ButtonTone.purple: (
+      [Color(0xFFA48BFF), Color(0xFF7C5CFF), Color(0xFF4B2DC2)],
+      Color(0xFF2A1680),
+      Color(0xFFDCD2FF),
+      Colors.white,
+    ),
   };
 
   @override
@@ -127,14 +143,20 @@ class _GameButtonState extends State<GameButton> {
             margin: EdgeInsets.only(top: 5 - depth, bottom: depth),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(16),
-              gradient: ghost ? null : LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: t!.$1),
+              gradient: ghost
+                  ? null
+                  : LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: t!.$1),
               color: ghost ? Colors.white.withValues(alpha: .07) : null,
               border: Border.all(color: ghost ? Colors.white.withValues(alpha: .16) : t!.$3, width: 2),
               boxShadow: ghost
                   ? null
                   : [
                       BoxShadow(color: t!.$2, offset: Offset(0, depth)),
-                      BoxShadow(color: Colors.black.withValues(alpha: .4), blurRadius: 14, offset: Offset(0, depth + 4)),
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: .4),
+                        blurRadius: 14,
+                        offset: Offset(0, depth + 4),
+                      ),
                     ],
             ),
             alignment: Alignment.center,
@@ -147,7 +169,12 @@ class _GameButtonState extends State<GameButton> {
                     widget.label,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: TextStyle(fontFamily: kufi, fontWeight: FontWeight.w700, fontSize: widget.fontSize, color: fg),
+                    style: TextStyle(
+                      fontFamily: kufi,
+                      fontWeight: FontWeight.w700,
+                      fontSize: widget.fontSize,
+                      color: fg,
+                    ),
                   ),
                 ),
               ],
@@ -179,7 +206,13 @@ class GoldText extends StatelessWidget {
       child: Text(
         text,
         textAlign: align,
-        style: TextStyle(fontFamily: kufi, fontWeight: FontWeight.w700, fontSize: size, color: Colors.white, height: 1.2),
+        style: TextStyle(
+          fontFamily: kufi,
+          fontWeight: FontWeight.w700,
+          fontSize: size,
+          color: Colors.white,
+          height: 1.2,
+        ),
       ),
     );
   }
@@ -194,13 +227,24 @@ class GameIcon extends StatelessWidget {
   final Color color;
 
   @override
-  Widget build(BuildContext context) =>
-      Image.asset('assets/icons/ic_$name.png', width: size, height: size, color: color, filterQuality: FilterQuality.medium);
+  Widget build(BuildContext context) => Image.asset(
+    'assets/icons/ic_$name.png',
+    width: size,
+    height: size,
+    color: color,
+    filterQuality: FilterQuality.medium,
+  );
 }
 
 /// لوحة داكنة بحافة خفيفة.
 class Panel extends StatelessWidget {
-  const Panel({super.key, required this.child, this.padding = const EdgeInsets.all(14), this.borderColor, this.gradient});
+  const Panel({
+    super.key,
+    required this.child,
+    this.padding = const EdgeInsets.all(14),
+    this.borderColor,
+    this.gradient,
+  });
 
   final Widget child;
   final EdgeInsets padding;

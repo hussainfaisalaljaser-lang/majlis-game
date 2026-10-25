@@ -62,7 +62,12 @@ ThemeData buildTheme() {
         borderRadius: BorderRadius.circular(24),
         side: BorderSide(color: AppColors.gold.withValues(alpha: .35), width: 1.5),
       ),
-      titleTextStyle: const TextStyle(fontFamily: kufi, fontSize: 20, fontWeight: FontWeight.w700, color: AppColors.text),
+      titleTextStyle: const TextStyle(
+        fontFamily: kufi,
+        fontSize: 20,
+        fontWeight: FontWeight.w700,
+        color: AppColors.text,
+      ),
     ),
     snackBarTheme: SnackBarThemeData(
       backgroundColor: AppColors.card,

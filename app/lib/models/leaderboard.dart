@@ -6,13 +6,13 @@ enum Board { weekly, allTime, level }
 
 class LeaderboardEntry {
   LeaderboardEntry.fromJson(this.uid, Map<String, dynamic> j)
-      : name = j['name'] as String,
-        avatar = j['avatar'] as String,
-        frame = j['frame'] as String?,
-        level = j['level'] as int,
-        gamesWon = j['gamesWon'] as int,
-        gamesPlayed = j['gamesPlayed'] as int,
-        weeklyWins = j['weeklyWins'] as int? ?? 0;
+    : name = j['name'] as String,
+      avatar = j['avatar'] as String,
+      frame = j['frame'] as String?,
+      level = j['level'] as int,
+      gamesWon = j['gamesWon'] as int,
+      gamesPlayed = j['gamesPlayed'] as int,
+      weeklyWins = j['weeklyWins'] as int? ?? 0;
 
   final String uid;
   final String name;

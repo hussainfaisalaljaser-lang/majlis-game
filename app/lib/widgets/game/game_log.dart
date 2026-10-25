@@ -41,7 +41,11 @@ class _GameLog extends StatelessWidget {
     return Column(
       children: [
         const SizedBox(height: 10),
-        Container(width: 40, height: 4, decoration: BoxDecoration(color: AppColors.line, borderRadius: BorderRadius.circular(2))),
+        Container(
+          width: 40,
+          height: 4,
+          decoration: BoxDecoration(color: AppColors.line, borderRadius: BorderRadius.circular(2)),
+        ),
         const Padding(
           padding: EdgeInsets.all(12),
           child: Text('📜 سجل اللعبة', style: TextStyle(fontSize: 19, fontWeight: FontWeight.w800)),
@@ -91,37 +95,47 @@ class _RoundCard extends StatelessWidget {
         case 'voteResult':
           final votes = Map<String, bool>.from(d['votes'] as Map);
           lines.add(Text(d['passed'] == true ? '✅ الحكومة انتخبت' : '❌ الحكومة رُفضت'));
-          lines.add(Wrap(
-            spacing: 4,
-            runSpacing: 4,
-            children: [
-              for (final MapEntry(:key, :value) in votes.entries)
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: value ? const Color(0xFF162A1D) : const Color(0xFF5C1F26),
-                    borderRadius: BorderRadius.circular(8),
+          lines.add(
+            Wrap(
+              spacing: 4,
+              runSpacing: 4,
+              children: [
+                for (final MapEntry(:key, :value) in votes.entries)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: value ? const Color(0xFF162A1D) : const Color(0xFF5C1F26),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      '${value ? '✅' : '❌'} ${name(key)}',
+                      style: TextStyle(fontSize: 12, color: value ? const Color(0xFF8EE4AB) : const Color(0xFFFFB0B0)),
+                    ),
                   ),
-                  child: Text(
-                    '${value ? '✅' : '❌'} ${name(key)}',
-                    style: TextStyle(fontSize: 12, color: value ? const Color(0xFF8EE4AB) : const Color(0xFFFFB0B0)),
-                  ),
-                ),
-            ],
-          ));
+              ],
+            ),
+          );
         case 'enacted':
           enacted = Policy.parse(d['policy']);
           final chaos = d['chaos'] == true;
-          lines.add(Row(children: [
-            Text(chaos ? '🌪️ فوضى! تمرر تلقائياً: ' : '⚖️ تمرر: '),
-            MiniPolicies([enacted]),
-          ]));
+          lines.add(
+            Row(
+              children: [
+                Text(chaos ? '🌪️ فوضى! تمرر تلقائياً: ' : '⚖️ تمرر: '),
+                MiniPolicies([enacted]),
+              ],
+            ),
+          );
         case 'claim':
           final c = d['claim'] as Map;
-          lines.add(Row(children: [
-            Text('📢 ${name(c['by'] as String)} ${c['office'] == 'president' ? '(الرئيس)' : '(الوزير)'} ادّعى '),
-            MiniPolicies([for (final p in c['policies'] as List) Policy.parse(p)]),
-          ]));
+          lines.add(
+            Row(
+              children: [
+                Text('📢 ${name(c['by'] as String)} ${c['office'] == 'president' ? '(الرئيس)' : '(الوزير)'} ادّعى '),
+                MiniPolicies([for (final p in c['policies'] as List) Policy.parse(p)]),
+              ],
+            ),
+          );
         case 'vetoed':
           lines.add(const Text('✋ الحكومة استخدمت الفيتو'));
         case 'vetoRejected':

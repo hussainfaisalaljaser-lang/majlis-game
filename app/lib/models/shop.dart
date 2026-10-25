@@ -102,8 +102,12 @@ const shopItems = [
     name: 'الملك',
     rarity: Rarity.legendary,
     diamonds: 40,
-    frame: FrameStyle([Color(0xFFFFD54F), Color(0xFFFF8F00), Color(0xFFFFF8E1), Color(0xFFFFB300)],
-        glow: Color(0xFFFFC107)),
+    frame: FrameStyle([
+      Color(0xFFFFD54F),
+      Color(0xFFFF8F00),
+      Color(0xFFFFF8E1),
+      Color(0xFFFFB300),
+    ], glow: Color(0xFFFFC107)),
   ),
   ShopItem(id: 'cards_classic', slot: ShopSlot.cards, name: 'كلاسيك', rarity: Rarity.common, cards: _classicCards),
   ShopItem(

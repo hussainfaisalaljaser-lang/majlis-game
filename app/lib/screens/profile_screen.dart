@@ -73,12 +73,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                       maxLength: 16,
                       textAlign: TextAlign.center,
                       style: const TextStyle(fontFamily: kufi, fontSize: 20, fontWeight: FontWeight.w700),
-                      decoration: InputDecoration(
-                        hintText: 'اسمك',
-                        errorText: _error,
-                        isDense: true,
-                        counterText: '',
-                      ),
+                      decoration: InputDecoration(hintText: 'اسمك', errorText: _error, isDense: true, counterText: ''),
                       onSubmitted: (_) => _save(),
                     ),
                     const Spacer(),
@@ -188,8 +183,10 @@ class ProfileScreen extends StatelessWidget {
                       children: [
                         Row(
                           children: [
+                            const Gfx('xp', size: 22),
+                            const SizedBox(width: 6),
                             Text(
-                              '⭐ مستوى ${arabicNumber(p.level)}',
+                              'مستوى ${arabicNumber(p.level)}',
                               style: const TextStyle(fontFamily: kufi, fontWeight: FontWeight.w700, fontSize: 18),
                             ),
                             const Spacer(),
@@ -220,15 +217,25 @@ class ProfileScreen extends StatelessWidget {
                   const SizedBox(height: 10),
                   Row(
                     children: [
-                      Expanded(child: _Stat(icon: '🪙', value: arabicNumber(p.coins), label: 'ذهب')),
+                      Expanded(
+                        child: _Stat(icon: 'coin', value: arabicNumber(p.coins), label: 'ذهب'),
+                      ),
                       const SizedBox(width: 10),
-                      Expanded(child: _Stat(icon: '💎', value: arabicNumber(p.diamonds), label: 'جواهر')),
+                      Expanded(
+                        child: _Stat(icon: 'gem', value: arabicNumber(p.diamonds), label: 'جواهر'),
+                      ),
                       const SizedBox(width: 10),
-                      Expanded(child: _Stat(icon: '🎮', value: arabicNumber(p.gamesPlayed), label: 'لعبة')),
+                      Expanded(
+                        child: _Stat(icon: 'games', value: arabicNumber(p.gamesPlayed), label: 'لعبة'),
+                      ),
                       const SizedBox(width: 10),
-                      Expanded(child: _Stat(icon: '🏆', value: arabicNumber(p.gamesWon), label: 'فوز')),
+                      Expanded(
+                        child: _Stat(icon: 'trophy', value: arabicNumber(p.gamesWon), label: 'فوز'),
+                      ),
                       const SizedBox(width: 10),
-                      Expanded(child: _Stat(icon: '📈', value: '${arabicNumber(p.winRate)}٪', label: 'نسبة الفوز')),
+                      Expanded(
+                        child: _Stat(icon: 'winrate', value: '${arabicNumber(p.winRate)}٪', label: 'نسبة الفوز'),
+                      ),
                     ],
                   ),
                 ],
@@ -252,7 +259,7 @@ class _Stat extends StatelessWidget {
   Widget build(BuildContext context) => Panel(
     child: Column(
       children: [
-        Text(icon, style: const TextStyle(fontSize: 24)),
+        Gfx(icon, size: 34),
         const SizedBox(height: 4),
         Text(
           value,

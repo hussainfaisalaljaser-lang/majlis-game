@@ -28,8 +28,15 @@ class WaitingScreen extends StatefulWidget {
 
 class _WaitingScreenState extends State<WaitingScreen> {
   static const _demoPlayers = [
-    ('👩', 'نورة'), ('🧔', 'خالد'), ('👨‍🦱', 'سعد'), ('👴', 'عمر'), ('👱‍♀️', 'ريم'),
-    ('🧑', 'فهد'), ('👩‍🦰', 'سارة'), ('👨', 'ناصر'), ('🧕', 'هيا'),
+    ('👩', 'نورة'),
+    ('🧔', 'خالد'),
+    ('👨‍🦱', 'سعد'),
+    ('👴', 'عمر'),
+    ('👱‍♀️', 'ريم'),
+    ('🧑', 'فهد'),
+    ('👩‍🦰', 'سارة'),
+    ('👨', 'ناصر'),
+    ('🧕', 'هيا'),
   ];
 
   final _demoJoined = [const RoomPlayer(uid: 'me', name: 'أنت', avatar: '😎')];
@@ -165,8 +172,8 @@ class _WaitingScreenState extends State<WaitingScreen> {
                         isPrivate
                             ? '👥 اعزم أصحابك بالكود'
                             : full
-                                ? '✅ اكتملت الطاولة! اللعبة بتبدأ…'
-                                : '🔍 نبحث عن لاعبين…',
+                            ? '✅ اكتملت الطاولة! اللعبة بتبدأ…'
+                            : '🔍 نبحث عن لاعبين…',
                         style: const TextStyle(color: AppColors.muted, fontSize: 14),
                       ),
                       const SizedBox(height: 8),
@@ -184,15 +191,16 @@ class _WaitingScreenState extends State<WaitingScreen> {
                         isPrivate
                             ? '${arabicNumber(players.length)} من ${arabicNumber(max)} · يحتاج ٥ لاعبين على الأقل'
                             : _botCountdown != null && _botCountdown! > 0
-                                ? '${arabicNumber(players.length)} من ${arabicNumber(max)} · لو ما اكتملت خلال ${arabicNumber(_botCountdown!)} ثانية نكمّلها ببوتات 🤖'
-                                : '${arabicNumber(players.length)} من ${arabicNumber(max)} · تبدأ تلقائياً لما تكتمل',
+                            ? '${arabicNumber(players.length)} من ${arabicNumber(max)} · لو ما اكتملت خلال ${arabicNumber(_botCountdown!)} ثانية نكمّلها ببوتات 🤖'
+                            : '${arabicNumber(players.length)} من ${arabicNumber(max)} · تبدأ تلقائياً لما تكتمل',
                         textAlign: TextAlign.center,
                         style: const TextStyle(color: AppColors.muted, fontSize: 12),
                       ),
                       const SizedBox(height: 10),
                       if ((_room?.entryFee ?? tier?.entryFee ?? 0) > 0) ...[
                         _PotBox(
-                          pot: (_room?.entryFee ?? tier!.entryFee) *
+                          pot:
+                              (_room?.entryFee ?? tier!.entryFee) *
                               (players.any((p) => p.bot) ? players.where((p) => !p.bot).length : max),
                         ),
                         const SizedBox(height: 10),
@@ -224,7 +232,10 @@ class _WaitingScreenState extends State<WaitingScreen> {
                         if (players.any((p) => p.bot))
                           const Padding(
                             padding: EdgeInsets.only(top: 4),
-                            child: Text('اضغط على البوت عشان تشيله', style: TextStyle(color: AppColors.muted, fontSize: 12)),
+                            child: Text(
+                              'اضغط على البوت عشان تشيله',
+                              style: TextStyle(color: AppColors.muted, fontSize: 12),
+                            ),
                           ),
                         const SizedBox(height: 10),
                       ],
@@ -328,7 +339,7 @@ class _PotBox extends StatelessWidget {
       child: Column(
         children: [
           Text(
-            '🏆 الجائزة: ${arabicNumber(pot)} 🪙',
+            'الجائزة: ${arabicNumber(pot)} ذهب',
             style: const TextStyle(color: AppColors.gold, fontSize: 18, fontWeight: FontWeight.w800),
           ),
           const Text('تتوزع على الفريق الفايز', style: TextStyle(fontSize: 12)),
@@ -369,7 +380,10 @@ class _Seat extends StatelessWidget {
                   width: 58,
                   height: 58,
                   alignment: Alignment.center,
-                  decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: AppColors.line, width: 2)),
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(color: AppColors.line, width: 2),
+                  ),
                   child: const Text('＋', style: TextStyle(color: AppColors.muted, fontSize: 22)),
                 )
               : Stack(
@@ -380,7 +394,10 @@ class _Seat extends StatelessWidget {
                   ],
                 ),
           const SizedBox(height: 5),
-          Text(name, style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: empty ? AppColors.muted : null)),
+          Text(
+            name,
+            style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: empty ? AppColors.muted : null),
+          ),
         ],
       ),
     );

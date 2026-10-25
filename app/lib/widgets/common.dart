@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../models/shop.dart';
-import '../theme.dart';
 
 /// يحول الأرقام للأرقام العربية مع فاصل الآلاف: 12500 ← ١٢٬٥٠٠
 String arabicNumber(int n) {
@@ -16,6 +15,39 @@ String arabicNumber(int n) {
 }
 
 /// شارة العملة (ذهب أو جواهر) مع زر شحن اختياري.
+/// أيقونة ملونة مرسومة للعبة (assets/icons/gfx_*.png): coin ذهب، gem جوهرة، games لعب،
+/// trophy فوز، winrate نسبة الفوز، xp خبرة.
+class Gfx extends StatelessWidget {
+  const Gfx(this.name, {super.key, this.size = 20});
+
+  final String name;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) =>
+      Image.asset('assets/icons/gfx_$name.png', width: size, height: size, filterQuality: FilterQuality.medium);
+}
+
+/// رقم ومعه أيقونته (مثل الذهب أو الجواهر).
+class Amount extends StatelessWidget {
+  const Amount(this.icon, this.text, {super.key, this.size = 18, this.style});
+
+  final String icon;
+  final String text;
+  final double size;
+  final TextStyle? style;
+
+  @override
+  Widget build(BuildContext context) => Row(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      Gfx(icon, size: size),
+      const SizedBox(width: 4),
+      Text(text, style: style ?? const TextStyle(fontWeight: FontWeight.w800)),
+    ],
+  );
+}
+
 class CurrencyPill extends StatelessWidget {
   const CurrencyPill({super.key, required this.icon, required this.amount, this.onAdd});
 
@@ -25,7 +57,6 @@ class CurrencyPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final diamond = icon == '💎';
     return Container(
       padding: const EdgeInsetsDirectional.fromSTEB(4, 3, 8, 3),
       decoration: BoxDecoration(
@@ -36,20 +67,7 @@ class CurrencyPill extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Container(
-            width: 22,
-            height: 22,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              gradient: RadialGradient(
-                colors: diamond
-                    ? const [Color(0xFFBFF0FF), Color(0xFF2C8CB5)]
-                    : const [AppColors.goldLight, AppColors.goldDark],
-              ),
-            ),
-            child: Text(icon, style: const TextStyle(fontSize: 12)),
-          ),
+          Gfx(icon, size: 22),
           const SizedBox(width: 5),
           Text(arabicNumber(amount), style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14)),
           if (onAdd != null) ...[
@@ -76,8 +94,22 @@ class CurrencyPill extends StatelessWidget {
 
 /// الشخصيات المرسومة (نفس functions/src/profile.ts → AVATARS).
 const avatarIds = [
-  'falcon', 'sheikh', 'cool', 'scholar', 'desert', 'hawk', 'merchant', 'youth',
-  'pearl', 'rose', 'night', 'jasmine', 'amber', 'sky', 'masked', 'shadow',
+  'falcon',
+  'sheikh',
+  'cool',
+  'scholar',
+  'desert',
+  'hawk',
+  'merchant',
+  'youth',
+  'pearl',
+  'rose',
+  'night',
+  'jasmine',
+  'amber',
+  'sky',
+  'masked',
+  'shadow',
 ];
 
 String avatarAsset(String id) => 'assets/avatars/${avatarIds.contains(id) ? id : 'masked'}.png';
@@ -95,7 +127,9 @@ class PlayerAvatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    Widget img = ClipOval(child: Image.asset(avatarAsset(avatar), width: size, height: size, fit: BoxFit.cover));
+    Widget img = ClipOval(
+      child: Image.asset(avatarAsset(avatar), width: size, height: size, fit: BoxFit.cover),
+    );
     if (dead) {
       img = ColorFiltered(colorFilter: const ColorFilter.matrix(_grey), child: img);
     }

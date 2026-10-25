@@ -17,8 +17,7 @@ import 'tables_screen.dart';
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
 
-  void _push(BuildContext context, Widget page) =>
-      Navigator.of(context).push(MaterialPageRoute(builder: (_) => page));
+  void _push(BuildContext context, Widget page) => Navigator.of(context).push(MaterialPageRoute(builder: (_) => page));
 
   /// تدريب: روم خاص فيه أنت و٤ بوتات، ويبدأ على طول.
   Future<void> _startPractice(BuildContext context) async {
@@ -185,7 +184,12 @@ class _Header extends StatelessWidget {
                           ),
                           child: Text(
                             arabicNumber(p.level),
-                            style: const TextStyle(fontFamily: kufi, fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.goldInk),
+                            style: const TextStyle(
+                              fontFamily: kufi,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.goldInk,
+                            ),
                           ),
                         ),
                       ),
@@ -196,7 +200,12 @@ class _Header extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(p.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
+                        Text(
+                          p.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15),
+                        ),
                         const SizedBox(height: 5),
                         SizedBox(
                           width: 90,
@@ -217,10 +226,10 @@ class _Header extends StatelessWidget {
               ),
             ),
           ),
-          CurrencyPill(icon: '🪙', amount: p.coins),
+          CurrencyPill(icon: 'coin', amount: p.coins),
           const SizedBox(width: 6),
           CurrencyPill(
-            icon: '💎',
+            icon: 'gem',
             amount: p.diamonds,
             onAdd: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ShopScreen(initialTab: 2))),
           ),
@@ -308,7 +317,11 @@ class _Hero extends StatelessWidget {
                           children: [
                             Positioned(left: 0, top: 18, child: PlayerAvatar(avatar: 'pearl', size: 72)),
                             Positioned(right: 0, top: 18, child: PlayerAvatar(avatar: 'desert', size: 72)),
-                            Positioned(left: 65, top: 0, child: PlayerAvatar(avatar: 'masked', frame: AppColors.traitor, size: 96)),
+                            Positioned(
+                              left: 65,
+                              top: 0,
+                              child: PlayerAvatar(avatar: 'masked', frame: AppColors.traitor, size: 96),
+                            ),
                           ],
                         ),
                       ),
@@ -374,7 +387,10 @@ class _Tile extends StatelessWidget {
             children: [
               GameIcon(icon, size: 36),
               const SizedBox(height: 6),
-              Text(title, style: const TextStyle(fontFamily: kufi, fontWeight: FontWeight.w700, fontSize: 15)),
+              Text(
+                title,
+                style: const TextStyle(fontFamily: kufi, fontWeight: FontWeight.w700, fontSize: 15),
+              ),
               if (subtitle != null) Text(subtitle!, style: const TextStyle(fontSize: 10.5, color: Colors.white70)),
             ],
           ),
@@ -415,7 +431,11 @@ class _DailyCard extends StatelessWidget {
                     children: [
                       const GameIcon('gift', size: 40, color: AppColors.goldLight),
                       if (available)
-                        const Positioned(top: -2, left: -2, child: CircleAvatar(radius: 6, backgroundColor: AppColors.traitor)),
+                        const Positioned(
+                          top: -2,
+                          left: -2,
+                          child: CircleAvatar(radius: 6, backgroundColor: AppColors.traitor),
+                        ),
                     ],
                   ),
                   const SizedBox(width: 10),
@@ -424,7 +444,10 @@ class _DailyCard extends StatelessWidget {
                       mainAxisAlignment: MainAxisAlignment.center,
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text('الهدية اليومية', style: TextStyle(fontFamily: kufi, fontWeight: FontWeight.w700, fontSize: 15)),
+                        const Text(
+                          'الهدية اليومية',
+                          style: TextStyle(fontFamily: kufi, fontWeight: FontWeight.w700, fontSize: 15),
+                        ),
                         Text(
                           available ? 'يوم ${arabicNumber(p.nextDailyDay)} من ٧ · جاهزة!' : 'تعال بكرة 😉',
                           style: const TextStyle(fontSize: 12, color: Color(0xFFFFD3E3)),
@@ -465,12 +488,18 @@ class _MissionsCard extends StatelessWidget {
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(18),
                 color: Colors.white.withValues(alpha: .06),
-                border: Border.all(color: claimable > 0 ? AppColors.gold : Colors.white.withValues(alpha: .12), width: 2),
+                border: Border.all(
+                  color: claimable > 0 ? AppColors.gold : Colors.white.withValues(alpha: .12),
+                  width: 2,
+                ),
               ),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Text('المهام', style: TextStyle(fontFamily: kufi, fontWeight: FontWeight.w700, fontSize: 15)),
+                  const Text(
+                    'المهام',
+                    style: TextStyle(fontFamily: kufi, fontWeight: FontWeight.w700, fontSize: 15),
+                  ),
                   Text(
                     claimable > 0 ? '🎁 ${arabicNumber(claimable)} جاهزة' : '${arabicNumber(claimed)}/٥ ✦',
                     style: const TextStyle(fontSize: 12, color: AppColors.gold, fontWeight: FontWeight.w700),
@@ -506,34 +535,38 @@ class _SideNav extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     Widget item(String icon, String label, VoidCallback? onTap, {bool on = false}) => Expanded(
-          child: Semantics(
-            button: true,
-            label: label,
-            excludeSemantics: true,
-            child: GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onTap: onTap,
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: on ? AppColors.gold.withValues(alpha: .16) : null,
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                    child: GameIcon(icon, size: 26, color: on ? AppColors.gold : AppColors.muted),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    label,
-                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: on ? AppColors.gold : AppColors.muted),
-                  ),
-                ],
+      child: Semantics(
+        button: true,
+        label: label,
+        excludeSemantics: true,
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: onTap,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                decoration: BoxDecoration(
+                  color: on ? AppColors.gold.withValues(alpha: .16) : null,
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: GameIcon(icon, size: 26, color: on ? AppColors.gold : AppColors.muted),
               ),
-            ),
+              const SizedBox(height: 2),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w800,
+                  color: on ? AppColors.gold : AppColors.muted,
+                ),
+              ),
+            ],
           ),
-        );
+        ),
+      ),
+    );
     return Container(
       width: 78,
       padding: const EdgeInsets.symmetric(vertical: 8),

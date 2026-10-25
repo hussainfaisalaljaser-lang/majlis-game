@@ -22,13 +22,23 @@ class LeaderboardScreen extends StatelessWidget {
             indicatorColor: AppColors.gold,
             labelColor: AppColors.gold,
             unselectedLabelColor: AppColors.muted,
-            tabs: [Tab(text: 'هذا الأسبوع'), Tab(text: 'الكل'), Tab(text: 'المستوى')],
+            tabs: [
+              Tab(text: 'هذا الأسبوع'),
+              Tab(text: 'الكل'),
+              Tab(text: 'المستوى'),
+            ],
           ),
         ),
         body: !Backend.instance.isReady
-            ? const Center(child: Text('يحتاج اتصال بالسيرفر', style: TextStyle(color: AppColors.muted)))
+            ? const Center(
+                child: Text('يحتاج اتصال بالسيرفر', style: TextStyle(color: AppColors.muted)),
+              )
             : const TabBarView(
-                children: [_Board(board: Board.weekly), _Board(board: Board.allTime), _Board(board: Board.level)],
+                children: [
+                  _Board(board: Board.weekly),
+                  _Board(board: Board.allTime),
+                  _Board(board: Board.level),
+                ],
               ),
       ),
     );
@@ -48,7 +58,10 @@ class _Board extends StatelessWidget {
     return StreamBuilder(
       stream: Backend.instance.watchLeaderboard(board),
       builder: (context, snap) {
-        if (snap.hasError) return Center(child: Text('ما قدرنا نجيب الترتيب', style: TextStyle(color: AppColors.muted)));
+        if (snap.hasError)
+          return Center(
+            child: Text('ما قدرنا نجيب الترتيب', style: TextStyle(color: AppColors.muted)),
+          );
         final entries = (snap.data ?? const <LeaderboardEntry>[]).where((e) => _wins(e) > 0).toList();
         if (!snap.hasData) return const Center(child: CircularProgressIndicator());
         if (entries.isEmpty) {
@@ -69,7 +82,8 @@ class _Board extends StatelessWidget {
                 children: [
                   _Podium(entries: entries.take(3).toList(), label: _label, me: me),
                   const SizedBox(height: 16),
-                  for (final (i, e) in entries.indexed.skip(3)) _Row(rank: i + 1, entry: e, label: _label(e), isMe: e.uid == me),
+                  for (final (i, e) in entries.indexed.skip(3))
+                    _Row(rank: i + 1, entry: e, label: _label(e), isMe: e.uid == me),
                 ],
               ),
             ),
@@ -99,7 +113,7 @@ class _Board extends StatelessWidget {
   };
 
   String _label(LeaderboardEntry e) =>
-      board == Board.level ? 'مستوى ${arabicNumber(e.level)}' : '🏆 ${arabicNumber(_wins(e))}';
+      board == Board.level ? 'مستوى ${arabicNumber(e.level)}' : '${arabicNumber(_wins(e))} فوز';
 }
 
 class _Podium extends StatelessWidget {
@@ -149,7 +163,10 @@ class _Podium extends StatelessWidget {
                     gradient: LinearGradient(
                       begin: Alignment.topCenter,
                       end: Alignment.bottomCenter,
-                      colors: [AppColors.gold.withValues(alpha: i == 0 ? .5 : .3), AppColors.card],
+                      colors: [
+                        AppColors.gold.withValues(alpha: i == 0 ? .5 : .3),
+                        AppColors.card,
+                      ],
                     ),
                   ),
                   child: Text(medals[i], style: const TextStyle(fontSize: 28)),
@@ -184,7 +201,10 @@ class _Row extends StatelessWidget {
         children: [
           SizedBox(
             width: 30,
-            child: Text(arabicNumber(rank), style: const TextStyle(fontWeight: FontWeight.w800, color: AppColors.muted)),
+            child: Text(
+              arabicNumber(rank),
+              style: const TextStyle(fontWeight: FontWeight.w800, color: AppColors.muted),
+            ),
           ),
           PlayerAvatar(avatar: entry.avatar, style: frameStyle(entry.frame), size: 40),
           const SizedBox(width: 10),
@@ -193,11 +213,17 @@ class _Row extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(isMe ? 'أنت' : entry.name, style: const TextStyle(fontWeight: FontWeight.w700)),
-                Text('⭐ مستوى ${arabicNumber(entry.level)}', style: const TextStyle(color: AppColors.muted, fontSize: 12)),
+                Text(
+                  'مستوى ${arabicNumber(entry.level)}',
+                  style: const TextStyle(color: AppColors.muted, fontSize: 12),
+                ),
               ],
             ),
           ),
-          Text(label, style: const TextStyle(color: AppColors.gold, fontWeight: FontWeight.w800)),
+          Text(
+            label,
+            style: const TextStyle(color: AppColors.gold, fontWeight: FontWeight.w800),
+          ),
         ],
       ),
     );

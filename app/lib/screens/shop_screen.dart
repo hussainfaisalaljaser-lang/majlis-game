@@ -28,9 +28,9 @@ class ShopScreen extends StatelessWidget {
               valueListenable: Backend.instance.profile,
               builder: (context, p, _) => Row(
                 children: [
-                  CurrencyPill(icon: '🪙', amount: p.coins),
+                  CurrencyPill(icon: 'coin', amount: p.coins),
                   const SizedBox(width: 6),
-                  CurrencyPill(icon: '💎', amount: p.diamonds),
+                  CurrencyPill(icon: 'gem', amount: p.diamonds),
                   const SizedBox(width: 12),
                 ],
               ),
@@ -165,7 +165,12 @@ class _ItemCard extends StatelessWidget {
     } else {
       action = FilledButton(
         onPressed: busy || !affordable ? null : onBuy,
-        child: Text(item.coins != null ? '${arabicNumber(item.coins!)} 🪙' : '${arabicNumber(item.diamonds!)} 💎'),
+        child: Amount(
+          item.coins != null ? 'coin' : 'gem',
+          arabicNumber(item.coins ?? item.diamonds!),
+          size: 18,
+          style: const TextStyle(fontWeight: FontWeight.w800, color: Colors.black),
+        ),
       );
     }
 
@@ -259,7 +264,7 @@ class _DiamondPacks extends StatelessWidget {
                 ),
                 child: Row(
                   children: [
-                    const Text('💎', style: TextStyle(fontSize: 34)),
+                    const Gfx('gem', size: 40),
                     const SizedBox(width: 12),
                     Expanded(
                       child: Column(

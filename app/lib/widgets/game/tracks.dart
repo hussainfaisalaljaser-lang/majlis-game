@@ -334,11 +334,14 @@ class _DeckSum extends StatelessWidget {
     final board = view.loyalPolicies + view.traitorPolicies;
     final inHand = _total - view.drawPileCount - view.discardPileCount - board;
     Widget part(String label, int n) => Column(
-          children: [
-            Text(arabicNumber(n), style: const TextStyle(fontFamily: kufi, fontSize: 18, fontWeight: FontWeight.w700)),
-            Text(label, style: const TextStyle(color: AppColors.muted, fontSize: 11)),
-          ],
-        );
+      children: [
+        Text(
+          arabicNumber(n),
+          style: const TextStyle(fontFamily: kufi, fontSize: 18, fontWeight: FontWeight.w700),
+        ),
+        Text(label, style: const TextStyle(color: AppColors.muted, fontSize: 11)),
+      ],
+    );
     const plus = Text('+', style: TextStyle(color: AppColors.muted, fontSize: 16));
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
