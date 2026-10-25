@@ -23,8 +23,9 @@ import {
   type GameState,
 } from '../../engine/src/index.js';
 import { BOT_THINK_JITTER_MS, botThink, scenesDelay, startGrace } from './pacing.js';
-import { LINK_REWARD, XP_PER_GAME, XP_PER_WIN, levelFor, tierById, type TableTier } from './economy.js';
+import { xpForLevel, LINK_REWARD, XP_PER_GAME, XP_PER_WIN, levelFor, tierById, type TableTier } from './economy.js';
 import { MISSIONS, bumpMissions, gulfWeek, todaysMissions, type MissionId } from './missions.js';
+import { isDev } from './dev.js';
 import { whoToNotify, type Note } from './notify.js';
 import {
   cleanAvatar,
@@ -37,7 +38,7 @@ import {
   toLeaderboard,
   type Profile,
 } from './profile.js';
-import { isDefault, itemById, slotOf } from './shop.js';
+import { SHOP_ITEMS, isDefault, itemById, slotOf } from './shop.js';
 
 initializeApp();
 setGlobalOptions({ region: 'europe-west1', maxInstances: 10 });
@@ -287,11 +288,83 @@ function splitGame(data: StoredGame): { state: GameState; deadline: number | nul
 /** يسوي ملف اللاعب لو أول مرة يدخل. التطبيق يتابع الملف مباشرة من Firestore. */
 export const ensureProfile = onCall(async (req) => {
   const uid = requireAuth(req);
+  const dev = isDev(req);
   await db.runTransaction(async (tx) => {
-    if (!(await tx.get(userRef(uid))).exists) tx.set(userRef(uid), newProfile());
+    const snap = await tx.get(userRef(uid));
+    if (!snap.exists) tx.set(userRef(uid), { ...newProfile(), dev });
+    else if ((snap.data()!.dev ?? false) !== dev) tx.update(userRef(uid), { dev });
   });
   return {};
 });
+
+/**
+ * أدوات المطور للتجربة. ما تشتغل إلا لحساب مطور (isDev).
+ * grant: ذهب وجواهر · level: يحط مستواك · unlockAll: كل أغراض المتجر · resetDaily · unban
+ * forceRole: في لعبة شغالة، يخليك الدور والدور الخاص اللي تختاره.
+ */
+export const devTool = onCall(async (req) => {
+  const uid = requireAuth(req);
+  if (!isDev(req)) throw new HttpsError('permission-denied', 'هذي للمطور بس');
+  const action = String(req.data?.action ?? '');
+  if (action === 'forceRole') return forceRole(uid, String(req.data?.code ?? ''), req.data?.role, req.data?.special);
+  await db.runTransaction(async (tx) => {
+    const p = await readProfile(db, tx, uid);
+    let next: Profile = p;
+    switch (action) {
+      case 'grant':
+        next = { ...p, coins: p.coins + clampInt(req.data?.coins, 0, 1_000_000), diamonds: p.diamonds + clampInt(req.data?.diamonds, 0, 100_000) };
+        break;
+      case 'level': {
+        const level = clampInt(req.data?.level, 1, 100);
+        next = { ...p, xp: xpForLevel(level), level };
+        break;
+      }
+      case 'unlockAll':
+        next = { ...p, owned: SHOP_ITEMS.map((i) => i.id) };
+        break;
+      case 'resetDaily':
+        next = { ...p, lastDaily: null };
+        break;
+      case 'unban':
+        next = { ...p, bannedUntil: 0 };
+        break;
+      default:
+        throw new HttpsError('invalid-argument', 'أداة مو معروفة');
+    }
+    tx.set(userRef(uid), next);
+    tx.set(boardRef(uid), toLeaderboard(next));
+  });
+  return {};
+});
+
+function clampInt(raw: unknown, min: number, max: number): number {
+  const n = Math.round(Number(raw));
+  return Number.isFinite(n) ? Math.min(max, Math.max(min, n)) : min;
+}
+
+/** المطور يختار دوره في لعبة شغالة: نبدّل دوره مع لاعب عنده الدور المطلوب، ونعطيه الدور الخاص. */
+async function forceRole(uid: string, code: string, role: unknown, special: unknown): Promise<object> {
+  await db.runTransaction(async (tx) => {
+    const snap = await tx.get(db.doc(`games/${code}`));
+    if (!snap.exists) throw new HttpsError('not-found', 'اللعبة مو موجودة');
+    const { state, deadline } = splitGame(snap.data() as StoredGame);
+    const players = state.players.map((p) => ({ ...p }));
+    const me = players.find((p) => p.id === uid);
+    if (!me) throw new HttpsError('permission-denied', 'أنت مو في هذي اللعبة');
+    const wantRole = special === 'seer' || special === 'guardian' ? 'loyal' : role;
+    if (wantRole === 'loyal' || wantRole === 'traitor' || wantRole === 'leader') {
+      const other = players.find((p) => p.id !== uid && p.role === wantRole && !p.special);
+      if (me.role !== wantRole && other) [me.role, other.role] = [other.role, me.role];
+    }
+    if (special === 'seer' || special === 'guardian') {
+      const holder = players.find((p) => p.special === special);
+      if (holder && holder !== me) holder.special = me.special;
+      me.special = special;
+    }
+    writeGame(tx, code, { ...state, players, seerSees: null }, deadline);
+  });
+  return {};
+}
 
 export const updateProfile = onCall(async (req) => {
   const uid = requireAuth(req);

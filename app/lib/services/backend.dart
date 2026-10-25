@@ -241,6 +241,10 @@ class Backend {
 
   Future<void> act(String code, Map<String, dynamic> action) => _call('act', {'code': code, 'action': action});
 
+  /// أدوات المطور (السيرفر يرفضها لغير المطور).
+  Future<void> devTool(String action, [Map<String, dynamic> data = const {}]) =>
+      _call('devTool', {'action': action, ...data});
+
   /// يطلع من لعبة شغالة، ويكمل عنه بوت.
   Future<void> leaveGame(String code) => _call('leaveGame', {'code': code});
 

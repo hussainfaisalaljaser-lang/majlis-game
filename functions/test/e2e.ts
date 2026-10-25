@@ -383,6 +383,26 @@ async function main(): Promise<void> {
   assert.equal((await linker.profile()).coins, linkerCoins + 500);
   console.log('✓ ربط قوقل: نفس الحساب، و٥٠٠ ذهب مرة وحدة');
 
+  // أدوات المطور: ترفض أي أحد، وتشتغل بس لإيميل المطور المتحقق منه
+  await expectError(linker.call('devTool', { action: 'grant', coins: 100 }), 'permission-denied');
+  const dev = await client(99);
+  const devAuth = getAuth(dev.app);
+  await linkWithCredential(
+    devAuth.currentUser!,
+    GoogleAuthProvider.credential('{"sub":"g-dev","email":"hussainfaisalaljaser@gmail.com","email_verified":true}'),
+  );
+  await devAuth.currentUser!.getIdToken(true);
+  await dev.call('ensureProfile');
+  assert.equal((await dev.profile()).dev, true, 'حساب المطور ينعرف');
+  const devCoins = (await dev.profile()).coins;
+  await dev.call('devTool', { action: 'grant', coins: 10000 });
+  await dev.call('devTool', { action: 'level', level: 5 });
+  const devAfter = await dev.profile();
+  assert.equal(devAfter.coins, devCoins + 10000);
+  assert.equal(devAfter.level, 5);
+  await deleteApp(dev.app);
+  console.log('✓ وضع المطور: لإيميل المطور بس');
+
   await Promise.all(players.map((p) => deleteApp(p.app)));
   console.log('\nكل الاختبارات نجحت ✅');
 }

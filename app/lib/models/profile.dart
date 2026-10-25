@@ -6,6 +6,7 @@ class Profile {
     required this.name,
     required this.avatar,
     required this.setupDone,
+    this.dev = false,
     required this.coins,
     required this.diamonds,
     required this.xp,
@@ -25,6 +26,7 @@ class Profile {
         name: j['name'] as String,
         avatar: j['avatar'] as String,
         setupDone: j['setupDone'] as bool? ?? false,
+        dev: j['dev'] as bool? ?? false,
         coins: j['coins'] as int,
         diamonds: j['diamonds'] as int,
         xp: j['xp'] as int,
@@ -59,6 +61,9 @@ class Profile {
   final String name;
   final String avatar;
   final bool setupDone;
+
+  /// حساب مطور: تطلع له أدوات التجربة.
+  final bool dev;
   final int coins;
   final int diamonds;
   final int xp;

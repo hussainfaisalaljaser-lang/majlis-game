@@ -4,6 +4,7 @@ import '../models/shop.dart';
 import '../services/backend.dart';
 import '../theme.dart';
 import '../widgets/account.dart';
+import 'dev_screen.dart';
 import '../widgets/common.dart';
 import '../widgets/ui.dart';
 
@@ -162,6 +163,16 @@ class ProfileScreen extends StatelessWidget {
                       ),
                     ),
                   if (Backend.instance.isReady) const AccountCard(),
+                  if (p.dev) ...[
+                    const SizedBox(height: 10),
+                    GameButton(
+                      label: '🛠️ وضع المطور',
+                      tone: ButtonTone.ghost,
+                      height: 44,
+                      fontSize: 15,
+                      onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const DevScreen())),
+                    ),
+                  ],
                 ],
               ),
             ),
