@@ -58,10 +58,11 @@ class _Board extends StatelessWidget {
     return StreamBuilder(
       stream: Backend.instance.watchLeaderboard(board),
       builder: (context, snap) {
-        if (snap.hasError)
-          return Center(
+        if (snap.hasError) {
+          return const Center(
             child: Text('ما قدرنا نجيب الترتيب', style: TextStyle(color: AppColors.muted)),
           );
+        }
         final entries = (snap.data ?? const <LeaderboardEntry>[]).where((e) => _wins(e) > 0).toList();
         if (!snap.hasData) return const Center(child: CircularProgressIndicator());
         if (entries.isEmpty) {
