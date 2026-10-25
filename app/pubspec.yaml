@@ -33,6 +33,7 @@ flutter:
     - assets/images/
     - assets/icons/
     - assets/voice/
+    - assets/music/
 
   fonts:
     - family: Tajawal

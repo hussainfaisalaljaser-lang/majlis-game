@@ -5,6 +5,8 @@ import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'music.dart';
+
 /// صوت الراوي: جمل عربية قصيرة في لحظات اللعبة المهمة (assets/voice، مولّدة من tools/voice).
 /// تقدر تسكته من زر الصوت وينحفظ في الجهاز.
 abstract final class Sfx {
@@ -53,6 +55,7 @@ abstract final class Sfx {
   static Future<void> _next() async {
     if (_queue.isEmpty || muted.value) {
       _speaking = false;
+      Music.duck(false);
       for (final c in _quiet) {
         c.complete();
       }
@@ -60,6 +63,7 @@ abstract final class Sfx {
       return;
     }
     _speaking = true;
+    Music.duck(true);
     final line = _queue.removeFirst();
     // في نسخة التجربة على المحاكي نطبع كل جملة، عشان الاختبارات تتأكد من التوقيت.
     if (const bool.fromEnvironment('USE_EMULATOR')) debugPrint('narrator: $line ${DateTime.now().millisecondsSinceEpoch}');

@@ -8,6 +8,7 @@ import 'screens/home_screen.dart';
 import 'screens/welcome_screen.dart';
 import 'services/backend.dart';
 import 'services/push.dart';
+import 'services/music.dart';
 import 'services/sfx.dart';
 import 'widgets/ui.dart';
 import 'theme.dart';
@@ -19,7 +20,8 @@ Future<void> main() async {
   // اللعبة بالعرض، مثل ألعاب الطاولة. ونخفي أشرطة النظام عشان الشاشة كلها للعبة.
   await SystemChrome.setPreferredOrientations([DeviceOrientation.landscapeLeft, DeviceOrientation.landscapeRight]);
   SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
-  await Future.wait([Backend.instance.init(), Sfx.init()]);
+  await Future.wait([Backend.instance.init(), Sfx.init(), Music.init()]);
+  Music.play('menu');
   runApp(const MajlisApp());
   await Push.init();
 }

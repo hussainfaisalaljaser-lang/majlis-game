@@ -9,6 +9,7 @@ import '../models/shop.dart';
 import '../services/backend.dart';
 import '../services/notes.dart';
 import '../services/push.dart';
+import '../services/music.dart';
 import '../services/sfx.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
@@ -77,6 +78,7 @@ class _GameScreenState extends State<GameScreen> {
   void initState() {
     super.initState();
     Push.setCurrentGame(widget.code);
+    Music.play('game');
     _viewSub = _backend.watchView(widget.code).listen((data) {
       if (data == null || !mounted) return;
       final view = GameView.fromJson(data);
@@ -162,6 +164,7 @@ class _GameScreenState extends State<GameScreen> {
   @override
   void dispose() {
     Push.setCurrentGame(null);
+    Music.play('menu');
     _viewSub.cancel();
     _roomSub.cancel();
     _ticker.cancel();
@@ -642,6 +645,16 @@ class _GameScreenState extends State<GameScreen> {
                         label: muted ? 'شغّل الصوت' : 'اكتم الصوت',
                         size: 40,
                         onTap: Sfx.toggle,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    ValueListenableBuilder(
+                      valueListenable: Music.muted,
+                      builder: (context, muted, _) => _RoundButton(
+                        emoji: muted ? '🔇' : '🎵',
+                        label: muted ? 'شغّل الموسيقى' : 'اكتم الموسيقى',
+                        size: 40,
+                        onTap: Music.toggle,
                       ),
                     ),
                     const SizedBox(width: 8),

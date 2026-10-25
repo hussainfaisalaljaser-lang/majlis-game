@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../models/shop.dart';
 import '../services/backend.dart';
+import '../services/music.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
 import '../widgets/daily_reward.dart';
@@ -222,6 +223,15 @@ class _Header extends StatelessWidget {
             icon: '💎',
             amount: p.diamonds,
             onAdd: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ShopScreen(initialTab: 2))),
+          ),
+          const SizedBox(width: 4),
+          ValueListenableBuilder(
+            valueListenable: Music.muted,
+            builder: (context, muted, _) => IconButton(
+              tooltip: muted ? 'شغّل الموسيقى' : 'اكتم الموسيقى',
+              onPressed: Music.toggle,
+              icon: Text(muted ? '🔇' : '🎵', style: const TextStyle(fontSize: 20)),
+            ),
           ),
         ],
       ),
