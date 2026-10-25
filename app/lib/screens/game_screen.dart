@@ -585,6 +585,24 @@ class _ActionPanel extends StatelessWidget {
   }
 }
 
+class _Reward extends StatelessWidget {
+  const _Reward(this.text, this.color);
+
+  final String text;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: .15),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: color),
+        ),
+        child: Text(text, style: TextStyle(color: color, fontWeight: FontWeight.w800, fontSize: 16)),
+      );
+}
+
 class _GameOver extends StatelessWidget {
   const _GameOver({required this.view, required this.room});
 
@@ -614,6 +632,17 @@ class _GameOver extends StatelessWidget {
                 textAlign: TextAlign.center,
                 style: const TextStyle(fontSize: 16),
               ),
+              if (room?.results[view.you] case final r?) ...[
+                const SizedBox(height: 14),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    if (r.coins > 0) _Reward('+${arabicNumber(r.coins)} 🪙', AppColors.gold),
+                    if (r.coins > 0) const SizedBox(width: 10),
+                    _Reward('+${arabicNumber(r.xp)} ⭐ خبرة', AppColors.diamond),
+                  ],
+                ),
+              ],
               const SizedBox(height: 18),
               Container(
                 padding: const EdgeInsets.all(12),

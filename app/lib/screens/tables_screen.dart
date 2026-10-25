@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../models/profile.dart';
 import '../models/table_tier.dart';
 import '../services/backend.dart';
 import '../theme.dart';
@@ -15,19 +16,11 @@ class TablesScreen extends StatefulWidget {
 }
 
 class _TablesScreenState extends State<TablesScreen> {
-  // لين نربط الحسابات بـ Firebase، بيانات اللاعب ثابتة.
-  static const _playerLevel = 1;
-  static const _isVip = false;
-
-  // لين نسوي شاشة الملف الشخصي.
-  static const _name = 'ضيف';
-  static const _avatar = '😎';
-
   int _playerCount = 7;
-  TableTier _tier = tableTiers[1];
+  TableTier _tier = tableTiers[0];
   bool _busy = false;
 
-  bool _locked(TableTier t) => t.requiredLevel > _playerLevel || (t.vipOnly && !_isVip);
+  bool _locked(Profile p, TableTier t) => t.requiredLevel > p.level || (t.vipOnly && !p.vip);
 
   /// ينفذ طلب للسيرفر ويفتح غرفة الانتظار. بدون سيرفر (نسخة الويب) يفتح العرض التجريبي.
   Future<void> _enter(Future<String> Function()? request, {TableTier? tier}) async {
@@ -74,7 +67,7 @@ class _TablesScreenState extends State<TablesScreen> {
       ),
     );
     if (code == null || code.isEmpty) return;
-    await _enter(() => Backend.instance.joinRoom(code, name: _name, avatar: _avatar));
+    await _enter(() => Backend.instance.joinRoom(code));
   }
 
   @override
@@ -97,31 +90,32 @@ class _TablesScreenState extends State<TablesScreen> {
               ),
               const SizedBox(height: 12),
               Expanded(
-                child: ListView.separated(
-                  itemCount: tableTiers.length,
-                  separatorBuilder: (_, _) => const SizedBox(height: 9),
-                  itemBuilder: (context, i) {
-                    final t = tableTiers[i];
-                    final locked = _locked(t);
-                    return _TierTile(
-                      tier: t,
-                      locked: locked,
-                      selected: t == _tier,
-                      onTap: locked ? null : () => setState(() => _tier = t),
-                    );
-                  },
+                child: ValueListenableBuilder(
+                  valueListenable: Backend.instance.profile,
+                  builder: (context, profile, _) => ListView.separated(
+                    itemCount: tableTiers.length,
+                    separatorBuilder: (_, _) => const SizedBox(height: 9),
+                    itemBuilder: (context, i) {
+                      final t = tableTiers[i];
+                      final locked = _locked(profile, t);
+                      final poor = profile.coins < t.entryFee;
+                      return _TierTile(
+                        tier: t,
+                        players: _playerCount,
+                        locked: locked,
+                        poor: poor,
+                        selected: t == _tier,
+                        onTap: locked || poor ? null : () => setState(() => _tier = t),
+                      );
+                    },
+                  ),
                 ),
               ),
               FilledButton(
                 onPressed: _busy
                     ? null
                     : () => _enter(
-                          () => Backend.instance.quickMatch(
-                            name: _name,
-                            avatar: _avatar,
-                            maxPlayers: _playerCount,
-                            tierId: _tier.id,
-                          ),
+                          () => Backend.instance.quickMatch(maxPlayers: _playerCount, tierId: _tier.id),
                           tier: _tier,
                         ),
                 child: Text(_busy ? 'لحظة…' : '▶ العب الحين'),
@@ -132,7 +126,7 @@ class _TablesScreenState extends State<TablesScreen> {
                     ? null
                     : () => _enter(
                           Backend.instance.isReady
-                              ? () => Backend.instance.createRoom(name: _name, avatar: _avatar, maxPlayers: _playerCount)
+                              ? () => Backend.instance.createRoom(maxPlayers: _playerCount)
                               : null,
                         ),
                 child: const Text('➕ أنشئ روم خاص (بكود)'),
@@ -152,22 +146,31 @@ class _TablesScreenState extends State<TablesScreen> {
 }
 
 class _TierTile extends StatelessWidget {
-  const _TierTile({required this.tier, required this.locked, required this.selected, this.onTap});
+  const _TierTile({
+    required this.tier,
+    required this.players,
+    required this.locked,
+    required this.poor,
+    required this.selected,
+    this.onTap,
+  });
 
   final TableTier tier;
+  final int players;
   final bool locked;
+  final bool poor;
   final bool selected;
   final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
-    final hint = tier.vipOnly
-        ? 'لأعضاء VIP فقط'
-        : tier.requiredLevel > 0
-            ? 'يفتح في مستوى ${arabicNumber(tier.requiredLevel)}'
+    final hint = locked
+        ? (tier.vipOnly ? 'لأعضاء VIP فقط' : 'يفتح في مستوى ${arabicNumber(tier.requiredLevel)}')
+        : poor
+            ? 'ما عندك ذهب كافي'
             : null;
     return Opacity(
-      opacity: locked ? .45 : 1,
+      opacity: locked || poor ? .45 : 1,
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(16),
@@ -197,7 +200,7 @@ class _TierTile extends StatelessWidget {
                 children: [
                   Text('🪙 ${arabicNumber(tier.entryFee)}', style: const TextStyle(fontWeight: FontWeight.w800)),
                   Text(
-                    'الفوز: +${arabicNumber(tier.reward)}',
+                    '🏆 ${arabicNumber(tier.pot(players))}',
                     style: const TextStyle(color: AppColors.green, fontSize: 12, fontWeight: FontWeight.w700),
                   ),
                 ],

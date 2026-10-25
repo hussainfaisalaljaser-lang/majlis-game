@@ -1,11 +1,11 @@
-/// مستوى الطاولة: كل ما ارتفع زادت رسوم الدخول والجائزة.
+/// مستوى الطاولة: كل ما ارتفع زادت رسوم الدخول والجائزة. نفس functions/src/economy.ts.
 class TableTier {
   const TableTier({
     required this.id,
     required this.emoji,
     required this.name,
     required this.entryFee,
-    this.requiredLevel = 0,
+    this.requiredLevel = 1,
     this.vipOnly = false,
   });
 
@@ -16,8 +16,8 @@ class TableTier {
   final int requiredLevel;
   final bool vipOnly;
 
-  /// الفريق الفايز يتقاسم ١٫٥ ضعف رسوم الدخول لكل لاعب.
-  int get reward => entryFee * 3 ~/ 2;
+  /// كل اللاعبين يدفعون، والفريق الفايز يتقاسم المجموع.
+  int pot(int players) => entryFee * players;
 }
 
 const tableTiers = [
@@ -27,5 +27,7 @@ const tableTiers = [
   TableTier(id: 'kings', emoji: '👑', name: 'الملوك', entryFee: 25000, requiredLevel: 30),
   TableTier(id: 'vip', emoji: '💎', name: 'نخبة VIP', entryFee: 100000, vipOnly: true),
 ];
+
+TableTier? tierById(String? id) => tableTiers.where((t) => t.id == id).firstOrNull;
 
 const playerCounts = [5, 7, 10];

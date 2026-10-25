@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 
+import '../services/backend.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
+import '../widgets/daily_reward.dart';
+import 'profile_screen.dart';
 import 'tables_screen.dart';
 
 class HomeScreen extends StatelessWidget {
@@ -22,7 +25,7 @@ class HomeScreen extends StatelessWidget {
           children: [
             const _ProfileHeader(),
             const SizedBox(height: 14),
-            _DailyBanner(onTap: () => _soon(context)),
+            _DailyBanner(onTap: () => showDailyReward(context)),
             const SizedBox(height: 14),
             _ModeCard(
               emoji: '🕵️',
@@ -81,7 +84,11 @@ class HomeScreen extends StatelessWidget {
         backgroundColor: AppColors.panel,
         indicatorColor: AppColors.gold.withValues(alpha: .2),
         selectedIndex: 0,
-        onDestinationSelected: (i) => i == 0 ? null : _soon(context),
+        onDestinationSelected: (i) => switch (i) {
+          0 => null,
+          3 => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ProfileScreen())),
+          _ => _soon(context),
+        },
         destinations: const [
           NavigationDestination(icon: Text('🏠', style: TextStyle(fontSize: 22)), label: 'الرئيسية'),
           NavigationDestination(icon: Text('🛒', style: TextStyle(fontSize: 22)), label: 'المتجر'),
@@ -98,23 +105,41 @@ class _ProfileHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        const PlayerAvatar(emoji: '😎', frame: AppColors.gold, size: 48),
-        const SizedBox(width: 10),
-        const Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('ضيف', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
-              Text('مستوى ١', style: TextStyle(color: AppColors.muted, fontSize: 12)),
-            ],
+    return ValueListenableBuilder(
+      valueListenable: Backend.instance.profile,
+      builder: (context, p, _) => Row(
+        children: [
+          Expanded(
+            child: InkWell(
+              borderRadius: BorderRadius.circular(30),
+              onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ProfileScreen())),
+              child: Row(
+                children: [
+                  PlayerAvatar(emoji: p.avatar, frame: AppColors.gold, size: 48),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          p.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
+                        ),
+                        Text('⭐ مستوى ${arabicNumber(p.level)}', style: const TextStyle(color: AppColors.muted, fontSize: 12)),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ),
-        ),
-        const CurrencyPill(icon: '🪙', amount: 12500),
-        const SizedBox(width: 6),
-        CurrencyPill(icon: '💎', amount: 80, onAdd: () {}),
-      ],
+          CurrencyPill(icon: '🪙', amount: p.coins),
+          const SizedBox(width: 6),
+          CurrencyPill(icon: '💎', amount: p.diamonds),
+        ],
+      ),
     );
   }
 }
@@ -126,30 +151,55 @@ class _DailyBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(16),
-      child: Ink(
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
+    return ValueListenableBuilder(
+      valueListenable: Backend.instance.profile,
+      builder: (context, p, _) {
+        final available = p.dailyAvailable && Backend.instance.isReady;
+        return InkWell(
+          onTap: onTap,
           borderRadius: BorderRadius.circular(16),
-          gradient: const LinearGradient(colors: [Color(0xFF5B21B6), Color(0xFFC026D3)]),
-        ),
-        child: const Row(
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('🎁 هدية يومية', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
-                  Text('ادخل ٧ أيام واربح إطار نادر', style: TextStyle(fontSize: 12)),
-                ],
-              ),
+          child: Ink(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(16),
+              gradient: const LinearGradient(colors: [Color(0xFF5B21B6), Color(0xFFC026D3)]),
             ),
-            Text('📅', style: TextStyle(fontSize: 32)),
-          ],
-        ),
-      ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        available ? '🎁 هديتك اليومية جاهزة!' : '🎁 الهدية اليومية',
+                        style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
+                      ),
+                      Text(
+                        available
+                            ? 'اليوم ${arabicNumber(p.nextDailyDay)} من ٧ · اضغط واستلم'
+                            : 'استلمت هدية اليوم، تعال بكرة 😉',
+                        style: const TextStyle(fontSize: 12),
+                      ),
+                    ],
+                  ),
+                ),
+                Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    const Text('📅', style: TextStyle(fontSize: 32)),
+                    if (available)
+                      const Positioned(
+                        top: -2,
+                        left: -2,
+                        child: CircleAvatar(radius: 6, backgroundColor: AppColors.traitor),
+                      ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 }

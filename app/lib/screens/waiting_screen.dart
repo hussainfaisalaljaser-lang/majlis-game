@@ -146,7 +146,8 @@ class _WaitingScreenState extends State<WaitingScreen> {
                   style: const TextStyle(color: AppColors.muted, fontSize: 13),
                 ),
                 const SizedBox(height: 12),
-                if (tier != null) _PotBox(pot: tier.entryFee * max),
+                if ((_room?.entryFee ?? tier?.entryFee ?? 0) > 0)
+                  _PotBox(pot: (_room?.entryFee ?? tier!.entryFee) * max),
                 if (isPrivate && isHost) ...[
                   FilledButton(
                     onPressed: players.length >= 5 && !_starting ? _start : null,
@@ -155,6 +156,11 @@ class _WaitingScreenState extends State<WaitingScreen> {
                 ],
                 const SizedBox(height: 12),
                 OutlinedButton(onPressed: _leave, child: const Text('✖ خروج')),
+                if ((_room?.entryFee ?? 0) > 0)
+                  const Padding(
+                    padding: EdgeInsets.only(top: 6),
+                    child: Text('لو طلعت قبل ما تبدأ اللعبة يرجع لك ذهبك', style: TextStyle(color: AppColors.muted, fontSize: 12)),
+                  ),
                 const SizedBox(height: 12),
               ],
             ),

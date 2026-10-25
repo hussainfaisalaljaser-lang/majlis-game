@@ -5,6 +5,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 
 import '../firebase_options.dart';
+import '../models/profile.dart';
 import '../models/room.dart';
 
 /// شغّل التطبيق مع `--dart-define=USE_EMULATOR=true` عشان يتصل بمحاكي Firebase على جهازك.
@@ -24,6 +25,12 @@ class Backend {
 
   String get uid => FirebaseAuth.instance.currentUser!.uid;
 
+  /// ملف اللاعب الحالي، يتحدث مباشرة من السيرفر. بدون سيرفر يبقى على الملف التجريبي.
+  final profile = ValueNotifier<Profile>(Profile.demo);
+
+  /// هل وصل الملف من السيرفر؟ قبلها ما نعرف إذا اختار اسمه.
+  final profileLoaded = ValueNotifier<bool>(false);
+
   /// يتصل بـ Firebase ويسجل دخول كضيف. يرجع false لو المنصة ما لها إعدادات (مثل الويب حالياً).
   Future<bool> init() async {
     final options = DefaultFirebaseOptions.currentPlatform;
@@ -41,6 +48,12 @@ class Backend {
         await FirebaseAuth.instance.signInAnonymously();
       }
       _ready = true;
+      _db.doc('users/$uid').snapshots().listen((s) {
+        if (!s.exists) return;
+        profile.value = Profile.fromJson(s.data()!);
+        profileLoaded.value = true;
+      });
+      await _call('ensureProfile', {});
     } catch (e) {
       debugPrint('Firebase init failed: $e');
     }
@@ -56,23 +69,27 @@ class Backend {
     }
   }
 
-  Future<String> createRoom({required String name, required String avatar, required int maxPlayers}) async {
-    final r = await _call('createRoom', {'name': name, 'avatar': avatar, 'maxPlayers': maxPlayers, 'isPrivate': true});
+  Future<void> updateProfile({required String name, required String avatar}) =>
+      _call('updateProfile', {'name': name, 'avatar': avatar});
+
+  /// يرجع المكافأة اللي انضافت.
+  Future<({int coins, int diamonds, int streak})> claimDaily() async {
+    final r = await _call('claimDaily', {});
+    return (coins: r['coins'] as int, diamonds: r['diamonds'] as int, streak: r['streak'] as int);
+  }
+
+  Future<String> createRoom({required int maxPlayers}) async {
+    final r = await _call('createRoom', {'maxPlayers': maxPlayers});
     return r['code'] as String;
   }
 
-  Future<String> joinRoom(String code, {required String name, required String avatar}) async {
-    final r = await _call('joinRoom', {'code': code, 'name': name, 'avatar': avatar});
+  Future<String> joinRoom(String code) async {
+    final r = await _call('joinRoom', {'code': code});
     return r['code'] as String;
   }
 
-  Future<String> quickMatch({
-    required String name,
-    required String avatar,
-    required int maxPlayers,
-    required String tierId,
-  }) async {
-    final r = await _call('quickMatch', {'name': name, 'avatar': avatar, 'maxPlayers': maxPlayers, 'tierId': tierId});
+  Future<String> quickMatch({required int maxPlayers, required String tierId}) async {
+    final r = await _call('quickMatch', {'maxPlayers': maxPlayers, 'tierId': tierId});
     return r['code'] as String;
   }
 

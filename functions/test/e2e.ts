@@ -16,6 +16,7 @@ interface Client {
   uid: string;
   call: <T = unknown>(name: string, data?: unknown) => Promise<T>;
   view: (code: string) => Promise<PlayerView>;
+  profile: () => Promise<Record<string, any>>;
   readGame: (code: string) => Promise<unknown>;
 }
 
@@ -33,6 +34,7 @@ async function client(i: number): Promise<Client> {
     uid: user.uid,
     call: async (name, data) => (await httpsCallable(fns, name)(data)).data as never,
     view: async (code) => (await getDoc(doc(fs, `games/${code}/views/${user.uid}`))).data() as PlayerView,
+    profile: async () => (await getDoc(doc(fs, `users/${user.uid}`))).data()!,
     readGame: async (code) => (await getDoc(doc(fs, `games/${code}`))).data(),
   };
 }
@@ -50,6 +52,7 @@ function nextMove(v: PlayerView): Record<string, unknown> | null {
   const alive = v.players.filter((p) => p.alive);
   const others = alive.filter((p) => p.id !== me);
   const isPres = v.presidentId === me;
+  if (!v.players.find((p) => p.id === me)!.alive) return null;
   switch (v.phase) {
     case 'nomination': {
       if (!isPres) return null;
@@ -77,16 +80,54 @@ function nextMove(v: PlayerView): Record<string, unknown> | null {
   }
 }
 
+async function playToEnd(players: Client[], code: string): Promise<PlayerView> {
+  let moves = 0;
+  for (;;) {
+    const current = await Promise.all(players.map((p) => p.view(code)));
+    if (current[0].phase === 'gameOver') return current[0];
+    let moved = false;
+    for (const [i, v] of current.entries()) {
+      const move = nextMove(v);
+      if (!move) continue;
+      await players[i].call('act', { code, action: move });
+      moves++;
+      moved = true;
+      if (v.phase !== 'election') break;
+    }
+    assert.ok(moved, `ما فيه أحد يقدر يتحرك في مرحلة ${current[0].phase}`);
+    assert.ok(moves < 500, 'اللعبة طولت');
+  }
+}
+
 async function main(): Promise<void> {
   const players = await Promise.all([0, 1, 2, 3, 4].map(client));
   const [host, ...rest] = players;
 
+  // ٠. الملف الشخصي والهدية اليومية
+  for (const p of players) await p.call('ensureProfile');
+  const fresh = await host.profile();
+  assert.equal(fresh.coins, 2000);
+  assert.equal(fresh.setupDone, false);
+  await expectError(host.call('updateProfile', { name: 'x', avatar: '😎' }), 'invalid-argument');
+  await expectError(host.call('updateProfile', { name: 'https://spam', avatar: '😎' }), 'invalid-argument');
+  await expectError(host.call('updateProfile', { name: 'أبو فيصل', avatar: '💩' }), 'invalid-argument');
+  await host.call('updateProfile', { name: 'أبو فيصل', avatar: '🥷' });
+  const daily = await host.call<{ coins: number; streak: number }>('claimDaily');
+  assert.deepEqual([daily.coins, daily.streak], [200, 1]);
+  await expectError(host.call('claimDaily'), 'failed-precondition');
+  const afterSetup = await host.profile();
+  assert.deepEqual([afterSetup.name, afterSetup.avatar, afterSetup.setupDone, afterSetup.coins], ['أبو فيصل', '🥷', true, 2200]);
+  for (const [i, p] of rest.entries()) await p.call('updateProfile', { name: `لاعب ${i + 1}`, avatar: '😎' });
+  console.log('✓ الملف الشخصي: ٢٠٠٠ ذهب للبداية، والاسم يتحقق منه، والهدية اليومية مرة وحدة');
+
   // ١. روم خاص بكود
-  const { code } = await host.call<{ code: string }>('createRoom', { name: 'المضيف', avatar: '😎', maxPlayers: 5 });
+  const { code } = await host.call<{ code: string }>('createRoom', { maxPlayers: 5 });
   assert.match(code, /^[A-Z0-9]{5}$/);
   await expectError(host.call('startGame', { code }), 'failed-precondition');
   await expectError(rest[0].call('joinRoom', { code: 'ZZZZZ' }), 'not-found');
-  for (const [i, p] of rest.entries()) await p.call('joinRoom', { code, name: `لاعب ${i + 1}` });
+  for (const p of rest) await p.call('joinRoom', { code });
+  const roomPlayers = (await getDoc(doc(getFirestore(host.app), `rooms/${code}`))).data()!.players;
+  assert.equal(roomPlayers[0].name, 'أبو فيصل', 'الاسم يجي من الملف الشخصي');
   await expectError(rest[0].call('startGame', { code }), 'permission-denied');
   await host.call('startGame', { code });
   console.log(`✓ روم ${code}: ٥ لاعبين دخلوا وبدأت اللعبة`);
@@ -116,34 +157,49 @@ async function main(): Promise<void> {
   console.log('✓ السيرفر يرفض الحركات الغلط');
 
   // ٥. نكمل اللعب لين النهاية
-  let moves = 0;
-  for (;;) {
-    const current = await Promise.all(players.map((p) => p.view(code)));
-    if (current[0].phase === 'gameOver') {
-      console.log(`✓ انتهت اللعبة بعد ${moves} حركة. الفايز: ${current[0].winner} (${current[0].winReason})`);
-      break;
-    }
-    let moved = false;
-    for (const [i, v] of current.entries()) {
-      const move = nextMove(v);
-      if (!move) continue;
-      await players[i].call('act', { code, action: move });
-      moves++;
-      moved = true;
-      if (v.phase !== 'election') break;
-    }
-    assert.ok(moved, `ما فيه أحد يقدر يتحرك في مرحلة ${current[0].phase}`);
-    assert.ok(moves < 500, 'اللعبة طولت');
+  const before = await Promise.all(players.map((p) => p.profile()));
+  const end = await playToEnd(players, code);
+  console.log(`✓ انتهت اللعبة. الفايز: ${end.winner} (${end.winReason})`);
+  const results = (await getDoc(doc(getFirestore(host.app), `rooms/${code}`))).data()!.results;
+  for (const [i, p] of players.entries()) {
+    const after = await p.profile();
+    const r = results[p.uid];
+    assert.equal(r.coins, 0, 'الروم الخاص بدون جائزة ذهب');
+    assert.equal(after.xp - (before[i].xp ?? 0), r.won ? 50 : 20);
+    assert.equal(after.gamesPlayed, 1);
+    assert.equal(after.gamesWon, r.won ? 1 : 0);
   }
+  console.log('✓ نهاية الروم الخاص: خبرة للكل، والفايزين انحسب لهم فوز');
 
-  // ٦. المطابقة العشوائية: ٥ لاعبين يضغطون "العب الحين" وتبدأ تلقائياً
+  // ٦. الطاولات: مقفلة بالمستوى، والرسوم تنخصم وترجع لو طلعت
+  await expectError(host.call('quickMatch', { maxPlayers: 5, tierId: 'palace' }), 'permission-denied');
+  await expectError(host.call('quickMatch', { maxPlayers: 5, tierId: 'vip' }), 'permission-denied');
+  await expectError(host.call('quickMatch', { maxPlayers: 5, tierId: 'nope' }), 'invalid-argument');
+  const coinsBefore = (await host.profile()).coins;
+  const { code: lonely } = await host.call<{ code: string }>('quickMatch', { maxPlayers: 7, tierId: 'city' });
+  assert.equal((await host.profile()).coins, coinsBefore - 1000);
+  await host.call('leaveRoom', { code: lonely });
+  assert.equal((await host.profile()).coins, coinsBefore);
+  console.log('✓ الطاولات: المقفلة ترفض، والرسوم تنخصم وترجع لما تطلع');
+
+  // ٧. المطابقة على طاولة المدينة: ٥ لاعبين يدفعون ١٠٠٠، والفريق الفايز يتقاسم ٥٠٠٠
+  const startCoins = await Promise.all(players.map(async (p) => (await p.profile()).coins));
   const codes = new Set<string>();
-  for (const p of players) codes.add((await p.call<{ code: string }>('quickMatch', { maxPlayers: 5, tierId: 'starter' })).code);
+  for (const p of players) codes.add((await p.call<{ code: string }>('quickMatch', { maxPlayers: 5, tierId: 'city' })).code);
   assert.equal(codes.size, 1, 'كلهم لازم يدخلون نفس الروم');
   const [qm] = codes;
-  const qv = await players[2].view(qm);
-  assert.equal(qv.phase, 'nomination');
-  console.log(`✓ المطابقة: ٥ لاعبين دخلوا روم ${qm} وبدأت تلقائياً`);
+  assert.equal((await players[2].view(qm)).phase, 'nomination');
+  for (const [i, p] of players.entries()) assert.equal((await p.profile()).coins, startCoins[i] - 1000);
+  console.log(`✓ المطابقة: ٥ لاعبين دخلوا روم ${qm} ودفعوا الرسوم وبدأت تلقائياً`);
+  await playToEnd(players, qm);
+  const qmResults = (await getDoc(doc(getFirestore(host.app), `rooms/${qm}`))).data()!.results;
+  const winnerCount = Object.values(qmResults).filter((r: any) => r.won).length;
+  for (const [i, p] of players.entries()) {
+    const expected = qmResults[p.uid].won ? Math.floor(5000 / winnerCount) : 0;
+    assert.equal(qmResults[p.uid].coins, expected);
+    assert.equal((await p.profile()).coins, startCoins[i] - 1000 + expected);
+  }
+  console.log(`✓ الجائزة: ${winnerCount} فايزين، كل واحد أخذ ${Math.floor(5000 / winnerCount)} ذهب`);
 
   await Promise.all(players.map((p) => deleteApp(p.app)));
   console.log('\nكل الاختبارات نجحت ✅');

@@ -53,6 +53,8 @@ class Room {
     required this.maxPlayers,
     required this.tierId,
     required this.players,
+    this.entryFee = 0,
+    this.results = const {},
     this.reactions = const [],
     this.opinions = const {},
   });
@@ -65,6 +67,15 @@ class Room {
         maxPlayers: j['maxPlayers'] as int,
         tierId: j['tierId'] as String?,
         players: [for (final p in j['players'] as List) RoomPlayer.fromJson(Map<String, dynamic>.from(p as Map))],
+        entryFee: j['entryFee'] as int? ?? 0,
+        results: {
+          for (final MapEntry(:key, :value) in ((j['results'] as Map?) ?? const {}).entries)
+            key as String: (
+              won: (value as Map)['won'] as bool,
+              coins: value['coins'] as int,
+              xp: value['xp'] as int,
+            ),
+        },
         reactions: [
           for (final r in (j['reactions'] as List?) ?? const []) Reaction.fromJson(Map<String, dynamic>.from(r as Map)),
         ],
@@ -83,6 +94,10 @@ class Room {
   final int maxPlayers;
   final String? tierId;
   final List<RoomPlayer> players;
+  final int entryFee;
+
+  /// اللي كسبه كل لاعب لما انتهت اللعبة.
+  final Map<String, ({bool won, int coins, int xp})> results;
   final List<Reaction> reactions;
 
   /// opinions[من][في] = true لو يشك فيه، false لو يثق فيه.
