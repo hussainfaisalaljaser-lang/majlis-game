@@ -127,7 +127,7 @@ const REACTIONS: Record<string, { target: boolean; pack?: string }> = {
   sweat: { target: false, pack: 'pack_emoji' },
   mask: { target: false, pack: 'pack_emoji' },
   // باقة الكلام
-  wallah: { target: false, pack: 'pack_phrases' },
+  sure: { target: false, pack: 'pack_phrases' },
   khayin: { target: true, pack: 'pack_phrases' },
   calm: { target: false, pack: 'pack_phrases' },
   hurry: { target: false, pack: 'pack_phrases' },

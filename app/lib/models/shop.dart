@@ -345,7 +345,7 @@ const shopItems = [
     name: 'سوالف المجلس',
     rarity: Rarity.epic,
     coins: 4000,
-    preview: 'والله العظيم!\nفلان خاين!',
+    preview: 'متأكد ١٠٠٪\nفلان خاين!',
   ),
   ShopItem(
     id: 'pack_vip',

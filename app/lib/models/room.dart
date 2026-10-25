@@ -43,7 +43,7 @@ enum ReactionKind {
   shock('😱', '', false, pack: 'pack_emoji'),
   sweat('😅', '', false, pack: 'pack_emoji'),
   mask('🎭', '', false, pack: 'pack_emoji'),
-  wallah('🤚', 'والله العظيم!', false, pack: 'pack_phrases'),
+  sure('💯', 'متأكد ١٠٠٪', false, pack: 'pack_phrases'),
   khayin('🫵', 'فلان خاين!', true, pack: 'pack_phrases', bubble: '🫵 % خاين!'),
   calm('😌', 'هدّوا اللعب', false, pack: 'pack_phrases'),
   hurry('⏱️', 'يلا بسرعة', false, pack: 'pack_phrases'),
