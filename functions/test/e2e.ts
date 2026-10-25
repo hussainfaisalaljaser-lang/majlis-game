@@ -405,9 +405,12 @@ async function main(): Promise<void> {
   // المتجر الجديد: الطاولة تنلبس، والشخصية المميزة تصير صورته، والباقة تفتح ردودها
   await dev.call('devTool', { action: 'grant', coins: 30000, diamonds: 100 });
   await expectError(dev.call('updateProfile', { name: 'المطور', avatar: 'emir' }), 'permission-denied');
+  const beforeShop = await dev.profile();
   await dev.call('buyItem', { id: 'table_night' });
   await dev.call('buyItem', { id: 'avatar_emir' });
   const shopper = await dev.profile();
+  assert.equal(shopper.coins, beforeShop.coins, 'المطور يشتري ببلاش');
+  assert.equal(shopper.diamonds, beforeShop.diamonds);
   assert.equal(shopper.equipped.table, 'table_night');
   assert.equal(shopper.avatar, 'emir');
   await dev.call('updateProfile', { name: 'المطور', avatar: 'falcon' });

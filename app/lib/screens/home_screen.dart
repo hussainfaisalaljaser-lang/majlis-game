@@ -226,9 +226,10 @@ class _Header extends StatelessWidget {
               ),
             ),
           ),
-          CurrencyPill(icon: 'coin', amount: p.coins),
+          CurrencyPill(icon: 'coin', amount: p.coins, infinite: p.dev),
           const SizedBox(width: 6),
           CurrencyPill(
+            infinite: p.dev,
             icon: 'gem',
             amount: p.diamonds,
             onAdd: () =>

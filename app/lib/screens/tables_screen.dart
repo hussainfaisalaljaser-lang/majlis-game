@@ -154,7 +154,7 @@ class _TablesScreenState extends State<TablesScreen> {
                   itemBuilder: (context, i) {
                     final t = tableTiers[i];
                     final locked = _locked(profile, t);
-                    final poor = profile.coins < t.entryFee;
+                    final poor = !profile.dev && profile.coins < t.entryFee;
                     return _TierTile(
                       tier: t,
                       players: _playerCount,

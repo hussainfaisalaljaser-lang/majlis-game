@@ -51,10 +51,13 @@ class Amount extends StatelessWidget {
 }
 
 class CurrencyPill extends StatelessWidget {
-  const CurrencyPill({super.key, required this.icon, required this.amount, this.onAdd});
+  const CurrencyPill({super.key, required this.icon, required this.amount, this.onAdd, this.infinite = false});
 
   final String icon;
   final int amount;
+
+  /// حساب المطور: ما يخلص.
+  final bool infinite;
   final VoidCallback? onAdd;
 
   @override
@@ -71,7 +74,10 @@ class CurrencyPill extends StatelessWidget {
         children: [
           Gfx(icon, size: 22),
           const SizedBox(width: 5),
-          Text(arabicNumber(amount), style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14)),
+          Text(
+            infinite ? '∞' : arabicNumber(amount),
+            style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14),
+          ),
           if (onAdd != null) ...[
             const SizedBox(width: 6),
             GestureDetector(

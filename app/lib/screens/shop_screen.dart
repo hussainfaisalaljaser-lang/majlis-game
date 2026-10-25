@@ -31,9 +31,9 @@ class ShopScreen extends StatelessWidget {
               valueListenable: Backend.instance.profile,
               builder: (context, p, _) => Row(
                 children: [
-                  CurrencyPill(icon: 'coin', amount: p.coins),
+                  CurrencyPill(icon: 'coin', amount: p.coins, infinite: p.dev),
                   const SizedBox(width: 6),
-                  CurrencyPill(icon: 'gem', amount: p.diamonds),
+                  CurrencyPill(icon: 'gem', amount: p.diamonds, infinite: p.dev),
                   const SizedBox(width: 12),
                 ],
               ),
@@ -185,7 +185,9 @@ class _ItemCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final affordable = item.coins != null ? profile.coins >= item.coins! : profile.diamonds >= (item.diamonds ?? 0);
+    final affordable = profile.dev || item.coins != null
+        ? profile.coins >= item.coins!
+        : profile.diamonds >= (item.diamonds ?? 0);
     final Widget action;
     if (owned && item.slot == ShopSlot.reactions) {
       action = const OutlinedButton(onPressed: null, child: Text('✅ عندك'));

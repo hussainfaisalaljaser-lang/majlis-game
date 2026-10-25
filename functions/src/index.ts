@@ -213,8 +213,9 @@ function checkTier(p: Profile, tier: TableTier): void {
   }
 }
 
-/** يخصم رسوم الدخول ويحفظ الملف (يسويه لو جديد). */
+/** يخصم رسوم الدخول ويحفظ الملف (يسويه لو جديد). المطور ذهبه ما يخلص. */
 function chargeEntry(tx: Transaction, uid: string, p: Profile, fee: number): void {
+  if (p.dev) return void tx.set(userRef(uid), p);
   if (p.coins < fee) throw new HttpsError('failed-precondition', 'ما عندك ذهب كافي 🪙');
   tx.set(userRef(uid), { ...p, coins: p.coins - fee });
 }
@@ -603,7 +604,7 @@ export const leaveRoom = onCall(async (req) => {
     const players = room.players.filter((x) => x.uid !== uid);
     if (players.length === 0) tx.delete(ref);
     else tx.update(ref, { players, hostId: room.hostId === uid ? players[0].uid : room.hostId });
-    if (room.entryFee > 0) tx.set(userRef(uid), { ...p, coins: p.coins + room.entryFee });
+    if (room.entryFee > 0 && !p.dev) tx.set(userRef(uid), { ...p, coins: p.coins + room.entryFee });
   });
   return {};
 });
@@ -815,14 +816,16 @@ export const buyItem = onCall(async (req) => {
     const owned = p.owned ?? [];
     if (owned.includes(item.id)) throw new HttpsError('already-exists', 'عندك هذا الغرض');
     const balance = item.currency === 'coins' ? p.coins : p.diamonds;
-    if (balance < item.price) {
+    // المطور يشتري ببلاش عشان يجرب كل شي.
+    const price = p.dev ? 0 : item.price;
+    if (balance < price) {
       throw new HttpsError('failed-precondition', item.currency === 'coins' ? 'ما عندك ذهب كافي 🪙' : 'ما عندك جواهر كافية 💎');
     }
     // الإطار والكروت والطاولة تنلبس على طول، والشخصية تصير صورته.
     const slot = slotOf(item.id);
     const updated: Profile = {
       ...p,
-      [item.currency]: balance - item.price,
+      [item.currency]: balance - price,
       owned: [...owned, item.id],
       ...(slot ? { equipped: { ...equippedOf(p), [slot]: item.id } } : {}),
       ...(item.slot === 'avatar' ? { avatar: avatarOfItem(item.id) } : {}),
