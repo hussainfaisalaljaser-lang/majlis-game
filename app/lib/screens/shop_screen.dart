@@ -95,7 +95,11 @@ class _ItemsGridState extends State<_ItemsGrid> {
   }
 
   Future<void> _buy(ShopItem item) async {
-    final price = item.coins != null ? '${arabicNumber(item.coins!)} ذهب' : '${arabicNumber(item.diamonds!)} جوهرة';
+    final price = Backend.instance.profile.value.dev
+        ? 'ببلاش لأنك مطور'
+        : item.coins != null
+        ? 'بـ ${arabicNumber(item.coins!)} ذهب'
+        : 'بـ ${arabicNumber(item.diamonds!)} جوهرة';
     final after = switch (item.slot) {
       ShopSlot.avatar => 'وبتصير صورتك على طول',
       ShopSlot.reactions => 'وتقدر تستخدم ردودها في كل لعبة',
@@ -107,7 +111,7 @@ class _ItemsGridState extends State<_ItemsGrid> {
       builder: (context) => AlertDialog(
         backgroundColor: AppColors.panel,
         title: Text('تشتري "${item.name}"؟'),
-        content: Text('بـ $price، $after'),
+        content: Text('$price، $after'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('لا')),
           FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('اشترِ')),
@@ -185,9 +189,8 @@ class _ItemCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final affordable = profile.dev || item.coins != null
-        ? profile.coins >= item.coins!
-        : profile.diamonds >= (item.diamonds ?? 0);
+    final affordable =
+        profile.dev || (item.coins != null ? profile.coins >= item.coins! : profile.diamonds >= (item.diamonds ?? 0));
     final Widget action;
     if (owned && item.slot == ShopSlot.reactions) {
       action = const OutlinedButton(onPressed: null, child: Text('✅ عندك'));

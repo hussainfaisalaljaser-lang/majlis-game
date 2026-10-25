@@ -76,7 +76,7 @@ class CurrencyPill extends StatelessWidget {
           const SizedBox(width: 5),
           Text(
             infinite ? '∞' : arabicNumber(amount),
-            style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14),
+            style: TextStyle(fontWeight: FontWeight.w800, fontSize: infinite ? 20 : 14, height: infinite ? 1 : null),
           ),
           if (onAdd != null) ...[
             const SizedBox(width: 6),
