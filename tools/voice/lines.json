@@ -40,5 +40,41 @@
     "hurry": "[excited] يالله… الوقت بيخلص!",
     "win_loyal": "فازوا الأوفياء! ألف مَبْروك!",
     "win_traitor": "فازوا الخَوَنَة! هارْدْلَك يا الأوفياء."
+  },
+  "experiment": {
+    "texts": {
+      "gov_passed": "[excited] يا سَلام! الحُكومة مَشَت! وافَقوا عليها!",
+      "gov_failed": "[disappointed] آه يا حَسْرة… الحُكومة طاحَت! ما مَشَت.",
+      "executed": "[sad] لا حَول ولا قوّة إلا بالله… طار مِن المَجْلِس. الله يِعينَه.",
+      "win_traitor": "[laughs] ههههه! فازوا الخَوَنَة! هارْدْلَك يا الأوفياء.",
+      "chaos": "[surprised] يا ساتِر! فَوْضى… القَرار نِزَل لِحالَه!",
+      "role_traitor": "[whispers] شِشش… إنتَ خايِن. ساعِد زَعيمَك، ولا تْخَلِّيهُم يِكْشِفونَك."
+    },
+    "configs": {
+      "1_v2_max": {
+        "model": "eleven_multilingual_v2",
+        "strip_tags": true,
+        "stability": 0.0,
+        "similarity": 0.85,
+        "style": 1.0,
+        "boost": true
+      },
+      "2_v2_mid": {
+        "model": "eleven_multilingual_v2",
+        "strip_tags": true,
+        "stability": 0.15,
+        "similarity": 0.9,
+        "style": 0.85,
+        "boost": true
+      },
+      "3_v3_tags": {
+        "model": "eleven_v3",
+        "no_lang": true,
+        "stability": 0.0,
+        "strip_tags": false,
+        "similarity": null,
+        "style": null
+      }
+    }
   }
 }

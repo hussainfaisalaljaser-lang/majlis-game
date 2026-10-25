@@ -31,6 +31,8 @@ def say(text, voice, path, stability=None, cfg=None):
         settings['similarity_boost'] = cfg['similarity']
     if cfg.get('style') is not None:
         settings['style'] = cfg['style']
+    if cfg.get('boost'):
+        settings['use_speaker_boost'] = True
     if settings:
         body['voice_settings'] = settings
     req = urllib.request.Request(
@@ -58,7 +60,14 @@ def main():
     voice, out = sys.argv[2], sys.argv[3]
     os.makedirs(out, exist_ok=True)
     keys = sys.argv[4].split(',') if len(sys.argv) > 4 and sys.argv[4] else list(LINES['lines'])
-    if mode == 'lines':
+    if mode == 'experiment':
+        # نفس الجمل بأكثر من إعداد، عشان نقارن الإحساس
+        exp = LINES['experiment']
+        for name, cfg in exp['configs'].items():
+            for key, text in exp['texts'].items():
+                say(text, voice, os.path.join(out, f'{name}__{key}.mp3'), cfg=cfg)
+                print('✓', name, key)
+    elif mode == 'lines':
         for key in keys:
             say(LINES['lines'][key], voice, os.path.join(out, key + '.mp3'), cfg=cfg_for(key))
             print('✓', key)
