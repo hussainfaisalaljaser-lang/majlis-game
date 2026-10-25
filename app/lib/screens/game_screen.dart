@@ -22,7 +22,7 @@ import '../widgets/ui.dart';
 const _winReasons = {
   'loyalPolicies': 'تمررت ٥ قرارات للأوفياء',
   'traitorPolicies': 'تمررت ٦ قرارات للخونة',
-  'leaderElected': 'الزعيم انتُخب مستشار',
+  'leaderElected': 'الزعيم انتُخب وزير',
   'leaderExecuted': 'الزعيم انطرد',
 };
 
@@ -68,6 +68,10 @@ class _GameScreenState extends State<GameScreen> {
 
   /// رد ينتظر تختار له لاعب (مثل أشك في…).
   ReactionKind? _pendingReaction;
+
+  /// العرّاف ضغط "اكشف" وينتظر يختار لاعب.
+  bool _seerPicking = false;
+  String? _seerSeen;
 
   @override
   void initState() {
@@ -137,6 +141,18 @@ class _GameScreenState extends State<GameScreen> {
   }
 
   void _afterUpdate(GameView view) {
+    if (view.seerSees != null && _seerSeen == null && _roleShown) {
+      final target = view.player(view.seerSees!);
+      final traitor = target.knownRole != Role.loyal;
+      WidgetsBinding.instance.addPostFrameCallback(
+        (_) => _alert(
+          '🔮 كشف العرّاف',
+          '${target.name} من ${traitor ? 'الخونة 🔴' : 'الأوفياء 🔵'}',
+          'محد يدري إنك كشفته. استخدمها بذكاء 🤫',
+        ),
+      );
+    }
+    _seerSeen = view.seerSees;
     if (!_roleShown) {
       _roleShown = true;
       _seenInvestigations = view.investigations.length;
@@ -148,11 +164,13 @@ class _GameScreenState extends State<GameScreen> {
       final result = view.investigations.last;
       _seenInvestigations = view.investigations.length;
       final name = view.player(result.target).name;
-      WidgetsBinding.instance.addPostFrameCallback((_) => _alert(
-            '🔍 نتيجة التحقيق',
-            '$name من ${result.traitor ? 'الخونة 🔴' : 'الأوفياء 🔵'}',
-            'هذي المعلومة لك بس. تقدر تقولها أو تكذب فيها 😏',
-          ));
+      WidgetsBinding.instance.addPostFrameCallback(
+        (_) => _alert(
+          '🔍 نتيجة التحقيق',
+          '$name من ${result.traitor ? 'الخونة 🔴' : 'الأوفياء 🔵'}',
+          'هذي المعلومة لك بس. تقدر تقولها أو تكذب فيها 😏',
+        ),
+      );
     }
     final myTurn = _isMyTurn(view);
     if (myTurn && !_wasMyTurn) {
@@ -247,10 +265,18 @@ class _GameScreenState extends State<GameScreen> {
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(body, textAlign: TextAlign.center, style: const TextStyle(fontFamily: kufi, fontSize: 22, fontWeight: FontWeight.w700)),
+            Text(
+              body,
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontFamily: kufi, fontSize: 22, fontWeight: FontWeight.w700),
+            ),
             if (note != null) ...[
               const SizedBox(height: 10),
-              Text(note, textAlign: TextAlign.center, style: const TextStyle(color: AppColors.muted)),
+              Text(
+                note,
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: AppColors.muted),
+              ),
             ],
           ],
         ),
@@ -282,7 +308,10 @@ class _GameScreenState extends State<GameScreen> {
             children: [
               PlayerAvatar(avatar: _room?.player(playerId)?.avatar ?? 'masked', size: 56),
               const SizedBox(height: 6),
-              Text(v.player(playerId).name, style: const TextStyle(fontFamily: kufi, fontSize: 20, fontWeight: FontWeight.w700)),
+              Text(
+                v.player(playerId).name,
+                style: const TextStyle(fontFamily: kufi, fontSize: 20, fontWeight: FontWeight.w700),
+              ),
               const Text('ملاحظتك الخاصة. محد يشوفها غيرك 🤫', style: TextStyle(color: AppColors.muted, fontSize: 13)),
               const SizedBox(height: 14),
               Row(
@@ -328,16 +357,94 @@ class _GameScreenState extends State<GameScreen> {
     );
   }
 
+  /// الردود السريعة: زر واحد يفتح القائمة، بدال الشات.
+  void _openReactions() {
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: AppColors.panel,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      builder: (context) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 14, 20, 18),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                '💬 قول شي للطاولة',
+                style: TextStyle(fontFamily: kufi, fontSize: 18, fontWeight: FontWeight.w700),
+              ),
+              const SizedBox(height: 12),
+              Wrap(
+                spacing: 10,
+                runSpacing: 10,
+                alignment: WrapAlignment.center,
+                children: [
+                  for (final k in ReactionKind.values)
+                    Semantics(
+                      button: true,
+                      label: 'رد ${k.name}',
+                      excludeSemantics: true,
+                      child: GestureDetector(
+                        onTap: () {
+                          Navigator.pop(context);
+                          k.needsTarget ? setState(() => _pendingReaction = k) : _react(k);
+                        },
+                        child: Container(
+                          height: 46,
+                          padding: EdgeInsets.symmetric(horizontal: k.label.isEmpty ? 12 : 16),
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                            color: AppColors.card,
+                            borderRadius: BorderRadius.circular(23),
+                            border: Border.all(color: AppColors.gold.withValues(alpha: .35), width: 1.5),
+                          ),
+                          child: Text(
+                            k.label.isEmpty ? k.emoji : '${k.emoji} ${k.label}',
+                            style: TextStyle(fontSize: k.label.isEmpty ? 24 : 15, fontWeight: FontWeight.w700),
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   String _name(GameView v, String? id) => id == null ? '' : (id == v.you ? 'أنت' : v.player(id).name);
 
   /// اللاعبين اللي ينفع تختارهم من الطاولة الحين، ووش يصير لما تختار.
   (Set<String>, void Function(String)?) _selection(GameView v) {
+    if (_seerPicking) {
+      return (
+        {
+          for (final p in v.alive)
+            if (p.id != v.you) p.id,
+        },
+        (id) {
+          setState(() => _seerPicking = false);
+          _confirm(v, 'تكشف فريق', id, {'type': 'seerReveal', 'target': id});
+        },
+      );
+    }
     final pending = _pendingReaction;
     if (pending != null) {
-      return ({for (final p in v.players) if (p.id != v.you) p.id}, (id) => _react(pending, target: id));
+      return (
+        {
+          for (final p in v.players)
+            if (p.id != v.you) p.id,
+        },
+        (id) => _react(pending, target: id),
+      );
     }
     if (_busy || !v.amPresident) return (const {}, null);
-    final others = {for (final p in v.alive) if (p.id != v.you) p.id};
+    final others = {
+      for (final p in v.alive)
+        if (p.id != v.you) p.id,
+    };
     switch ((v.phase, v.pendingPower)) {
       case (Phase.nomination, _):
         return ({for (final p in v.eligibleChancellors) p.id}, (id) => _act({'type': 'nominate', 'chancellor': id}));
@@ -353,6 +460,15 @@ class _GameScreenState extends State<GameScreen> {
     }
   }
 
+  /// الادعاء ينتظرك، وما عليك حركة ثانية الحين.
+  bool _claimPending(GameView v) =>
+      v.claimCount != null &&
+      _claimDismissedRound != v.round &&
+      v.phase != Phase.gameOver &&
+      !_isMyTurn(v) &&
+      _pendingReaction == null &&
+      !_seerPicking;
+
   Future<void> _confirm(GameView v, String verb, String id, Map<String, dynamic> action) async {
     final ok = await showDialog<bool>(
       context: context,
@@ -361,9 +477,24 @@ class _GameScreenState extends State<GameScreen> {
         actions: [
           Row(
             children: [
-              Expanded(child: GameButton(label: 'لا', tone: ButtonTone.ghost, height: 46, fontSize: 16, onPressed: () => Navigator.pop(context, false))),
+              Expanded(
+                child: GameButton(
+                  label: 'لا',
+                  tone: ButtonTone.ghost,
+                  height: 46,
+                  fontSize: 16,
+                  onPressed: () => Navigator.pop(context, false),
+                ),
+              ),
               const SizedBox(width: 10),
-              Expanded(child: GameButton(label: 'إيه', height: 46, fontSize: 16, onPressed: () => Navigator.pop(context, true))),
+              Expanded(
+                child: GameButton(
+                  label: 'إيه',
+                  height: 46,
+                  fontSize: 16,
+                  onPressed: () => Navigator.pop(context, true),
+                ),
+              ),
             ],
           ),
         ],
@@ -376,7 +507,9 @@ class _GameScreenState extends State<GameScreen> {
   Widget build(BuildContext context) {
     final v = _view;
     if (v == null) {
-      return const NightScaffold(body: Center(child: CircularProgressIndicator(color: AppColors.gold)));
+      return const NightScaffold(
+        body: Center(child: CircularProgressIndicator(color: AppColors.gold)),
+      );
     }
     final (selectable, onSelect) = _selection(v);
     final (roleName, _, roleColor, _) = roleInfo[v.yourRole]!;
@@ -416,7 +549,7 @@ class _GameScreenState extends State<GameScreen> {
                                 border: Border.all(color: roleColor.withValues(alpha: .6)),
                               ),
                               child: Text(
-                                '$roleName${special == null ? '' : ' · ${specialInfo[special]!.$1}'}',
+                                '$roleName${special == null ? '' : ' ${special == Special.seer ? '🔮' : '🛡️'}'}',
                                 overflow: TextOverflow.ellipsis,
                                 style: TextStyle(
                                   color: roleColor == AppColors.loyal ? AppColors.loyalLight : AppColors.traitorLight,
@@ -450,30 +583,82 @@ class _GameScreenState extends State<GameScreen> {
                       view: v,
                       busy: _busy,
                       name: (id) => _name(v, id),
-                      pendingReaction: _pendingReaction,
-                      claimDismissed: _claimDismissedRound == v.round,
+                      pickHint: _seerPicking
+                          ? '🔮 اختر لاعب من الطاولة تكشف فريقه (سراً) 👈'
+                          : _pendingReaction == null
+                          ? null
+                          : '${_pendingReaction!.emoji} ${_pendingReaction!.label} اختر لاعب من الطاولة 👈',
+                      claimPending: _claimPending(v),
                       onAct: _act,
-                      onCancelReaction: () => setState(() => _pendingReaction = null),
-                      onDismissClaim: () => setState(() => _claimDismissedRound = v.round),
+                      onCancelPick: () => setState(() {
+                        _pendingReaction = null;
+                        _seerPicking = false;
+                      }),
                     ),
-                    reactions: v.phase == Phase.gameOver
+                    footer: v.phase == Phase.gameOver
                         ? null
-                        : _Reactions(
-                            onReact: (kind) =>
-                                kind.needsTarget ? setState(() => _pendingReaction = kind) : _react(kind),
+                        : Row(
+                            children: [
+                              Expanded(
+                                child: GameButton(
+                                  label: '💬 تفاعل',
+                                  semantics: 'تفاعل',
+                                  tone: ButtonTone.ghost,
+                                  height: 40,
+                                  fontSize: 15,
+                                  onPressed: _openReactions,
+                                ),
+                              ),
+                              if (v.seerReady) ...[
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: GameButton(
+                                    label: '🔮 اكشف',
+                                    semantics: 'كشف العراف',
+                                    tone: ButtonTone.purple,
+                                    height: 40,
+                                    fontSize: 15,
+                                    onPressed: () => setState(() {
+                                      _pendingReaction = null;
+                                      _seerPicking = !_seerPicking;
+                                    }),
+                                  ),
+                                ),
+                              ],
+                            ],
                           ),
                   ),
                   Expanded(
                     child: Padding(
-                      padding: const EdgeInsets.fromLTRB(4, 4, 4, 4),
-                      child: GameTable(
-                        view: v,
-                        room: _room,
-                        notes: _notes,
-                        selectable: selectable,
-                        onSelect: onSelect,
-                        onNote: _editNote,
-                        center: _TableCenter(view: v, name: (id) => _name(v, id)),
+                      padding: const EdgeInsets.fromLTRB(4, 26, 4, 4),
+                      child: Stack(
+                        children: [
+                          Positioned.fill(
+                            child: GameTable(
+                              view: v,
+                              room: _room,
+                              notes: _notes,
+                              selectable: selectable,
+                              onSelect: onSelect,
+                              onNote: _editNote,
+                              spotlight: v.phase == Phase.election ? {v.presidentId, ?v.nomineeId} : null,
+                              center: _TableCenter(view: v, name: (id) => _name(v, id)),
+                            ),
+                          ),
+                          if (_claimPending(v))
+                            Center(
+                              child: _ClaimPrompt(
+                                count: v.claimCount!,
+                                president: v.claimCount == 3,
+                                busy: _busy,
+                                onClaim: (policies) => _act({
+                                  'type': 'claim',
+                                  'policies': [for (final p in policies) p.code],
+                                }),
+                                onLater: () => setState(() => _claimDismissedRound = v.round),
+                              ),
+                            ),
+                        ],
                       ),
                     ),
                   ),
@@ -499,12 +684,12 @@ class _GameScreenState extends State<GameScreen> {
 
 /// اللوحة الجانبية بالعرض: فوق الجولة والمسارات، وتحت حركتك والردود السريعة.
 class _SidePanel extends StatelessWidget {
-  const _SidePanel({required this.header, required this.tracks, required this.action, this.reactions});
+  const _SidePanel({required this.header, required this.tracks, required this.action, this.footer});
 
   final Widget header;
   final Widget tracks;
   final Widget action;
-  final Widget? reactions;
+  final Widget? footer;
 
   @override
   Widget build(BuildContext context) {
@@ -523,10 +708,13 @@ class _SidePanel extends StatelessWidget {
       child: Column(
         children: [
           header,
-          FittedBox(fit: BoxFit.scaleDown, child: SizedBox(width: 380, child: tracks)),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            child: SizedBox(width: 380, child: tracks),
+          ),
           Divider(height: 12, color: AppColors.gold.withValues(alpha: .2)),
           Expanded(child: action),
-          if (reactions != null) ...[const SizedBox(height: 6), reactions!],
+          if (footer != null) ...[const SizedBox(height: 6), footer!],
         ],
       ),
     );
@@ -546,11 +734,11 @@ class _TableCenter extends StatelessWidget {
     final pres = name(v.presidentId);
     final nominee = name(v.nomineeId);
     final (icon, text) = switch (v.phase) {
-      Phase.nomination => ('👑', '$pres يختار مستشار'),
-      Phase.election => ('🗳️', 'تصويت على $pres + $nominee'),
+      Phase.nomination => ('👑', '$pres يختار وزير'),
+      Phase.election => ('🗳️', 'التصويت'),
       Phase.presidentDiscard => ('🃏', '$pres يختار الكروت'),
       Phase.chancellorEnact => ('📜', '$nominee يمرر قرار'),
-      Phase.vetoResponse => ('✋', 'المستشار طلب فيتو'),
+      Phase.vetoResponse => ('✋', 'الوزير طلب فيتو'),
       Phase.power => (powerEmoji[v.pendingPower]!, '$pres يستخدم ${powerName[v.pendingPower]}'),
       Phase.gameOver => ('🏁', 'انتهت اللعبة'),
     };
@@ -617,7 +805,11 @@ class _TurnTimer extends StatelessWidget {
         const SizedBox(width: 8),
         SizedBox(
           width: 28,
-          child: Text(arabicNumber(left), textAlign: TextAlign.center, style: TextStyle(fontFamily: kufi, color: color, fontWeight: FontWeight.w700)),
+          child: Text(
+            arabicNumber(left),
+            textAlign: TextAlign.center,
+            style: TextStyle(fontFamily: kufi, color: color, fontWeight: FontWeight.w700),
+          ),
         ),
       ],
     );
@@ -629,38 +821,24 @@ class _ActionPanel extends StatelessWidget {
     required this.view,
     required this.busy,
     required this.name,
-    required this.pendingReaction,
-    required this.claimDismissed,
+    required this.pickHint,
+    required this.claimPending,
     required this.onAct,
-    required this.onCancelReaction,
-    required this.onDismissClaim,
+    required this.onCancelPick,
   });
 
   final GameView view;
   final bool busy;
   final String Function(String?) name;
-  final ReactionKind? pendingReaction;
-  final bool claimDismissed;
+
+  /// تختار لاعب من الطاولة (رد أو كشف العرّاف).
+  final String? pickHint;
+  final bool claimPending;
   final ValueChanged<Map<String, dynamic>> onAct;
-  final VoidCallback onCancelReaction;
-  final VoidCallback onDismissClaim;
+  final VoidCallback onCancelPick;
 
   /// شكل الكروت اللي لابسه اللاعب من المتجر.
   CardSkin get _skin => cardSkin(Backend.instance.profile.value.cards);
-
-  static const _claimOptions = {
-    3: [
-      [Policy.traitor, Policy.traitor, Policy.traitor],
-      [Policy.traitor, Policy.traitor, Policy.loyal],
-      [Policy.traitor, Policy.loyal, Policy.loyal],
-      [Policy.loyal, Policy.loyal, Policy.loyal],
-    ],
-    2: [
-      [Policy.traitor, Policy.traitor],
-      [Policy.traitor, Policy.loyal],
-      [Policy.loyal, Policy.loyal],
-    ],
-  };
 
   @override
   Widget build(BuildContext context) {
@@ -671,66 +849,34 @@ class _ActionPanel extends StatelessWidget {
           const SizedBox(height: 6),
         ],
         Expanded(
-          child: Center(
-            child: SingleChildScrollView(child: _main(context)),
-          ),
+          child: Center(child: SingleChildScrollView(child: _main(context))),
         ),
       ],
     );
   }
 
   Widget _hint(String text) => Padding(
-        padding: const EdgeInsets.only(bottom: 10),
-        child: Text(text, textAlign: TextAlign.center, style: const TextStyle(color: Color(0xFFD9CFFF), fontSize: 14, fontWeight: FontWeight.w600)),
-      );
+    padding: const EdgeInsets.only(bottom: 10),
+    child: Text(
+      text,
+      textAlign: TextAlign.center,
+      style: const TextStyle(color: Color(0xFFD9CFFF), fontSize: 14, fontWeight: FontWeight.w600),
+    ),
+  );
 
   Widget _main(BuildContext context) {
     final v = view;
-    if (pendingReaction != null) {
-      return Column(children: [
-        _hint('${pendingReaction!.emoji} ${pendingReaction!.label} اختر لاعب من الطاولة 👆'),
-        TextButton(onPressed: onCancelReaction, child: const Text('إلغاء')),
-      ]);
+    if (pickHint != null) {
+      return Column(
+        children: [
+          _hint(pickHint!),
+          TextButton(onPressed: onCancelPick, child: const Text('إلغاء')),
+        ],
+      );
     }
-
     final required = _required(v);
     if (required != null) return required;
-
-    final claimCount = v.claimCount;
-    if (claimCount != null && !claimDismissed && v.phase != Phase.gameOver) {
-      return Column(children: [
-        const Text('📢 وش تقول إنه وصلك؟', style: TextStyle(fontFamily: kufi, fontWeight: FontWeight.w700, fontSize: 17)),
-        const SizedBox(height: 2),
-        _hint('اختيارك يطلع للكل. تقدر تقول الصدق أو تكذب 😏'),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          alignment: WrapAlignment.center,
-          children: [
-            for (final option in _claimOptions[claimCount]!)
-              Semantics(
-                button: true,
-                label: 'ادعاء ${option.map((p) => p.code).join()}',
-                excludeSemantics: true,
-                child: GestureDetector(
-                  onTap: busy ? null : () => onAct({'type': 'claim', 'policies': [for (final p in option) p.code]}),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(colors: [Color(0xFFF8EBD0), AppColors.parchmentDark]),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: AppColors.goldDark, width: 2),
-                    ),
-                    child: MiniPolicies(option, size: 17),
-                  ),
-                ),
-              ),
-          ],
-        ),
-        TextButton(onPressed: onDismissClaim, child: const Text('بعدين')),
-      ]);
-    }
-
+    if (claimPending) return _hint('📢 قول للكل وش وصلك من كروت 👈');
     return _waiting(v);
   }
 
@@ -738,79 +884,105 @@ class _ActionPanel extends StatelessWidget {
   Widget? _required(GameView v) {
     switch (v.phase) {
       case Phase.nomination when v.amPresident:
-        return _hint('👑 أنت الرئيس! اختر مستشار من الطاولة 👆');
+        return _hint('👑 أنت الرئيس! اختر وزير من الطاولة 👆');
       case Phase.election when !v.me.hasVoted && v.me.alive:
-        return Column(children: [
-          _hint('صوّت على حكومة 👑 ${name(v.presidentId)} + 📜 ${name(v.nomineeId)}'),
-          Row(children: [
-            Expanded(
-              child: GameButton(
-                label: '✔ موافق',
-                semantics: '✅ موافق',
-                tone: ButtonTone.green,
-                onPressed: busy ? null : () => onAct({'type': 'vote', 'ja': true}),
-              ),
+        return Column(
+          children: [
+            const Text(
+              'صوّت على الحكومة',
+              style: TextStyle(fontFamily: kufi, fontSize: 20, fontWeight: FontWeight.w700),
             ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: GameButton(
-                label: '✖ رافض',
-                semantics: '❌ رافض',
-                tone: ButtonTone.red,
-                onPressed: busy ? null : () => onAct({'type': 'vote', 'ja': false}),
-              ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: GameButton(
+                    label: 'موافق',
+                    semantics: 'موافق',
+                    tone: ButtonTone.green,
+                    onPressed: busy ? null : () => onAct({'type': 'vote', 'ja': true}),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: GameButton(
+                    label: 'رافض',
+                    semantics: 'رافض',
+                    tone: ButtonTone.red,
+                    onPressed: busy ? null : () => onAct({'type': 'vote', 'ja': false}),
+                  ),
+                ),
+              ],
             ),
-          ]),
-        ]);
+          ],
+        );
       case Phase.presidentDiscard when v.amPresident:
-        return Column(children: [
-          _hint('🃏 اختر الكرت اللي بترميه (سري)، والباقي يروح للمستشار'),
-          _cards(v.hand, (i) => onAct({'type': 'discard', 'index': i}), 'ارمِ'),
-        ]);
+        return Column(
+          children: [
+            _hint('🃏 اختر الكرت اللي بترميه (سري)، والباقي يروح للوزير'),
+            _cards(v.hand, (i) => onAct({'type': 'discard', 'index': i}), 'ارمِ'),
+          ],
+        );
       case Phase.chancellorEnact when v.amNominee:
-        return Column(children: [
-          _hint('📜 اختر الكرت اللي بتمرره'),
-          _cards(v.hand, (i) => onAct({'type': 'enact', 'index': i}), 'مرّر'),
-          if (v.canVeto)
-            TextButton(
-              onPressed: busy ? null : () => onAct({'type': 'proposeVeto'}),
-              child: const Text('✋ اطلب فيتو (نرمي الاثنين)'),
-            ),
-        ]);
+        return Column(
+          children: [
+            _hint('📜 اختر الكرت اللي بتمرره'),
+            _cards(v.hand, (i) => onAct({'type': 'enact', 'index': i}), 'مرّر'),
+            if (v.canVeto)
+              TextButton(
+                onPressed: busy ? null : () => onAct({'type': 'proposeVeto'}),
+                child: const Text('✋ اطلب فيتو (نرمي الاثنين)'),
+              ),
+          ],
+        );
       case Phase.vetoResponse when v.amPresident:
-        return Column(children: [
-          _hint('✋ المستشار يبي يرمي الكرتين. توافق؟'),
-          Row(children: [
-            Expanded(
-              child: GameButton(
-                label: 'موافق',
-                tone: ButtonTone.green,
-                onPressed: busy ? null : () => onAct({'type': 'respondVeto', 'accept': true}),
-              ),
+        return Column(
+          children: [
+            _hint('✋ الوزير يبي يرمي الكرتين. توافق؟'),
+            Row(
+              children: [
+                Expanded(
+                  child: GameButton(
+                    label: 'موافق',
+                    tone: ButtonTone.green,
+                    onPressed: busy ? null : () => onAct({'type': 'respondVeto', 'accept': true}),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: GameButton(
+                    label: 'رافض',
+                    tone: ButtonTone.red,
+                    onPressed: busy ? null : () => onAct({'type': 'respondVeto', 'accept': false}),
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: GameButton(
-                label: 'رافض',
-                tone: ButtonTone.red,
-                onPressed: busy ? null : () => onAct({'type': 'respondVeto', 'accept': false}),
-              ),
-            ),
-          ]),
-        ]);
+          ],
+        );
       case Phase.power when v.amPresident && v.pendingPower == Power.peek:
-        return Column(children: [
-          _hint('👁️ هذي أول ٣ كروت في الكومة (لك بس)'),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              for (final p in v.peeked ?? const <Policy>[])
-                Padding(padding: const EdgeInsets.all(4), child: PolicyCard(policy: p, skin: _skin, width: 66)),
-            ],
-          ),
-          const SizedBox(height: 8),
-          GameButton(label: 'تمام', height: 46, fontSize: 17, onPressed: busy ? null : () => onAct({'type': 'acknowledgePeek'})),
-        ]);
+        return Column(
+          children: [
+            _hint('👁️ هذي أول ٣ كروت في الكومة (لك بس)'),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                for (final p in v.peeked ?? const <Policy>[])
+                  Padding(
+                    padding: const EdgeInsets.all(4),
+                    child: PolicyCard(policy: p, skin: _skin, width: 66),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            GameButton(
+              label: 'تمام',
+              height: 46,
+              fontSize: 17,
+              onPressed: busy ? null : () => onAct({'type': 'acknowledgePeek'}),
+            ),
+          ],
+        );
       case Phase.power when v.amPresident:
         return _hint('${powerEmoji[v.pendingPower]} ${powerName[v.pendingPower]}: اختر لاعب من الطاولة 👆');
       default:
@@ -845,7 +1017,10 @@ class _ActionPanel extends StatelessWidget {
               tween: Tween(begin: 0, end: 1),
               duration: Duration(milliseconds: 300 + i * 120),
               curve: Curves.easeOutBack,
-              builder: (context, t, child) => Transform.translate(offset: Offset(0, 40 * (1 - t)), child: Opacity(opacity: t.clamp(0, 1), child: child)),
+              builder: (context, t, child) => Transform.translate(
+                offset: Offset(0, 40 * (1 - t)),
+                child: Opacity(opacity: t.clamp(0, 1), child: child),
+              ),
               child: PolicyCard(
                 policy: p,
                 skin: _skin,
@@ -863,47 +1038,113 @@ class _ActionPanel extends StatelessWidget {
       ],
     );
   }
-
 }
 
-/// الردود السريعة: بدال الشات، كلها إيموجي وعبارات جاهزة.
-class _Reactions extends StatelessWidget {
-  const _Reactions({required this.onReact});
+/// الادعاء بعد الحكم: وش وصلك من كروت؟ يطلع فوق الطاولة بخيارات كبيرة وواضحة.
+class _ClaimPrompt extends StatelessWidget {
+  const _ClaimPrompt({
+    required this.count,
+    required this.president,
+    required this.busy,
+    required this.onClaim,
+    required this.onLater,
+  });
 
-  final ValueChanged<ReactionKind> onReact;
+  final int count;
+  final bool president;
+  final bool busy;
+  final ValueChanged<List<Policy>> onClaim;
+  final VoidCallback onLater;
+
+  static const _options = {
+    3: [
+      [Policy.traitor, Policy.traitor, Policy.traitor],
+      [Policy.traitor, Policy.traitor, Policy.loyal],
+      [Policy.traitor, Policy.loyal, Policy.loyal],
+      [Policy.loyal, Policy.loyal, Policy.loyal],
+    ],
+    2: [
+      [Policy.traitor, Policy.traitor],
+      [Policy.traitor, Policy.loyal],
+      [Policy.loyal, Policy.loyal],
+    ],
+  };
+
+  static String _label(List<Policy> option) {
+    final t = option.where((p) => p == Policy.traitor).length;
+    final l = option.length - t;
+    return [if (t > 0) '${arabicNumber(t)} خونة', if (l > 0) '${arabicNumber(l)} أوفياء'].join(' + ');
+  }
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      height: 32,
-      child: ListView(
-        scrollDirection: Axis.horizontal,
+    return Container(
+      margin: const EdgeInsets.all(8),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 6),
+      decoration: BoxDecoration(
+        color: AppColors.panel.withValues(alpha: .96),
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: AppColors.gold.withValues(alpha: .6), width: 2),
+        boxShadow: const [BoxShadow(color: Colors.black87, blurRadius: 24)],
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          for (final k in ReactionKind.values)
-            Padding(
-              padding: const EdgeInsetsDirectional.only(end: 6),
-              child: Semantics(
-                button: true,
-                label: 'رد ${k.name}',
-                excludeSemantics: true,
-                child: GestureDetector(
-                  onTap: () => onReact(k),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 9),
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      color: Colors.black.withValues(alpha: .3),
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: Colors.white.withValues(alpha: .14), width: 1.5),
-                    ),
-                    child: Text(
-                      k.label.isEmpty ? k.emoji : '${k.emoji} ${k.label}',
-                      style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700),
+          GoldText(president ? '📢 وش وصلك وأنت رئيس؟' : '📢 وش وصلك وأنت وزير؟', size: 20),
+          Text(
+            'وصلك ${arabicNumber(count)} كروت. اختيارك يطلع للكل… قول الصدق أو اكذب 😏',
+            style: const TextStyle(color: AppColors.muted, fontSize: 12.5),
+          ),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            alignment: WrapAlignment.center,
+            children: [
+              for (final option in _options[count]!)
+                Semantics(
+                  button: true,
+                  label: 'ادعاء ${option.map((p) => p.code).join()}',
+                  excludeSemantics: true,
+                  child: GestureDetector(
+                    onTap: busy ? null : () => onClaim(option),
+                    child: Container(
+                      width: 104,
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [Color(0xFFFBF1DA), AppColors.parchmentDark],
+                        ),
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(color: AppColors.goldDark, width: 2),
+                      ),
+                      child: Column(
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              for (final p in option)
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 1),
+                                  child: Seal(loyal: p == Policy.loyal, size: 28),
+                                ),
+                            ],
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            _label(option),
+                            style: const TextStyle(color: AppColors.ink, fontSize: 12, fontWeight: FontWeight.w800),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
-              ),
-            ),
+            ],
+          ),
+          TextButton(onPressed: onLater, child: const Text('بعدين')),
         ],
       ),
     );
@@ -918,14 +1159,17 @@ class _Reward extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-        decoration: BoxDecoration(
-          color: Colors.black.withValues(alpha: .35),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: color.withValues(alpha: .7), width: 1.5),
-        ),
-        child: Text(text, style: TextStyle(color: color, fontWeight: FontWeight.w800, fontSize: 16)),
-      );
+    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+    decoration: BoxDecoration(
+      color: Colors.black.withValues(alpha: .35),
+      borderRadius: BorderRadius.circular(20),
+      border: Border.all(color: color.withValues(alpha: .7), width: 1.5),
+    ),
+    child: Text(
+      text,
+      style: TextStyle(color: color, fontWeight: FontWeight.w800, fontSize: 16),
+    ),
+  );
 }
 
 class _GameOver extends StatelessWidget {
@@ -954,7 +1198,8 @@ class _GameOver extends StatelessWidget {
                   style: const TextStyle(fontWeight: FontWeight.w700),
                 ),
               ),
-              if (p.knownSpecial != null) Text('${specialInfo[p.knownSpecial]!.$1}  ', style: const TextStyle(fontSize: 12)),
+              if (p.knownSpecial != null)
+                Text('${specialInfo[p.knownSpecial]!.$1}  ', style: const TextStyle(fontSize: 12)),
               Text(
                 roleInfo[p.knownRole]!.$1,
                 style: TextStyle(
@@ -1027,7 +1272,10 @@ class _GameOver extends StatelessWidget {
                       ],
                     ),
                   ),
-                  SizedBox(height: 180, child: VerticalDivider(width: 28, color: AppColors.gold.withValues(alpha: .25))),
+                  SizedBox(
+                    height: 180,
+                    child: VerticalDivider(width: 28, color: AppColors.gold.withValues(alpha: .25)),
+                  ),
                   // الأدوار الحقيقية
                   Expanded(
                     child: Column(

@@ -27,7 +27,7 @@ abstract final class Sfx {
     if (muted.value) return;
     try {
       final player = _players.putIfAbsent(name, () => AudioPlayer()..setReleaseMode(ReleaseMode.stop));
-      player.stop().then((_) => player.play(AssetSource('sounds/$name.wav'), volume: .8)).catchError((_) {});
+      player.stop().then((_) => player.play(AssetSource('sounds/$name.ogg'), volume: .8)).catchError((_) {});
     } catch (_) {}
   }
 }

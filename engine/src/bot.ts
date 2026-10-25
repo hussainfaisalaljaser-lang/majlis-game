@@ -19,7 +19,7 @@ function me(s: GameState, id: PlayerId): Player {
 function knownTraitor(s: GameState, botId: PlayerId, target: PlayerId): boolean {
   const bot = me(s, botId);
   const t = me(s, target);
-  if (bot.special === 'seer' && s.seerSees === target) return true;
+  if (bot.special === 'seer' && s.seerSees === target) return teamOf(t.role) === 'traitor';
   if (bot.role === 'traitor') return t.role !== 'loyal';
   if (bot.role === 'leader' && leaderKnowsTraitors(s.players.length)) return t.role === 'traitor';
   return s.investigations.some((i) => i.by === botId && i.target === target && i.team === 'traitor');
@@ -30,10 +30,24 @@ function knownLoyal(s: GameState, botId: PlayerId, target: PlayerId): boolean {
   // الحارس اللي انكشف وفي أكيد.
   if (s.guardianUsed && me(s, target).special === 'guardian') return true;
   const bot = me(s, botId);
+  if (bot.special === 'seer' && s.seerSees === target) return teamOf(me(s, target).role) === 'loyal';
   if (bot.role === 'traitor' || (bot.role === 'leader' && leaderKnowsTraitors(s.players.length))) {
     return me(s, target).role === 'loyal';
   }
   return s.investigations.some((i) => i.by === botId && i.target === target && i.team === 'loyal');
+}
+
+/**
+ * العرّاف البوت: من الجولة الثانية يكشف أكثر واحد يشك فيه (ولو تعادلوا، عشوائي).
+ * يرجع null لو ما هو عرّاف أو استخدم كشفه.
+ */
+export function botSeerReveal(s: GameState, botId: PlayerId, rand: Rand = Math.random): PlayerId | null {
+  const bot = me(s, botId);
+  if (bot.special !== 'seer' || !bot.alive || s.seerSees !== null || s.phase === 'gameOver' || s.round < 2) return null;
+  const others = alivePlayers(s).filter((p) => p.id !== botId);
+  if (others.length === 0) return null;
+  const top = Math.max(...others.map((p) => suspicion(s, botId, p.id)));
+  return pick(others.filter((p) => suspicion(s, botId, p.id) === top), rand).id;
 }
 
 /** درجة الشك من السجل العام: كل حكومة مررت أحمر تزيد الشك، والأزرق ينقصه. */
@@ -77,14 +91,14 @@ function vote(s: GameState, botId: PlayerId, rand: Rand): boolean {
     return rand() < 0.45;
   }
   if (gov.includes(botId)) return true;
-  // الزعيم كمستشار بعد ٣ حمر = خسارة، فالوفي يرفض أي أحد مشكوك فيه.
+  // الزعيم كوزير بعد ٣ حمر = خسارة، فالوفي يرفض أي أحد مشكوك فيه.
   const worst = Math.max(...gov.map((id) => suspicion(s, botId, id)));
   if (s.electionTracker === 2 && worst < 2) return true;
   if (s.traitorPolicies >= LEADER_DANGER_ZONE && suspicion(s, botId, nominee.id) > 0) return false;
   return worst < 1 ? rand() < 0.85 : rand() < 0.2;
 }
 
-/** يختار كرت يرميه (الرئيس) أو يمرره (المستشار). */
+/** يختار كرت يرميه (الرئيس) أو يمرره (الوزير). */
 function chooseCard(s: GameState, botId: PlayerId, hand: Policy[], keepWanted: boolean, rand: Rand): number {
   const wants: Policy = isTraitorTeam(me(s, botId)) ? 'T' : 'L';
   // الخائن أحياناً يمرر أزرق عشان ما ينكشف.

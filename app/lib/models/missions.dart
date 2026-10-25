@@ -12,7 +12,7 @@ class MissionDef {
 const missionDefs = [
   MissionDef('play3', '🎮', 'العب ٣ ألعاب', 3, 300),
   MissionDef('win1', '🏆', 'فز بلعبة', 1, 400),
-  MissionDef('legislate1', '📜', 'مرّر قرار وأنت رئيس أو مستشار', 1, 250),
+  MissionDef('legislate1', '📜', 'مرّر قرار وأنت رئيس أو وزير', 1, 250),
   MissionDef('claim2', '📢', 'ادّعِ مرتين بعد ما تحكم', 2, 200),
   MissionDef('react5', '🤨', 'أرسل ٥ ردود سريعة', 5, 100),
 ];

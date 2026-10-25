@@ -11,6 +11,7 @@ import {
   RuleError,
   applyAction,
   botAction,
+  botSeerReveal,
   botClaim,
   createGame,
   currentActors,
@@ -218,7 +219,7 @@ function deadlineFor(state: GameState, now: number): number | null {
   return now + PHASE_SECONDS[state.phase] * 1000;
 }
 
-/** حركات البوتات اللي ما تحتاج انتظار: التصويت (سري لين يكتمل) والادعاء بعد الحكم. */
+/** حركات البوتات اللي ما تحتاج انتظار: التصويت (سري لين يكتمل)، والادعاء بعد الحكم، وكشف العرّاف. */
 function runInstantBots(state: GameState): GameState {
   let s = state;
   for (let guard = 0; guard < 50 && s.phase !== 'gameOver'; guard++) {
@@ -230,6 +231,15 @@ function runInstantBots(state: GameState): GameState {
           s = applyAction(s, id, { type: 'claim', policies: botClaim(s, id, office, Math.random) });
           changed = true;
         }
+      }
+    }
+    // العرّاف البوت يستخدم كشفه لما يجي وقته (من الجولة الثانية).
+    for (const p of s.players) {
+      if (!isBot(p.id)) continue;
+      const target = botSeerReveal(s, p.id);
+      if (target) {
+        s = applyAction(s, p.id, { type: 'seerReveal', target });
+        changed = true;
       }
     }
     if (s.phase === 'election') {

@@ -77,6 +77,7 @@ class GameView {
         yourRole = Role.values.byName(j['yourRole'] as String),
         yourSpecial = j['yourSpecial'] == null ? null : Special.values.byName(j['yourSpecial'] as String),
         seerSees = j['seerSees'] as String?,
+        seerReady = j['seerReady'] as bool? ?? false,
         players = [for (final p in j['players'] as List) ViewPlayer.fromJson(_map(p))],
         phase = Phase.values.byName(j['phase'] as String),
         round = j['round'] as int,
@@ -107,6 +108,9 @@ class GameView {
 
   /// لو أنت العرّاف: الخائن اللي تعرفه من البداية.
   final String? seerSees;
+
+  /// أنت العرّاف وكشفك لسا ما استخدمته.
+  final bool seerReady;
   final List<ViewPlayer> players;
   final Phase phase;
   final int round;
@@ -124,7 +128,7 @@ class GameView {
   final bool canVeto;
   final List<Investigation> investigations;
 
-  /// كم كرت تقدر تدّعي (٣ للرئيس، ٢ للمستشار)، أو null لو ما لك ادعاء.
+  /// كم كرت تقدر تدّعي (٣ للرئيس، ٢ للوزير)، أو null لو ما لك ادعاء.
   final int? claimCount;
   final bool? winnerLoyal;
   final String? winReason;
@@ -139,7 +143,7 @@ class GameView {
   bool get amNominee => nomineeId == you;
   List<ViewPlayer> get alive => players.where((p) => p.alive).toList();
 
-  /// نفس قاعدة السيرفر: مو نفسك، ولا المستشار السابق، ولا الرئيس السابق لو الأحياء أكثر من ٥.
+  /// نفس قاعدة السيرفر: مو نفسك، ولا الوزير السابق، ولا الرئيس السابق لو الأحياء أكثر من ٥.
   List<ViewPlayer> get eligibleChancellors {
     final aliveCount = alive.length;
     return alive
@@ -168,7 +172,7 @@ class GameView {
   }
 }
 
-/// هل ادعاء الرئيس والمستشار متناقضين؟ المستشار لازم يكون وصله نفس كروت الرئيس ناقص واحد.
+/// هل ادعاء الرئيس والوزير متناقضين؟ الوزير لازم يكون وصله نفس كروت الرئيس ناقص واحد.
 bool claimsContradict(List<Policy> president, List<Policy> chancellor, Policy? enacted) {
   int count(List<Policy> l, Policy p) => l.where((c) => c == p).length;
   final presT = count(president, Policy.traitor);

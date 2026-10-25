@@ -3,6 +3,7 @@ import { describe, it } from 'node:test';
 import {
   RuleError,
   applyAction,
+  botSeerReveal,
   createGame,
   eligibleChancellors,
   viewFor,
@@ -36,7 +37,7 @@ function voteAll(s: GameState, ja: boolean): GameState {
   return s;
 }
 
-/** حكومة كاملة: ترشيح، تصويت بالموافقة، الرئيس يرمي أول كرت، المستشار يمرر أول كرت. */
+/** حكومة كاملة: ترشيح، تصويت بالموافقة، الرئيس يرمي أول كرت، الوزير يمرر أول كرت. */
 function govern(s: GameState, chancellor: string): GameState {
   const president = s.presidentId;
   s = act(s, president, { type: 'nominate', chancellor });
@@ -99,7 +100,7 @@ describe('الأسرار', () => {
 });
 
 describe('الترشيح والتصويت', () => {
-  it('ما ينفع ترشح نفسك أو المستشار السابق', () => {
+  it('ما ينفع ترشح نفسك أو الوزير السابق', () => {
     let s = rigged(5, FIVE, Array(17).fill('L'));
     assert.throws(() => act(s, 'p0', { type: 'nominate', chancellor: 'p0' }), RuleError);
     s = govern(s, 'p1');
@@ -157,7 +158,7 @@ describe('تمرير القرارات والفوز', () => {
     assert.equal(s.winReason, 'loyalPolicies');
   });
 
-  it('الخونة يفوزون لو انتخب الزعيم مستشار بعد ٣ قرارات حمراء', () => {
+  it('الخونة يفوزون لو انتخب الزعيم وزير بعد ٣ قرارات حمراء', () => {
     let s = rigged(7, ['loyal', 'loyal', 'loyal', 'loyal', 'traitor', 'traitor', 'leader'], Array(17).fill('L'));
     s.traitorPolicies = 3;
     s = act(s, 'p0', { type: 'nominate', chancellor: 'p6' });
@@ -249,7 +250,7 @@ describe('الفيتو', () => {
     assert.equal(s.presidentId, 'p1');
   });
 
-  it('رفض الفيتو يجبر المستشار يمرر', () => {
+  it('رفض الفيتو يجبر الوزير يمرر', () => {
     let s = vetoReady();
     s = act(s, 'p1', { type: 'proposeVeto' });
     s = act(s, 'p0', { type: 'respondVeto', accept: false });
@@ -261,7 +262,7 @@ describe('الفيتو', () => {
 });
 
 describe('الادعاءات', () => {
-  it('الرئيس يدّعي ٣ والمستشار ٢، مرة وحدة بس، ومسموح الكذب', () => {
+  it('الرئيس يدّعي ٣ والوزير ٢، مرة وحدة بس، ومسموح الكذب', () => {
     let s = rigged(5, FIVE, ['L', 'L', 'T', 'L', 'L', 'L']);
     s = govern(s, 'p1');
     assert.deepEqual(viewFor(s, 'p0').claimable, { office: 'president', count: 3 });
@@ -416,7 +417,7 @@ describe('البوتات', () => {
 });
 
 describe('الأدوار الخاصة', () => {
-  it('كل لعبة فيها عرّاف وحارس من الأوفياء، والعرّاف يعرف خائن عادي', () => {
+  it('كل لعبة فيها عرّاف وحارس من الأوفياء، والعرّاف ما يعرف أحد في البداية', () => {
     for (let n = 5; n <= 10; n++) {
       const s = createGame(ids(n), n * 13);
       const seer = s.players.filter((p) => p.special === 'seer');
@@ -425,22 +426,36 @@ describe('الأدوار الخاصة', () => {
       assert.equal(guardian.length, 1);
       assert.equal(seer[0].role, 'loyal');
       assert.equal(guardian[0].role, 'loyal');
-      assert.equal(s.players.find((p) => p.id === s.seerSees)!.role, 'traitor');
+      assert.equal(s.seerSees, null);
+      assert.equal(viewFor(s, seer[0].id).seerReady, true);
     }
   });
 
-  it('العرّاف يشوف الخائن في نسخته، والباقين لا', () => {
-    const s = createGame(ids(7), 5);
-    const seer = s.players.find((p) => p.special === 'seer')!;
-    const other = s.players.find((p) => p.role === 'loyal' && !p.special)!;
-    const v = viewFor(s, seer.id);
-    assert.equal(v.yourSpecial, 'seer');
-    assert.equal(v.seerSees, s.seerSees);
-    assert.equal(v.players.find((p) => p.id === s.seerSees)!.knownRole, 'traitor');
-    const ov = viewFor(s, other.id);
-    assert.equal(ov.seerSees, null);
-    assert.equal(ov.players.find((p) => p.id === s.seerSees)!.knownRole, null);
-    assert.equal(ov.players.find((p) => p.id === seer.id)!.knownSpecial, null, 'العرّاف مخفي');
+  it('العرّاف يكشف فريق لاعب واحد بس، في أي وقت، وسراً', () => {
+    let s = rigged(5, FIVE, Array(17).fill('L'));
+    s.players[1].special = 'seer';
+    // الزعيم يطلع له خائن (يعرف الفريق بس، مو الدور).
+    const leader = s.players.find((p) => p.role === 'leader')!;
+    const logBefore = s.log.length;
+    s = act(s, 'p1', { type: 'seerReveal', target: leader.id });
+    assert.equal(s.log.length, logBefore, 'ما ينكتب في السجل');
+    const v = viewFor(s, 'p1');
+    assert.equal(v.seerSees, leader.id);
+    assert.equal(v.seerReady, false);
+    assert.equal(v.players.find((p) => p.id === leader.id)!.knownRole, 'traitor');
+    assert.equal(viewFor(s, 'p2').players.find((p) => p.id === leader.id)!.knownRole, null, 'الباقين ما يشوفون');
+    assert.throws(() => act(s, 'p1', { type: 'seerReveal', target: 'p3' }), /seerUsed|استخدمت/);
+    assert.throws(() => act(s, 'p2', { type: 'seerReveal', target: 'p3' }), /notSeer|العرّاف/);
+  });
+
+  it('العرّاف البوت يكشف من الجولة الثانية', () => {
+    const s = rigged(5, FIVE, Array(17).fill('L'));
+    s.players[1].special = 'seer';
+    assert.equal(botSeerReveal(s, 'p1'), null, 'الجولة الأولى لا');
+    s.round = 2;
+    const t = botSeerReveal(s, 'p1');
+    assert.ok(t && t !== 'p1');
+    assert.equal(botSeerReveal(s, 'p2'), null, 'مو عرّاف');
   });
 
   it('الحارس ينجو من أول طرد وينكشف للكل، والثاني يطرده', () => {

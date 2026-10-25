@@ -21,6 +21,7 @@ class GameTable extends StatelessWidget {
     this.onSelect,
     this.onNote,
     this.now,
+    this.spotlight,
   });
 
   final GameView view;
@@ -36,6 +37,9 @@ class GameTable extends StatelessWidget {
   final ValueChanged<String>? onNote;
   final DateTime? now;
 
+  /// وقت التصويت: الطاولة تظلم إلا الرئيس والوزير، عشان التركيز يكون عليهم.
+  final Set<String>? spotlight;
+
   @override
   Widget build(BuildContext context) {
     final players = [...view.players]..sort((a, b) => a.seat.compareTo(b.seat));
@@ -46,7 +50,7 @@ class GameTable extends StatelessWidget {
       builder: (context, box) {
         final w = box.maxWidth;
         final h = box.maxHeight;
-        const seatW = 78.0, seatH = 96.0;
+        const seatW = 80.0, seatH = 106.0;
         final rx = (w - seatW) / 2;
         final ry = (h - seatH) / 2;
         final rug = math.min(w * .82, h * .78);
@@ -59,37 +63,56 @@ class GameTable extends StatelessWidget {
                 child: Stack(
                   alignment: Alignment.center,
                   children: [
-                    Image.asset('assets/images/carpet.png', width: rug, height: rug),
+                    AnimatedOpacity(
+                      opacity: spotlight == null ? 1 : .35,
+                      duration: const Duration(milliseconds: 400),
+                      child: Image.asset('assets/images/carpet.png', width: rug, height: rug),
+                    ),
                     Image.asset('assets/images/tray.png', width: rug * .48, height: rug * .48),
-                    SizedBox(width: rug * .4, height: rug * .4, child: Center(child: center)),
+                    SizedBox(
+                      width: rug * .4,
+                      height: rug * .4,
+                      child: Center(child: center),
+                    ),
                   ],
                 ),
               ),
             ),
             for (final p in players)
-              Builder(builder: (context) {
-                final offset = (p.seat - mySeat) % n;
-                final angle = math.pi / 2 + 2 * math.pi * offset / n;
-                return Positioned(
-                  left: rx - rx * math.cos(angle),
-                  top: ry + ry * math.sin(angle),
-                  width: seatW,
-                  height: seatH,
-                  child: ListenableBuilder(
-                    listenable: notes,
-                    builder: (context, _) => _SeatView(
-                      player: p,
-                      view: view,
-                      room: room,
-                      note: notes.of(p.id),
-                      now: now ?? DateTime.now(),
-                      selectable: selectable.contains(p.id),
-                      onTap: selectable.contains(p.id) ? () => onSelect?.call(p.id) : null,
-                      onLongPress: p.id == view.you ? null : () => onNote?.call(p.id),
+              Builder(
+                builder: (context) {
+                  final offset = (p.seat - mySeat) % n;
+                  final angle = math.pi / 2 + 2 * math.pi * offset / n;
+                  return Positioned(
+                    left: rx - rx * math.cos(angle),
+                    top: ry + ry * math.sin(angle),
+                    width: seatW,
+                    height: seatH,
+                    child: ListenableBuilder(
+                      listenable: notes,
+                      builder: (context, _) => AnimatedOpacity(
+                        opacity: spotlight == null || spotlight!.contains(p.id) ? 1 : .3,
+                        duration: const Duration(milliseconds: 400),
+                        child: AnimatedScale(
+                          scale: spotlight != null && spotlight!.contains(p.id) ? 1.15 : 1,
+                          duration: const Duration(milliseconds: 400),
+                          curve: Curves.easeOutBack,
+                          child: _SeatView(
+                            player: p,
+                            view: view,
+                            room: room,
+                            note: notes.of(p.id),
+                            now: now ?? DateTime.now(),
+                            selectable: selectable.contains(p.id),
+                            onTap: selectable.contains(p.id) ? () => onSelect?.call(p.id) : null,
+                            onLongPress: p.id == view.you ? null : () => onNote?.call(p.id),
+                          ),
+                        ),
+                      ),
                     ),
-                  ),
-                );
-              }),
+                  );
+                },
+              ),
           ],
         );
       },
@@ -173,13 +196,15 @@ class _SeatView extends StatelessWidget {
                         dead: !p.alive,
                       ),
                     ),
-                    if (!p.alive) const Positioned.fill(child: Center(child: Text('💀', style: TextStyle(fontSize: 26)))),
-                    if (p.id == view.presidentId) const _Badge('👑', top: -14, left: 0, right: 0),
-                    if (p.id == view.nomineeId) const _Badge('📜', right: -6, bottom: -2),
+                    if (!p.alive)
+                      const Positioned.fill(
+                        child: Center(child: Text('💀', style: TextStyle(fontSize: 26))),
+                      ),
+                    if (p.id == view.presidentId) const Positioned(top: -26, left: 0, right: 0, child: _Crown()),
                     if (role == Role.leader && !isMe) const _Badge('🦹', left: -6, bottom: -2),
                     if (p.knownSpecial == Special.guardian && !isMe) const _Badge('🛡️', left: -6, bottom: -2),
                     if (rp?.bot ?? false) const _Badge('🤖', right: -8, top: 16),
-                    if (view.phase == Phase.election && p.hasVoted) const _Badge('🗳️', left: -6, top: -4),
+                    if (view.phase == Phase.election && p.hasVoted) const _Badge('✅', left: -6, top: -4),
                     if (note != null)
                       Positioned(
                         bottom: -2,
@@ -212,14 +237,20 @@ class _SeatView extends StatelessWidget {
                             ),
                           ),
                           child: Text(
-                            opinion.suspect >= opinion.trust ? '🤨${arabicNumber(opinion.suspect)}' : '🤝${arabicNumber(opinion.trust)}',
+                            opinion.suspect >= opinion.trust
+                                ? '🤨${arabicNumber(opinion.suspect)}'
+                                : '🤝${arabicNumber(opinion.trust)}',
                             style: const TextStyle(fontSize: 10.5),
                           ),
                         ),
                       ),
                   ],
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: 3),
+                if (p.id == view.presidentId)
+                  const _Office('الرئيس', AppColors.gold, AppColors.goldInk)
+                else if (p.id == view.nomineeId)
+                  const _Office('الوزير', Color(0xFFA78BFA), Color(0xFF1E0F4A)),
                 Text(
                   isMe ? 'أنت' : p.name,
                   maxLines: 1,
@@ -233,12 +264,56 @@ class _SeatView extends StatelessWidget {
                 ),
               ],
             ),
-            if (reaction != null) Positioned(top: -28, child: _Bubble(reaction: reaction, view: view)),
+            if (reaction != null)
+              Positioned(
+                top: -28,
+                child: _Bubble(reaction: reaction, view: view),
+              ),
           ],
         ),
       ),
     );
   }
+}
+
+/// تاج الرئيس فوق راسه، كبير ويلمع.
+class _Crown extends StatelessWidget {
+  const _Crown();
+
+  @override
+  Widget build(BuildContext context) => Center(
+    child: Container(
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        boxShadow: [BoxShadow(color: AppColors.goldLight.withValues(alpha: .55), blurRadius: 14)],
+      ),
+      child: const Text('👑', style: TextStyle(fontSize: 30, height: 1)),
+    ),
+  );
+}
+
+/// لوحة المنصب تحت الصورة: الرئيس (ذهبي) أو الوزير (بنفسجي).
+class _Office extends StatelessWidget {
+  const _Office(this.label, this.color, this.ink);
+
+  final String label;
+  final Color color;
+  final Color ink;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    margin: const EdgeInsets.only(bottom: 1),
+    padding: const EdgeInsets.symmetric(horizontal: 8),
+    decoration: BoxDecoration(
+      color: color,
+      borderRadius: BorderRadius.circular(8),
+      boxShadow: [BoxShadow(color: color.withValues(alpha: .6), blurRadius: 8)],
+    ),
+    child: Text(
+      label,
+      style: TextStyle(fontFamily: kufi, fontSize: 12, fontWeight: FontWeight.w700, color: ink, height: 1.4),
+    ),
+  );
 }
 
 class _Badge extends StatelessWidget {
@@ -249,12 +324,16 @@ class _Badge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Positioned(
-        left: left,
-        right: right,
-        top: top,
-        bottom: bottom,
-        child: Text(emoji, textAlign: TextAlign.center, style: const TextStyle(fontSize: 17, shadows: [Shadow(blurRadius: 4)])),
-      );
+    left: left,
+    right: right,
+    top: top,
+    bottom: bottom,
+    child: Text(
+      emoji,
+      textAlign: TextAlign.center,
+      style: const TextStyle(fontSize: 17, shadows: [Shadow(blurRadius: 4)]),
+    ),
+  );
 }
 
 class _Bubble extends StatelessWidget {
@@ -269,8 +348,8 @@ class _Bubble extends StatelessWidget {
     final targetName = target == null
         ? null
         : target == view.you
-            ? 'أنت'
-            : view.players.where((p) => p.id == target).firstOrNull?.name;
+        ? 'أنت'
+        : view.players.where((p) => p.id == target).firstOrNull?.name;
     final text = switch (reaction.kind) {
       ReactionKind.suspect => '🤨 أشك في $targetName',
       ReactionKind.trust => '🤝 أثق في $targetName',
@@ -291,7 +370,11 @@ class _Bubble extends StatelessWidget {
           borderRadius: BorderRadius.circular(10),
           boxShadow: const [BoxShadow(color: Colors.black45, blurRadius: 6)],
         ),
-        child: Text(text, maxLines: 1, style: const TextStyle(color: AppColors.ink, fontSize: 11.5, fontWeight: FontWeight.w800)),
+        child: Text(
+          text,
+          maxLines: 1,
+          style: const TextStyle(color: AppColors.ink, fontSize: 11.5, fontWeight: FontWeight.w800),
+        ),
       ),
     );
   }

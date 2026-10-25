@@ -1,4 +1,5 @@
 import { VETO_UNLOCK, leaderKnowsTraitors } from './rules.js';
+import { teamOf } from './engine.js';
 import type {
   GameEvent,
   GameState,
@@ -21,6 +22,8 @@ export interface PlayerView {
   yourSpecial: Special | null;
   /** لو أنت العرّاف: الخائن اللي تعرفه. */
   seerSees: PlayerId | null;
+  /** أنت العرّاف وكشفك لسا ما استخدمته. */
+  seerReady: boolean;
   players: {
     id: PlayerId;
     name: string;
@@ -42,7 +45,7 @@ export interface PlayerView {
   loyalPolicies: number;
   traitorPolicies: number;
   pendingPower: Power | null;
-  /** الكروت اللي بيدك أنت (لو أنت الرئيس أو المستشار الحين). */
+  /** الكروت اللي بيدك أنت (لو أنت الرئيس أو الوزير الحين). */
   hand: Policy[];
   peeked: Policy[] | null;
   canVeto: boolean;
@@ -60,10 +63,8 @@ export function viewFor(s: GameState, playerId: PlayerId): PlayerView {
   if (!me) throw new Error(`unknown player ${playerId}`);
   const over = s.phase === 'gameOver';
 
-  const seerKnows = (id: PlayerId) => me.special === 'seer' && s.seerSees === id;
-  const knows = (role: Role, id?: PlayerId): boolean => {
+  const knows = (role: Role): boolean => {
     if (over) return true;
-    if (id && seerKnows(id)) return true;
     if (me.role === 'traitor') return role !== 'loyal';
     if (me.role === 'leader') return role === 'traitor' && leaderKnowsTraitors(s.players.length);
     return false;
@@ -86,12 +87,19 @@ export function viewFor(s: GameState, playerId: PlayerId): PlayerView {
     yourRole: me.role,
     yourSpecial: me.special,
     seerSees: me.special === 'seer' ? s.seerSees : null,
+    seerReady: me.special === 'seer' && me.alive && !over && s.seerSees === null,
     players: s.players.map((p) => ({
       id: p.id,
       name: p.name,
       seat: p.seat,
       alive: p.alive,
-      knownRole: p.id === playerId || knows(p.role, p.id) ? p.role : null,
+      knownRole:
+        p.id === playerId || knows(p.role)
+          ? p.role
+          : me.special === 'seer' && s.seerSees === p.id
+            ? // العرّاف يعرف الفريق بس: الزعيم يطلع له خائن.
+              teamOf(p.role) === 'loyal' ? 'loyal' : 'traitor'
+            : null,
       knownSpecial:
         p.id === playerId || over || (p.special === 'guardian' && s.guardianUsed) ? p.special : null,
       hasVoted: p.id in s.votes,

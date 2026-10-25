@@ -12,11 +12,11 @@ import '../ui.dart';
 const roleInfo = {
   Role.loyal: ('وفي', 'اكشف الخونة ومرّر ٥ قرارات زرقاء', AppColors.loyal, AppColors.loyalDark),
   Role.traitor: ('خائن', 'ساعد زعيمك يوصل للحكم بدون ما تنكشف', AppColors.traitor, AppColors.traitorDark),
-  Role.leader: ('زعيم الخونة', 'خلّهم يثقون فيك وينتخبونك مستشار', AppColors.traitor, AppColors.traitorDark),
+  Role.leader: ('زعيم الخونة', 'خلّهم يثقون فيك وينتخبونك وزير', AppColors.traitor, AppColors.traitorDark),
 };
 
 const specialInfo = {
-  Special.seer: ('🔮 العرّاف', 'تعرف خائن واحد من البداية. لمّح للباقين بدون ما تنكشف!'),
+  Special.seer: ('🔮 العرّاف', 'مرة وحدة في اللعبة تقدر تكشف فريق أي لاعب. اختر الوقت الصح، ولا تنكشف!'),
   Special.guardian: ('🛡️ الحارس', 'لو أحد حاول يطردك، تنجو مرة وحدة ويبان للكل إنك حارس'),
 };
 

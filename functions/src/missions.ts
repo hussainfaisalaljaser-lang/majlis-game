@@ -4,7 +4,7 @@ import { gulfDay } from './economy.js';
 export const MISSIONS = [
   { id: 'play3', target: 3, coins: 300 }, // العب ٣ ألعاب
   { id: 'win1', target: 1, coins: 400 }, // فز بلعبة
-  { id: 'legislate1', target: 1, coins: 250 }, // مرّر قرار وأنت رئيس أو مستشار
+  { id: 'legislate1', target: 1, coins: 250 }, // مرّر قرار وأنت رئيس أو وزير
   { id: 'claim2', target: 2, coins: 200 }, // ادّعِ مرتين
   { id: 'react5', target: 5, coins: 100 }, // أرسل ٥ ردود سريعة
 ] as const;

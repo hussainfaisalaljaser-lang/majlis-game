@@ -19,7 +19,7 @@ const powerName = {
   Power.execute: 'طرد',
 };
 
-/// مسارات القرارات: خانات تنختم لما يتمرر قرار، وعداد الفوضى.
+/// لوحة النقاط: مسار الأوفياء ومسار الخونة، كل قرار يتمرر ينختم في خانته، وتحتها عداد الفوضى والكومة.
 class PolicyTracks extends StatelessWidget {
   const PolicyTracks({super.key, required this.view});
 
@@ -36,7 +36,7 @@ class PolicyTracks extends StatelessWidget {
           loyal: true,
           icons: const [null, null, null, null, '🏆'],
         ),
-        const SizedBox(height: 5),
+        const SizedBox(height: 6),
         _Track(
           label: 'الخونة',
           filled: view.traitorPolicies,
@@ -46,25 +46,40 @@ class PolicyTracks extends StatelessWidget {
             for (final (i, p) in view.traitorTrackPowers.indexed) i == 5 ? '☠️' : (p == null ? null : powerEmoji[p]),
           ],
         ),
-        const SizedBox(height: 5),
+        const SizedBox(height: 6),
         Row(
           children: [
-            const Text('عداد الفوضى', style: TextStyle(color: AppColors.muted, fontSize: 12)),
+            const SizedBox(width: 6),
+            const Text('🌪️ الفوضى', style: TextStyle(color: AppColors.muted, fontSize: 12, fontWeight: FontWeight.w700)),
             const SizedBox(width: 8),
             for (var i = 0; i < 3; i++)
-              Container(
-                width: 13,
-                height: 13,
-                margin: const EdgeInsets.only(left: 4),
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 300),
+                width: 14,
+                height: 14,
+                margin: const EdgeInsetsDirectional.only(end: 5),
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: i < view.electionTracker ? AppColors.gold : Colors.transparent,
+                  color: i < view.electionTracker ? AppColors.gold : const Color(0xFF0E0A1E),
                   border: Border.all(color: i < view.electionTracker ? AppColors.goldLight : AppColors.line, width: 1.5),
-                  boxShadow: i < view.electionTracker ? [BoxShadow(color: AppColors.gold.withValues(alpha: .6), blurRadius: 6)] : null,
+                  boxShadow: i < view.electionTracker
+                      ? [BoxShadow(color: AppColors.gold.withValues(alpha: .7), blurRadius: 8)]
+                      : null,
                 ),
               ),
             const Spacer(),
-            Text('🂠 ${arabicNumber(view.drawPileCount)}', style: const TextStyle(color: AppColors.muted, fontSize: 12)),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 1),
+              decoration: BoxDecoration(
+                color: const Color(0xFF0E0A1E),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: AppColors.line),
+              ),
+              child: Text(
+                '🂠 ${arabicNumber(view.drawPileCount)} كرت',
+                style: const TextStyle(color: AppColors.muted, fontSize: 12, fontWeight: FontWeight.w700),
+              ),
+            ),
           ],
         ),
       ],
@@ -85,39 +100,105 @@ class _Track extends StatelessWidget {
   Widget build(BuildContext context) {
     final main = loyal ? AppColors.loyal : AppColors.traitor;
     final light = loyal ? AppColors.loyalLight : AppColors.traitorLight;
+    final dark = loyal ? AppColors.loyalDark : AppColors.traitorDark;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+      height: 50,
+      padding: const EdgeInsetsDirectional.fromSTEB(10, 0, 8, 0),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(12),
-        gradient: LinearGradient(colors: [(loyal ? AppColors.loyalDark : AppColors.traitorDark).withValues(alpha: .45), Colors.transparent]),
+        borderRadius: BorderRadius.circular(25),
+        gradient: LinearGradient(
+          begin: AlignmentDirectional.centerStart,
+          end: AlignmentDirectional.centerEnd,
+          colors: [dark, const Color(0xFF140F2A)],
+        ),
+        border: Border.all(color: main.withValues(alpha: .6), width: 1.5),
+        boxShadow: [BoxShadow(color: main.withValues(alpha: .25), blurRadius: 10)],
       ),
       child: Row(
         children: [
           SizedBox(
             width: 58,
-            child: Text(label, style: TextStyle(fontFamily: kufi, fontSize: 13, fontWeight: FontWeight.w700, color: light)),
-          ),
-          for (var i = 0; i < total; i++)
-            Expanded(
-              child: TweenAnimationBuilder<double>(
-                tween: Tween(begin: 0, end: i < filled ? 1 : 0),
-                duration: const Duration(milliseconds: 500),
-                curve: Curves.elasticOut,
-                builder: (context, v, _) => Container(
-                  height: 30,
-                  margin: const EdgeInsets.symmetric(horizontal: 2),
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: i < filled ? light : main.withValues(alpha: .4), width: i < filled ? 1.5 : 1.5),
-                  ),
-                  child: i < filled
-                      ? Transform.scale(scale: v.clamp(0, 1.2), child: Seal(loyal: loyal, size: 28))
-                      : (icons[i] == null ? null : Text(icons[i]!, style: const TextStyle(fontSize: 12))),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(label, style: TextStyle(fontFamily: kufi, fontSize: 12, fontWeight: FontWeight.w700, color: light)),
+                Text(
+                  '${arabicNumber(filled)}/${arabicNumber(total)}',
+                  style: const TextStyle(fontFamily: kufi, fontSize: 16, fontWeight: FontWeight.w700, height: 1.1),
                 ),
+              ],
+            ),
+          ),
+          Expanded(
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                // الخيط اللي يربط الخانات
+                Container(
+                  height: 3,
+                  margin: const EdgeInsets.symmetric(horizontal: 16),
+                  decoration: BoxDecoration(color: main.withValues(alpha: .35), borderRadius: BorderRadius.circular(2)),
+                ),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    for (var i = 0; i < total; i++)
+                      _Socket(
+                        filled: i < filled,
+                        loyal: loyal,
+                        icon: icons[i],
+                        last: i == total - 1,
+                        color: main,
+                      ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// خانة دائرية: فاضية فيها رمز القدرة، أو مختومة بختم الفريق.
+class _Socket extends StatelessWidget {
+  const _Socket({required this.filled, required this.loyal, required this.icon, required this.last, required this.color});
+
+  final bool filled;
+  final bool loyal;
+  final String? icon;
+  final bool last;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final size = last ? 38.0 : 34.0;
+    return SizedBox(
+      width: size,
+      height: size,
+      child: TweenAnimationBuilder<double>(
+        tween: Tween(begin: 0, end: filled ? 1 : 0),
+        duration: const Duration(milliseconds: 600),
+        curve: Curves.elasticOut,
+        builder: (context, v, _) => Stack(
+          alignment: Alignment.center,
+          children: [
+            Container(
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: const Color(0xFF0E0A1E),
+                border: Border.all(
+                  color: last ? AppColors.gold : color.withValues(alpha: .7),
+                  width: last ? 2.5 : 2,
+                ),
+                boxShadow: last ? [BoxShadow(color: AppColors.gold.withValues(alpha: .35), blurRadius: 8)] : null,
               ),
             ),
-        ],
+            if (!filled && icon != null) Text(icon!, style: TextStyle(fontSize: last ? 17 : 14)),
+            if (v > 0) Transform.scale(scale: v.clamp(0, 1.25), child: Seal(loyal: loyal, size: size)),
+          ],
+        ),
       ),
     );
   }

@@ -119,7 +119,7 @@ class _RoundCard extends StatelessWidget {
         case 'claim':
           final c = d['claim'] as Map;
           lines.add(Row(children: [
-            Text('📢 ${name(c['by'] as String)} ${c['office'] == 'president' ? '(الرئيس)' : '(المستشار)'} ادّعى '),
+            Text('📢 ${name(c['by'] as String)} ${c['office'] == 'president' ? '(الرئيس)' : '(الوزير)'} ادّعى '),
             MiniPolicies([for (final p in c['policies'] as List) Policy.parse(p)]),
           ]));
         case 'vetoed':

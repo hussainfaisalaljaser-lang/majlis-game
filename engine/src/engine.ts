@@ -67,15 +67,13 @@ export function createGame(
     alive: true,
   }));
 
-  // الأدوار الخاصة: عرّاف وحارس من الأوفياء، والعرّاف يعرف خائن عادي (مو الزعيم).
+  // الأدوار الخاصة: عرّاف وحارس من الأوفياء. العرّاف ما يعرف أحد في البداية، ويختار متى يكشف.
   let loyalSeats: number[];
   [loyalSeats, rng] = shuffle(seated.filter((p) => p.role === 'loyal').map((p) => p.seat), rng);
   const seer = seated[loyalSeats[0]];
   const guardian = seated[loyalSeats[1]];
   seer.special = 'seer';
   guardian.special = 'guardian';
-  let traitors: Player[];
-  [traitors, rng] = shuffle(seated.filter((p) => p.role === 'traitor'), rng);
 
   return {
     players: seated,
@@ -97,7 +95,7 @@ export function createGame(
     pendingPower: null,
     lastLegislature: null,
     investigations: [],
-    seerSees: traitors[0].id,
+    seerSees: null,
     guardianUsed: false,
     winner: null,
     winReason: null,
@@ -115,11 +113,20 @@ export function applyAction(state: GameState, playerId: PlayerId, action: Action
   if (!actor.alive) throw new RuleError('dead', 'اللاعب المطرود ما يقدر يلعب');
 
   switch (action.type) {
+    case 'seerReveal': {
+      if (actor.special !== 'seer') throw new RuleError('notSeer', 'بس العرّاف يقدر يكشف');
+      if (s.seerSees !== null) throw new RuleError('seerUsed', 'استخدمت كشفك من قبل');
+      const target = requireTarget(s, playerId, action.target);
+      // سري: ما ينكتب في السجل العام عشان العرّاف ما ينكشف.
+      s.seerSees = target.id;
+      return s;
+    }
+
     case 'nominate': {
       requirePhase(s, 'nomination');
       requirePresident(s, playerId);
       if (!eligibleChancellors(s).includes(action.chancellor)) {
-        throw new RuleError('ineligible', 'هذا اللاعب ما يقدر يكون مستشار هالجولة');
+        throw new RuleError('ineligible', 'هذا اللاعب ما يقدر يكون وزير هالجولة');
       }
       s.nomineeId = action.chancellor;
       s.votes = {};
@@ -190,7 +197,7 @@ export function applyAction(state: GameState, playerId: PlayerId, action: Action
         leg.government.president === playerId ? 'president'
         : leg.government.chancellor === playerId ? 'chancellor'
         : null;
-      if (!office) throw new RuleError('notInGovernment', 'بس الرئيس والمستشار يقدرون يدّعون');
+      if (!office) throw new RuleError('notInGovernment', 'بس الرئيس والوزير يقدرون يدّعون');
       if (leg.claimed.includes(playerId)) throw new RuleError('alreadyClaimed', 'ادّعيت من قبل');
       const expected = office === 'president' ? 3 : 2;
       if (action.policies.length !== expected || action.policies.some((p) => p !== 'L' && p !== 'T')) {
@@ -251,7 +258,7 @@ export function applyAction(state: GameState, playerId: PlayerId, action: Action
   }
 }
 
-/** اللاعبين اللي يقدر الرئيس يرشحهم كمستشار. */
+/** اللاعبين اللي يقدر الرئيس يرشحهم كوزير. */
 export function eligibleChancellors(s: GameState): PlayerId[] {
   const alive = alivePlayers(s);
   return alive
@@ -376,7 +383,7 @@ function requirePresident(s: GameState, id: PlayerId): void {
 }
 
 function requireChancellor(s: GameState, id: PlayerId): void {
-  if (s.nomineeId !== id) throw new RuleError('notChancellor', 'بس المستشار يقدر يسوي هذا');
+  if (s.nomineeId !== id) throw new RuleError('notChancellor', 'بس الوزير يقدر يسوي هذا');
 }
 
 function requirePower(s: GameState, id: PlayerId, power: GameState['pendingPower']): void {

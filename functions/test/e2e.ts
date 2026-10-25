@@ -148,10 +148,24 @@ async function main(): Promise<void> {
   const views = await Promise.all(players.map((p) => p.view(code)));
   for (const v of views) {
     const known = v.players.filter((p) => p.knownRole !== null).length;
-    const sees = (v as PlayerView & { yourSpecial: string | null }).yourSpecial === 'seer' ? 2 : 1;
-    if (v.yourRole === 'loyal') assert.equal(known, sees, 'الوفي يعرف دوره بس (والعرّاف يعرف خائن زيادة)');
+    if (v.yourRole === 'loyal') assert.equal(known, 1, 'الوفي يعرف دوره بس (حتى العرّاف قبل ما يكشف)');
   }
   console.log('✓ الحالة الكاملة مقفلة، وكل لاعب يشوف أسراره هو بس');
+
+  // العرّاف: يكشف لاعب واحد متى ما بغى، والباقين ما يدرون
+  const seerIdx = views.findIndex((v) => (v as PlayerView & { yourSpecial: string | null }).yourSpecial === 'seer');
+  const seer = players[seerIdx];
+  const peekTarget = players[(seerIdx + 1) % players.length];
+  const notSeer = players[(seerIdx + 2) % players.length];
+  await expectError(notSeer.call('act', { code, action: { type: 'seerReveal', target: peekTarget.uid } }), 'failed-precondition');
+  await seer.call('act', { code, action: { type: 'seerReveal', target: peekTarget.uid } });
+  const seerView = await seer.view(code);
+  assert.equal(seerView.players.filter((p) => p.knownRole !== null).length, 2);
+  assert.equal((seerView as PlayerView & { seerReady: boolean }).seerReady, false);
+  await expectError(seer.call('act', { code, action: { type: 'seerReveal', target: notSeer.uid } }), 'failed-precondition');
+  const otherView = await notSeer.view(code);
+  assert.equal((otherView as PlayerView & { seerSees: string | null }).seerSees, null);
+  console.log('✓ العرّاف: يكشف مرة وحدة بس، والباقين ما يدرون');
 
   // ٣. الردود السريعة
   await rest[0].call('react', { code, kind: 'suspect', target: rest[1].uid });

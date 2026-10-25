@@ -5,7 +5,7 @@ export const MAX_PLAYERS = 10;
 
 export const LOYAL_TO_WIN = 5;
 export const TRAITOR_TO_WIN = 6;
-/** بعد هذا العدد من قرارات الخونة، انتخاب الزعيم كمستشار = فوز الخونة. */
+/** بعد هذا العدد من قرارات الخونة، انتخاب الزعيم كوزير = فوز الخونة. */
 export const LEADER_DANGER_ZONE = 3;
 /** بعد هذا العدد من قرارات الخونة، يصير حق النقض (الفيتو) متاح. */
 export const VETO_UNLOCK = 5;

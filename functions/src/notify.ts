@@ -27,7 +27,7 @@ export function whoToNotify(prev: GameState | null, next: GameState): Note[] {
   const pres = next.presidentId;
   switch (next.phase) {
     case 'nomination':
-      return [{ uid: pres, title: '👑 أنت الرئيس!', body: 'اختر مستشار قبل ما يخلص الوقت' }];
+      return [{ uid: pres, title: '👑 أنت الرئيس!', body: 'اختر وزير قبل ما يخلص الوقت' }];
     case 'election':
       return alive.map((p) => ({
         uid: p.id,
@@ -39,7 +39,7 @@ export function whoToNotify(prev: GameState | null, next: GameState): Note[] {
     case 'chancellorEnact':
       return [{ uid: next.nomineeId!, title: '📜 دورك', body: 'اختر القرار اللي بتمرره' }];
     case 'vetoResponse':
-      return [{ uid: pres, title: '✋ المستشار طلب فيتو', body: 'توافق ولا ترفض؟' }];
+      return [{ uid: pres, title: '✋ الوزير طلب فيتو', body: 'توافق ولا ترفض؟' }];
     case 'power':
       return [{ uid: pres, title: '⚡ عندك قدرة', body: 'استخدمها قبل ما يخلص الوقت' }];
     default:

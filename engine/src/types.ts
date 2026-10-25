@@ -42,7 +42,7 @@ export interface Government {
   chancellor: PlayerId;
 }
 
-/** ادعاء الرئيس (٣ كروت) أو المستشار (٢ كرت) عن اللي وصله. ممكن يكون كذب. */
+/** ادعاء الرئيس (٣ كروت) أو الوزير (٢ كرت) عن اللي وصله. ممكن يكون كذب. */
 export interface Claim {
   by: PlayerId;
   office: 'president' | 'chancellor';
@@ -83,7 +83,7 @@ export interface GameState {
   electionTracker: number;
   drawPile: Policy[];
   discardPile: Policy[];
-  /** الكروت اللي بيد الرئيس أو المستشار حالياً (سرية). */
+  /** الكروت اللي بيد الرئيس أو الوزير حالياً (سرية). */
   hand: Policy[];
   /** الكرت المكشوف للرئيس في قدرة التلصص (سري). */
   peeked: Policy[] | null;
@@ -115,7 +115,9 @@ export type Action =
   | { type: 'investigate'; target: PlayerId }
   | { type: 'acknowledgePeek' }
   | { type: 'specialElection'; target: PlayerId }
-  | { type: 'execute'; target: PlayerId };
+  | { type: 'execute'; target: PlayerId }
+  /** العرّاف: مرة وحدة في اللعبة، في أي وقت، يكشف فريق لاعب واحد (سراً). */
+  | { type: 'seerReveal'; target: PlayerId };
 
 export class RuleError extends Error {
   constructor(public code: string, message: string) {
