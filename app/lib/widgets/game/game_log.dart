@@ -134,6 +134,8 @@ class _RoundCard extends StatelessWidget {
           lines.add(Text('🗳️ ${name(d['by'] as String)} اختار ${name(d['target'] as String)} رئيس'));
         case 'executed':
           lines.add(Text('🗡️ ${name(d['by'] as String)} طرد ${name(d['target'] as String)}'));
+        case 'guarded':
+          lines.add(Text('🛡️ ${name(d['by'] as String)} حاول يطرد ${name(d['target'] as String)}، ونجا لأنه حارس'));
         case 'gameOver':
           lines.add(Text(d['winner'] == 'loyal' ? '🏆 فاز الأوفياء' : '🏆 فاز الخونة'));
       }

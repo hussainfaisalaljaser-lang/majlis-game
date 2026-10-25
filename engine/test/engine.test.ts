@@ -18,7 +18,11 @@ const ids = (n: number) => Array.from({ length: n }, (_, i) => ({ id: `p${i}`, n
 /** لعبة بأدوار وكروت محددة، عشان نختبر حالات معينة. */
 function rigged(n: number, roles: Role[], deck: Policy[], president = 'p0'): GameState {
   const s = createGame(ids(n), 1);
-  s.players.forEach((p, i) => (p.role = roles[i]));
+  s.players.forEach((p, i) => {
+    p.role = roles[i];
+    p.special = null;
+  });
+  s.seerSees = null;
   s.drawPile = [...deck];
   s.presidentId = president;
   s.rotationSeat = s.players.find((p) => p.id === president)!.seat;
@@ -408,5 +412,54 @@ describe('البوتات', () => {
     const enact = botAction(s, 'p1', () => 0.5)!;
     s = act(s, 'p1', enact);
     assert.equal(s.loyalPolicies, 1);
+  });
+});
+
+describe('الأدوار الخاصة', () => {
+  it('كل لعبة فيها عرّاف وحارس من الأوفياء، والعرّاف يعرف خائن عادي', () => {
+    for (let n = 5; n <= 10; n++) {
+      const s = createGame(ids(n), n * 13);
+      const seer = s.players.filter((p) => p.special === 'seer');
+      const guardian = s.players.filter((p) => p.special === 'guardian');
+      assert.equal(seer.length, 1);
+      assert.equal(guardian.length, 1);
+      assert.equal(seer[0].role, 'loyal');
+      assert.equal(guardian[0].role, 'loyal');
+      assert.equal(s.players.find((p) => p.id === s.seerSees)!.role, 'traitor');
+    }
+  });
+
+  it('العرّاف يشوف الخائن في نسخته، والباقين لا', () => {
+    const s = createGame(ids(7), 5);
+    const seer = s.players.find((p) => p.special === 'seer')!;
+    const other = s.players.find((p) => p.role === 'loyal' && !p.special)!;
+    const v = viewFor(s, seer.id);
+    assert.equal(v.yourSpecial, 'seer');
+    assert.equal(v.seerSees, s.seerSees);
+    assert.equal(v.players.find((p) => p.id === s.seerSees)!.knownRole, 'traitor');
+    const ov = viewFor(s, other.id);
+    assert.equal(ov.seerSees, null);
+    assert.equal(ov.players.find((p) => p.id === s.seerSees)!.knownRole, null);
+    assert.equal(ov.players.find((p) => p.id === seer.id)!.knownSpecial, null, 'العرّاف مخفي');
+  });
+
+  it('الحارس ينجو من أول طرد وينكشف للكل، والثاني يطرده', () => {
+    let s = rigged(5, FIVE, Array(17).fill('T'));
+    s.players[2].special = 'guardian';
+    s.traitorPolicies = 3;
+    s = govern(s, 'p1');
+    assert.equal(s.pendingPower, 'execute');
+    s = act(s, 'p0', { type: 'execute', target: 'p2' });
+    assert.ok(s.players[2].alive, 'الحارس نجا');
+    assert.ok(s.log.some((e) => e.type === 'guarded'));
+    assert.equal(viewFor(s, 'p3').players[2].knownSpecial, 'guardian');
+    assert.equal(s.phase, 'nomination');
+    // الطرد الثاني
+    s.presidentId = 'p0';
+    s.rotationSeat = 0;
+    s.lastElected = null;
+    s = govern(s, 'p1');
+    s = act(s, 'p0', { type: 'execute', target: 'p2' });
+    assert.ok(!s.players[2].alive);
   });
 });

@@ -4,6 +4,9 @@ export type PlayerId = string;
 export type Team = 'loyal' | 'traitor';
 export type Role = 'loyal' | 'traitor' | 'leader';
 
+/** أدوار خاصة لبعض الأوفياء. محد يعرفها إلا صاحبها (لين تنكشف). */
+export type Special = 'seer' | 'guardian';
+
 /** القرار: L = قرار الأوفياء (أزرق)، T = قرار الخونة (أحمر). */
 export type Policy = 'L' | 'T';
 
@@ -29,6 +32,8 @@ export interface Player {
   name: string;
   seat: number;
   role: Role;
+  /** العرّاف يعرف خائن من البداية، والحارس ينجو من أول طرد. */
+  special: Special | null;
   alive: boolean;
 }
 
@@ -55,6 +60,7 @@ export type GameEvent =
   | { type: 'peeked'; round: number; by: PlayerId }
   | { type: 'specialElection'; round: number; by: PlayerId; target: PlayerId }
   | { type: 'executed'; round: number; by: PlayerId; target: PlayerId }
+  | { type: 'guarded'; round: number; by: PlayerId; target: PlayerId }
   | { type: 'gameOver'; round: number; winner: Team; reason: WinReason };
 
 export interface Investigation {
@@ -88,6 +94,10 @@ export interface GameState {
   /** آخر حكومة مررت قرار، ولها حق الادعاء. */
   lastLegislature: { round: number; government: Government; claimed: PlayerId[] } | null;
   investigations: Investigation[];
+  /** الخائن اللي يعرفه العرّاف من البداية. */
+  seerSees: PlayerId | null;
+  /** الحارس استخدم حمايته؟ */
+  guardianUsed: boolean;
   winner: Team | null;
   winReason: WinReason | null;
   log: GameEvent[];

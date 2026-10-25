@@ -15,6 +15,7 @@ String arabicNumber(int n) {
   return buf.toString();
 }
 
+/// شارة العملة (ذهب أو جواهر) مع زر شحن اختياري.
 class CurrencyPill extends StatelessWidget {
   const CurrencyPill({super.key, required this.icon, required this.amount, this.onAdd});
 
@@ -24,27 +25,46 @@ class CurrencyPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final diamond = icon == '💎';
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      padding: const EdgeInsetsDirectional.fromSTEB(4, 3, 8, 3),
       decoration: BoxDecoration(
-        color: AppColors.card,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: AppColors.line),
+        color: Colors.black.withValues(alpha: .35),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.white.withValues(alpha: .12), width: 1.5),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(icon),
-          const SizedBox(width: 4),
-          Text(arabicNumber(amount), style: const TextStyle(fontWeight: FontWeight.w700)),
+          Container(
+            width: 22,
+            height: 22,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: RadialGradient(
+                colors: diamond
+                    ? const [Color(0xFFBFF0FF), Color(0xFF2C8CB5)]
+                    : const [AppColors.goldLight, AppColors.goldDark],
+              ),
+            ),
+            child: Text(icon, style: const TextStyle(fontSize: 12)),
+          ),
+          const SizedBox(width: 5),
+          Text(arabicNumber(amount), style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14)),
           if (onAdd != null) ...[
             const SizedBox(width: 6),
             GestureDetector(
               onTap: onAdd,
-              child: const CircleAvatar(
-                radius: 9,
-                backgroundColor: AppColors.green,
-                child: Icon(Icons.add, size: 14, color: Color(0xFF062210)),
+              child: Container(
+                width: 18,
+                height: 18,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(6),
+                  gradient: const LinearGradient(colors: [Color(0xFF6DE3A0), Color(0xFF1E8E52)]),
+                ),
+                child: const Icon(Icons.add, size: 14, color: Color(0xFF062814)),
               ),
             ),
           ],
@@ -54,48 +74,63 @@ class CurrencyPill extends StatelessWidget {
   }
 }
 
+/// الشخصيات المرسومة (نفس functions/src/profile.ts → AVATARS).
+const avatarIds = [
+  'falcon', 'sheikh', 'cool', 'scholar', 'desert', 'hawk', 'merchant', 'youth',
+  'pearl', 'rose', 'night', 'jasmine', 'amber', 'sky', 'masked', 'shadow',
+];
+
+String avatarAsset(String id) => 'assets/avatars/${avatarIds.contains(id) ? id : 'masked'}.png';
+
 /// صورة اللاعب. [frame] لون للتمييز (مثل الرئيس أو المختار)، و[style] إطار من المتجر.
 /// لو الاثنين موجودين، لون التمييز يغلب.
 class PlayerAvatar extends StatelessWidget {
-  const PlayerAvatar({super.key, required this.emoji, this.frame, this.style, this.size = 52});
+  const PlayerAvatar({super.key, required this.avatar, this.frame, this.style, this.size = 52, this.dead = false});
 
-  final String emoji;
+  final String avatar;
   final Color? frame;
   final FrameStyle? style;
   final double size;
+  final bool dead;
 
   @override
   Widget build(BuildContext context) {
+    Widget img = ClipOval(child: Image.asset(avatarAsset(avatar), width: size, height: size, fit: BoxFit.cover));
+    if (dead) {
+      img = ColorFiltered(colorFilter: const ColorFilter.matrix(_grey), child: img);
+    }
     final style = this.style;
+    final ring = size * .065;
     if (frame == null && style != null) {
-      final ring = size * .07;
       return Container(
-        width: size,
-        height: size,
+        width: size + ring * 2,
+        height: size + ring * 2,
         padding: EdgeInsets.all(ring),
         decoration: BoxDecoration(
           shape: BoxShape.circle,
           gradient: SweepGradient(colors: [...style.colors, style.colors.first]),
           boxShadow: style.glow == null ? null : [BoxShadow(color: style.glow!.withValues(alpha: .6), blurRadius: 14)],
         ),
-        child: Container(
-          alignment: Alignment.center,
-          decoration: const BoxDecoration(color: AppColors.card, shape: BoxShape.circle),
-          child: Text(emoji, style: TextStyle(fontSize: size * .48)),
-        ),
+        child: img,
       );
     }
     return Container(
-      width: size,
-      height: size,
-      alignment: Alignment.center,
+      width: size + ring * 2,
+      height: size + ring * 2,
+      padding: EdgeInsets.all(ring),
       decoration: BoxDecoration(
-        color: AppColors.card,
         shape: BoxShape.circle,
-        border: Border.all(color: frame ?? AppColors.line, width: frame == null ? 2 : 3),
-        boxShadow: frame == null ? null : [BoxShadow(color: frame!.withValues(alpha: .5), blurRadius: 12)],
+        color: frame ?? Colors.white.withValues(alpha: .18),
+        boxShadow: frame == null ? null : [BoxShadow(color: frame!.withValues(alpha: .55), blurRadius: 14)],
       ),
-      child: Text(emoji, style: TextStyle(fontSize: size * .5)),
+      child: img,
     );
   }
+
+  static const _grey = <double>[
+    .33, .33, .33, 0, 0, //
+    .33, .33, .33, 0, 0,
+    .33, .33, .33, 0, 0,
+    0, 0, 0, .55, 0,
+  ];
 }

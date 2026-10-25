@@ -6,6 +6,7 @@ import '../models/shop.dart';
 import '../services/backend.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
+import '../widgets/ui.dart';
 import '../widgets/game/policy_card.dart';
 
 /// المتجر: إطارات للصورة، وأشكال للكروت، وباقات الجواهر.
@@ -19,7 +20,7 @@ class ShopScreen extends StatelessWidget {
     return DefaultTabController(
       length: 3,
       initialIndex: initialTab,
-      child: Scaffold(
+      child: NightScaffold(
         appBar: AppBar(
           title: const Text('🛒 المتجر'),
           actions: [
@@ -183,7 +184,7 @@ class _ItemCard extends StatelessWidget {
           Expanded(
             child: Center(
               child: item.slot == ShopSlot.frame
-                  ? PlayerAvatar(emoji: profile.avatar, style: item.frame, size: 84)
+                  ? PlayerAvatar(avatar: profile.avatar, style: item.frame, size: 84)
                   : Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [

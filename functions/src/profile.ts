@@ -4,7 +4,11 @@ import { DAILY_REWARDS, STARTING_COINS, gulfDay, levelFor, previousDay } from '.
 import type { MissionState } from './missions.js';
 import { DEFAULT_EQUIPPED, type Slot } from './shop.js';
 
-export const AVATARS = ['😎', '👩', '🧔', '👨‍🦱', '👴', '👱‍♀️', '🧑', '👩‍🦰', '👨', '🧕', '🥷', '🤠', '👳‍♂️', '🧙', '🕵️', '🦸'];
+/** الشخصيات المرسومة (app/assets/avatars). */
+export const AVATARS = [
+  'falcon', 'sheikh', 'cool', 'scholar', 'desert', 'hawk', 'merchant', 'youth',
+  'pearl', 'rose', 'night', 'jasmine', 'amber', 'sky', 'masked', 'shadow',
+];
 
 export interface Profile {
   name: string;

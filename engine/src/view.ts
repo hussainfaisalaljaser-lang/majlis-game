@@ -8,6 +8,7 @@ import type {
   Policy,
   Power,
   Role,
+  Special,
   Team,
   WinReason,
 } from './types.js';
@@ -16,6 +17,10 @@ import type {
 export interface PlayerView {
   you: PlayerId;
   yourRole: Role;
+  /** دورك الخاص لو عندك (عرّاف أو حارس). */
+  yourSpecial: Special | null;
+  /** لو أنت العرّاف: الخائن اللي تعرفه. */
+  seerSees: PlayerId | null;
   players: {
     id: PlayerId;
     name: string;
@@ -23,6 +28,8 @@ export interface PlayerView {
     alive: boolean;
     /** الدور يظهر بس لو أنت تعرفه (أعوانك، أو انتهت اللعبة). */
     knownRole: Role | null;
+    /** الدور الخاص يظهر لصاحبه، وللكل لما ينكشف الحارس أو تنتهي اللعبة. */
+    knownSpecial: Special | null;
     hasVoted: boolean;
   }[];
   phase: Phase;
@@ -53,8 +60,10 @@ export function viewFor(s: GameState, playerId: PlayerId): PlayerView {
   if (!me) throw new Error(`unknown player ${playerId}`);
   const over = s.phase === 'gameOver';
 
-  const knows = (role: Role): boolean => {
+  const seerKnows = (id: PlayerId) => me.special === 'seer' && s.seerSees === id;
+  const knows = (role: Role, id?: PlayerId): boolean => {
     if (over) return true;
+    if (id && seerKnows(id)) return true;
     if (me.role === 'traitor') return role !== 'loyal';
     if (me.role === 'leader') return role === 'traitor' && leaderKnowsTraitors(s.players.length);
     return false;
@@ -75,12 +84,16 @@ export function viewFor(s: GameState, playerId: PlayerId): PlayerView {
   return {
     you: playerId,
     yourRole: me.role,
+    yourSpecial: me.special,
+    seerSees: me.special === 'seer' ? s.seerSees : null,
     players: s.players.map((p) => ({
       id: p.id,
       name: p.name,
       seat: p.seat,
       alive: p.alive,
-      knownRole: p.id === playerId || knows(p.role) ? p.role : null,
+      knownRole: p.id === playerId || knows(p.role, p.id) ? p.role : null,
+      knownSpecial:
+        p.id === playerId || over || (p.special === 'guardian' && s.guardianUsed) ? p.special : null,
       hasVoted: p.id in s.votes,
     })),
     phase: s.phase,

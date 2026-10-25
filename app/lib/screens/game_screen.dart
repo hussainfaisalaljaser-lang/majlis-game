@@ -1,30 +1,39 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../models/game_view.dart';
 import '../models/room.dart';
 import '../models/shop.dart';
 import '../services/backend.dart';
+import '../services/notes.dart';
 import '../services/push.dart';
+import '../services/sfx.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
 import '../widgets/game/game_log.dart';
 import '../widgets/game/game_table.dart';
+import '../widgets/game/overlays.dart';
 import '../widgets/game/policy_card.dart';
 import '../widgets/game/tracks.dart';
-
-const _roleInfo = {
-  Role.loyal: ('🔵', 'وفي', 'اكشف الخونة ومرّر ٥ قرارات زرقاء', AppColors.loyal),
-  Role.traitor: ('🔴', 'خائن', 'ساعد زعيمك يوصل للحكم بدون ما تنكشف', AppColors.traitor),
-  Role.leader: ('🦹', 'زعيم الخونة', 'خلّهم يثقون فيك وينتخبونك مستشار', AppColors.traitor),
-};
+import '../widgets/ui.dart';
 
 const _winReasons = {
   'loyalPolicies': 'تمررت ٥ قرارات للأوفياء',
   'traitorPolicies': 'تمررت ٦ قرارات للخونة',
   'leaderElected': 'الزعيم انتُخب مستشار',
   'leaderExecuted': 'الزعيم انطرد',
+};
+
+/// نفس engine/src/rules.ts → PHASE_SECONDS.
+const _phaseSeconds = {
+  Phase.nomination: 30,
+  Phase.election: 25,
+  Phase.presidentDiscard: 20,
+  Phase.chancellorEnact: 20,
+  Phase.vetoResponse: 15,
+  Phase.power: 30,
 };
 
 /// شاشة الطاولة: كل اللعب يصير هنا.
@@ -42,6 +51,7 @@ class _GameScreenState extends State<GameScreen> {
   late final StreamSubscription<Map<String, dynamic>?> _viewSub;
   late final StreamSubscription<Room?> _roomSub;
   late final Timer _ticker;
+  late final Notes _notes = Notes(widget.code)..load();
 
   GameView? _view;
   Room? _room;
@@ -49,6 +59,12 @@ class _GameScreenState extends State<GameScreen> {
   bool _roleShown = false;
   int _seenInvestigations = 0;
   int? _claimDismissedRound;
+  int? _seenLog;
+  bool _wasMyTurn = false;
+  bool _endSoundPlayed = false;
+
+  /// مشاهد تنتظر دورها فوق الطاولة (كشف التصويت، الختم، الطرد…).
+  final List<(Widget, String, Duration)> _scenes = [];
 
   /// رد ينتظر تختار له لاعب (مثل أشك في…).
   ReactionKind? _pendingReaction;
@@ -66,12 +82,12 @@ class _GameScreenState extends State<GameScreen> {
     _roomSub = _backend.watchRoom(widget.code).listen((room) {
       if (mounted) setState(() => _room = room);
     });
-    // عشان فقاعات الردود تختفي بعد كم ثانية.
     // كل ثانية: نحدّث العداد وفقاعات الردود، ونطلب من السيرفر يكمّل لو خلص الوقت.
     _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
       if (!mounted) return;
       setState(() {});
       _checkTimeout();
+      _tick();
     });
   }
 
@@ -91,12 +107,32 @@ class _GameScreenState extends State<GameScreen> {
     _backend.timeout(widget.code).catchError((_) => false);
   }
 
+  /// صوت تكتكة في آخر ٥ ثواني من دورك.
+  void _tick() {
+    final v = _view;
+    final deadline = v?.deadline;
+    if (v == null || deadline == null || !_isMyTurn(v)) return;
+    final left = deadline.difference(DateTime.now()).inSeconds;
+    if (left >= 0 && left <= 5) Sfx.play('tick');
+  }
+
+  bool _isMyTurn(GameView v) {
+    if (!v.me.alive) return false;
+    return switch (v.phase) {
+      Phase.nomination || Phase.presidentDiscard || Phase.vetoResponse || Phase.power => v.amPresident,
+      Phase.chancellorEnact => v.amNominee,
+      Phase.election => !v.me.hasVoted,
+      Phase.gameOver => false,
+    };
+  }
+
   @override
   void dispose() {
     Push.setCurrentGame(null);
     _viewSub.cancel();
     _roomSub.cancel();
     _ticker.cancel();
+    _notes.dispose();
     super.dispose();
   }
 
@@ -104,8 +140,10 @@ class _GameScreenState extends State<GameScreen> {
     if (!_roleShown) {
       _roleShown = true;
       _seenInvestigations = view.investigations.length;
+      _seenLog = view.log.length;
       WidgetsBinding.instance.addPostFrameCallback((_) => _showRole());
     }
+    _queueScenes(view);
     if (view.investigations.length > _seenInvestigations) {
       final result = view.investigations.last;
       _seenInvestigations = view.investigations.length;
@@ -116,6 +154,63 @@ class _GameScreenState extends State<GameScreen> {
             'هذي المعلومة لك بس. تقدر تقولها أو تكذب فيها 😏',
           ));
     }
+    final myTurn = _isMyTurn(view);
+    if (myTurn && !_wasMyTurn) {
+      HapticFeedback.mediumImpact();
+      Sfx.play('alert');
+    }
+    _wasMyTurn = myTurn;
+    if (view.phase == Phase.gameOver && !_endSoundPlayed) {
+      _endSoundPlayed = true;
+      final iWon = (view.yourRole == Role.loyal) == (view.winnerLoyal ?? false);
+      Future.delayed(Duration(milliseconds: 400 + 2600 * _scenes.length), () => Sfx.play(iWon ? 'win' : 'lose'));
+    }
+  }
+
+  /// أحداث جديدة في السجل تطلع كمشاهد قصيرة فوق الطاولة.
+  void _queueScenes(GameView v) {
+    final from = _seenLog ?? v.log.length;
+    _seenLog = v.log.length;
+    for (final e in v.log.skip(from)) {
+      final d = e.data;
+      switch (e.type) {
+        case 'voteResult':
+          _scenes.add((
+            VoteReveal(
+              view: v,
+              room: _room,
+              votes: Map<String, bool>.from(d['votes'] as Map),
+              passed: d['passed'] == true,
+            ),
+            'vote',
+            const Duration(milliseconds: 2800),
+          ));
+        case 'enacted':
+          _scenes.add((
+            EnactStamp(loyal: d['policy'] == 'L', chaos: d['chaos'] == true),
+            'stamp',
+            const Duration(milliseconds: 1900),
+          ));
+        case 'executed' || 'guarded':
+          final id = d['target'] as String;
+          _scenes.add((
+            ExecutionScene(
+              name: id == v.you ? 'أنت' : v.player(id).name,
+              avatar: _room?.player(id)?.avatar ?? 'masked',
+              guarded: e.type == 'guarded',
+            ),
+            e.type == 'guarded' ? 'guard' : 'execute',
+            const Duration(milliseconds: 2600),
+          ));
+      }
+    }
+    if (_scenes.isNotEmpty) Sfx.play(_scenes.first.$2);
+  }
+
+  void _nextScene() {
+    if (!mounted || _scenes.isEmpty) return;
+    setState(() => _scenes.removeAt(0));
+    if (_scenes.isNotEmpty) Sfx.play(_scenes.first.$2);
   }
 
   Future<void> _act(Map<String, dynamic> action) async {
@@ -148,19 +243,18 @@ class _GameScreenState extends State<GameScreen> {
     showDialog<void>(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: AppColors.panel,
         title: Text(title, textAlign: TextAlign.center),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(body, textAlign: TextAlign.center, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
+            Text(body, textAlign: TextAlign.center, style: const TextStyle(fontFamily: kufi, fontSize: 22, fontWeight: FontWeight.w700)),
             if (note != null) ...[
               const SizedBox(height: 10),
               Text(note, textAlign: TextAlign.center, style: const TextStyle(color: AppColors.muted)),
             ],
           ],
         ),
-        actions: [FilledButton(onPressed: () => Navigator.pop(context), child: const Text('تمام'))],
+        actions: [GameButton(label: 'تمام', height: 46, fontSize: 16, onPressed: () => Navigator.pop(context))],
       ),
     );
   }
@@ -168,34 +262,68 @@ class _GameScreenState extends State<GameScreen> {
   void _showRole() {
     final view = _view;
     if (view == null || !mounted) return;
-    final (emoji, name, goal, color) = _roleInfo[view.yourRole]!;
-    final mates = view.players.where((p) => p.id != view.you && p.knownRole != null).toList();
-    showDialog<void>(
+    showRoleReveal(context, view, _room);
+  }
+
+  /// ملاحظتك الخاصة على لاعب (ضغطة طويلة على صورته).
+  void _editNote(String playerId) {
+    final v = _view;
+    if (v == null) return;
+    HapticFeedback.selectionClick();
+    showModalBottomSheet<void>(
       context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: AppColors.panel,
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text('دورك السري 🤫', style: TextStyle(color: AppColors.muted)),
-            const SizedBox(height: 8),
-            Text(emoji, style: const TextStyle(fontSize: 64)),
-            Text(name, style: TextStyle(fontSize: 30, fontWeight: FontWeight.w800, color: color)),
-            const SizedBox(height: 6),
-            Text(goal, textAlign: TextAlign.center),
-            if (mates.isNotEmpty) ...[
+      backgroundColor: AppColors.panel,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      builder: (context) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              PlayerAvatar(avatar: _room?.player(playerId)?.avatar ?? 'masked', size: 56),
+              const SizedBox(height: 6),
+              Text(v.player(playerId).name, style: const TextStyle(fontFamily: kufi, fontSize: 20, fontWeight: FontWeight.w700)),
+              const Text('ملاحظتك الخاصة. محد يشوفها غيرك 🤫', style: TextStyle(color: AppColors.muted, fontSize: 13)),
               const SizedBox(height: 14),
-              const Text('أعوانك:', style: TextStyle(color: AppColors.muted)),
-              const SizedBox(height: 4),
-              for (final m in mates)
-                Text(
-                  '${m.knownRole == Role.leader ? '🦹 الزعيم' : '🔴 خائن'}: ${m.name}',
-                  style: const TextStyle(fontWeight: FontWeight.w700),
+              Row(
+                children: [
+                  for (final (mark, label) in const [
+                    (NoteMark.trust, '🟢 أثق فيه'),
+                    (NoteMark.unsure, '🟡 مو متأكد'),
+                    (NoteMark.suspect, '🔴 أشك فيه'),
+                  ])
+                    Expanded(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 4),
+                        child: GameButton(
+                          label: label,
+                          height: 46,
+                          fontSize: 14,
+                          tone: switch (mark) {
+                            NoteMark.trust => ButtonTone.green,
+                            NoteMark.suspect => ButtonTone.red,
+                            NoteMark.unsure => ButtonTone.gold,
+                          },
+                          onPressed: () {
+                            _notes.set(playerId, mark);
+                            Navigator.pop(context);
+                          },
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+              if (_notes.of(playerId) != null)
+                TextButton(
+                  onPressed: () {
+                    _notes.set(playerId, null);
+                    Navigator.pop(context);
+                  },
+                  child: const Text('امسح الملاحظة'),
                 ),
             ],
-          ],
+          ),
         ),
-        actions: [FilledButton(onPressed: () => Navigator.pop(context), child: const Text('فهمت'))],
       ),
     );
   }
@@ -229,11 +357,15 @@ class _GameScreenState extends State<GameScreen> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: AppColors.panel,
-        title: Text('متأكد $verb ${v.player(id).name}؟'),
+        title: Text('متأكد $verb ${v.player(id).name}؟', textAlign: TextAlign.center),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('لا')),
-          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('إيه')),
+          Row(
+            children: [
+              Expanded(child: GameButton(label: 'لا', tone: ButtonTone.ghost, height: 46, fontSize: 16, onPressed: () => Navigator.pop(context, false))),
+              const SizedBox(width: 10),
+              Expanded(child: GameButton(label: 'إيه', height: 46, fontSize: 16, onPressed: () => Navigator.pop(context, true))),
+            ],
+          ),
         ],
       ),
     );
@@ -243,45 +375,67 @@ class _GameScreenState extends State<GameScreen> {
   @override
   Widget build(BuildContext context) {
     final v = _view;
-    if (v == null) return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    if (v == null) {
+      return const NightScaffold(body: Center(child: CircularProgressIndicator(color: AppColors.gold)));
+    }
     final (selectable, onSelect) = _selection(v);
-    final (emoji, roleName, _, roleColor) = _roleInfo[v.yourRole]!;
+    final (roleName, _, roleColor, _) = roleInfo[v.yourRole]!;
+    final special = v.yourSpecial;
 
     return PopScope(
       canPop: v.phase == Phase.gameOver,
-      child: Scaffold(
+      child: NightScaffold(
         appBar: AppBar(
           automaticallyImplyLeading: v.phase == Phase.gameOver,
-          title: Text('الجولة ${arabicNumber(v.round)}', style: const TextStyle(fontWeight: FontWeight.w800)),
+          title: Text('الجولة ${arabicNumber(v.round)}'),
           actions: [
-            TextButton(
-              onPressed: _showRole,
-              child: Text('$emoji $roleName', style: TextStyle(color: roleColor, fontWeight: FontWeight.w800)),
+            GestureDetector(
+              onTap: _showRole,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: roleColor.withValues(alpha: .15),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: roleColor.withValues(alpha: .6)),
+                ),
+                child: Text(
+                  '$roleName${special == null ? '' : ' · ${specialInfo[special]!.$1}'}',
+                  style: TextStyle(color: roleColor == AppColors.loyal ? AppColors.loyalLight : AppColors.traitorLight, fontWeight: FontWeight.w800, fontSize: 13),
+                ),
+              ),
+            ),
+            ValueListenableBuilder(
+              valueListenable: Sfx.muted,
+              builder: (context, muted, _) => IconButton(
+                tooltip: muted ? 'شغّل الصوت' : 'اكتم الصوت',
+                onPressed: Sfx.toggle,
+                icon: GameIcon(muted ? 'mute' : 'sound', size: 22, color: AppColors.muted),
+              ),
             ),
             IconButton(
               tooltip: 'السجل',
               onPressed: () => showGameLog(context, v),
-              icon: const Text('📜', style: TextStyle(fontSize: 22)),
+              icon: const GameIcon('scroll', size: 24, color: AppColors.gold),
             ),
           ],
         ),
         body: SafeArea(
+          top: false,
           child: Stack(
             children: [
               Column(
                 children: [
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: PolicyTracks(view: v),
-                  ),
+                  Padding(padding: const EdgeInsets.symmetric(horizontal: 12), child: PolicyTracks(view: v)),
                   Expanded(
                     child: Padding(
-                      padding: const EdgeInsets.fromLTRB(8, 28, 8, 4),
+                      padding: const EdgeInsets.fromLTRB(6, 24, 6, 2),
                       child: GameTable(
                         view: v,
                         room: _room,
+                        notes: _notes,
                         selectable: selectable,
                         onSelect: onSelect,
+                        onNote: _editNote,
                         center: _TableCenter(view: v, name: (id) => _name(v, id)),
                       ),
                     ),
@@ -299,7 +453,16 @@ class _GameScreenState extends State<GameScreen> {
                   ),
                 ],
               ),
-              if (v.phase == Phase.gameOver) _GameOver(view: v, room: _room),
+              if (v.phase == Phase.gameOver && _scenes.isEmpty) _GameOver(view: v, room: _room),
+              if (_scenes.isNotEmpty)
+                Positioned.fill(
+                  child: EventOverlay(
+                    key: ObjectKey(_scenes.first),
+                    duration: _scenes.first.$3,
+                    onDone: _nextScene,
+                    child: _scenes.first.$1,
+                  ),
+                ),
             ],
           ),
         ),
@@ -308,7 +471,7 @@ class _GameScreenState extends State<GameScreen> {
   }
 }
 
-/// الرسالة في نص الطاولة: وش يصير الحين.
+/// الرسالة في نص الصينية: وش يصير الحين.
 class _TableCenter extends StatelessWidget {
   const _TableCenter({required this.view, required this.name});
 
@@ -330,28 +493,34 @@ class _TableCenter extends StatelessWidget {
       Phase.gameOver => ('🏁', 'انتهت اللعبة'),
     };
     final lastClaims = v.claims.where((c) => c.round == v.claims.lastOrNull?.round).toList();
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Text(icon, style: const TextStyle(fontSize: 22)),
-        Text(
-          text,
-          textAlign: TextAlign.center,
-          maxLines: 2,
-          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
-        ),
-        if (lastClaims.isNotEmpty) ...[
-          const SizedBox(height: 4),
-          for (final c in lastClaims)
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text('${c.president ? '👑' : '📜'} ', style: const TextStyle(fontSize: 11)),
-                MiniPolicies(c.policies, size: 10),
-              ],
+    return FittedBox(
+      fit: BoxFit.scaleDown,
+      child: SizedBox(
+        width: 120,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(icon, style: const TextStyle(fontSize: 22)),
+            Text(
+              text,
+              textAlign: TextAlign.center,
+              maxLines: 2,
+              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: AppColors.ink, height: 1.3),
             ),
-        ],
-      ],
+            if (lastClaims.isNotEmpty) ...[
+              const SizedBox(height: 3),
+              for (final c in lastClaims)
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text('${c.president ? '👑' : '📜'} ', style: const TextStyle(fontSize: 11)),
+                    MiniPolicies(c.policies, size: 9),
+                  ],
+                ),
+            ],
+          ],
+        ),
+      ),
     );
   }
 }
@@ -362,43 +531,31 @@ class _TurnTimer extends StatelessWidget {
 
   final GameView view;
 
-  /// نفس engine/src/rules.ts → PHASE_SECONDS.
-  static const _seconds = {
-    Phase.nomination: 30,
-    Phase.election: 25,
-    Phase.presidentDiscard: 20,
-    Phase.chancellorEnact: 20,
-    Phase.vetoResponse: 15,
-    Phase.power: 30,
-  };
-
   @override
   Widget build(BuildContext context) {
-    final total = _seconds[view.phase] ?? 30;
+    final total = _phaseSeconds[view.phase] ?? 30;
     final left = view.deadline!.difference(DateTime.now()).inSeconds.clamp(0, total);
     final urgent = left <= 5;
     final color = urgent ? AppColors.traitor : AppColors.gold;
     return Row(
       children: [
-        Text('⏱️', style: TextStyle(fontSize: urgent ? 16 : 14)),
-        const SizedBox(width: 6),
+        Text('⏳', style: TextStyle(fontSize: urgent ? 16 : 14)),
+        const SizedBox(width: 8),
         Expanded(
-          child: LinearProgressIndicator(
-            value: left / total,
-            minHeight: 6,
+          child: ClipRRect(
             borderRadius: BorderRadius.circular(6),
-            backgroundColor: AppColors.card,
-            color: color,
+            child: LinearProgressIndicator(
+              value: left / total,
+              minHeight: 8,
+              backgroundColor: Colors.black.withValues(alpha: .4),
+              color: color,
+            ),
           ),
         ),
         const SizedBox(width: 8),
         SizedBox(
           width: 28,
-          child: Text(
-            arabicNumber(left),
-            textAlign: TextAlign.center,
-            style: TextStyle(color: color, fontWeight: FontWeight.w800),
-          ),
+          child: Text(arabicNumber(left), textAlign: TextAlign.center, style: TextStyle(fontFamily: kufi, color: color, fontWeight: FontWeight.w700)),
         ),
       ],
     );
@@ -450,9 +607,10 @@ class _ActionPanel extends StatelessWidget {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
-      decoration: const BoxDecoration(
-        color: AppColors.panel,
-        border: Border(top: BorderSide(color: AppColors.line)),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Color(0xFF221A46), Color(0xFF160F2E)]),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        border: Border(top: BorderSide(color: AppColors.gold.withValues(alpha: .35), width: 2)),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -470,8 +628,8 @@ class _ActionPanel extends StatelessWidget {
   }
 
   Widget _hint(String text) => Padding(
-        padding: const EdgeInsets.only(bottom: 8),
-        child: Text(text, textAlign: TextAlign.center, style: const TextStyle(color: AppColors.muted, fontSize: 13.5)),
+        padding: const EdgeInsets.only(bottom: 10),
+        child: Text(text, textAlign: TextAlign.center, style: const TextStyle(color: Color(0xFFD9CFFF), fontSize: 14, fontWeight: FontWeight.w600)),
       );
 
   Widget _main(BuildContext context) {
@@ -489,9 +647,9 @@ class _ActionPanel extends StatelessWidget {
     final claimCount = v.claimCount;
     if (claimCount != null && !claimDismissed && v.phase != Phase.gameOver) {
       return Column(children: [
-        const Text('📢 وش تقول إنه وصلك؟', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
+        const Text('📢 وش تقول إنه وصلك؟', style: TextStyle(fontFamily: kufi, fontWeight: FontWeight.w700, fontSize: 17)),
         const SizedBox(height: 2),
-        _hint('اختيارك يطلع للكل. تقدر تقول الصدق أو تكذب'),
+        _hint('اختيارك يطلع للكل. تقدر تقول الصدق أو تكذب 😏'),
         Wrap(
           spacing: 8,
           runSpacing: 8,
@@ -502,17 +660,16 @@ class _ActionPanel extends StatelessWidget {
                 button: true,
                 label: 'ادعاء ${option.map((p) => p.code).join()}',
                 excludeSemantics: true,
-                child: InkWell(
+                child: GestureDetector(
                   onTap: busy ? null : () => onAct({'type': 'claim', 'policies': [for (final p in option) p.code]}),
-                  borderRadius: BorderRadius.circular(12),
-                  child: Ink(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                     decoration: BoxDecoration(
-                      color: AppColors.card,
+                      gradient: const LinearGradient(colors: [Color(0xFFF8EBD0), AppColors.parchmentDark]),
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: AppColors.line, width: 1.5),
+                      border: Border.all(color: AppColors.goldDark, width: 2),
                     ),
-                    child: MiniPolicies(option, size: 16),
+                    child: MiniPolicies(option, size: 17),
                   ),
                 ),
               ),
@@ -535,18 +692,20 @@ class _ActionPanel extends StatelessWidget {
           _hint('صوّت على حكومة 👑 ${name(v.presidentId)} + 📜 ${name(v.nomineeId)}'),
           Row(children: [
             Expanded(
-              child: FilledButton(
-                style: FilledButton.styleFrom(backgroundColor: AppColors.green, foregroundColor: const Color(0xFF06210F)),
+              child: GameButton(
+                label: '✔ موافق',
+                semantics: '✅ موافق',
+                tone: ButtonTone.green,
                 onPressed: busy ? null : () => onAct({'type': 'vote', 'ja': true}),
-                child: const Text('✅ موافق'),
               ),
             ),
             const SizedBox(width: 10),
             Expanded(
-              child: FilledButton(
-                style: FilledButton.styleFrom(backgroundColor: AppColors.traitor, foregroundColor: Colors.white),
+              child: GameButton(
+                label: '✖ رافض',
+                semantics: '❌ رافض',
+                tone: ButtonTone.red,
                 onPressed: busy ? null : () => onAct({'type': 'vote', 'ja': false}),
-                child: const Text('❌ رافض'),
               ),
             ),
           ]),
@@ -571,16 +730,18 @@ class _ActionPanel extends StatelessWidget {
           _hint('✋ المستشار يبي يرمي الكرتين. توافق؟'),
           Row(children: [
             Expanded(
-              child: FilledButton(
+              child: GameButton(
+                label: 'موافق',
+                tone: ButtonTone.green,
                 onPressed: busy ? null : () => onAct({'type': 'respondVeto', 'accept': true}),
-                child: const Text('موافق'),
               ),
             ),
             const SizedBox(width: 10),
             Expanded(
-              child: OutlinedButton(
+              child: GameButton(
+                label: 'رافض',
+                tone: ButtonTone.red,
                 onPressed: busy ? null : () => onAct({'type': 'respondVeto', 'accept': false}),
-                child: const Text('رافض'),
               ),
             ),
           ]),
@@ -592,11 +753,11 @@ class _ActionPanel extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               for (final p in v.peeked ?? const <Policy>[])
-                Padding(padding: const EdgeInsets.all(4), child: PolicyCard(policy: p, skin: _skin)),
+                Padding(padding: const EdgeInsets.all(4), child: PolicyCard(policy: p, skin: _skin, width: 80)),
             ],
           ),
-          const SizedBox(height: 8),
-          FilledButton(onPressed: busy ? null : () => onAct({'type': 'acknowledgePeek'}), child: const Text('تمام')),
+          const SizedBox(height: 10),
+          GameButton(label: 'تمام', onPressed: busy ? null : () => onAct({'type': 'acknowledgePeek'})),
         ]);
       case Phase.power when v.amPresident:
         return _hint('${powerEmoji[v.pendingPower]} ${powerName[v.pendingPower]}: اختر لاعب من الطاولة 👆');
@@ -627,12 +788,23 @@ class _ActionPanel extends StatelessWidget {
       children: [
         for (final (i, p) in hand.indexed)
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 5),
-            child: PolicyCard(
-              policy: p,
-              skin: _skin,
-              label: '$verb كرت ${i + 1} ${p == Policy.loyal ? 'أوفياء' : 'خونة'}',
-              onTap: busy ? null : () => onPick(i),
+            padding: const EdgeInsets.symmetric(horizontal: 6),
+            child: TweenAnimationBuilder<double>(
+              tween: Tween(begin: 0, end: 1),
+              duration: Duration(milliseconds: 300 + i * 120),
+              curve: Curves.easeOutBack,
+              builder: (context, t, child) => Transform.translate(offset: Offset(0, 40 * (1 - t)), child: Opacity(opacity: t.clamp(0, 1), child: child)),
+              child: PolicyCard(
+                policy: p,
+                skin: _skin,
+                label: '$verb كرت ${i + 1} ${p == Policy.loyal ? 'أوفياء' : 'خونة'}',
+                onTap: busy
+                    ? null
+                    : () {
+                        Sfx.play('flip');
+                        onPick(i);
+                      },
+              ),
             ),
           ),
       ],
@@ -642,7 +814,7 @@ class _ActionPanel extends StatelessWidget {
   Widget _reactions() {
     if (view.phase == Phase.gameOver) return const SizedBox.shrink();
     return SizedBox(
-      height: 38,
+      height: 36,
       child: ListView(
         scrollDirection: Axis.horizontal,
         children: [
@@ -653,12 +825,18 @@ class _ActionPanel extends StatelessWidget {
                 button: true,
                 label: 'رد ${k.name}',
                 excludeSemantics: true,
-                child: ActionChip(
-                  backgroundColor: AppColors.card,
-                  side: const BorderSide(color: AppColors.line),
-                  padding: const EdgeInsets.symmetric(horizontal: 4),
-                  label: Text(k.label.isEmpty ? k.emoji : '${k.emoji} ${k.label}', style: const TextStyle(fontSize: 13)),
-                  onPressed: () => onReact(k),
+                child: GestureDetector(
+                  onTap: () => onReact(k),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: .3),
+                      borderRadius: BorderRadius.circular(18),
+                      border: Border.all(color: Colors.white.withValues(alpha: .14), width: 1.5),
+                    ),
+                    child: Text(k.label.isEmpty ? k.emoji : '${k.emoji} ${k.label}', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
+                  ),
                 ),
               ),
             ),
@@ -676,11 +854,11 @@ class _Reward extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
         decoration: BoxDecoration(
-          color: color.withValues(alpha: .15),
+          color: Colors.black.withValues(alpha: .35),
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: color),
+          border: Border.all(color: color.withValues(alpha: .7), width: 1.5),
         ),
         child: Text(text, style: TextStyle(color: color, fontWeight: FontWeight.w800, fontSize: 16)),
       );
@@ -696,68 +874,78 @@ class _GameOver extends StatelessWidget {
   Widget build(BuildContext context) {
     final loyalWon = view.winnerLoyal ?? false;
     final iWon = (view.yourRole == Role.loyal) == loyalWon;
+    final teamColor = loyalWon ? AppColors.loyal : AppColors.traitor;
     return Container(
-      color: Colors.black.withValues(alpha: .82),
-      padding: const EdgeInsets.all(20),
+      color: Colors.black.withValues(alpha: .78),
+      padding: const EdgeInsets.all(18),
       child: Center(
         child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(iWon ? '🏆' : '💔', style: const TextStyle(fontSize: 64)),
-              Text(
-                iWon ? 'فزت!' : 'خسرت',
-                style: TextStyle(fontSize: 34, fontWeight: FontWeight.w800, color: iWon ? AppColors.gold : AppColors.muted),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                '${loyalWon ? 'فاز الأوفياء 🔵' : 'فاز الخونة 🔴'}: ${_winReasons[view.winReason] ?? ''}',
-                textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 16),
-              ),
-              if (room?.results[view.you] case final r?) ...[
-                const SizedBox(height: 14),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    if (r.coins > 0) _Reward('+${arabicNumber(r.coins)} 🪙', AppColors.gold),
-                    if (r.coins > 0) const SizedBox(width: 10),
-                    _Reward('+${arabicNumber(r.xp)} ⭐ خبرة', AppColors.diamond),
-                  ],
+          child: TweenAnimationBuilder<double>(
+            tween: Tween(begin: .8, end: 1),
+            duration: const Duration(milliseconds: 600),
+            curve: Curves.elasticOut,
+            builder: (context, s, child) => Transform.scale(scale: s, child: child),
+            child: Container(
+              padding: const EdgeInsets.fromLTRB(16, 20, 16, 18),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(26),
+                gradient: RadialGradient(
+                  center: const Alignment(0, -1),
+                  radius: 1.3,
+                  colors: [teamColor.withValues(alpha: .45), AppColors.panel],
                 ),
-              ],
-              const SizedBox(height: 18),
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(color: AppColors.panel, borderRadius: BorderRadius.circular(16)),
-                child: Column(
-                  children: [
-                    const Text('الأدوار الحقيقية', style: TextStyle(fontWeight: FontWeight.w800)),
-                    const SizedBox(height: 8),
-                    for (final p in view.players)
-                      Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 3),
-                        child: Row(
-                          children: [
-                            Text(room?.player(p.id)?.avatar ?? '🙂', style: const TextStyle(fontSize: 20)),
-                            const SizedBox(width: 8),
-                            Expanded(child: Text(p.id == view.you ? 'أنت' : p.name)),
-                            Text(
-                              '${_roleInfo[p.knownRole]!.$1} ${_roleInfo[p.knownRole]!.$2}',
-                              style: TextStyle(color: _roleInfo[p.knownRole]!.$4, fontWeight: FontWeight.w700),
+                border: Border.all(color: AppColors.gold.withValues(alpha: .6), width: 2),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(iWon ? '🏆' : '💔', style: const TextStyle(fontSize: 60)),
+                  GoldText(iWon ? 'فزت!' : 'خسرت', size: 38),
+                  const SizedBox(height: 4),
+                  Text(
+                    '${loyalWon ? 'فاز الأوفياء 🔵' : 'فاز الخونة 🔴'} · ${_winReasons[view.winReason] ?? ''}',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(fontSize: 15, color: Color(0xFFD9CFFF)),
+                  ),
+                  if (room?.results[view.you] case final r?) ...[
+                    const SizedBox(height: 12),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        if (r.coins > 0) _Reward('+${arabicNumber(r.coins)} 🪙', AppColors.gold),
+                        if (r.coins > 0) const SizedBox(width: 10),
+                        _Reward('+${arabicNumber(r.xp)} ⭐', AppColors.diamond),
+                      ],
+                    ),
+                  ],
+                  const SizedBox(height: 16),
+                  const Text('الأدوار الحقيقية', style: TextStyle(fontFamily: kufi, fontWeight: FontWeight.w700, fontSize: 16)),
+                  const SizedBox(height: 8),
+                  for (final p in view.players)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 3),
+                      child: Row(
+                        children: [
+                          PlayerAvatar(avatar: room?.player(p.id)?.avatar ?? 'masked', size: 34, dead: !p.alive),
+                          const SizedBox(width: 10),
+                          Expanded(child: Text(p.id == view.you ? 'أنت' : p.name, style: const TextStyle(fontWeight: FontWeight.w700))),
+                          if (p.knownSpecial != null) Text('${specialInfo[p.knownSpecial]!.$1}  ', style: const TextStyle(fontSize: 12)),
+                          Text(
+                            roleInfo[p.knownRole]!.$1,
+                            style: TextStyle(
+                              fontFamily: kufi,
+                              color: p.knownRole == Role.loyal ? AppColors.loyalLight : AppColors.traitorLight,
+                              fontWeight: FontWeight.w700,
                             ),
-                          ],
-                        ),
+                          ),
+                        ],
                       ),
-                  ],
-                ),
+                    ),
+                  const SizedBox(height: 16),
+                  GameButton(label: '🏠 الرئيسية', semantics: 'الرئيسية', onPressed: () => Navigator.of(context).popUntil((r) => r.isFirst)),
+                ],
               ),
-              const SizedBox(height: 18),
-              FilledButton(
-                onPressed: () => Navigator.of(context).popUntil((r) => r.isFirst),
-                child: const Text('🏠 الرئيسية'),
-              ),
-            ],
+            ),
           ),
         ),
       ),

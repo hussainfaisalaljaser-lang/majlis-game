@@ -3,6 +3,9 @@ library;
 
 enum Role { loyal, traitor, leader }
 
+/// أدوار خاصة لبعض الأوفياء.
+enum Special { seer, guardian }
+
 enum Phase { nomination, election, presidentDiscard, chancellorEnact, vetoResponse, power, gameOver }
 
 enum Power { investigate, peek, specialElection, execute }
@@ -25,6 +28,7 @@ class ViewPlayer {
         seat = j['seat'] as int,
         alive = j['alive'] as bool,
         knownRole = j['knownRole'] == null ? null : Role.values.byName(j['knownRole'] as String),
+        knownSpecial = j['knownSpecial'] == null ? null : Special.values.byName(j['knownSpecial'] as String),
         hasVoted = j['hasVoted'] as bool;
 
   final String id;
@@ -32,6 +36,9 @@ class ViewPlayer {
   final int seat;
   final bool alive;
   final Role? knownRole;
+
+  /// الدور الخاص لو تعرفه (دورك أنت، أو حارس انكشف، أو بعد نهاية اللعبة).
+  final Special? knownSpecial;
   final bool hasVoted;
 }
 
@@ -68,6 +75,8 @@ class GameView {
   GameView.fromJson(Map<String, dynamic> j)
       : you = j['you'] as String,
         yourRole = Role.values.byName(j['yourRole'] as String),
+        yourSpecial = j['yourSpecial'] == null ? null : Special.values.byName(j['yourSpecial'] as String),
+        seerSees = j['seerSees'] as String?,
         players = [for (final p in j['players'] as List) ViewPlayer.fromJson(_map(p))],
         phase = Phase.values.byName(j['phase'] as String),
         round = j['round'] as int,
@@ -94,6 +103,10 @@ class GameView {
 
   final String you;
   final Role yourRole;
+  final Special? yourSpecial;
+
+  /// لو أنت العرّاف: الخائن اللي تعرفه من البداية.
+  final String? seerSees;
   final List<ViewPlayer> players;
   final Phase phase;
   final int round;

@@ -63,8 +63,19 @@ export function createGame(
     name: p.name,
     seat,
     role: shuffledRoles[seat],
+    special: null,
     alive: true,
   }));
+
+  // الأدوار الخاصة: عرّاف وحارس من الأوفياء، والعرّاف يعرف خائن عادي (مو الزعيم).
+  let loyalSeats: number[];
+  [loyalSeats, rng] = shuffle(seated.filter((p) => p.role === 'loyal').map((p) => p.seat), rng);
+  const seer = seated[loyalSeats[0]];
+  const guardian = seated[loyalSeats[1]];
+  seer.special = 'seer';
+  guardian.special = 'guardian';
+  let traitors: Player[];
+  [traitors, rng] = shuffle(seated.filter((p) => p.role === 'traitor'), rng);
 
   return {
     players: seated,
@@ -86,6 +97,8 @@ export function createGame(
     pendingPower: null,
     lastLegislature: null,
     investigations: [],
+    seerSees: traitors[0].id,
+    guardianUsed: false,
     winner: null,
     winReason: null,
     log: [],
@@ -222,6 +235,13 @@ export function applyAction(state: GameState, playerId: PlayerId, action: Action
     case 'execute': {
       requirePower(s, playerId, 'execute');
       const target = requireTarget(s, playerId, action.target);
+      if (target.special === 'guardian' && !s.guardianUsed) {
+        // الحارس ينجو مرة وحدة وينكشف للكل.
+        s.guardianUsed = true;
+        s.log.push({ type: 'guarded', round: s.round, by: playerId, target: target.id });
+        finishPower(s);
+        return s;
+      }
       target.alive = false;
       s.log.push({ type: 'executed', round: s.round, by: playerId, target: target.id });
       if (target.role === 'leader') return endGame(s, 'loyal', 'leaderExecuted');

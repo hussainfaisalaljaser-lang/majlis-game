@@ -5,6 +5,7 @@ import '../models/table_tier.dart';
 import '../services/backend.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
+import '../widgets/ui.dart';
 import 'waiting_screen.dart';
 
 /// اختيار عدد اللاعبين ومستوى الطاولة، مثل يلا لودو.
@@ -72,7 +73,7 @@ class _TablesScreenState extends State<TablesScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return NightScaffold(
       appBar: AppBar(title: const Text('🕵️ مجلس الخونة', style: TextStyle(fontWeight: FontWeight.w800))),
       body: SafeArea(
         child: Padding(
@@ -111,30 +112,47 @@ class _TablesScreenState extends State<TablesScreen> {
                   ),
                 ),
               ),
-              FilledButton(
+              GameButton(
+                label: _busy ? 'لحظة…' : '▶ العب الحين',
+                semantics: 'العب الحين',
                 onPressed: _busy
                     ? null
                     : () => _enter(
                           () => Backend.instance.quickMatch(maxPlayers: _playerCount, tierId: _tier.id),
                           tier: _tier,
                         ),
-                child: Text(_busy ? 'لحظة…' : '▶ العب الحين'),
               ),
-              const SizedBox(height: 8),
-              OutlinedButton(
-                onPressed: _busy
-                    ? null
-                    : () => _enter(
-                          Backend.instance.isReady
-                              ? () => Backend.instance.createRoom(maxPlayers: _playerCount)
-                              : null,
-                        ),
-                child: const Text('➕ أنشئ روم خاص (بكود)'),
-              ),
-              const SizedBox(height: 8),
-              OutlinedButton(
-                onPressed: _busy || !Backend.instance.isReady ? null : _joinByCode,
-                child: const Text('🔑 ادخل بكود صديق'),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  Expanded(
+                    child: GameButton(
+                      label: '➕ روم خاص',
+                      semantics: 'أنشئ روم خاص',
+                      tone: ButtonTone.purple,
+                      height: 48,
+                      fontSize: 16,
+                      onPressed: _busy
+                          ? null
+                          : () => _enter(
+                                Backend.instance.isReady
+                                    ? () => Backend.instance.createRoom(maxPlayers: _playerCount)
+                                    : null,
+                              ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: GameButton(
+                      label: '🔑 ادخل بكود',
+                      semantics: 'ادخل بكود صديق',
+                      tone: ButtonTone.ghost,
+                      height: 48,
+                      fontSize: 16,
+                      onPressed: _busy || !Backend.instance.isReady ? null : _joinByCode,
+                    ),
+                  ),
+                ],
               ),
               const SizedBox(height: 12),
             ],

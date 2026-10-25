@@ -8,6 +8,7 @@ import '../models/table_tier.dart';
 import '../services/backend.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
+import '../widgets/ui.dart';
 import 'game_screen.dart';
 
 /// غرفة الانتظار: المقاعد تتعبى لين تكتمل الطاولة.
@@ -147,7 +148,7 @@ class _WaitingScreenState extends State<WaitingScreen> {
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, _) => didPop ? null : _leave(),
-      child: Scaffold(
+      child: NightScaffold(
         appBar: AppBar(title: Text(tier == null ? 'روم خاص 🔒' : 'طاولة ${tier.name} ${tier.emoji}')),
         body: SafeArea(
           child: Padding(
@@ -213,16 +214,18 @@ class _WaitingScreenState extends State<WaitingScreen> {
                   Row(
                     children: [
                       Expanded(
-                        child: OutlinedButton(
+                        child: GameButton(
+                          label: '🤖 أضف بوت',
+                          tone: ButtonTone.purple,
                           onPressed: full || _addingBot ? null : _addBot,
-                          child: const Text('🤖 أضف بوت'),
                         ),
                       ),
                       const SizedBox(width: 10),
                       Expanded(
-                        child: FilledButton(
+                        child: GameButton(
+                          label: _starting ? 'لحظة…' : '▶ ابدأ',
+                          semantics: 'ابدأ',
                           onPressed: players.length >= 5 && !_starting ? _start : null,
-                          child: Text(_starting ? 'لحظة…' : '▶ ابدأ'),
                         ),
                       ),
                     ],
@@ -234,7 +237,7 @@ class _WaitingScreenState extends State<WaitingScreen> {
                     ),
                 ],
                 const SizedBox(height: 12),
-                OutlinedButton(onPressed: _leave, child: const Text('✖ خروج')),
+                GameButton(label: '✖ خروج', semantics: 'خروج', tone: ButtonTone.ghost, height: 46, fontSize: 16, onPressed: _leave),
                 if ((_room?.entryFee ?? 0) > 0)
                   const Padding(
                     padding: EdgeInsets.only(top: 6),
@@ -342,7 +345,7 @@ class _Seat extends StatelessWidget {
               : Stack(
                   clipBehavior: Clip.none,
                   children: [
-                    PlayerAvatar(emoji: emoji, frame: frame, style: style, size: 58),
+                    PlayerAvatar(avatar: emoji, frame: frame, style: style, size: 58),
                     if (bot) const Positioned(bottom: -4, left: -4, child: Text('🤖', style: TextStyle(fontSize: 18))),
                   ],
                 ),

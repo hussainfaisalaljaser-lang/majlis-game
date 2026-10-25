@@ -43,7 +43,7 @@ class Profile {
   /// للعرض التجريبي بدون سيرفر (نسخة الويب).
   static const demo = Profile(
     name: 'ضيف',
-    avatar: '😎',
+    avatar: 'falcon',
     setupDone: true,
     coins: 2000,
     diamonds: 0,
@@ -97,8 +97,6 @@ class Profile {
   }
 }
 
-/// نفس الصور المسموحة في السيرفر.
-const avatars = ['😎', '👩', '🧔', '👨‍🦱', '👴', '👱‍♀️', '🧑', '👩‍🦰', '👨', '🧕', '🥷', '🤠', '👳‍♂️', '🧙', '🕵️', '🦸'];
 
 /// مكافآت الأيام السبعة (نفس functions/src/economy.ts).
 const dailyRewards = [

@@ -119,16 +119,16 @@ async function main(): Promise<void> {
   const fresh = await host.profile();
   assert.equal(fresh.coins, 2000);
   assert.equal(fresh.setupDone, false);
-  await expectError(host.call('updateProfile', { name: 'x', avatar: '😎' }), 'invalid-argument');
-  await expectError(host.call('updateProfile', { name: 'https://spam', avatar: '😎' }), 'invalid-argument');
+  await expectError(host.call('updateProfile', { name: 'x', avatar: 'falcon' }), 'invalid-argument');
+  await expectError(host.call('updateProfile', { name: 'https://spam', avatar: 'falcon' }), 'invalid-argument');
   await expectError(host.call('updateProfile', { name: 'أبو فيصل', avatar: '💩' }), 'invalid-argument');
-  await host.call('updateProfile', { name: 'أبو فيصل', avatar: '🥷' });
+  await host.call('updateProfile', { name: 'أبو فيصل', avatar: 'cool' });
   const daily = await host.call<{ coins: number; streak: number }>('claimDaily');
   assert.deepEqual([daily.coins, daily.streak], [200, 1]);
   await expectError(host.call('claimDaily'), 'failed-precondition');
   const afterSetup = await host.profile();
-  assert.deepEqual([afterSetup.name, afterSetup.avatar, afterSetup.setupDone, afterSetup.coins], ['أبو فيصل', '🥷', true, 2200]);
-  for (const [i, p] of rest.entries()) await p.call('updateProfile', { name: `لاعب ${i + 1}`, avatar: '😎' });
+  assert.deepEqual([afterSetup.name, afterSetup.avatar, afterSetup.setupDone, afterSetup.coins], ['أبو فيصل', 'cool', true, 2200]);
+  for (const [i, p] of rest.entries()) await p.call('updateProfile', { name: `لاعب ${i + 1}`, avatar: 'falcon' });
   console.log('✓ الملف الشخصي: ٢٠٠٠ ذهب للبداية، والاسم يتحقق منه، والهدية اليومية مرة وحدة');
 
   // ١. روم خاص بكود
@@ -148,7 +148,8 @@ async function main(): Promise<void> {
   const views = await Promise.all(players.map((p) => p.view(code)));
   for (const v of views) {
     const known = v.players.filter((p) => p.knownRole !== null).length;
-    if (v.yourRole === 'loyal') assert.equal(known, 1, 'الوفي يعرف دوره بس');
+    const sees = (v as PlayerView & { yourSpecial: string | null }).yourSpecial === 'seer' ? 2 : 1;
+    if (v.yourRole === 'loyal') assert.equal(known, sees, 'الوفي يعرف دوره بس (والعرّاف يعرف خائن زيادة)');
   }
   console.log('✓ الحالة الكاملة مقفلة، وكل لاعب يشوف أسراره هو بس');
 

@@ -19,6 +19,7 @@ function me(s: GameState, id: PlayerId): Player {
 function knownTraitor(s: GameState, botId: PlayerId, target: PlayerId): boolean {
   const bot = me(s, botId);
   const t = me(s, target);
+  if (bot.special === 'seer' && s.seerSees === target) return true;
   if (bot.role === 'traitor') return t.role !== 'loyal';
   if (bot.role === 'leader' && leaderKnowsTraitors(s.players.length)) return t.role === 'traitor';
   return s.investigations.some((i) => i.by === botId && i.target === target && i.team === 'traitor');
@@ -26,6 +27,8 @@ function knownTraitor(s: GameState, botId: PlayerId, target: PlayerId): boolean 
 
 function knownLoyal(s: GameState, botId: PlayerId, target: PlayerId): boolean {
   if (target === botId) return me(s, botId).role === 'loyal';
+  // الحارس اللي انكشف وفي أكيد.
+  if (s.guardianUsed && me(s, target).special === 'guardian') return true;
   const bot = me(s, botId);
   if (bot.role === 'traitor' || (bot.role === 'leader' && leaderKnowsTraitors(s.players.length))) {
     return me(s, target).role === 'loyal';

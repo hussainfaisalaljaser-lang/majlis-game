@@ -51,15 +51,15 @@ export interface RoomPlayer {
 }
 
 const BOTS: Omit<RoomPlayer, 'uid'>[] = [
-  { name: 'سلمان', avatar: '🧔', frame: 'frame_none' },
-  { name: 'مها', avatar: '👩', frame: 'frame_none' },
-  { name: 'بدر', avatar: '👨‍🦱', frame: 'frame_none' },
-  { name: 'لولوة', avatar: '🧕', frame: 'frame_none' },
-  { name: 'تركي', avatar: '🤠', frame: 'frame_none' },
-  { name: 'جود', avatar: '👩‍🦰', frame: 'frame_none' },
-  { name: 'ماجد', avatar: '👳‍♂️', frame: 'frame_none' },
-  { name: 'العنود', avatar: '👱‍♀️', frame: 'frame_none' },
-  { name: 'فيصل', avatar: '🧑', frame: 'frame_none' },
+  { name: 'سلمان', avatar: 'sheikh', frame: 'frame_none' },
+  { name: 'مها', avatar: 'pearl', frame: 'frame_none' },
+  { name: 'بدر', avatar: 'desert', frame: 'frame_none' },
+  { name: 'لولوة', avatar: 'jasmine', frame: 'frame_none' },
+  { name: 'تركي', avatar: 'hawk', frame: 'frame_none' },
+  { name: 'جود', avatar: 'rose', frame: 'frame_none' },
+  { name: 'ماجد', avatar: 'merchant', frame: 'frame_none' },
+  { name: 'العنود', avatar: 'sky', frame: 'frame_none' },
+  { name: 'فيصل', avatar: 'youth', frame: 'frame_none' },
 ];
 
 /** الطاولة العامة تنتظر كذا قبل ما نسمح نكملها بالبوتات. */

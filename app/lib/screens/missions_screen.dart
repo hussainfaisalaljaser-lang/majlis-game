@@ -4,6 +4,7 @@ import '../models/missions.dart';
 import '../services/backend.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
+import '../widgets/ui.dart';
 
 /// المهام اليومية: تتجدد الساعة ١٢ بالليل بتوقيت الخليج.
 class MissionsScreen extends StatefulWidget {
@@ -32,7 +33,7 @@ class _MissionsScreenState extends State<MissionsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return NightScaffold(
       appBar: AppBar(title: const Text('✅ المهام اليومية')),
       body: ValueListenableBuilder(
         valueListenable: Backend.instance.profile,

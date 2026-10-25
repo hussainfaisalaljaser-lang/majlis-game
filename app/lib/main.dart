@@ -7,13 +7,15 @@ import 'screens/home_screen.dart';
 import 'screens/profile_screen.dart';
 import 'services/backend.dart';
 import 'services/push.dart';
+import 'services/sfx.dart';
+import 'widgets/ui.dart';
 import 'theme.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   // في نسخة التجربة على الويب نفعّل طبقة الوصول، عشان الاختبارات الآلية تقدر تضغط الأزرار بأسمائها.
   if (kIsWeb && const bool.fromEnvironment('USE_EMULATOR')) SemanticsBinding.instance.ensureSemantics();
-  await Backend.instance.init();
+  await Future.wait([Backend.instance.init(), Sfx.init()]);
   runApp(const MajlisApp());
   await Push.init();
 }
@@ -48,7 +50,7 @@ class _Gate extends StatelessWidget {
     return ValueListenableBuilder(
       valueListenable: backend.profileLoaded,
       builder: (context, loaded, _) => !loaded
-          ? const Scaffold(body: Center(child: CircularProgressIndicator()))
+          ? const NightScaffold(body: Center(child: CircularProgressIndicator(color: AppColors.gold)))
           : ValueListenableBuilder(
               valueListenable: backend.profile,
               builder: (context, p, _) => p.setupDone ? const HomeScreen() : const EditProfileScreen(firstTime: true),

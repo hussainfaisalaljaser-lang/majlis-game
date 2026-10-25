@@ -5,6 +5,7 @@ import '../models/shop.dart';
 import '../services/backend.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
+import '../widgets/ui.dart';
 
 /// جدول الترتيب: هذا الأسبوع (يتصفر كل أحد) أو من البداية.
 class LeaderboardScreen extends StatelessWidget {
@@ -14,7 +15,7 @@ class LeaderboardScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return DefaultTabController(
       length: 2,
-      child: Scaffold(
+      child: NightScaffold(
         appBar: AppBar(
           title: const Text('🏆 الترتيب'),
           bottom: const TabBar(
@@ -111,7 +112,7 @@ class _Podium extends StatelessWidget {
             child: Column(
               children: [
                 PlayerAvatar(
-                  emoji: entries[i].avatar,
+                  avatar: entries[i].avatar,
                   style: frameStyle(entries[i].frame),
                   frame: frameStyle(entries[i].frame) != null
                       ? null
@@ -174,7 +175,7 @@ class _Row extends StatelessWidget {
             width: 30,
             child: Text(arabicNumber(rank), style: const TextStyle(fontWeight: FontWeight.w800, color: AppColors.muted)),
           ),
-          PlayerAvatar(emoji: entry.avatar, style: frameStyle(entry.frame), size: 40),
+          PlayerAvatar(avatar: entry.avatar, style: frameStyle(entry.frame), size: 40),
           const SizedBox(width: 10),
           Expanded(
             child: Column(
