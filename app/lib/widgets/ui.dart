@@ -277,3 +277,13 @@ class Seal extends StatelessWidget {
   Widget build(BuildContext context) =>
       Image.asset('assets/images/seal_${loyal ? 'loyal' : 'traitor'}.png', width: size, height: size);
 }
+
+/// ختم زعيم الخونة: ختم الخونة وعليه تاج.
+class LeaderSeal extends StatelessWidget {
+  const LeaderSeal({super.key, this.size = 56});
+
+  final double size;
+
+  @override
+  Widget build(BuildContext context) => Image.asset('assets/images/seal_leader.png', width: size, height: size);
+}

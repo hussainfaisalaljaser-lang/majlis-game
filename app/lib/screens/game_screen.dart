@@ -382,7 +382,7 @@ class _GameScreenState extends State<GameScreen> {
             ),
             child: Row(
               children: [
-                const _LeaderSeal(size: 110),
+                const LeaderSeal(size: 120),
                 const SizedBox(width: 18),
                 Expanded(
                   child: Column(
@@ -399,14 +399,11 @@ class _GameScreenState extends State<GameScreen> {
                         style: TextStyle(fontSize: 15, height: 1.5, fontWeight: FontWeight.w700),
                       ),
                       const SizedBox(height: 8),
-                      Text(
-                        switch (role) {
-                          Role.loyal => '🔵 دقّقوا في كل وزير قبل لا توافقون.',
-                          Role.traitor => '🔴 فرصتكم: رشّحوا الزعيم وزير، وصوّتوا له.',
-                          Role.leader => '👑 أنت الزعيم: لو صرت وزير، تفوزون!',
-                        },
-                        style: const TextStyle(color: AppColors.gold, fontSize: 14, fontWeight: FontWeight.w800),
-                      ),
+                      Text(switch (role) {
+                        Role.loyal => '🔵 دقّقوا في كل وزير قبل لا توافقون.',
+                        Role.traitor => '🔴 فرصتكم: رشّحوا الزعيم وزير، وصوّتوا له.',
+                        Role.leader => '👑 أنت الزعيم: لو صرت وزير، تفوزون!',
+                      }, style: const TextStyle(color: AppColors.gold, fontSize: 14, fontWeight: FontWeight.w800)),
                       const SizedBox(height: 14),
                       Align(
                         alignment: AlignmentDirectional.centerEnd,
@@ -746,7 +743,12 @@ class _GameScreenState extends State<GameScreen> {
               if (v.deadline != null && !over) Positioned(top: 0, left: 0, right: 0, child: _TopTimer(view: v)),
               // بعد ٣ قرارات للخونة: لو الزعيم صار وزير يفوزون. نذكّر الكل وقت الترشيح والتصويت.
               if (v.traitorPolicies >= 3 && (v.phase == Phase.nomination || v.phase == Phase.election))
-                Positioned(top: 10, left: 0, right: 0, child: Center(child: _LeaderDanger(role: v.yourRole))),
+                Positioned(
+                  top: 10,
+                  left: 0,
+                  right: 0,
+                  child: Center(child: _LeaderDanger(role: v.yourRole)),
+                ),
               // فوق يمين: الجولة ودورك
               PositionedDirectional(
                 top: 8,
@@ -1758,26 +1760,6 @@ class _GameOver extends StatelessWidget {
   }
 }
 
-/// ختم الخونة وفوقه تاج: رمز زعيم الخونة.
-class _LeaderSeal extends StatelessWidget {
-  const _LeaderSeal({required this.size});
-
-  final double size;
-
-  @override
-  Widget build(BuildContext context) => SizedBox(
-    width: size,
-    height: size * 1.12,
-    child: Stack(
-      alignment: Alignment.bottomCenter,
-      children: [
-        Seal(loyal: false, size: size),
-        Positioned(top: 0, child: GameIcon('crown', size: size * .42, color: AppColors.gold)),
-      ],
-    ),
-  );
-}
-
 /// شريط التنبيه فوق وقت الترشيح والتصويت (بعد ٣ قرارات للخونة). ينبض عشان ينتبه له الكل.
 class _LeaderDanger extends StatefulWidget {
   const _LeaderDanger({required this.role});
@@ -1815,7 +1797,7 @@ class _LeaderDangerState extends State<_LeaderDanger> with SingleTickerProviderS
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const _LeaderSeal(size: 34),
+          const LeaderSeal(size: 38),
           const SizedBox(width: 8),
           Text.rich(
             TextSpan(
@@ -1825,7 +1807,10 @@ class _LeaderDangerState extends State<_LeaderDanger> with SingleTickerProviderS
                   style: const TextStyle(color: AppColors.gold),
                 ),
                 const TextSpan(text: '= '),
-                const TextSpan(text: 'فوز الخونة', style: TextStyle(color: Color(0xFFFF8A8A))),
+                const TextSpan(
+                  text: 'فوز الخونة',
+                  style: TextStyle(color: Color(0xFFFF8A8A)),
+                ),
               ],
             ),
             style: const TextStyle(fontFamily: kufi, fontSize: 15, fontWeight: FontWeight.w700),

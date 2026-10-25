@@ -364,15 +364,7 @@ class _SeatView extends StatelessWidget {
                       Positioned(
                         left: -8,
                         bottom: -4,
-                        child: Stack(
-                          alignment: Alignment.center,
-                          clipBehavior: Clip.none,
-                          children: [
-                            const Seal(loyal: false, size: 26),
-                            if (role == Role.leader)
-                              const Positioned(top: -10, child: GameIcon('crown', size: 14, color: AppColors.gold)),
-                          ],
-                        ),
+                        child: role == Role.leader ? const LeaderSeal(size: 32) : const Seal(loyal: false, size: 26),
                       ),
                     if (p.knownSpecial == Special.guardian && !isMe) const _Badge('🛡️', left: -6, bottom: -2),
                     if (rp?.bot ?? false) const _Badge('🤖', right: -8, top: 16),
