@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../models/profile.dart';
+import '../models/shop.dart';
 import '../services/backend.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
@@ -49,7 +50,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           children: [
             if (widget.firstTime) ...[
               const SizedBox(height: 20),
-              const Text('🕵️', textAlign: TextAlign.center, style: TextStyle(fontSize: 56)),
+              Center(child: Image.asset('assets/logo.png', width: 120, height: 120)),
               const Text(
                 'أهلاً في مجلس الخونة!',
                 textAlign: TextAlign.center,
@@ -125,7 +126,14 @@ class ProfileScreen extends StatelessWidget {
         builder: (context, p, _) => ListView(
           padding: const EdgeInsets.all(20),
           children: [
-            Center(child: PlayerAvatar(emoji: p.avatar, frame: AppColors.gold, size: 96)),
+            Center(
+              child: PlayerAvatar(
+                emoji: p.avatar,
+                style: frameStyle(p.frame),
+                frame: frameStyle(p.frame) == null ? AppColors.gold : null,
+                size: 96,
+              ),
+            ),
             const SizedBox(height: 10),
             Text(p.name, textAlign: TextAlign.center, style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w800)),
             if (Backend.instance.isReady)

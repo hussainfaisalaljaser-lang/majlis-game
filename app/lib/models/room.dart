@@ -1,12 +1,19 @@
 class RoomPlayer {
-  const RoomPlayer({required this.uid, required this.name, required this.avatar});
+  const RoomPlayer({required this.uid, required this.name, required this.avatar, this.frame});
 
-  factory RoomPlayer.fromJson(Map<String, dynamic> j) =>
-      RoomPlayer(uid: j['uid'] as String, name: j['name'] as String, avatar: j['avatar'] as String);
+  factory RoomPlayer.fromJson(Map<String, dynamic> j) => RoomPlayer(
+        uid: j['uid'] as String,
+        name: j['name'] as String,
+        avatar: j['avatar'] as String,
+        frame: j['frame'] as String?,
+      );
 
   final String uid;
   final String name;
   final String avatar;
+
+  /// إطار الصورة من المتجر.
+  final String? frame;
 }
 
 enum RoomStatus { waiting, playing, finished }

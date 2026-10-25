@@ -1,20 +1,25 @@
 import 'package:flutter/material.dart';
 
 import '../../models/game_view.dart';
+import '../../models/shop.dart';
 import '../../theme.dart';
 
 /// كرت قرار كبير (لما الرئيس أو المستشار يختار).
 class PolicyCard extends StatelessWidget {
-  const PolicyCard({super.key, required this.policy, this.onTap, this.dimmed = false, this.label});
+  const PolicyCard({super.key, required this.policy, this.onTap, this.dimmed = false, this.label, this.skin});
 
   final Policy policy;
   final VoidCallback? onTap;
   final bool dimmed;
   final String? label;
 
+  /// شكل الكروت من المتجر. الألوان تبقى أزرق للأوفياء وأحمر للخونة عشان ما يصير لبس.
+  final CardSkin? skin;
+
   @override
   Widget build(BuildContext context) {
     final loyal = policy == Policy.loyal;
+    final skin = this.skin ?? cardSkin(null);
     return Semantics(
       button: onTap != null,
       label: label ?? (loyal ? 'كرت أوفياء' : 'كرت خونة'),
@@ -31,16 +36,15 @@ class PolicyCard extends StatelessWidget {
               gradient: LinearGradient(
                 begin: Alignment.topRight,
                 end: Alignment.bottomLeft,
-                colors: loyal
-                    ? const [Color(0xFF5B9BFF), Color(0xFF1F4FB3)]
-                    : const [Color(0xFFF05252), Color(0xFFA32020)],
+                colors: loyal ? skin.loyal : skin.traitor,
               ),
+              border: skin.border == null ? null : Border.all(color: skin.border!, width: 2.5),
               boxShadow: const [BoxShadow(color: Colors.black45, blurRadius: 8, offset: Offset(0, 4))],
             ),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Text(loyal ? '🛡️' : '⚔️', style: const TextStyle(fontSize: 34)),
+                Text(loyal ? skin.loyalIcon : skin.traitorIcon, style: const TextStyle(fontSize: 34)),
                 const SizedBox(height: 6),
                 Text(loyal ? 'أوفياء' : 'خونة', style: const TextStyle(fontWeight: FontWeight.w800)),
               ],

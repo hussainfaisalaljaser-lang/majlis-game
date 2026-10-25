@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../models/game_view.dart';
 import '../../models/room.dart';
+import '../../models/shop.dart';
 import '../../theme.dart';
 import '../common.dart';
 
@@ -117,10 +118,10 @@ class _SeatView extends StatelessWidget {
       frame = AppColors.gold;
     } else if (p.id == view.nomineeId) {
       frame = const Color(0xFFA78BFA);
-    } else if (isMe) {
-      frame = AppColors.green;
-    } else if (role == Role.traitor || role == Role.leader) {
+    } else if (!isMe && (role == Role.traitor || role == Role.leader)) {
       frame = AppColors.traitor;
+    } else if (isMe && frameStyle(room?.player(p.id)?.frame) == null) {
+      frame = AppColors.green;
     }
 
     return Semantics(
@@ -143,7 +144,12 @@ class _SeatView extends StatelessWidget {
                       AnimatedScale(
                         scale: selectable ? 1.08 : 1,
                         duration: const Duration(milliseconds: 250),
-                        child: PlayerAvatar(emoji: p.alive ? avatar : '💀', frame: frame, size: 54),
+                        child: PlayerAvatar(
+                          emoji: p.alive ? avatar : '💀',
+                          frame: frame,
+                          style: frameStyle(room?.player(p.id)?.frame),
+                          size: 54,
+                        ),
                       ),
                       if (p.id == view.presidentId) const _Badge('👑', right: -6, bottom: -4),
                       if (p.id == view.nomineeId) const _Badge('📜', right: -6, bottom: -4),

@@ -79,6 +79,12 @@ class Backend {
     return (coins: r['coins'] as int, diamonds: r['diamonds'] as int, streak: r['streak'] as int);
   }
 
+  Future<void> buyItem(String id) => _call('buyItem', {'id': id});
+
+  Future<void> equipItem(String id) => _call('equipItem', {'id': id});
+
+  Future<void> registerPushToken(String token) => _call('registerPushToken', {'token': token});
+
   /// يرجع كم ذهب انضاف.
   Future<int> claimMission(String id) async => (await _call('claimMission', {'id': id}))['coins'] as int;
 

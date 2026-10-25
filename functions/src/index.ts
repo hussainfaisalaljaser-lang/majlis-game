@@ -1,7 +1,8 @@
 import { randomInt } from 'node:crypto';
 import { initializeApp } from 'firebase-admin/app';
 import { FieldValue, getFirestore, type Transaction } from 'firebase-admin/firestore';
-import { setGlobalOptions } from 'firebase-functions/v2';
+import { getMessaging } from 'firebase-admin/messaging';
+import { logger, setGlobalOptions } from 'firebase-functions/v2';
 import { HttpsError, onCall, type CallableRequest } from 'firebase-functions/v2/https';
 import {
   MAX_PLAYERS,
@@ -19,15 +20,18 @@ import {
 } from '../../engine/src/index.js';
 import { XP_PER_GAME, XP_PER_WIN, levelFor, tierById, type TableTier } from './economy.js';
 import { MISSIONS, bumpMissions, gulfWeek, todaysMissions, type MissionId } from './missions.js';
+import { whoToNotify, type Note } from './notify.js';
 import {
   cleanAvatar,
   cleanName,
   dailyClaim,
+  equippedOf,
   newProfile,
   readProfile,
   toLeaderboard,
   type Profile,
 } from './profile.js';
+import { isDefault, itemById, slotOf } from './shop.js';
 
 initializeApp();
 setGlobalOptions({ region: 'europe-west1', maxInstances: 10 });
@@ -37,6 +41,8 @@ export interface RoomPlayer {
   uid: string;
   name: string;
   avatar: string;
+  /** إطار الصورة من المتجر، يشوفه الكل في الطاولة. */
+  frame: string;
 }
 
 /** اللي كسبه كل لاعب في آخر اللعبة. */
@@ -110,7 +116,47 @@ async function newRoomCode(): Promise<string> {
 
 const userRef = (uid: string) => db.doc(`users/${uid}`);
 const boardRef = (uid: string) => db.doc(`leaderboard/${uid}`);
-const asPlayer = (uid: string, p: Profile): RoomPlayer => ({ uid, name: p.name, avatar: p.avatar });
+const asPlayer = (uid: string, p: Profile): RoomPlayer => ({
+  uid,
+  name: p.name,
+  avatar: p.avatar,
+  frame: equippedOf(p).frame,
+});
+
+/**
+ * يرسل الإشعارات بعد ما تنحفظ الحركة. أي خطأ هنا ما يأثر على اللعبة.
+ * الأجهزة اللي ما عادت موجودة تنشال من ملف اللاعب.
+ */
+async function sendPush(code: string, notes: Note[]): Promise<void> {
+  if (notes.length === 0) return;
+  try {
+    const uids = [...new Set(notes.map((n) => n.uid))];
+    const snaps = await db.getAll(...uids.map(userRef));
+    const tokens = new Map(snaps.map((s) => [s.id, ((s.data() as Profile | undefined)?.fcmTokens ?? []) as string[]]));
+    const messages = notes.flatMap((n) =>
+      (tokens.get(n.uid) ?? []).map((token) => ({
+        token,
+        notification: { title: n.title, body: n.body },
+        data: { code },
+        // الـ tag يخلي إشعار الطاولة الجديد يحل محل القديم بدل ما تتكوم.
+        android: { priority: 'high' as const, notification: { tag: code, icon: 'ic_stat_notify', color: '#F5B942' } },
+      })),
+    );
+    if (messages.length === 0) return;
+    const res = await getMessaging().sendEach(messages);
+    const dead = res.responses
+      .map((r, i) => (r.error?.code === 'messaging/registration-token-not-registered' ? messages[i].token : null))
+      .filter((t): t is string => t !== null);
+    await Promise.all(
+      [...tokens.entries()].map(([uid, list]) => {
+        const gone = list.filter((t) => dead.includes(t));
+        return gone.length ? userRef(uid).update({ fcmTokens: FieldValue.arrayRemove(...gone) }) : null;
+      }),
+    );
+  } catch (e) {
+    logger.warn('push failed', e);
+  }
+}
 
 /** يتأكد إن اللاعب يقدر يدخل الطاولة (المستوى والذهب والـ VIP). */
 function checkTier(p: Profile, tier: TableTier): void {
@@ -127,13 +173,14 @@ function chargeEntry(tx: Transaction, uid: string, p: Profile, fee: number): voi
 }
 
 /** يبدأ اللعبة داخل نفس العملية: يوزع الأدوار ويكتب نسخة كل لاعب. */
-function startGameTx(tx: Transaction, room: Room): void {
+function startGameTx(tx: Transaction, room: Room): GameState {
   const state = createGame(
     room.players.map((p) => ({ id: p.uid, name: p.name })),
     randomInt(2 ** 31),
   );
   tx.update(db.doc(`rooms/${room.code}`), { status: 'playing' });
   writeGame(tx, room.code, state, deadlineFor(state, Date.now()));
+  return state;
 }
 
 /** آخر وقت للدور الحالي (بالملي ثانية). */
@@ -224,12 +271,12 @@ export const joinRoom = onCall(async (req) => {
   const uid = requireAuth(req);
   const code = String(req.data?.code ?? '').trim().toUpperCase();
   if (!/^[A-Z0-9]{5}$/.test(code)) throw new HttpsError('invalid-argument', 'الكود لازم يكون ٥ حروف');
-  await db.runTransaction(async (tx) => {
+  const started = await db.runTransaction(async (tx): Promise<GameState | null> => {
     const ref = db.doc(`rooms/${code}`);
     const snap = await tx.get(ref);
     if (!snap.exists) throw new HttpsError('not-found', 'ما فيه روم بهذا الكود');
     const room = snap.data() as Room;
-    if (room.players.some((p) => p.uid === uid)) return;
+    if (room.players.some((p) => p.uid === uid)) return null;
     if (room.status !== 'waiting') throw new HttpsError('failed-precondition', 'اللعبة بدأت');
     if (room.players.length >= room.maxPlayers) throw new HttpsError('failed-precondition', 'الروم مليان');
     const p = await readProfile(db, tx, uid);
@@ -238,8 +285,9 @@ export const joinRoom = onCall(async (req) => {
     if (room.entryFee > 0) chargeEntry(tx, uid, p, room.entryFee);
     room.players.push(asPlayer(uid, p));
     tx.update(ref, { players: room.players });
-    if (!room.isPrivate && room.players.length === room.maxPlayers) startGameTx(tx, room);
+    return !room.isPrivate && room.players.length === room.maxPlayers ? startGameTx(tx, room) : null;
   });
+  if (started) await sendPush(code, whoToNotify(null, started));
   return { code };
 });
 
@@ -260,18 +308,18 @@ export const quickMatch = onCall(async (req) => {
     .get();
 
   for (const doc of open.docs) {
-    const joined = await db.runTransaction(async (tx) => {
+    const joined = await db.runTransaction(async (tx): Promise<{ started: GameState | null } | null> => {
       const room = (await tx.get(doc.ref)).data() as Room | undefined;
       const p = await readProfile(db, tx, uid);
-      if (!room || room.status !== 'waiting' || room.players.length >= room.maxPlayers) return false;
-      if (room.players.some((x) => x.uid === uid)) return true;
+      if (!room || room.status !== 'waiting' || room.players.length >= room.maxPlayers) return null;
+      if (room.players.some((x) => x.uid === uid)) return { started: null };
       checkTier(p, tier);
       chargeEntry(tx, uid, p, room.entryFee);
       room.players.push(asPlayer(uid, p));
       tx.update(doc.ref, { players: room.players });
-      if (room.players.length === room.maxPlayers) startGameTx(tx, room);
-      return true;
+      return { started: room.players.length === room.maxPlayers ? startGameTx(tx, room) : null };
     });
+    if (joined?.started) await sendPush(doc.id, whoToNotify(null, joined.started));
     if (joined) return { code: doc.id };
   }
 
@@ -317,7 +365,7 @@ export const leaveRoom = onCall(async (req) => {
 export const startGame = onCall(async (req) => {
   const uid = requireAuth(req);
   const code = String(req.data?.code ?? '');
-  await db.runTransaction(async (tx) => {
+  const started = await db.runTransaction(async (tx) => {
     const snap = await tx.get(db.doc(`rooms/${code}`));
     const room = snap.data() as Room | undefined;
     if (!room) throw new HttpsError('not-found', 'الروم مو موجود');
@@ -326,8 +374,9 @@ export const startGame = onCall(async (req) => {
     if (room.players.length < MIN_PLAYERS) {
       throw new HttpsError('failed-precondition', `لازم ${MIN_PLAYERS} لاعبين على الأقل`);
     }
-    startGameTx(tx, room);
+    return startGameTx(tx, room);
   });
+  await sendPush(code, whoToNotify(null, started));
   return {};
 });
 
@@ -338,7 +387,7 @@ export const act = onCall(async (req) => {
   const action = req.data?.action as Action | undefined;
   if (!action || typeof action.type !== 'string') throw new HttpsError('invalid-argument', 'حركة ناقصة');
 
-  await db.runTransaction(async (tx) => {
+  const notes = await db.runTransaction(async (tx) => {
     const snap = await tx.get(db.doc(`games/${code}`));
     if (!snap.exists) throw new HttpsError('not-found', 'اللعبة مو موجودة');
     const prev = splitGame(snap.data() as StoredGame);
@@ -355,8 +404,9 @@ export const act = onCall(async (req) => {
       bumps.set(uid, { legislate1: 1 });
     }
     if (action.type === 'claim') bumps.set(uid, { claim2: 1 });
-    await finishTurn(tx, code, prev, next, bumps);
+    return finishTurn(tx, code, prev, next, bumps);
   });
+  await sendPush(code, notes);
   return {};
 });
 
@@ -370,7 +420,7 @@ async function finishTurn(
   prev: { state: GameState; deadline: number | null; key: string },
   next: GameState,
   bumps: Map<string, Partial<Record<MissionId, number>>>,
-): Promise<void> {
+): Promise<Note[]> {
   const now = Date.now();
   const over = next.phase === 'gameOver';
   const uids = over ? next.players.map((p) => p.id) : [...bumps.keys()];
@@ -386,7 +436,7 @@ async function finishTurn(
       const p = profiles[i];
       tx.set(userRef(uid), { ...p, missions: bumpMissions(p.missions, now, bumps.get(uid)!) });
     });
-    return;
+    return whoToNotify(prev.state, next);
   }
 
   const winners = next.players.filter((p) => teamOf(p.role) === next.winner);
@@ -415,6 +465,7 @@ async function finishTurn(
     tx.set(boardRef(player.id), toLeaderboard(updated));
   });
   tx.update(roomRef, { status: 'finished', results });
+  return whoToNotify(prev.state, next);
 }
 
 /**
@@ -424,18 +475,71 @@ async function finishTurn(
 export const timeout = onCall(async (req) => {
   const uid = requireAuth(req);
   const code = String(req.data?.code ?? '');
-  return db.runTransaction(async (tx) => {
+  const notes = await db.runTransaction(async (tx): Promise<Note[] | null> => {
     const snap = await tx.get(db.doc(`games/${code}`));
     if (!snap.exists) throw new HttpsError('not-found', 'اللعبة مو موجودة');
     const prev = splitGame(snap.data() as StoredGame);
     if (!prev.state.players.some((p) => p.id === uid)) throw new HttpsError('permission-denied', 'أنت مو في هذي اللعبة');
-    if (prev.deadline === null || Date.now() < prev.deadline) return { applied: false };
+    if (prev.deadline === null || Date.now() < prev.deadline) return null;
 
     let next = prev.state;
     for (const [id, a] of timeoutActions(prev.state, Math.random)) next = applyAction(next, id, a);
-    await finishTurn(tx, code, prev, next, new Map());
-    return { applied: true };
+    return finishTurn(tx, code, prev, next, new Map());
   });
+  if (notes) await sendPush(code, notes);
+  return { applied: notes !== null };
+});
+
+/** شراء غرض من المتجر بالذهب أو الجواهر. */
+export const buyItem = onCall(async (req) => {
+  const uid = requireAuth(req);
+  const item = itemById(req.data?.id);
+  if (!item) throw new HttpsError('invalid-argument', 'غرض مو معروف');
+  await db.runTransaction(async (tx) => {
+    const p = await readProfile(db, tx, uid);
+    const owned = p.owned ?? [];
+    if (owned.includes(item.id)) throw new HttpsError('already-exists', 'عندك هذا الغرض');
+    const balance = item.currency === 'coins' ? p.coins : p.diamonds;
+    if (balance < item.price) {
+      throw new HttpsError('failed-precondition', item.currency === 'coins' ? 'ما عندك ذهب كافي 🪙' : 'ما عندك جواهر كافية 💎');
+    }
+    tx.set(userRef(uid), {
+      ...p,
+      [item.currency]: balance - item.price,
+      owned: [...owned, item.id],
+      equipped: { ...equippedOf(p), [item.slot]: item.id },
+    });
+  });
+  return {};
+});
+
+/** لبس غرض تملكه (أو الرجوع للشكل الأساسي). */
+export const equipItem = onCall(async (req) => {
+  const uid = requireAuth(req);
+  const id = String(req.data?.id ?? '');
+  const slot = slotOf(id);
+  if (!slot) throw new HttpsError('invalid-argument', 'غرض مو معروف');
+  await db.runTransaction(async (tx) => {
+    const p = await readProfile(db, tx, uid);
+    if (!isDefault(id) && !(p.owned ?? []).includes(id)) throw new HttpsError('permission-denied', 'ما تملك هذا الغرض');
+    const updated = { ...p, equipped: { ...equippedOf(p), [slot]: id } };
+    tx.set(userRef(uid), updated);
+    tx.set(boardRef(uid), toLeaderboard(updated));
+  });
+  return {};
+});
+
+/** يحفظ جهاز اللاعب عشان نرسل له إشعار لما يجي دوره. نخلي آخر ٥ أجهزة بس. */
+export const registerPushToken = onCall(async (req) => {
+  const uid = requireAuth(req);
+  const token = String(req.data?.token ?? '');
+  if (token.length < 20 || token.length > 4096) throw new HttpsError('invalid-argument', 'رمز غلط');
+  await db.runTransaction(async (tx) => {
+    const p = await readProfile(db, tx, uid);
+    const tokens = [...(p.fcmTokens ?? []).filter((t) => t !== token), token].slice(-5);
+    tx.set(userRef(uid), { ...p, fcmTokens: tokens });
+  });
+  return {};
 });
 
 /** يستلم مكافأة مهمة خلصها اليوم. */

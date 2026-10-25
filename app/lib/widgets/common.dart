@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../models/shop.dart';
 import '../theme.dart';
 
 /// يحول الأرقام للأرقام العربية مع فاصل الآلاف: 12500 ← ١٢٬٥٠٠
@@ -53,16 +54,37 @@ class CurrencyPill extends StatelessWidget {
   }
 }
 
-/// صورة اللاعب مع إطار (الإطارات من المتجر).
+/// صورة اللاعب. [frame] لون للتمييز (مثل الرئيس أو المختار)، و[style] إطار من المتجر.
+/// لو الاثنين موجودين، لون التمييز يغلب.
 class PlayerAvatar extends StatelessWidget {
-  const PlayerAvatar({super.key, required this.emoji, this.frame, this.size = 52});
+  const PlayerAvatar({super.key, required this.emoji, this.frame, this.style, this.size = 52});
 
   final String emoji;
   final Color? frame;
+  final FrameStyle? style;
   final double size;
 
   @override
   Widget build(BuildContext context) {
+    final style = this.style;
+    if (frame == null && style != null) {
+      final ring = size * .07;
+      return Container(
+        width: size,
+        height: size,
+        padding: EdgeInsets.all(ring),
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          gradient: SweepGradient(colors: [...style.colors, style.colors.first]),
+          boxShadow: style.glow == null ? null : [BoxShadow(color: style.glow!.withValues(alpha: .6), blurRadius: 14)],
+        ),
+        child: Container(
+          alignment: Alignment.center,
+          decoration: const BoxDecoration(color: AppColors.card, shape: BoxShape.circle),
+          child: Text(emoji, style: TextStyle(fontSize: size * .48)),
+        ),
+      );
+    }
     return Container(
       width: size,
       height: size,

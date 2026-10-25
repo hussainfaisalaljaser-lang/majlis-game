@@ -6,6 +6,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'screens/home_screen.dart';
 import 'screens/profile_screen.dart';
 import 'services/backend.dart';
+import 'services/push.dart';
 import 'theme.dart';
 
 Future<void> main() async {
@@ -14,6 +15,7 @@ Future<void> main() async {
   if (kIsWeb && const bool.fromEnvironment('USE_EMULATOR')) SemanticsBinding.instance.ensureSemantics();
   await Backend.instance.init();
   runApp(const MajlisApp());
+  await Push.init();
 }
 
 class MajlisApp extends StatelessWidget {
@@ -24,6 +26,8 @@ class MajlisApp extends StatelessWidget {
     return MaterialApp(
       title: 'مجلس الخونة',
       debugShowCheckedModeBanner: false,
+      navigatorKey: navigatorKey,
+      scaffoldMessengerKey: messengerKey,
       theme: buildTheme(),
       locale: const Locale('ar'),
       supportedLocales: const [Locale('ar')],

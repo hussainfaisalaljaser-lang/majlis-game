@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../models/shop.dart';
 import '../services/backend.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
@@ -7,6 +8,7 @@ import '../widgets/daily_reward.dart';
 import 'leaderboard_screen.dart';
 import 'missions_screen.dart';
 import 'profile_screen.dart';
+import 'shop_screen.dart';
 import 'tables_screen.dart';
 
 class HomeScreen extends StatelessWidget {
@@ -90,6 +92,7 @@ class HomeScreen extends StatelessWidget {
         selectedIndex: 0,
         onDestinationSelected: (i) => switch (i) {
           0 => null,
+          1 => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ShopScreen())),
           2 => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const LeaderboardScreen())),
           3 => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ProfileScreen())),
           _ => _soon(context),
@@ -169,7 +172,12 @@ class _ProfileHeader extends StatelessWidget {
               onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ProfileScreen())),
               child: Row(
                 children: [
-                  PlayerAvatar(emoji: p.avatar, frame: AppColors.gold, size: 48),
+                  PlayerAvatar(
+                    emoji: p.avatar,
+                    style: frameStyle(p.frame),
+                    frame: frameStyle(p.frame) == null ? AppColors.gold : null,
+                    size: 48,
+                  ),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Column(
@@ -191,7 +199,11 @@ class _ProfileHeader extends StatelessWidget {
           ),
           CurrencyPill(icon: '🪙', amount: p.coins),
           const SizedBox(width: 6),
-          CurrencyPill(icon: '💎', amount: p.diamonds),
+          CurrencyPill(
+            icon: '💎',
+            amount: p.diamonds,
+            onAdd: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ShopScreen(initialTab: 2))),
+          ),
         ],
       ),
     );

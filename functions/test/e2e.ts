@@ -255,6 +255,42 @@ async function main(): Promise<void> {
   }
   console.log(`✓ الجائزة: ${winnerCount} فايزين، كل واحد أخذ ${Math.floor(5000 / winnerCount)} ذهب`);
 
+  // ٨. المتجر: الشراء واللبس، والإطار يطلع في الطاولة
+  const rich = (await Promise.all(players.map(async (p) => ({ p, prof: await p.profile() })))).sort(
+    (a, b) => b.prof.coins - a.prof.coins,
+  )[0];
+  assert.ok(rich.prof.coins >= 3000, 'الفايز عنده ذهب يكفي');
+  await expectError(rich.p.call('buyItem', { id: 'frame_king' }), 'failed-precondition');
+  await expectError(rich.p.call('buyItem', { id: 'nope' }), 'invalid-argument');
+  await expectError(rich.p.call('equipItem', { id: 'frame_ice' }), 'permission-denied');
+  await rich.p.call('buyItem', { id: 'frame_ice' });
+  const bought = await rich.p.profile();
+  assert.equal(bought.coins, rich.prof.coins - 3000);
+  assert.deepEqual(bought.owned, ['frame_ice']);
+  assert.equal(bought.equipped.frame, 'frame_ice', 'يلبسه على طول');
+  await expectError(rich.p.call('buyItem', { id: 'frame_ice' }), 'already-exists');
+  await rich.p.call('equipItem', { id: 'frame_none' });
+  assert.equal((await rich.p.profile()).equipped.frame, 'frame_none');
+  await rich.p.call('equipItem', { id: 'frame_ice' });
+  const { code: shopRoom } = await rich.p.call<{ code: string }>('createRoom', { maxPlayers: 5 });
+  const shopRoomData = (await getDoc(doc(getFirestore(host.app), `rooms/${shopRoom}`))).data()!;
+  assert.equal(shopRoomData.players[0].frame, 'frame_ice');
+  console.log('✓ المتجر: الشراء ينخصم ويلبس، وما ينشرى مرتين، والإطار يطلع في الطاولة');
+
+  // ٩. الإشعارات: الجهاز ينحفظ، والإرسال الفاشل (المحاكي ما يرسل فعلياً) ما يخرب اللعبة
+  await expectError(host.call('registerPushToken', { token: 'short' }), 'invalid-argument');
+  for (const p of players) await p.call('registerPushToken', { token: `fake-token-${p.uid}-xxxxxxxxxxxxxxxx` });
+  assert.equal((await host.profile()).fcmTokens.length, 1);
+  const { code: pushRoom } = await host.call<{ code: string }>('createRoom', { maxPlayers: 5 });
+  for (const p of rest) await p.call('joinRoom', { code: pushRoom });
+  await host.call('startGame', { code: pushRoom });
+  const pv = await host.view(pushRoom);
+  const pres = players.find((p) => p.uid === pv.presidentId)!;
+  const target = pv.players.find((x) => x.id !== pres.uid)!.id;
+  await pres.call('act', { code: pushRoom, action: { type: 'nominate', chancellor: target } });
+  assert.equal((await host.view(pushRoom)).phase, 'election');
+  console.log('✓ الإشعارات: الأجهزة تنحفظ، واللعبة تكمل حتى لو الإرسال فشل');
+
   await Promise.all(players.map((p) => deleteApp(p.app)));
   console.log('\nكل الاختبارات نجحت ✅');
 }

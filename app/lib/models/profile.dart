@@ -16,6 +16,9 @@ class Profile {
     required this.lastDaily,
     required this.dailyStreak,
     this.missionsRaw = const MissionState(day: '', progress: {}, claimed: {}),
+    this.owned = const {},
+    this.frame = 'frame_none',
+    this.cards = 'cards_classic',
   });
 
   factory Profile.fromJson(Map<String, dynamic> j) => Profile(
@@ -32,6 +35,9 @@ class Profile {
         lastDaily: j['lastDaily'] as String?,
         dailyStreak: j['dailyStreak'] as int,
         missionsRaw: MissionState.fromJson((j['missions'] as Map?)?.cast<String, dynamic>()),
+        owned: {for (final o in (j['owned'] as List?) ?? const []) o as String},
+        frame: (j['equipped'] as Map?)?['frame'] as String? ?? 'frame_none',
+        cards: (j['equipped'] as Map?)?['cards'] as String? ?? 'cards_classic',
       );
 
   /// للعرض التجريبي بدون سيرفر (نسخة الويب).
@@ -63,6 +69,11 @@ class Profile {
   final String? lastDaily;
   final int dailyStreak;
   final MissionState missionsRaw;
+
+  /// أغراض المتجر اللي يملكها، واللي لابسها.
+  final Set<String> owned;
+  final String frame;
+  final String cards;
 
   /// مهام اليوم (لو المحفوظ من أمس تبدأ من الصفر).
   MissionState get missions => missionsRaw.forDay(gulfDay(DateTime.now()));

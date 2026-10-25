@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../models/room.dart';
+import '../models/shop.dart';
 import '../models/table_tier.dart';
 import '../services/backend.dart';
 import '../theme.dart';
@@ -125,7 +126,10 @@ class _WaitingScreenState extends State<WaitingScreen> {
                             ? _Seat(
                                 emoji: players[i].avatar,
                                 name: players[i].uid == myUid ? 'أنت' : players[i].name,
-                                frame: players[i].uid == myUid ? AppColors.gold : null,
+                                style: frameStyle(players[i].frame),
+                                frame: players[i].uid == myUid && frameStyle(players[i].frame) == null
+                                    ? AppColors.gold
+                                    : null,
                               )
                             : const _Seat(emoji: '＋', name: 'ينتظر…', empty: true),
                     ],
@@ -227,11 +231,12 @@ class _PotBox extends StatelessWidget {
 }
 
 class _Seat extends StatelessWidget {
-  const _Seat({required this.emoji, required this.name, this.frame, this.empty = false});
+  const _Seat({required this.emoji, required this.name, this.frame, this.style, this.empty = false});
 
   final String emoji;
   final String name;
   final Color? frame;
+  final FrameStyle? style;
   final bool empty;
 
   @override
@@ -247,7 +252,7 @@ class _Seat extends StatelessWidget {
                 decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: AppColors.line, width: 2)),
                 child: const Text('＋', style: TextStyle(color: AppColors.muted, fontSize: 22)),
               )
-            : PlayerAvatar(emoji: emoji, frame: frame, size: 58),
+            : PlayerAvatar(emoji: emoji, frame: frame, style: style, size: 58),
         const SizedBox(height: 5),
         Text(name, style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: empty ? AppColors.muted : null)),
       ],

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../models/leaderboard.dart';
+import '../models/shop.dart';
 import '../services/backend.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
@@ -111,7 +112,10 @@ class _Podium extends StatelessWidget {
               children: [
                 PlayerAvatar(
                   emoji: entries[i].avatar,
-                  frame: entries[i].uid == me ? AppColors.green : AppColors.gold,
+                  style: frameStyle(entries[i].frame),
+                  frame: frameStyle(entries[i].frame) != null
+                      ? null
+                      : (entries[i].uid == me ? AppColors.green : AppColors.gold),
                   size: i == 0 ? 72 : 58,
                 ),
                 const SizedBox(height: 4),
@@ -170,7 +174,7 @@ class _Row extends StatelessWidget {
             width: 30,
             child: Text(arabicNumber(rank), style: const TextStyle(fontWeight: FontWeight.w800, color: AppColors.muted)),
           ),
-          PlayerAvatar(emoji: entry.avatar, size: 40),
+          PlayerAvatar(emoji: entry.avatar, style: frameStyle(entry.frame), size: 40),
           const SizedBox(width: 10),
           Expanded(
             child: Column(

@@ -2,6 +2,7 @@ import { FieldValue, type Firestore, type Transaction } from 'firebase-admin/fir
 import { HttpsError } from 'firebase-functions/v2/https';
 import { DAILY_REWARDS, STARTING_COINS, gulfDay, levelFor, previousDay } from './economy.js';
 import type { MissionState } from './missions.js';
+import { DEFAULT_EQUIPPED, type Slot } from './shop.js';
 
 export const AVATARS = ['😎', '👩', '🧔', '👨‍🦱', '👴', '👱‍♀️', '🧑', '👩‍🦰', '👨', '🧕', '🥷', '🤠', '👳‍♂️', '🧙', '🕵️', '🦸'];
 
@@ -23,6 +24,11 @@ export interface Profile {
   /** الفوز في هذا الأسبوع، لجدول الترتيب الأسبوعي. */
   week?: string | null;
   weeklyWins?: number;
+  /** أغراض المتجر اللي اشتراها، واللي لابسها الحين. */
+  owned?: string[];
+  equipped?: Record<Slot, string>;
+  /** أجهزة اللاعب للإشعارات. */
+  fcmTokens?: string[];
   createdAt?: FieldValue;
 }
 
@@ -30,6 +36,7 @@ export interface Profile {
 export interface LeaderboardEntry {
   name: string;
   avatar: string;
+  frame: string;
   level: number;
   gamesWon: number;
   gamesPlayed: number;
@@ -41,6 +48,7 @@ export function toLeaderboard(p: Profile): LeaderboardEntry {
   return {
     name: p.name,
     avatar: p.avatar,
+    frame: equippedOf(p).frame,
     level: p.level,
     gamesWon: p.gamesWon,
     gamesPlayed: p.gamesPlayed,
@@ -65,6 +73,10 @@ export function newProfile(): Profile {
     dailyStreak: 0,
     createdAt: FieldValue.serverTimestamp(),
   };
+}
+
+export function equippedOf(p: Profile): Record<Slot, string> {
+  return { ...DEFAULT_EQUIPPED, ...p.equipped };
 }
 
 /** يقرا ملف اللاعب داخل عملية، ويسويه لو ما كان موجود. */

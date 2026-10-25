@@ -4,7 +4,9 @@ import 'package:flutter/material.dart';
 
 import '../models/game_view.dart';
 import '../models/room.dart';
+import '../models/shop.dart';
 import '../services/backend.dart';
+import '../services/push.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
 import '../widgets/game/game_log.dart';
@@ -54,6 +56,7 @@ class _GameScreenState extends State<GameScreen> {
   @override
   void initState() {
     super.initState();
+    Push.setCurrentGame(widget.code);
     _viewSub = _backend.watchView(widget.code).listen((data) {
       if (data == null || !mounted) return;
       final view = GameView.fromJson(data);
@@ -90,6 +93,7 @@ class _GameScreenState extends State<GameScreen> {
 
   @override
   void dispose() {
+    Push.setCurrentGame(null);
     _viewSub.cancel();
     _roomSub.cancel();
     _ticker.cancel();
@@ -424,6 +428,9 @@ class _ActionPanel extends StatelessWidget {
   final VoidCallback onCancelReaction;
   final VoidCallback onDismissClaim;
 
+  /// شكل الكروت اللي لابسه اللاعب من المتجر.
+  CardSkin get _skin => cardSkin(Backend.instance.profile.value.cards);
+
   static const _claimOptions = {
     3: [
       [Policy.traitor, Policy.traitor, Policy.traitor],
@@ -583,7 +590,10 @@ class _ActionPanel extends StatelessWidget {
           _hint('👁️ هذي أول ٣ كروت في الكومة (لك بس)'),
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
-            children: [for (final p in v.peeked ?? const <Policy>[]) Padding(padding: const EdgeInsets.all(4), child: PolicyCard(policy: p))],
+            children: [
+              for (final p in v.peeked ?? const <Policy>[])
+                Padding(padding: const EdgeInsets.all(4), child: PolicyCard(policy: p, skin: _skin)),
+            ],
           ),
           const SizedBox(height: 8),
           FilledButton(onPressed: busy ? null : () => onAct({'type': 'acknowledgePeek'}), child: const Text('تمام')),
@@ -620,6 +630,7 @@ class _ActionPanel extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 5),
             child: PolicyCard(
               policy: p,
+              skin: _skin,
               label: '$verb كرت ${i + 1} ${p == Policy.loyal ? 'أوفياء' : 'خونة'}',
               onTap: busy ? null : () => onPick(i),
             ),

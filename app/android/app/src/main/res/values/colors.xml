@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- نفس ألوان اللعبة (app/lib/theme.dart) -->
+    <color name="splash_bg">#0F1220</color>
+    <color name="ic_launcher_background">#12152A</color>
+    <color name="notify_color">#F5B942</color>
+</resources>

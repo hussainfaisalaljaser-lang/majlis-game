@@ -5,6 +5,7 @@ class LeaderboardEntry {
   LeaderboardEntry.fromJson(this.uid, Map<String, dynamic> j)
       : name = j['name'] as String,
         avatar = j['avatar'] as String,
+        frame = j['frame'] as String?,
         level = j['level'] as int,
         gamesWon = j['gamesWon'] as int,
         gamesPlayed = j['gamesPlayed'] as int,
@@ -13,6 +14,7 @@ class LeaderboardEntry {
   final String uid;
   final String name;
   final String avatar;
+  final String? frame;
   final int level;
   final int gamesWon;
   final int gamesPlayed;
