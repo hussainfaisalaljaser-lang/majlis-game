@@ -40,8 +40,8 @@ jobs:
           rm "$RUNNER_TEMP/sa.json"
           # آخر سطور الخطأ تطلع كملاحظات في صفحة التشغيل، عشان نعرف السبب بسرعة.
           if [ "$code" -ne 0 ]; then
-            sed 's/\x1b\[[0-9;]*m//g' "$RUNNER_TEMP/deploy.log" | grep -v '^\s*$' | tail -25 | while IFS= read -r line; do
-              echo "::error::${line}"
-            done
+            # GitHub يعرض ١٠ ملاحظات بس، فنجمع آخر السطور في ملاحظة وحدة.
+            tail_log=$(sed 's/\x1b\[[0-9;]*m//g' "$RUNNER_TEMP/deploy.log" | grep -v '^\s*$' | tail -30 | sed ':a;N;$!ba;s/%/%25/g;s/\n/%0A/g')
+            echo "::error::${tail_log}"
           fi
           exit "$code"
