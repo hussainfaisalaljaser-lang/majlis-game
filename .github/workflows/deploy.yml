@@ -34,5 +34,14 @@ jobs:
         run: |
           echo "$SA" > "$RUNNER_TEMP/sa.json"
           export GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/sa.json"
-          npx firebase deploy --only functions,firestore:rules,firestore:indexes --project majlis-game-1d739 --non-interactive --force
+          set +e
+          npx firebase deploy --only functions,firestore:rules,firestore:indexes --project majlis-game-1d739 --non-interactive --force 2>&1 | tee "$RUNNER_TEMP/deploy.log"
+          code=${PIPESTATUS[0]}
           rm "$RUNNER_TEMP/sa.json"
+          # آخر سطور الخطأ تطلع كملاحظات في صفحة التشغيل، عشان نعرف السبب بسرعة.
+          if [ "$code" -ne 0 ]; then
+            grep -iE "error|denied|permission|not been used|disabled|enable|failed" "$RUNNER_TEMP/deploy.log" | tail -15 | while IFS= read -r line; do
+              echo "::error::${line}"
+            done
+          fi
+          exit "$code"
