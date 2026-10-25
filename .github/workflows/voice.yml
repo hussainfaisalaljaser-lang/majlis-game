@@ -43,6 +43,7 @@ jobs:
             case "$MODE" in
               lines) python tools/voice/eleven.py lines "$VOICE" out/voice ;;
               preview) python tools/voice/eleven.py preview "$VOICE" out/preview ;;
+              variants) python tools/voice/eleven.py variants "$VOICE" out/variants ;;
               *) python tools/voice/eleven.py samples "$VOICE" out/samples ;;
             esac
           else

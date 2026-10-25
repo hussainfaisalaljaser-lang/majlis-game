@@ -50,6 +50,14 @@ def main():
         for key, text in LINES['lines'].items():
             say(text, voice, os.path.join(out, key + '.mp3'))
             print('✓', key)
+    elif mode == 'variants':
+        voice, out = sys.argv[2], sys.argv[3]
+        os.makedirs(out, exist_ok=True)
+        for key, options in LINES['variants'].items():
+            for i, text in enumerate(options, 1):
+                for stab, label in ((0.0, 'creative'), (0.5, 'natural')):
+                    say(text, voice, os.path.join(out, f'{key}_{i}_{label}.mp3'), stab)
+                    print('✓', key, i, label)
     elif mode == 'preview':
         voice, out = sys.argv[2], sys.argv[3]
         os.makedirs(out, exist_ok=True)

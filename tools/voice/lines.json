@@ -1,6 +1,17 @@
 {
   "sample": "[excited] يا هلا والله ومرحبا! حيّاكم في مجلس الخونة. [whispers] بس ترى فيكم خاين… منهو يا عيال؟",
-  "preview": ["sample", "vote", "gov_passed", "gov_failed", "enact_traitor", "chaos", "executed", "hurry", "role_traitor", "win_traitor"],
+  "preview": [
+    "sample",
+    "vote",
+    "gov_passed",
+    "gov_failed",
+    "enact_traitor",
+    "chaos",
+    "executed",
+    "hurry",
+    "role_traitor",
+    "win_traitor"
+  ],
   "lines": {
     "intro": "[dramatic tone] حيّاكم في مجلس الخونة… [whispers] ترى فيكم خونة، انتبهوا لروحكم!",
     "role_loyal": "[warm] انت من الأوفياء. [determined] دوّر على الخونة وافضحهم!",
@@ -26,5 +37,27 @@
     "hurry": "[urgent] باقي خمس ثواني، بسرعة!",
     "win_loyal": "[excited] فازوا الأوفياء! ألف مبروك!",
     "win_traitor": "[laughs] فازوا الخونة! هاردلك يا الأوفياء."
+  },
+  "variants": {
+    "gov_passed": [
+      "[cheerful] وافقوا على الحكومة!",
+      "[excited] الحكومة مَشَت!",
+      "[cheerful] الحكومة نجحت!"
+    ],
+    "enact_traitor": [
+      "[serious] قرار جديد للخونة…",
+      "[whispers] نزل قرار للخونة…",
+      "[sad] للأسف… قرار للخونة."
+    ],
+    "chaos": [
+      "[excited] فوضى! أول قرار في الكومة نزل لحاله!",
+      "[surprised] يا ساتر… فوضى! نزل قرار لحاله!",
+      "[dramatic tone] فوضى… والقرار نزل لحاله!"
+    ],
+    "hurry": [
+      "[excited] باقي لك خمس ثواني… يالله بسرعة!",
+      "بسرعة! باقي خمس ثواني.",
+      "[whispers] يالله… الوقت بيخلص!"
+    ]
   }
 }
