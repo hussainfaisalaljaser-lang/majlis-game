@@ -42,12 +42,10 @@
   },
   "experiment": {
     "texts": {
-      "power_investigate__a": "الرئيس بيحقق…",
-      "power_investigate__b": "يلا يا رئيس… اختار مين تحقق معه!",
-      "power_investigate__c": "هالحين الرئيس بيشوف… مين الصادق ومين الكذاب.",
-      "power_investigate__d": "اللحظة الحاسمة! الرئيس بيحقق مع لاعب.",
-      "power_investigate__e": "الرئيس بيختار واحد منكم… ويعرف إذا هو منّا ولا من الخونة.",
-      "power_investigate__f": "انتبهوا يا جماعة… فيه تحقيق!"
+      "power_investigate__a": "شششش… الرئيس بيكشف واحد منكم.",
+      "power_investigate__b": "شششش… الحين بنعرف… مين الخاين.",
+      "power_investigate__c": "هدوء… الرئيس بيختار واحد… ويعرف سره.",
+      "power_investigate__d": "شششش… الرئيس بيعرف حقيقة واحد منكم."
     },
     "configs": {
       "take1": {
@@ -57,6 +55,12 @@
         "style": null
       },
       "take2": {
+        "model": "eleven_v3",
+        "strip_tags": true,
+        "similarity": null,
+        "style": null
+      },
+      "take3": {
         "model": "eleven_v3",
         "strip_tags": true,
         "similarity": null,
