@@ -788,7 +788,7 @@ class _GameScreenState extends State<GameScreen> {
 
   /// زرين فوق مقعدك، على السجادة (وقت التصويت تكون مظلمة أصلاً).
   Widget _besideSeat({required Widget yes, required Widget no}) => Positioned(
-    bottom: 124,
+    bottom: 150,
     left: 0,
     right: 0,
     child: Row(

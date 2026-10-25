@@ -53,28 +53,28 @@ class GameTable extends StatelessWidget {
         const seatW = 88.0, seatH = 114.0;
         final rx = (w - seatW) / 2;
         final ry = (h - seatH) / 2;
-        final rug = math.min(w * .82, h * .92);
+        // سجادة عريضة (٢:١) تناسب الشاشة بالعرض، وصينية بيضاوية في نصها.
+        final rugW = math.min(w * .72, h * .74 * _rugAspect);
+        final rugH = rugW / _rugAspect;
+        final trayW = rugW * .40;
+        final trayH = trayW * .625;
         final angles = _seatAngles(n, rx, ry);
         return Stack(
           children: [
             Center(
               child: SizedBox(
-                width: rug,
-                height: rug,
+                width: rugW,
+                height: rugH,
                 child: Stack(
                   alignment: Alignment.center,
                   children: [
                     AnimatedOpacity(
                       opacity: spotlight == null ? 1 : .35,
                       duration: const Duration(milliseconds: 400),
-                      child: Image.asset('assets/images/carpet.png', width: rug, height: rug),
+                      child: Image.asset('assets/images/carpet_wide.png', width: rugW, height: rugH, fit: BoxFit.fill),
                     ),
-                    Image.asset('assets/images/tray.png', width: rug * .48, height: rug * .48),
-                    SizedBox(
-                      width: rug * .4,
-                      height: rug * .4,
-                      child: Center(child: center),
-                    ),
+                    Image.asset('assets/images/tray_wide.png', width: trayW, height: trayH, fit: BoxFit.fill),
+                    SizedBox(width: trayW * .74, height: trayH * .72, child: Center(child: center)),
                   ],
                 ),
               ),
@@ -147,6 +147,9 @@ List<double> _seatAngles(int n, double rx, double ry) {
   }
   return out;
 }
+
+/// نسبة عرض السجادة لطولها (assets/images/carpet_wide.png).
+const _rugAspect = 1500 / 714;
 
 const noteColors = {
   NoteMark.trust: AppColors.green,
