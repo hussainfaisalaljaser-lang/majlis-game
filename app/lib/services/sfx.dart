@@ -49,7 +49,7 @@ abstract final class Sfx {
     final line = _queue.removeFirst();
     try {
       final player = _player ??= AudioPlayer()..setReleaseMode(ReleaseMode.stop);
-      await player.play(AssetSource('voice/$line.ogg'));
+      await player.play(AssetSource('voice/$line.mp3'));
       await player.onPlayerComplete.first.timeout(const Duration(seconds: 6));
     } catch (_) {}
     _next();
