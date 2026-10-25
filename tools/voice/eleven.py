@@ -50,6 +50,22 @@ def say(text, voice, path, stability=None, cfg=None):
         f.write(data)
 
 
+def compose(prompt, length_ms, path):
+    req = urllib.request.Request(
+        'https://api.elevenlabs.io/v1/music?output_format=mp3_44100_128',
+        data=json.dumps({'prompt': prompt, 'music_length_ms': length_ms, 'force_instrumental': True}).encode(),
+        headers={'xi-api-key': KEY, 'Content-Type': 'application/json', 'Accept': 'audio/mpeg'},
+        method='POST')
+    try:
+        data = urllib.request.urlopen(req, timeout=300).read()
+    except urllib.error.HTTPError as e:
+        msg = e.read().decode(errors='replace')
+        print(f'::error::Eleven Music {e.code}: {msg[:400]}')
+        raise
+    with open(path, 'wb') as f:
+        f.write(data)
+
+
 def cfg_for(key):
     """الإعداد المعتمد (config) ومعه أي تعديل خاص بهالجملة (overrides)."""
     return {**LINES.get('config', {}), **LINES.get('overrides', {}).get(key, {})}
@@ -60,7 +76,15 @@ def main():
     voice, out = sys.argv[2], sys.argv[3]
     os.makedirs(out, exist_ok=True)
     keys = sys.argv[4].split(',') if len(sys.argv) > 4 and sys.argv[4] else list(LINES['lines'])
-    if mode == 'experiment':
+    if mode == 'music':
+        # موسيقى اللعبة بـ Eleven Music (music.json)
+        spec = json.load(open(os.path.join(HERE, 'music.json'), encoding='utf-8'))
+        for name, prompt in spec['tracks'].items():
+            if keys and len(sys.argv) > 4 and sys.argv[4] and name not in keys:
+                continue
+            compose(prompt, spec['length_ms'], os.path.join(out, name + '.mp3'))
+            print('✓', name)
+    elif mode == 'experiment':
         # نفس الجمل بأكثر من إعداد، عشان نقارن الإحساس
         exp = LINES['experiment']
         for name, cfg in exp['configs'].items():

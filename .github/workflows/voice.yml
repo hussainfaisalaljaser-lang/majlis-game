@@ -44,7 +44,8 @@ jobs:
               echo "::error::أضف السر ELEVENLABS_API_KEY في Settings → Secrets and variables → Actions"
               exit 1
             fi
-            if [ "$MODE" = experiment ]; then python tools/voice/eleven.py experiment "$VOICE" out/experiment
+            if [ "$MODE" = music ]; then python tools/voice/eleven.py music "$VOICE" out/music "$KEYS"
+            elif [ "$MODE" = experiment ]; then python tools/voice/eleven.py experiment "$VOICE" out/experiment
             else python tools/voice/eleven.py lines "$VOICE" out/voice "$KEYS"; fi
           else
             echo "$SA" > "$RUNNER_TEMP/sa.json"
