@@ -30,11 +30,23 @@ android {
         versionName = flutter.versionName
     }
 
+    // مفتاح ثابت للنسخ التجريبية، عشان بصمته (SHA-1) تبقى نفسها في كل بناء ويشتغل دخول قوقل.
+    // ⚠️ للتجربة بس. قبل النشر في Google Play نسوي مفتاح رفع خاص ونحطه في GitHub Secrets.
+    signingConfigs {
+        create("test") {
+            storeFile = file("majlis-test.keystore")
+            storePassword = "majlistest"
+            keyAlias = "majlis"
+            keyPassword = "majlistest"
+        }
+    }
+
     buildTypes {
+        debug {
+            signingConfig = signingConfigs.getByName("test")
+        }
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.getByName("test")
         }
     }
 }
