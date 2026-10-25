@@ -48,8 +48,11 @@ class _RoleRevealState extends State<_RoleReveal> with SingleTickerProviderState
     super.initState();
     Future.delayed(const Duration(milliseconds: 500), () {
       if (!mounted) return;
-      Sfx.play('flip');
-      _flip.forward().then((_) => Sfx.play('reveal'));
+      _flip.forward().then((_) => Sfx.say(switch (widget.view.yourRole) {
+            Role.loyal => 'role_loyal',
+            Role.traitor => 'role_traitor',
+            Role.leader => 'role_leader',
+          }));
     });
   }
 

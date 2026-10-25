@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../services/sfx.dart';
 import '../theme.dart';
 
 /// خلفية اللعبة: ليل متدرج مع زخرفة عربية خفيفة تتكرر.
@@ -116,7 +115,6 @@ class _GameButtonState extends State<GameButton> {
         onTap: enabled
             ? () {
                 HapticFeedback.lightImpact();
-                Sfx.play('tap');
                 widget.onPressed!();
               }
             : null,

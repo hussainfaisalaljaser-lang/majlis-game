@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../services/backend.dart';
-import '../services/sfx.dart';
 import '../theme.dart';
 import 'common.dart';
 import 'ui.dart';
@@ -33,7 +32,6 @@ class GoogleButton extends StatelessWidget {
                 ? null
                 : () {
                     HapticFeedback.lightImpact();
-                    Sfx.play('tap');
                     onPressed!();
                   },
             child: SizedBox(
@@ -66,7 +64,6 @@ Future<bool> connectGoogle(BuildContext context, {bool fresh = false}) async {
   try {
     switch (await Backend.instance.linkGoogle()) {
       case GoogleLinked(:final reward):
-        Sfx.play('win');
         say(reward > 0 ? '✅ انربط حسابك بقوقل! +${arabicNumber(reward)} 🪙' : '✅ حسابك مربوط بقوقل');
         return true;
       case GoogleTaken(:final credential):

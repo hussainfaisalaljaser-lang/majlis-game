@@ -1,12 +1,17 @@
+import 'dart:collection';
+
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-/// أصوات اللعبة القصيرة. تقدر تسكتها من الإعدادات وتنحفظ في الجهاز.
+/// صوت الراوي: جمل عربية قصيرة في لحظات اللعبة المهمة (assets/voice، مولّدة من tools/voice).
+/// تقدر تسكته من زر الصوت وينحفظ في الجهاز.
 abstract final class Sfx {
   static final muted = ValueNotifier<bool>(false);
-  static final _players = <String, AudioPlayer>{};
   static const _key = 'sfx_muted';
+  static AudioPlayer? _player;
+  static final _queue = Queue<String>();
+  static bool _speaking = false;
 
   static Future<void> init() async {
     try {
@@ -17,17 +22,36 @@ abstract final class Sfx {
 
   static Future<void> toggle() async {
     muted.value = !muted.value;
+    if (muted.value) {
+      _queue.clear();
+      _player?.stop().catchError((_) {});
+    }
     try {
       (await SharedPreferences.getInstance()).setBool(_key, muted.value);
     } catch (_) {}
   }
 
-  /// يشغّل صوت من assets/sounds. أي خطأ (مثل متصفح يمنع الصوت) ينتجاهل.
-  static void play(String name) {
+  /// يقول جملة من assets/voice. لو الراوي يتكلم، تنتظر دورها (ونخلي اثنتين بس في الطابور
+  /// عشان ما يتأخر عن اللعبة). أي خطأ (ملف ناقص أو متصفح يمنع الصوت) ينتجاهل.
+  static void say(String line) {
     if (muted.value) return;
+    if (_queue.length >= 2) _queue.removeFirst();
+    _queue.add(line);
+    if (!_speaking) _next();
+  }
+
+  static Future<void> _next() async {
+    if (_queue.isEmpty || muted.value) {
+      _speaking = false;
+      return;
+    }
+    _speaking = true;
+    final line = _queue.removeFirst();
     try {
-      final player = _players.putIfAbsent(name, () => AudioPlayer()..setReleaseMode(ReleaseMode.stop));
-      player.stop().then((_) => player.play(AssetSource('sounds/$name.ogg'), volume: .8)).catchError((_) {});
+      final player = _player ??= AudioPlayer()..setReleaseMode(ReleaseMode.stop);
+      await player.play(AssetSource('voice/$line.ogg'));
+      await player.onPlayerComplete.first.timeout(const Duration(seconds: 6));
     } catch (_) {}
+    _next();
   }
 }

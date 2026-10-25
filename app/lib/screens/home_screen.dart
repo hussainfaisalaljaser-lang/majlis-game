@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 
 import '../models/shop.dart';
 import '../services/backend.dart';
-import '../services/sfx.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
 import '../widgets/daily_reward.dart';
@@ -350,7 +349,6 @@ class _Tile extends StatelessWidget {
       excludeSemantics: true,
       child: GestureDetector(
         onTap: () {
-          Sfx.play('tap');
           onTap();
         },
         child: Container(

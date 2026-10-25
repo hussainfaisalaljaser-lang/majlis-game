@@ -63,7 +63,7 @@ class _GameScreenState extends State<GameScreen> {
   bool _wasMyTurn = false;
   bool _endSoundPlayed = false;
 
-  /// مشاهد تنتظر دورها فوق الطاولة (كشف التصويت، الختم، الطرد…).
+  /// مشاهد تنتظر دورها فوق الطاولة (كشف التصويت، الختم، الطرد…)، ومعها جملة الراوي.
   final List<(Widget, String, Duration)> _scenes = [];
 
   /// رد ينتظر تختار له لاعب (مثل أشك في…).
@@ -111,13 +111,42 @@ class _GameScreenState extends State<GameScreen> {
     _backend.timeout(widget.code).catchError((_) => false);
   }
 
-  /// صوت تكتكة في آخر ٥ ثواني من دورك.
+  /// الراوي ينبهك مرة وحدة لما يبقى ٥ ثواني على دورك.
+  DateTime? _hurriedFor;
   void _tick() {
     final v = _view;
     final deadline = v?.deadline;
-    if (v == null || deadline == null || !_isMyTurn(v)) return;
+    if (v == null || deadline == null || !_isMyTurn(v) || _hurriedFor == deadline) return;
     final left = deadline.difference(DateTime.now()).inSeconds;
-    if (left >= 0 && left <= 5) Sfx.play('tick');
+    if (left >= 0 && left <= 5) {
+      _hurriedFor = deadline;
+      Sfx.say('hurry');
+    }
+  }
+
+  Phase? _lastPhase;
+
+  /// الراوي يعلن بداية التصويت أو القدرة للكل، ويقول لك وش تسوي لما يجي دورك.
+  void _announce(GameView v, bool myTurnStarted) {
+    final changed = v.phase != _lastPhase;
+    _lastPhase = v.phase;
+    if (changed && v.phase == Phase.election) return Sfx.say('vote');
+    if (changed && v.phase == Phase.power) {
+      return Sfx.say(switch (v.pendingPower) {
+        Power.investigate => 'power_investigate',
+        Power.peek => 'power_peek',
+        Power.specialElection => 'power_special',
+        _ => 'power_execute',
+      });
+    }
+    if (!myTurnStarted) return;
+    Sfx.say(switch (v.phase) {
+      Phase.nomination => 'president',
+      Phase.presidentDiscard => 'discard',
+      Phase.chancellorEnact => 'enact',
+      Phase.vetoResponse => 'veto',
+      _ => 'your_turn',
+    });
   }
 
   bool _isMyTurn(GameView v) {
@@ -173,15 +202,13 @@ class _GameScreenState extends State<GameScreen> {
       );
     }
     final myTurn = _isMyTurn(view);
-    if (myTurn && !_wasMyTurn) {
-      HapticFeedback.mediumImpact();
-      Sfx.play('alert');
-    }
+    if (myTurn && !_wasMyTurn) HapticFeedback.mediumImpact();
+    _announce(view, myTurn && !_wasMyTurn);
     _wasMyTurn = myTurn;
     if (view.phase == Phase.gameOver && !_endSoundPlayed) {
       _endSoundPlayed = true;
-      final iWon = (view.yourRole == Role.loyal) == (view.winnerLoyal ?? false);
-      Future.delayed(Duration(milliseconds: 400 + 2600 * _scenes.length), () => Sfx.play(iWon ? 'win' : 'lose'));
+      final line = (view.winnerLoyal ?? false) ? 'win_loyal' : 'win_traitor';
+      Future.delayed(Duration(milliseconds: 400 + 2600 * _scenes.length), () => Sfx.say(line));
     }
   }
 
@@ -189,6 +216,7 @@ class _GameScreenState extends State<GameScreen> {
   void _queueScenes(GameView v) {
     final from = _seenLog ?? v.log.length;
     _seenLog = v.log.length;
+    final wasEmpty = _scenes.isEmpty;
     for (final e in v.log.skip(from)) {
       final d = e.data;
       switch (e.type) {
@@ -200,13 +228,13 @@ class _GameScreenState extends State<GameScreen> {
               votes: Map<String, bool>.from(d['votes'] as Map),
               passed: d['passed'] == true,
             ),
-            'vote',
+            d['passed'] == true ? 'gov_passed' : 'gov_failed',
             const Duration(milliseconds: 2800),
           ));
         case 'enacted':
           _scenes.add((
             EnactStamp(loyal: d['policy'] == 'L', chaos: d['chaos'] == true),
-            'stamp',
+            d['chaos'] == true ? 'chaos' : (d['policy'] == 'L' ? 'enact_loyal' : 'enact_traitor'),
             const Duration(milliseconds: 1900),
           ));
         case 'executed' || 'guarded':
@@ -217,18 +245,18 @@ class _GameScreenState extends State<GameScreen> {
               avatar: _room?.player(id)?.avatar ?? 'masked',
               guarded: e.type == 'guarded',
             ),
-            e.type == 'guarded' ? 'guard' : 'execute',
+            e.type == 'guarded' ? 'guarded' : 'executed',
             const Duration(milliseconds: 2600),
           ));
       }
     }
-    if (_scenes.isNotEmpty) Sfx.play(_scenes.first.$2);
+    if (wasEmpty && _scenes.isNotEmpty) Sfx.say(_scenes.first.$2);
   }
 
   void _nextScene() {
     if (!mounted || _scenes.isEmpty) return;
     setState(() => _scenes.removeAt(0));
-    if (_scenes.isNotEmpty) Sfx.play(_scenes.first.$2);
+    if (_scenes.isNotEmpty) Sfx.say(_scenes.first.$2);
   }
 
   Future<void> _act(Map<String, dynamic> action) async {
@@ -846,12 +874,7 @@ class _GameScreenState extends State<GameScreen> {
                 skin: _skin,
                 width: 84,
                 label: '$verb كرت ${i + 1} ${p == Policy.loyal ? 'أوفياء' : 'خونة'}',
-                onTap: _busy
-                    ? null
-                    : () {
-                        Sfx.play('flip');
-                        onPick(i);
-                      },
+                onTap: _busy ? null : () => onPick(i),
               ),
             ),
           ),
@@ -970,10 +993,7 @@ class _RoundButton extends StatelessWidget {
       label: label,
       excludeSemantics: true,
       child: GestureDetector(
-        onTap: () {
-          Sfx.play('tap');
-          onTap();
-        },
+        onTap: onTap,
         child: Container(
           width: size,
           height: size,
