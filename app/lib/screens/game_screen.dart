@@ -455,8 +455,6 @@ class _GameScreenState extends State<GameScreen> {
     );
   }
 
-  String _name(GameView v, String? id) => id == null ? '' : (id == v.you ? 'أنت' : v.player(id).name);
-
   /// اللاعبين اللي ينفع تختارهم من الطاولة الحين، ووش يصير لما تختار.
   (Set<String>, void Function(String)?) _selection(GameView v) {
     if (_seerPicking) {
@@ -581,7 +579,7 @@ class _GameScreenState extends State<GameScreen> {
                     onSelect: onSelect,
                     onNote: _editNote,
                     spotlight: v.phase == Phase.election && pickHint == null ? {v.presidentId, ?v.nomineeId} : null,
-                    center: _TableCenter(view: v, name: (id) => _name(v, id)),
+                    center: _TableCenter(view: v, room: _room),
                   ),
                 ),
               ),
@@ -1048,57 +1046,167 @@ class _TopTimer extends StatelessWidget {
 
 /// الرسالة في نص الصينية: وش يصير الحين.
 class _TableCenter extends StatelessWidget {
-  const _TableCenter({required this.view, required this.name});
+  const _TableCenter({required this.view, required this.room});
 
   final GameView view;
-  final String Function(String?) name;
+  final Room? room;
 
   @override
   Widget build(BuildContext context) {
     final v = view;
-    // "أنت" تبي فعل للمخاطب: أنت تختار، مو أنت يختار.
-    String verb(String? id, String he, String you) => id == v.you ? 'أنت $you' : '${name(id)} $he';
-    final power = powerName[v.pendingPower];
-    final (icon, text) = switch (v.phase) {
-      Phase.nomination => ('👑', verb(v.presidentId, 'يختار وزير', 'تختار وزير')),
-      Phase.election => ('🗳️', 'التصويت'),
-      Phase.presidentDiscard => ('🃏', verb(v.presidentId, 'يختار الكروت', 'تختار الكروت')),
-      Phase.chancellorEnact => ('📜', verb(v.nomineeId, 'يمرر قرار', 'تمرر قرار')),
-      Phase.vetoResponse => ('✋', 'الوزير طلب فيتو'),
-      Phase.power => (powerEmoji[v.pendingPower]!, verb(v.presidentId, 'يستخدم $power', 'تستخدم $power')),
-      Phase.gameOver => ('🏁', 'انتهت اللعبة'),
+    // الصينية تشرح الوضع بالصور: الرئيس والوزير، وبينهم أيقونة المرحلة، والكروت تحت اللي ماسكها.
+    final (String icon, bool cardsWithPresident, bool cardsWithMinister) = switch (v.phase) {
+      Phase.nomination => ('crown', false, false),
+      Phase.election => ('ballot', false, false),
+      Phase.presidentDiscard => ('scroll', true, false),
+      Phase.chancellorEnact || Phase.vetoResponse => ('scroll', false, true),
+      Phase.power => (
+        switch (v.pendingPower) {
+          Power.investigate => 'search',
+          Power.peek => 'eye',
+          Power.specialElection => 'crown',
+          _ => 'dagger',
+        },
+        false,
+        false,
+      ),
+      Phase.gameOver => ('trophy', false, false),
     };
-    final lastClaims = v.claims.where((c) => c.round == v.claims.lastOrNull?.round).toList();
+    final showMinister = v.phase != Phase.power && v.phase != Phase.gameOver;
     return FittedBox(
       fit: BoxFit.scaleDown,
-      child: SizedBox(
-        width: 120,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(icon, style: const TextStyle(fontSize: 22)),
-            Text(
-              text,
-              textAlign: TextAlign.center,
-              maxLines: 2,
-              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: AppColors.ink, height: 1.3),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _TraySeat(avatar: room?.player(v.presidentId)?.avatar, crown: true, cards: cardsWithPresident ? 3 : 0),
+          const SizedBox(width: 10),
+          _PhaseIcon(icon: icon, pulse: v.phase == Phase.election || v.phase == Phase.power),
+          if (showMinister) ...[
+            const SizedBox(width: 10),
+            _TraySeat(
+              avatar: v.nomineeId == null ? null : room?.player(v.nomineeId!)?.avatar,
+              waiting: v.nomineeId == null,
+              cards: cardsWithMinister ? 2 : 0,
             ),
-            if (lastClaims.isNotEmpty) ...[
-              const SizedBox(height: 3),
-              for (final c in lastClaims)
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text('${c.president ? '👑' : '📜'} ', style: const TextStyle(fontSize: 11)),
-                    MiniPolicies(c.policies, size: 9),
-                  ],
-                ),
-            ],
           ],
-        ),
+        ],
       ),
     );
   }
+}
+
+/// صورة في الصينية: الرئيس بتاج مرسوم فوقه، أو الوزير، أو دائرة فاضية تنبض لين يختاره الرئيس.
+class _TraySeat extends StatelessWidget {
+  const _TraySeat({required this.avatar, this.crown = false, this.waiting = false, this.cards = 0});
+
+  final String? avatar;
+  final bool crown;
+  final bool waiting;
+  final int cards;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 64,
+      height: 92,
+      child: Stack(
+        clipBehavior: Clip.none,
+        alignment: Alignment.topCenter,
+        children: [
+          Positioned(
+            top: 14,
+            child: waiting
+                ? const _Pulse(
+                    child: CircleAvatar(
+                      radius: 26,
+                      backgroundColor: Color(0x33000000),
+                      child: Text(
+                        '؟',
+                        style: TextStyle(fontFamily: kufi, fontSize: 26, color: AppColors.goldInk),
+                      ),
+                    ),
+                  )
+                : PlayerAvatar(
+                    avatar: avatar ?? 'masked',
+                    frame: crown ? AppColors.gold : const Color(0xFFA78BFA),
+                    size: 52,
+                  ),
+          ),
+          if (crown) const Positioned(top: 0, child: GameIcon('crown', size: 22, color: Color(0xFFB8801F))),
+          if (cards > 0)
+            Positioned(
+              bottom: 0,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  for (var i = 0; i < cards; i++)
+                    Container(
+                      width: 12,
+                      height: 17,
+                      margin: const EdgeInsets.symmetric(horizontal: 1.5),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(3),
+                        gradient: const LinearGradient(colors: [Color(0xFF4A3592), Color(0xFF1C1638)]),
+                        border: Border.all(color: AppColors.gold, width: 1),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+/// أيقونة المرحلة بين الرئيس والوزير (صندوق التصويت، القدرة، الكأس…).
+class _PhaseIcon extends StatelessWidget {
+  const _PhaseIcon({required this.icon, this.pulse = false});
+
+  final String icon;
+  final bool pulse;
+
+  @override
+  Widget build(BuildContext context) {
+    final badge = Container(
+      width: 40,
+      height: 40,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: const Color(0x22000000),
+        border: Border.all(color: const Color(0xFF9C6A1C), width: 1.5),
+      ),
+      child: GameIcon(icon, size: 24, color: const Color(0xFF5A3A08)),
+    );
+    return pulse ? _Pulse(child: badge) : badge;
+  }
+}
+
+/// نبض خفيف يلفت النظر بدون كلام.
+class _Pulse extends StatefulWidget {
+  const _Pulse({required this.child});
+
+  final Widget child;
+
+  @override
+  State<_Pulse> createState() => _PulseState();
+}
+
+class _PulseState extends State<_Pulse> with SingleTickerProviderStateMixin {
+  late final _c = AnimationController(vsync: this, duration: const Duration(milliseconds: 900))..repeat(reverse: true);
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => ScaleTransition(
+    scale: Tween(begin: .92, end: 1.06).animate(CurvedAnimation(parent: _c, curve: Curves.easeInOut)),
+    child: widget.child,
+  );
 }
 
 /// الادعاء بعد الحكم: وش وصلك من كروت؟ يطلع فوق الطاولة بخيارات كبيرة وواضحة.

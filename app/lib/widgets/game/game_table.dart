@@ -56,7 +56,7 @@ class GameTable extends StatelessWidget {
         // سجادة عريضة (٢:١) تناسب الشاشة بالعرض، وصينية بيضاوية في نصها.
         final rugW = math.min(w * .72, h * .74 * _rugAspect);
         final rugH = rugW / _rugAspect;
-        final trayW = rugW * .40;
+        final trayW = rugW * .46;
         final trayH = trayW * .625;
         final angles = _seatAngles(n, rx, ry);
         return Stack(
