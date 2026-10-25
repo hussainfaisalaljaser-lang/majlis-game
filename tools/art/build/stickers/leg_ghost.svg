@@ -1,7 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="-14 -10 228 236" width="512" height="530">
-<defs><pattern id="shemagh" width="10" height="10" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
-<rect width="10" height="10" fill="#FBF7F2"/><rect width="5" height="5" fill="#C8262E"/><rect x="5" y="5" width="5" height="5" fill="#C8262E"/></pattern></defs>
-<g transform="rotate(0 100 110)"><path d="M48 104 Q46 30 100 28 Q154 30 152 104 V170 Q140 160 130 172 Q118 160 108 172 Q98 160 88 172 Q76 160 66 172 Q56 160 48 170 Z" fill="#F8F9FA" fill-opacity=".92" stroke="#2A1A14" stroke-width="5"/><ellipse cx="82" cy="94" rx="10" ry="14" fill="#2A1A14"/><ellipse cx="118" cy="94" rx="10" ry="14" fill="#2A1A14"/><ellipse cx="100" cy="132" rx="10" ry="12" fill="#2A1A14"/></g>
-<g transform="rotate(-5 100 196)"><text x="100" y="208" font-family="Marhey" font-weight="bold" font-size="34" text-anchor="middle"
- fill="#E599F7" stroke="#1A0F0A" stroke-width="9" stroke-linejoin="round" paint-order="stroke">اختفيت</text></g>
-</svg>
