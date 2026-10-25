@@ -5,6 +5,7 @@ import '../services/backend.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
 import '../widgets/daily_reward.dart';
+import 'game_screen.dart';
 import 'leaderboard_screen.dart';
 import 'missions_screen.dart';
 import 'profile_screen.dart';
@@ -13,6 +14,40 @@ import 'tables_screen.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
+
+  /// تدريب: روم خاص فيه أنت و٤ بوتات، ويبدأ على طول.
+  Future<void> _startPractice(BuildContext context) async {
+    final backend = Backend.instance;
+    if (!backend.isReady) return _soon(context);
+    final navigator = Navigator.of(context);
+    final messenger = ScaffoldMessenger.of(context);
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const AlertDialog(
+        backgroundColor: AppColors.panel,
+        content: Row(
+          children: [
+            CircularProgressIndicator(),
+            SizedBox(width: 16),
+            Text('نجهّز البوتات… 🤖'),
+          ],
+        ),
+      ),
+    );
+    try {
+      final code = await backend.createRoom(maxPlayers: 5);
+      for (var i = 0; i < 4; i++) {
+        await backend.addBots(code);
+      }
+      await backend.startGame(code);
+      navigator.pop();
+      navigator.push(MaterialPageRoute(builder: (_) => GameScreen(code: code)));
+    } on BackendException catch (e) {
+      navigator.pop();
+      messenger.showSnackBar(SnackBar(content: Text(e.message)));
+    }
+  }
 
   void _soon(BuildContext context) {
     ScaffoldMessenger.of(context).showSnackBar(
@@ -58,14 +93,14 @@ class HomeScreen extends StatelessWidget {
                   title: 'جولة سريعة',
                   subtitle: '٥ لاعبين · ٨ دقائق',
                   colors: const [Color(0xFF3B82F6), Color(0xFF1E3A8A)],
-                  onTap: () => _soon(context),
+                  onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const TablesScreen())),
                 ),
                 _ModeCard(
                   emoji: '👥',
                   title: 'العب مع أصحابك',
                   subtitle: 'روم خاص بكود',
                   colors: const [Color(0xFF22C55E), Color(0xFF14532D)],
-                  onTap: () => _soon(context),
+                  onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const TablesScreen())),
                 ),
                 _ModeCard(
                   emoji: '🏆',
@@ -77,9 +112,9 @@ class HomeScreen extends StatelessWidget {
                 _ModeCard(
                   emoji: '🤖',
                   title: 'تدريب',
-                  subtitle: 'ضد البوت',
+                  subtitle: 'أنت و٤ بوتات',
                   colors: const [Color(0xFF6B7280), Color(0xFF1F2937)],
-                  onTap: () => _soon(context),
+                  onTap: () => _startPractice(context),
                 ),
               ],
             ),

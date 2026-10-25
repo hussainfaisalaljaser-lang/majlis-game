@@ -1,12 +1,16 @@
 class RoomPlayer {
-  const RoomPlayer({required this.uid, required this.name, required this.avatar, this.frame});
+  const RoomPlayer({required this.uid, required this.name, required this.avatar, this.frame, this.bot = false});
 
   factory RoomPlayer.fromJson(Map<String, dynamic> j) => RoomPlayer(
         uid: j['uid'] as String,
         name: j['name'] as String,
         avatar: j['avatar'] as String,
         frame: j['frame'] as String?,
+        bot: j['bot'] as bool? ?? false,
       );
+
+  /// لاعب آلي.
+  final bool bot;
 
   final String uid;
   final String name;
@@ -61,6 +65,7 @@ class Room {
     required this.tierId,
     required this.players,
     this.entryFee = 0,
+    this.createdAt,
     this.results = const {},
     this.reactions = const [],
     this.opinions = const {},
@@ -75,6 +80,7 @@ class Room {
         tierId: j['tierId'] as String?,
         players: [for (final p in j['players'] as List) RoomPlayer.fromJson(Map<String, dynamic>.from(p as Map))],
         entryFee: j['entryFee'] as int? ?? 0,
+        createdAt: j['createdAtMs'] == null ? null : DateTime.fromMillisecondsSinceEpoch(j['createdAtMs'] as int),
         results: {
           for (final MapEntry(:key, :value) in ((j['results'] as Map?) ?? const {}).entries)
             key as String: (
@@ -102,6 +108,12 @@ class Room {
   final String? tierId;
   final List<RoomPlayer> players;
   final int entryFee;
+
+  /// وقت إنشاء الروم. الطاولة العامة تتكمل بالبوتات بعد شوي انتظار.
+  final DateTime? createdAt;
+
+  /// نفس functions/src/index.ts → BOT_FILL_AFTER_MS، مع ثواني زيادة احتياط لفرق الساعة.
+  static const botFillAfter = Duration(seconds: 25);
 
   /// اللي كسبه كل لاعب لما انتهت اللعبة.
   final Map<String, ({bool won, int coins, int xp})> results;

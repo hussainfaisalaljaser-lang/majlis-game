@@ -354,3 +354,59 @@ describe('المؤقت', () => {
     assert.ok(actions.every(([, a]) => a.type === 'vote' && a.ja === false));
   });
 });
+
+describe('البوتات', () => {
+  it('ألف لعبة كلها بوتات: كل حركاتهم مسموحة وكل لعبة تنتهي', async () => {
+    const { botAction, botClaim, currentActors } = await import('../src/index.js');
+    const wins = { loyal: 0, traitor: 0 };
+    for (let g = 0; g < 1000; g++) {
+      let rng = g * 31 + 7;
+      const rand = () => {
+        const [v, n] = nextRandom(rng);
+        rng = n;
+        return v;
+      };
+      let s = createGame(ids(5 + (g % 6)), g + 1000);
+      let steps = 0;
+      while (s.phase !== 'gameOver') {
+        assert.ok(steps++ < 3000, 'اللعبة ما انتهت');
+        const leg = s.lastLegislature;
+        if (leg) {
+          for (const [office, id] of [['president', leg.government.president], ['chancellor', leg.government.chancellor]] as const) {
+            if (!leg.claimed.includes(id) && s.players.find((p) => p.id === id)!.alive) {
+              s = act(s, id, { type: 'claim', policies: botClaim(s, id, office, rand) });
+            }
+          }
+        }
+        const [actor] = currentActors(s);
+        const a = botAction(s, actor, rand);
+        assert.ok(a, `البوت ما عنده حركة في ${s.phase}`);
+        s = act(s, actor, a);
+      }
+      wins[s.winner!]++;
+    }
+    // بوتات متوازنة: ما فيه فريق يفوز دايماً.
+    assert.ok(wins.loyal > 150 && wins.traitor > 150, `الفوز: ${JSON.stringify(wins)}`);
+  });
+
+  it('الخائن يرشح الزعيم لما يقدر يفوز فيه', async () => {
+    const { botAction } = await import('../src/index.js');
+    const s = rigged(7, ['traitor', 'loyal', 'loyal', 'loyal', 'loyal', 'traitor', 'leader'], Array(17).fill('L'));
+    s.traitorPolicies = 3;
+    assert.deepEqual(botAction(s, 'p0', Math.random), { type: 'nominate', chancellor: 'p6' });
+  });
+
+  it('الوفي يرمي الأحمر ويمرر الأزرق', async () => {
+    const { botAction } = await import('../src/index.js');
+    let s = rigged(5, FIVE, ['T', 'L', 'T', 'L', 'L', 'L']);
+    s = act(s, 'p0', { type: 'nominate', chancellor: 'p1' });
+    for (const p of s.players) s = act(s, p.id, { type: 'vote', ja: true });
+    const discard = botAction(s, 'p0', () => 0.5)!;
+    assert.equal(discard.type, 'discard');
+    s = act(s, 'p0', discard);
+    assert.ok(!s.hand.every((c) => c === 'T'), 'رمى أحمر');
+    const enact = botAction(s, 'p1', () => 0.5)!;
+    s = act(s, 'p1', enact);
+    assert.equal(s.loyalPolicies, 1);
+  });
+});

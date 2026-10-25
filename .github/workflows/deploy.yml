@@ -1,0 +1,38 @@
+# رفع السيرفر (Cloud Functions) وقواعد الأمان والفهارس إلى Firebase.
+# يحتاج خطة Blaze، وسر في GitHub اسمه FIREBASE_SERVICE_ACCOUNT (محتوى ملف مفتاح حساب الخدمة).
+name: Deploy server
+
+on:
+  push:
+    branches: [main]
+    paths: ['engine/**', 'functions/**', 'firestore.rules', 'firestore.indexes.json', 'firebase.json']
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Check secret
+        env:
+          SA: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: |
+          if [ -z "$SA" ]; then
+            echo "::error::أضف السر FIREBASE_SERVICE_ACCOUNT في إعدادات المستودع (Settings → Secrets and variables → Actions)"
+            exit 1
+          fi
+      - name: Install
+        working-directory: functions
+        run: npm ci
+      - name: Deploy
+        working-directory: functions
+        env:
+          SA: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: |
+          echo "$SA" > "$RUNNER_TEMP/sa.json"
+          export GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/sa.json"
+          npx firebase deploy --only functions,firestore:rules,firestore:indexes --project majlis-game-1d739 --non-interactive --force
+          rm "$RUNNER_TEMP/sa.json"

@@ -154,6 +154,7 @@ class _SeatView extends StatelessWidget {
                       if (p.id == view.presidentId) const _Badge('👑', right: -6, bottom: -4),
                       if (p.id == view.nomineeId) const _Badge('📜', right: -6, bottom: -4),
                       if (role == Role.leader && !isMe) const _Badge('🦹', left: -6, bottom: -4),
+                      if (room?.player(p.id)?.bot ?? false) const _Badge('🤖', left: -8, top: 18),
                       if (view.phase == Phase.election && p.hasVoted) const _Badge('✅', left: -6, top: -4),
                       if (opinion != null && (opinion.suspect > 0 || opinion.trust > 0))
                         Positioned(

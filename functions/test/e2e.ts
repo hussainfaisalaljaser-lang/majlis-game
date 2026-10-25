@@ -291,6 +291,49 @@ async function main(): Promise<void> {
   assert.equal((await host.view(pushRoom)).phase, 'election');
   console.log('✓ الإشعارات: الأجهزة تنحفظ، واللعبة تكمل حتى لو الإرسال فشل');
 
+  // ١٠. البوتات: لاعب واحد يسوي روم خاص ويكمله بالبوتات ويلعب لين النهاية
+  const { code: botRoom } = await host.call<{ code: string }>('createRoom', { maxPlayers: 5 });
+  await expectError(rest[0].call('addBots', { code: botRoom }), 'permission-denied');
+  for (let i = 0; i < 4; i++) await host.call('addBots', { code: botRoom });
+  await expectError(host.call('addBots', { code: botRoom }), 'failed-precondition');
+  const botRoomData = (await getDoc(doc(getFirestore(host.app), `rooms/${botRoom}`))).data()!;
+  assert.equal(botRoomData.players.filter((p: { bot?: boolean }) => p.bot).length, 4);
+  const removed = botRoomData.players.find((p: { bot?: boolean }) => p.bot).uid;
+  await host.call('removeBot', { code: botRoom, botId: removed });
+  await host.call('addBots', { code: botRoom });
+  await host.call('startGame', { code: botRoom });
+  const hostBefore = await host.profile();
+  let steps = 0;
+  for (;;) {
+    const v = (await host.view(botRoom)) as PlayerView & { deadline: number | null };
+    if (v.phase === 'gameOver') {
+      console.log(`  انتهت لعبة البوتات بعد ${steps} خطوة: ${v.winner} (${v.winReason})`);
+      break;
+    }
+    assert.ok(steps++ < 400, 'لعبة البوتات طولت');
+    const mine = nextMove(v);
+    if (mine) {
+      await host.call('act', { code: botRoom, action: mine });
+      continue;
+    }
+    // الدور على بوت: ننتظر مهلته القصيرة ونطلب من السيرفر يلعب عنه.
+    if (v.deadline) await new Promise((r) => setTimeout(r, Math.max(0, v.deadline! - Date.now()) + 50));
+    await host.call('timeout', { code: botRoom });
+  }
+  const hostAfter = await host.profile();
+  assert.equal(hostAfter.gamesPlayed, hostBefore.gamesPlayed + 1, 'اللعبة انحسبت للاعب');
+  const botBoard = await getDoc(doc(getFirestore(host.app), `leaderboard/${removed}`));
+  assert.equal(botBoard.exists(), false, 'البوت ما يدخل الترتيب');
+  console.log('✓ البوتات: تنضاف وتنشال، وتلعب بنفسها لين النهاية، وما تدخل الترتيب');
+
+  // ١١. الطاولة العامة: ما تتكمل بالبوتات قبل ٢٠ ثانية
+  const { code: lonelyQm } = await host.call<{ code: string }>('quickMatch', { maxPlayers: 5, tierId: 'starter' });
+  await expectError(host.call('addBots', { code: lonelyQm }), 'failed-precondition');
+  await new Promise((r) => setTimeout(r, 20_500));
+  await host.call('addBots', { code: lonelyQm });
+  assert.equal((await host.view(lonelyQm)).phase, 'nomination');
+  console.log('✓ الطاولة العامة: بعد ٢٠ ثانية تتكمل بالبوتات وتبدأ');
+
   await Promise.all(players.map((p) => deleteApp(p.app)));
   console.log('\nكل الاختبارات نجحت ✅');
 }

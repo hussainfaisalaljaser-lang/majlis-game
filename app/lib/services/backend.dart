@@ -79,6 +79,11 @@ class Backend {
     return (coins: r['coins'] as int, diamonds: r['diamonds'] as int, streak: r['streak'] as int);
   }
 
+  /// الروم الخاص: يضيف بوت واحد. الطاولة العامة: يكملها كلها ببوتات (بعد ٢٠ ثانية انتظار).
+  Future<void> addBots(String code) => _call('addBots', {'code': code});
+
+  Future<void> removeBot(String code, String botId) => _call('removeBot', {'code': code, 'botId': botId});
+
   Future<void> buyItem(String id) => _call('buyItem', {'id': id});
 
   Future<void> equipItem(String id) => _call('equipItem', {'id': id});

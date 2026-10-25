@@ -10,7 +10,10 @@ import {
   PHASE_SECONDS,
   RuleError,
   applyAction,
+  botAction,
+  botClaim,
   createGame,
+  currentActors,
   teamOf,
   timeoutActions,
   turnKey,
@@ -43,7 +46,24 @@ export interface RoomPlayer {
   avatar: string;
   /** إطار الصورة من المتجر، يشوفه الكل في الطاولة. */
   frame: string;
+  /** لاعب آلي. يطلع للكل إنه بوت. */
+  bot?: boolean;
 }
+
+const BOTS: Omit<RoomPlayer, 'uid'>[] = [
+  { name: 'سلمان', avatar: '🧔', frame: 'frame_none' },
+  { name: 'مها', avatar: '👩', frame: 'frame_none' },
+  { name: 'بدر', avatar: '👨‍🦱', frame: 'frame_none' },
+  { name: 'لولوة', avatar: '🧕', frame: 'frame_none' },
+  { name: 'تركي', avatar: '🤠', frame: 'frame_none' },
+  { name: 'جود', avatar: '👩‍🦰', frame: 'frame_none' },
+  { name: 'ماجد', avatar: '👳‍♂️', frame: 'frame_none' },
+  { name: 'العنود', avatar: '👱‍♀️', frame: 'frame_none' },
+  { name: 'فيصل', avatar: '🧑', frame: 'frame_none' },
+];
+
+/** الطاولة العامة تنتظر كذا قبل ما نسمح نكملها بالبوتات. */
+const BOT_FILL_AFTER_MS = 20_000;
 
 /** اللي كسبه كل لاعب في آخر اللعبة. */
 export interface GameResult {
@@ -57,6 +77,8 @@ export interface Room {
   hostId: string;
   status: 'waiting' | 'playing' | 'finished';
   isPrivate: boolean;
+  /** وقت إنشاء الروم بالملي ثانية (لحساب متى نسمح بالبوتات). */
+  createdAtMs?: number;
   maxPlayers: number;
   tierId: string | null;
   /** رسوم الدخول بالذهب. تنخصم لما تدخل الروم وترجع لو طلعت قبل ما تبدأ. */
@@ -183,10 +205,43 @@ function startGameTx(tx: Transaction, room: Room): GameState {
   return state;
 }
 
-/** آخر وقت للدور الحالي (بالملي ثانية). */
+const isBot = (id: string) => id.startsWith('bot_');
+
+/**
+ * آخر وقت للدور الحالي (بالملي ثانية). لو الدور على بوت، نعطيه ٢–٤ ثواني بس
+ * عشان يبان إنه يفكر، وبعدها أي جوال في الطاولة يطلب من السيرفر يلعب عنه.
+ */
 function deadlineFor(state: GameState, now: number): number | null {
   if (state.phase === 'gameOver') return null;
+  const actors = currentActors(state);
+  if (actors.length > 0 && actors.every(isBot)) return now + 2000 + randomInt(2000);
   return now + PHASE_SECONDS[state.phase] * 1000;
+}
+
+/** حركات البوتات اللي ما تحتاج انتظار: التصويت (سري لين يكتمل) والادعاء بعد الحكم. */
+function runInstantBots(state: GameState): GameState {
+  let s = state;
+  for (let guard = 0; guard < 50 && s.phase !== 'gameOver'; guard++) {
+    let changed = false;
+    const leg = s.lastLegislature;
+    if (leg) {
+      for (const [office, id] of [['president', leg.government.president], ['chancellor', leg.government.chancellor]] as const) {
+        if (isBot(id) && !leg.claimed.includes(id) && s.players.find((p) => p.id === id)?.alive) {
+          s = applyAction(s, id, { type: 'claim', policies: botClaim(s, id, office, Math.random) });
+          changed = true;
+        }
+      }
+    }
+    if (s.phase === 'election') {
+      for (const id of currentActors(s).filter(isBot)) {
+        if (s.phase !== 'election') break;
+        s = applyAction(s, id, botAction(s, id)!);
+        changed = true;
+      }
+    }
+    if (!changed) break;
+  }
+  return s;
 }
 
 /** نحفظ الحالة الكاملة مع المؤقت، ونسخة لكل لاعب. */
@@ -261,6 +316,7 @@ export const createRoom = onCall(async (req) => {
       entryFee: 0,
       players: [asPlayer(uid, p)],
       createdAt: FieldValue.serverTimestamp(),
+      createdAtMs: Date.now(),
     };
     tx.set(db.doc(`rooms/${code}`), room);
   });
@@ -338,10 +394,60 @@ export const quickMatch = onCall(async (req) => {
       entryFee: tier.entryFee,
       players: [asPlayer(uid, p)],
       createdAt: FieldValue.serverTimestamp(),
+      createdAtMs: Date.now(),
     };
     tx.set(db.doc(`rooms/${code}`), room);
   });
   return { code };
+});
+
+/**
+ * يكمّل الروم بالبوتات.
+ * - الروم الخاص: صاحبه يضيف بوت واحد كل مرة (عشان تجرب لحالك أو تكمل العدد مع أصحابك).
+ * - الطاولة العامة: أي واحد فيها يقدر يكملها بالبوتات بعد ٢٠ ثانية انتظار، وتبدأ على طول.
+ */
+export const addBots = onCall(async (req) => {
+  const uid = requireAuth(req);
+  const code = String(req.data?.code ?? '');
+  const started = await db.runTransaction(async (tx): Promise<GameState | null> => {
+    const ref = db.doc(`rooms/${code}`);
+    const room = (await tx.get(ref)).data() as Room | undefined;
+    if (!room || room.status !== 'waiting') throw new HttpsError('failed-precondition', 'الروم مو في الانتظار');
+    if (!room.players.some((p) => p.uid === uid)) throw new HttpsError('permission-denied', 'أنت مو في هذا الروم');
+    const free = room.maxPlayers - room.players.length;
+    if (free <= 0) throw new HttpsError('failed-precondition', 'الروم مليان');
+    if (room.isPrivate && room.hostId !== uid) throw new HttpsError('permission-denied', 'بس صاحب الروم يضيف بوتات');
+    if (!room.isPrivate && Date.now() - (room.createdAtMs ?? 0) < BOT_FILL_AFTER_MS) {
+      throw new HttpsError('failed-precondition', 'ننتظر لاعبين شوي قبل البوتات');
+    }
+    const taken = new Set(room.players.map((p) => p.name));
+    const available = BOTS.filter((b) => !taken.has(b.name));
+    const count = room.isPrivate ? 1 : free;
+    for (let i = 0; i < count; i++) {
+      const b = available.splice(randomInt(available.length), 1)[0];
+      room.players.push({ ...b, uid: `bot_${randomInt(1e9)}`, bot: true });
+    }
+    tx.update(ref, { players: room.players });
+    return !room.isPrivate && room.players.length === room.maxPlayers ? startGameTx(tx, room) : null;
+  });
+  if (started) await sendPush(code, whoToNotify(null, started));
+  return {};
+});
+
+/** صاحب الروم الخاص يشيل بوت (الطاولة ما بدأت للحين). */
+export const removeBot = onCall(async (req) => {
+  const uid = requireAuth(req);
+  const code = String(req.data?.code ?? '');
+  const botId = String(req.data?.botId ?? '');
+  await db.runTransaction(async (tx) => {
+    const ref = db.doc(`rooms/${code}`);
+    const room = (await tx.get(ref)).data() as Room | undefined;
+    if (!room || room.status !== 'waiting' || room.hostId !== uid || !isBot(botId)) {
+      throw new HttpsError('permission-denied', 'ما تقدر تشيله');
+    }
+    tx.update(ref, { players: room.players.filter((p) => p.uid !== botId) });
+  });
+  return {};
 });
 
 /** الطلوع من غرفة الانتظار. لو كان فيه رسوم دخول ترجع لك. */
@@ -400,7 +506,7 @@ export const act = onCall(async (req) => {
     }
     const bumps = new Map<string, Partial<Record<MissionId, number>>>();
     if (action.type === 'enact') {
-      bumps.set(prev.state.presidentId, { legislate1: 1 });
+      if (!isBot(prev.state.presidentId)) bumps.set(prev.state.presidentId, { legislate1: 1 });
       bumps.set(uid, { legislate1: 1 });
     }
     if (action.type === 'claim') bumps.set(uid, { claim2: 1 });
@@ -421,9 +527,11 @@ async function finishTurn(
   next: GameState,
   bumps: Map<string, Partial<Record<MissionId, number>>>,
 ): Promise<Note[]> {
+  next = runInstantBots(next);
   const now = Date.now();
   const over = next.phase === 'gameOver';
-  const uids = over ? next.players.map((p) => p.id) : [...bumps.keys()];
+  const humans = next.players.filter((p) => !isBot(p.id));
+  const uids = over ? humans.map((p) => p.id) : [...bumps.keys()];
   const roomRef = db.doc(`rooms/${code}`);
   const room = over ? ((await tx.get(roomRef)).data() as Room) : null;
   const profiles = await Promise.all(uids.map((uid) => readProfile(db, tx, uid)));
@@ -439,12 +547,13 @@ async function finishTurn(
     return whoToNotify(prev.state, next);
   }
 
+  // البوتات ما يدفعون، فالجائزة من رسوم البشر بس. ونصيب البوت الفايز ما يروح لأحد.
   const winners = next.players.filter((p) => teamOf(p.role) === next.winner);
-  const pot = room.entryFee * next.players.length;
+  const pot = room.entryFee * humans.length;
   const share = winners.length ? Math.floor(pot / winners.length) : 0;
   const week = gulfWeek(now);
   const results: Record<string, GameResult> = {};
-  next.players.forEach((player, i) => {
+  humans.forEach((player, i) => {
     const won = teamOf(player.role) === next.winner;
     const p = profiles[i];
     const xp = XP_PER_GAME + (won ? XP_PER_WIN : 0);
@@ -483,7 +592,12 @@ export const timeout = onCall(async (req) => {
     if (prev.deadline === null || Date.now() < prev.deadline) return null;
 
     let next = prev.state;
-    for (const [id, a] of timeoutActions(prev.state, Math.random)) next = applyAction(next, id, a);
+    const actors = currentActors(prev.state);
+    if (actors.length === 1 && isBot(actors[0])) {
+      next = applyAction(next, actors[0], botAction(next, actors[0])!);
+    } else {
+      for (const [id, a] of timeoutActions(prev.state, Math.random)) next = applyAction(next, id, a);
+    }
     return finishTurn(tx, code, prev, next, new Map());
   });
   if (notes) await sendPush(code, notes);
