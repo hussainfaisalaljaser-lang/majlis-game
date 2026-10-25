@@ -641,7 +641,9 @@ class _GameScreenState extends State<GameScreen> {
                               selectable: selectable,
                               onSelect: onSelect,
                               onNote: _editNote,
-                              spotlight: v.phase == Phase.election ? {v.presidentId, ?v.nomineeId} : null,
+                              spotlight: v.phase == Phase.election && !_seerPicking && _pendingReaction == null
+                                  ? {v.presidentId, ?v.nomineeId}
+                                  : null,
                               center: _TableCenter(view: v, name: (id) => _name(v, id)),
                             ),
                           ),
@@ -731,15 +733,16 @@ class _TableCenter extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final v = view;
-    final pres = name(v.presidentId);
-    final nominee = name(v.nomineeId);
+    // "أنت" تبي فعل للمخاطب: أنت تختار، مو أنت يختار.
+    String verb(String? id, String he, String you) => id == v.you ? 'أنت $you' : '${name(id)} $he';
+    final power = powerName[v.pendingPower];
     final (icon, text) = switch (v.phase) {
-      Phase.nomination => ('👑', '$pres يختار وزير'),
+      Phase.nomination => ('👑', verb(v.presidentId, 'يختار وزير', 'تختار وزير')),
       Phase.election => ('🗳️', 'التصويت'),
-      Phase.presidentDiscard => ('🃏', '$pres يختار الكروت'),
-      Phase.chancellorEnact => ('📜', '$nominee يمرر قرار'),
+      Phase.presidentDiscard => ('🃏', verb(v.presidentId, 'يختار الكروت', 'تختار الكروت')),
+      Phase.chancellorEnact => ('📜', verb(v.nomineeId, 'يمرر قرار', 'تمرر قرار')),
       Phase.vetoResponse => ('✋', 'الوزير طلب فيتو'),
-      Phase.power => (powerEmoji[v.pendingPower]!, '$pres يستخدم ${powerName[v.pendingPower]}'),
+      Phase.power => (powerEmoji[v.pendingPower]!, verb(v.presidentId, 'يستخدم $power', 'تستخدم $power')),
       Phase.gameOver => ('🏁', 'انتهت اللعبة'),
     };
     final lastClaims = v.claims.where((c) => c.round == v.claims.lastOrNull?.round).toList();
