@@ -87,7 +87,8 @@ class GameView {
         claimCount = (j['claimable'] as Map?)?['count'] as int?,
         winnerLoyal = j['winner'] == null ? null : j['winner'] == 'loyal',
         winReason = j['winReason'] as String?,
-        log = [for (final e in j['log'] as List) GameEvent.fromJson(_map(e))];
+        log = [for (final e in j['log'] as List) GameEvent.fromJson(_map(e))],
+        deadline = j['deadline'] == null ? null : DateTime.fromMillisecondsSinceEpoch(j['deadline'] as int);
 
   static Map<String, dynamic> _map(Object? o) => Map<String, dynamic>.from(o as Map);
 
@@ -115,6 +116,9 @@ class GameView {
   final bool? winnerLoyal;
   final String? winReason;
   final List<GameEvent> log;
+
+  /// آخر وقت للدور الحالي. بعده السيرفر يلعب بدال اللي تأخر.
+  final DateTime? deadline;
 
   ViewPlayer player(String id) => players.firstWhere((p) => p.id == id);
   ViewPlayer get me => player(you);

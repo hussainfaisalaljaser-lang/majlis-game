@@ -5,7 +5,18 @@
 import assert from 'node:assert/strict';
 import { deleteApp, initializeApp, type FirebaseApp } from 'firebase/app';
 import { connectAuthEmulator, getAuth, signInAnonymously } from 'firebase/auth';
-import { connectFirestoreEmulator, doc, getDoc, getFirestore } from 'firebase/firestore';
+import {
+  collection,
+  connectFirestoreEmulator,
+  doc,
+  getDoc,
+  getDocs,
+  getFirestore,
+  limit,
+  orderBy,
+  query,
+  where,
+} from 'firebase/firestore';
 import { connectFunctionsEmulator, getFunctions, httpsCallable } from 'firebase/functions';
 import type { PlayerView } from '../../engine/src/index.js';
 
@@ -156,6 +167,22 @@ async function main(): Promise<void> {
   await expectError(notPresident.call('act', { code, action: { type: 'nominate', chancellor: host.uid } }), 'failed-precondition');
   console.log('✓ السيرفر يرفض الحركات الغلط');
 
+  // ٤ب. المؤقت: قبل الوقت ما يصير شي، وبعده السيرفر يلعب بدال الرئيس
+  const v1 = (await host.view(code)) as PlayerView & { deadline: number };
+  assert.equal(v1.phase, 'nomination');
+  assert.ok(v1.deadline > Date.now(), 'فيه وقت للدور');
+  assert.equal((await host.call<{ applied: boolean }>('timeout', { code })).applied, false);
+  await new Promise((r) => setTimeout(r, v1.deadline - Date.now() + 300));
+  assert.equal((await rest[0].call<{ applied: boolean }>('timeout', { code })).applied, true);
+  assert.equal((await rest[1].call<{ applied: boolean }>('timeout', { code })).applied, false, 'مرة وحدة بس');
+  const v2 = (await host.view(code)) as PlayerView & { deadline: number };
+  assert.equal(v2.phase, 'election');
+  assert.ok(v2.deadline > v1.deadline, 'مؤقت جديد للتصويت');
+  await host.call('act', { code, action: { type: 'vote', ja: true } });
+  const v3 = (await host.view(code)) as PlayerView & { deadline: number };
+  assert.equal(v3.deadline, v2.deadline, 'الصوت الواحد ما يغير المؤقت');
+  console.log('✓ المؤقت: ينتظر لين يخلص الوقت، ويرشح بدال الرئيس مرة وحدة، والتصويت له وقته');
+
   // ٥. نكمل اللعب لين النهاية
   const before = await Promise.all(players.map((p) => p.profile()));
   const end = await playToEnd(players, code);
@@ -170,6 +197,33 @@ async function main(): Promise<void> {
     assert.equal(after.gamesWon, r.won ? 1 : 0);
   }
   console.log('✓ نهاية الروم الخاص: خبرة للكل، والفايزين انحسب لهم فوز');
+
+  // ٥ب. المهام اليومية
+  const m0 = (await rest[0].profile()).missions;
+  assert.equal(m0.progress.play3, 1);
+  assert.equal(m0.progress.react5, 1);
+  await expectError(rest[0].call('claimMission', { id: 'play3' }), 'failed-precondition');
+  await expectError(rest[0].call('claimMission', { id: 'nope' }), 'invalid-argument');
+  const withMissions = await Promise.all(players.map(async (p) => ({ p, m: (await p.profile()).missions })));
+  const legislator = withMissions.find(({ m }) => m.progress.legislate1 === 1);
+  assert.ok(legislator, 'واحد على الأقل مرّر قرار');
+  const coins0 = (await legislator.p.profile()).coins;
+  assert.equal((await legislator.p.call<{ coins: number }>('claimMission', { id: 'legislate1' })).coins, 250);
+  assert.equal((await legislator.p.profile()).coins, coins0 + 250);
+  await expectError(legislator.p.call('claimMission', { id: 'legislate1' }), 'failed-precondition');
+  console.log('✓ المهام: التقدم ينحسب، وما تنستلم قبل ما تخلص، وتنستلم مرة وحدة');
+
+  // ٥ج. جدول الترتيب
+  const boardDb = getFirestore(host.app);
+  const all = await getDocs(query(collection(boardDb, 'leaderboard'), orderBy('gamesWon', 'desc'), limit(50)));
+  assert.equal(all.size, 5);
+  const top = all.docs[0].data();
+  assert.ok(top.gamesWon >= 1 && top.name && top.avatar && top.coins === undefined, 'بدون الذهب');
+  const weekly = await getDocs(
+    query(collection(boardDb, 'leaderboard'), where('week', '==', top.week), orderBy('weeklyWins', 'desc')),
+  );
+  assert.equal(weekly.docs[0].data().weeklyWins, 1);
+  console.log('✓ جدول الترتيب: الكل والأسبوعي، والذهب ما يطلع للناس');
 
   // ٦. الطاولات: مقفلة بالمستوى، والرسوم تنخصم وترجع لو طلعت
   await expectError(host.call('quickMatch', { maxPlayers: 5, tierId: 'palace' }), 'permission-denied');

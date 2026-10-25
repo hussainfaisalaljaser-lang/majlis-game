@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { gulfDay, levelFor } from '../src/economy.js';
+import { bumpMissions, gulfWeek } from '../src/missions.js';
 import { dailyClaim, newProfile } from '../src/profile.js';
 
 const day = (iso: string) => Date.parse(iso);
@@ -36,6 +37,24 @@ describe('الهدية اليومية', () => {
   it('ما تنفع مرتين في نفس اليوم', () => {
     const p = { ...newProfile(), lastDaily: '2026-11-05', dailyStreak: 1 };
     assert.throws(() => dailyClaim(p, day('2026-11-05T20:00:00Z')));
+  });
+});
+
+describe('المهام والأسابيع', () => {
+  it('الأسبوع يبدأ يوم الأحد بتوقيت الخليج', () => {
+    // ٢٠٢٦/١٠/٢٤ سبت، و٢٠٢٦/١٠/٢٥ أحد.
+    assert.equal(gulfWeek(day('2026-10-24T12:00:00Z')), gulfWeek(day('2026-10-18T12:00:00Z')));
+    assert.notEqual(gulfWeek(day('2026-10-24T12:00:00Z')), gulfWeek(day('2026-10-25T12:00:00Z')));
+    // السبت ١١ بالليل بتوقيت جرينتش = الأحد ٢ الفجر عندنا.
+    assert.equal(gulfWeek(day('2026-10-24T23:00:00Z')), gulfWeek(day('2026-10-25T12:00:00Z')));
+  });
+
+  it('التقدم ما يتعدى الهدف، ويتصفر مع يوم جديد', () => {
+    let m = bumpMissions(undefined, day('2026-11-01T10:00:00Z'), { play3: 2 });
+    m = bumpMissions(m, day('2026-11-01T11:00:00Z'), { play3: 5, react5: 1 });
+    assert.deepEqual(m.progress, { play3: 3, react5: 1 });
+    const tomorrow = bumpMissions({ ...m, claimed: ['play3'] }, day('2026-11-02T10:00:00Z'), { win1: 1 });
+    assert.deepEqual(tomorrow, { day: '2026-11-02', progress: { win1: 1 }, claimed: [] });
   });
 });
 

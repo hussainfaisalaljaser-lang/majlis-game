@@ -6,16 +6,28 @@ import { HttpsError, onCall, type CallableRequest } from 'firebase-functions/v2/
 import {
   MAX_PLAYERS,
   MIN_PLAYERS,
+  PHASE_SECONDS,
   RuleError,
   applyAction,
   createGame,
   teamOf,
+  timeoutActions,
+  turnKey,
   viewFor,
   type Action,
   type GameState,
 } from '../../engine/src/index.js';
 import { XP_PER_GAME, XP_PER_WIN, levelFor, tierById, type TableTier } from './economy.js';
-import { cleanAvatar, cleanName, dailyClaim, newProfile, readProfile, type Profile } from './profile.js';
+import { MISSIONS, bumpMissions, gulfWeek, todaysMissions, type MissionId } from './missions.js';
+import {
+  cleanAvatar,
+  cleanName,
+  dailyClaim,
+  newProfile,
+  readProfile,
+  toLeaderboard,
+  type Profile,
+} from './profile.js';
 
 initializeApp();
 setGlobalOptions({ region: 'europe-west1', maxInstances: 10 });
@@ -97,6 +109,7 @@ async function newRoomCode(): Promise<string> {
 }
 
 const userRef = (uid: string) => db.doc(`users/${uid}`);
+const boardRef = (uid: string) => db.doc(`leaderboard/${uid}`);
 const asPlayer = (uid: string, p: Profile): RoomPlayer => ({ uid, name: p.name, avatar: p.avatar });
 
 /** يتأكد إن اللاعب يقدر يدخل الطاولة (المستوى والذهب والـ VIP). */
@@ -120,13 +133,32 @@ function startGameTx(tx: Transaction, room: Room): void {
     randomInt(2 ** 31),
   );
   tx.update(db.doc(`rooms/${room.code}`), { status: 'playing' });
-  writeGame(tx, room.code, state);
+  writeGame(tx, room.code, state, deadlineFor(state, Date.now()));
 }
 
-function writeGame(tx: Transaction, code: string, state: GameState): void {
+/** آخر وقت للدور الحالي (بالملي ثانية). */
+function deadlineFor(state: GameState, now: number): number | null {
+  if (state.phase === 'gameOver') return null;
+  return now + PHASE_SECONDS[state.phase] * 1000;
+}
+
+/** نحفظ الحالة الكاملة مع المؤقت، ونسخة لكل لاعب. */
+function writeGame(tx: Transaction, code: string, state: GameState, deadline: number | null): void {
   const gameRef = db.doc(`games/${code}`);
-  tx.set(gameRef, state);
-  for (const p of state.players) tx.set(gameRef.collection('views').doc(p.id), viewFor(state, p.id));
+  tx.set(gameRef, { ...state, deadline, turnKey: turnKey(state) });
+  for (const p of state.players) {
+    tx.set(gameRef.collection('views').doc(p.id), { ...viewFor(state, p.id), deadline });
+  }
+}
+
+interface StoredGame extends GameState {
+  deadline: number | null;
+  turnKey: string;
+}
+
+function splitGame(data: StoredGame): { state: GameState; deadline: number | null; key: string } {
+  const { deadline, turnKey: key, ...state } = data;
+  return { state, deadline, key };
 }
 
 /** يسوي ملف اللاعب لو أول مرة يدخل. التطبيق يتابع الملف مباشرة من Firestore. */
@@ -143,8 +175,9 @@ export const updateProfile = onCall(async (req) => {
   const name = cleanName(req.data?.name);
   const avatar = cleanAvatar(req.data?.avatar);
   await db.runTransaction(async (tx) => {
-    const p = await readProfile(db, tx, uid);
-    tx.set(userRef(uid), { ...p, name, avatar, setupDone: true });
+    const p = { ...(await readProfile(db, tx, uid)), name, avatar, setupDone: true };
+    tx.set(userRef(uid), p);
+    tx.set(boardRef(uid), toLeaderboard(p));
   });
   return {};
 });
@@ -308,46 +341,122 @@ export const act = onCall(async (req) => {
   await db.runTransaction(async (tx) => {
     const snap = await tx.get(db.doc(`games/${code}`));
     if (!snap.exists) throw new HttpsError('not-found', 'اللعبة مو موجودة');
+    const prev = splitGame(snap.data() as StoredGame);
     let next: GameState;
     try {
-      next = applyAction(snap.data() as GameState, uid, action);
+      next = applyAction(prev.state, uid, action);
     } catch (e) {
       if (e instanceof RuleError) throw new HttpsError('failed-precondition', e.message, { code: e.code });
       throw e;
     }
-
-    if (next.phase !== 'gameOver') {
-      writeGame(tx, code, next);
-      return;
+    const bumps = new Map<string, Partial<Record<MissionId, number>>>();
+    if (action.type === 'enact') {
+      bumps.set(prev.state.presidentId, { legislate1: 1 });
+      bumps.set(uid, { legislate1: 1 });
     }
-    // انتهت اللعبة: نقرا الروم وملفات اللاعبين قبل أي كتابة (شرط Firestore)، ثم نوزع الجائزة.
-    const roomRef = db.doc(`rooms/${code}`);
-    const room = (await tx.get(roomRef)).data() as Room;
-    const profiles = await Promise.all(next.players.map((p) => readProfile(db, tx, p.id)));
-    const winners = next.players.filter((p) => teamOf(p.role) === next.winner);
-    const pot = room.entryFee * next.players.length;
-    const share = winners.length ? Math.floor(pot / winners.length) : 0;
-
-    const results: Record<string, GameResult> = {};
-    next.players.forEach((player, i) => {
-      const won = teamOf(player.role) === next.winner;
-      const p = profiles[i];
-      const xp = XP_PER_GAME + (won ? XP_PER_WIN : 0);
-      const coins = won ? share : 0;
-      results[player.id] = { won, coins, xp };
-      tx.set(userRef(player.id), {
-        ...p,
-        coins: p.coins + coins,
-        xp: p.xp + xp,
-        level: levelFor(p.xp + xp),
-        gamesPlayed: p.gamesPlayed + 1,
-        gamesWon: p.gamesWon + (won ? 1 : 0),
-      });
-    });
-    writeGame(tx, code, next);
-    tx.update(roomRef, { status: 'finished', results });
+    if (action.type === 'claim') bumps.set(uid, { claim2: 1 });
+    await finishTurn(tx, code, prev, next, bumps);
   });
   return {};
+});
+
+/**
+ * يكمّل أي تغيير في اللعبة: يقرا اللي يحتاجه (الروم والملفات) قبل أي كتابة (شرط Firestore)،
+ * ثم يحفظ الحالة والمؤقت، ويحدّث المهام، ويوزع الجوائز لو انتهت اللعبة.
+ */
+async function finishTurn(
+  tx: Transaction,
+  code: string,
+  prev: { state: GameState; deadline: number | null; key: string },
+  next: GameState,
+  bumps: Map<string, Partial<Record<MissionId, number>>>,
+): Promise<void> {
+  const now = Date.now();
+  const over = next.phase === 'gameOver';
+  const uids = over ? next.players.map((p) => p.id) : [...bumps.keys()];
+  const roomRef = db.doc(`rooms/${code}`);
+  const room = over ? ((await tx.get(roomRef)).data() as Room) : null;
+  const profiles = await Promise.all(uids.map((uid) => readProfile(db, tx, uid)));
+
+  const deadline = turnKey(next) === prev.key ? prev.deadline : deadlineFor(next, now);
+  writeGame(tx, code, next, deadline);
+
+  if (!room) {
+    uids.forEach((uid, i) => {
+      const p = profiles[i];
+      tx.set(userRef(uid), { ...p, missions: bumpMissions(p.missions, now, bumps.get(uid)!) });
+    });
+    return;
+  }
+
+  const winners = next.players.filter((p) => teamOf(p.role) === next.winner);
+  const pot = room.entryFee * next.players.length;
+  const share = winners.length ? Math.floor(pot / winners.length) : 0;
+  const week = gulfWeek(now);
+  const results: Record<string, GameResult> = {};
+  next.players.forEach((player, i) => {
+    const won = teamOf(player.role) === next.winner;
+    const p = profiles[i];
+    const xp = XP_PER_GAME + (won ? XP_PER_WIN : 0);
+    const coins = won ? share : 0;
+    results[player.id] = { won, coins, xp };
+    const updated: Profile = {
+      ...p,
+      coins: p.coins + coins,
+      xp: p.xp + xp,
+      level: levelFor(p.xp + xp),
+      gamesPlayed: p.gamesPlayed + 1,
+      gamesWon: p.gamesWon + (won ? 1 : 0),
+      week,
+      weeklyWins: (p.week === week ? (p.weeklyWins ?? 0) : 0) + (won ? 1 : 0),
+      missions: bumpMissions(p.missions, now, { ...bumps.get(player.id), play3: 1, ...(won ? { win1: 1 } : {}) }),
+    };
+    tx.set(userRef(player.id), updated);
+    tx.set(boardRef(player.id), toLeaderboard(updated));
+  });
+  tx.update(roomRef, { status: 'finished', results });
+}
+
+/**
+ * أي لاعب في الطاولة يطلبها لما يخلص الوقت. السيرفر يتأكد إن الوقت خلص فعلاً،
+ * ثم يلعب بدال اللي تأخر. لو أكثر من واحد طلبها بنفس اللحظة، وحدة بس تنفذ.
+ */
+export const timeout = onCall(async (req) => {
+  const uid = requireAuth(req);
+  const code = String(req.data?.code ?? '');
+  return db.runTransaction(async (tx) => {
+    const snap = await tx.get(db.doc(`games/${code}`));
+    if (!snap.exists) throw new HttpsError('not-found', 'اللعبة مو موجودة');
+    const prev = splitGame(snap.data() as StoredGame);
+    if (!prev.state.players.some((p) => p.id === uid)) throw new HttpsError('permission-denied', 'أنت مو في هذي اللعبة');
+    if (prev.deadline === null || Date.now() < prev.deadline) return { applied: false };
+
+    let next = prev.state;
+    for (const [id, a] of timeoutActions(prev.state, Math.random)) next = applyAction(next, id, a);
+    await finishTurn(tx, code, prev, next, new Map());
+    return { applied: true };
+  });
+});
+
+/** يستلم مكافأة مهمة خلصها اليوم. */
+export const claimMission = onCall(async (req) => {
+  const uid = requireAuth(req);
+  const mission = MISSIONS.find((m) => m.id === req.data?.id);
+  if (!mission) throw new HttpsError('invalid-argument', 'مهمة مو معروفة');
+  return db.runTransaction(async (tx) => {
+    const p = await readProfile(db, tx, uid);
+    const today = todaysMissions(p.missions, Date.now());
+    if (today.claimed.includes(mission.id)) throw new HttpsError('failed-precondition', 'استلمتها من قبل');
+    if ((today.progress[mission.id] ?? 0) < mission.target) {
+      throw new HttpsError('failed-precondition', 'ما خلصت المهمة للحين');
+    }
+    tx.set(userRef(uid), {
+      ...p,
+      coins: p.coins + mission.coins,
+      missions: { ...today, claimed: [...today.claimed, mission.id] },
+    });
+    return { coins: mission.coins };
+  });
 });
 
 /** رد سريع في الطاولة. بعض الردود تحتاج لاعب مستهدف (مثل أشك في فلان). */
@@ -361,6 +470,7 @@ export const react = onCall(async (req) => {
   await db.runTransaction(async (tx) => {
     const ref = db.doc(`rooms/${code}`);
     const room = (await tx.get(ref)).data() as Room | undefined;
+    const profile = await readProfile(db, tx, uid);
     if (!room || room.status !== 'playing') throw new HttpsError('failed-precondition', 'اللعبة مو شغالة');
     if (!room.players.some((p) => p.uid === uid)) throw new HttpsError('permission-denied', 'أنت مو في هذي الطاولة');
     if (target !== null && (target === uid || !room.players.some((p) => p.uid === target))) {
@@ -373,6 +483,7 @@ export const react = onCall(async (req) => {
     const update: Record<string, unknown> = { reactions };
     if (kind === 'suspect' || kind === 'trust') update[`opinions.${uid}.${target}`] = kind;
     tx.update(ref, update);
+    tx.set(userRef(uid), { ...profile, missions: bumpMissions(profile.missions, now, { react5: 1 }) });
   });
   return {};
 });

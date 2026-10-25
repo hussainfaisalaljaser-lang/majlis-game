@@ -31,3 +31,13 @@ export function powerFor(players: number, traitorPolicyNumber: number): Power | 
   const table = players <= 6 ? small : players <= 8 ? medium : large;
   return table[traitorPolicyNumber - 1] ?? null;
 }
+
+/** كم ثانية لكل مرحلة قبل ما السيرفر يلعب بدال اللي تأخر. */
+export const PHASE_SECONDS = {
+  nomination: 30,
+  election: 25,
+  presidentDiscard: 20,
+  chancellorEnact: 20,
+  vetoResponse: 15,
+  power: 30,
+} as const;

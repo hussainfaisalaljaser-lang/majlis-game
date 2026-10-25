@@ -1,3 +1,5 @@
+import 'missions.dart';
+
 /// ملف اللاعب كما يحفظه السيرفر (functions/src/profile.ts).
 class Profile {
   const Profile({
@@ -13,6 +15,7 @@ class Profile {
     required this.gamesWon,
     required this.lastDaily,
     required this.dailyStreak,
+    this.missionsRaw = const MissionState(day: '', progress: {}, claimed: {}),
   });
 
   factory Profile.fromJson(Map<String, dynamic> j) => Profile(
@@ -28,6 +31,7 @@ class Profile {
         gamesWon: j['gamesWon'] as int,
         lastDaily: j['lastDaily'] as String?,
         dailyStreak: j['dailyStreak'] as int,
+        missionsRaw: MissionState.fromJson((j['missions'] as Map?)?.cast<String, dynamic>()),
       );
 
   /// للعرض التجريبي بدون سيرفر (نسخة الويب).
@@ -58,6 +62,12 @@ class Profile {
   final int gamesWon;
   final String? lastDaily;
   final int dailyStreak;
+  final MissionState missionsRaw;
+
+  /// مهام اليوم (لو المحفوظ من أمس تبدأ من الصفر).
+  MissionState get missions => missionsRaw.forDay(gulfDay(DateTime.now()));
+
+  int get claimableMissions => missionDefs.where(missions.isClaimable).length;
 
   static const xpPerLevel = 100;
   int get xpInLevel => xp % xpPerLevel;

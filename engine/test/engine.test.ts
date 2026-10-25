@@ -322,3 +322,35 @@ describe('لعب عشوائي', () => {
     }
   });
 });
+
+describe('المؤقت', () => {
+  it('لو خلص الوقت في كل مرحلة، حركات السيرفر دايماً مسموحة واللعبة تنتهي', async () => {
+    const { timeoutActions } = await import('../src/index.js');
+    for (let g = 0; g < 300; g++) {
+      let rng = g + 11;
+      const rand = () => {
+        const [v, n] = nextRandom(rng);
+        rng = n;
+        return v;
+      };
+      let s = createGame(ids(5 + (g % 6)), g);
+      let steps = 0;
+      while (s.phase !== 'gameOver') {
+        assert.ok(steps++ < 3000);
+        const actions = timeoutActions(s, rand);
+        assert.ok(actions.length > 0, `ما فيه حركة للمرحلة ${s.phase}`);
+        for (const [id, a] of actions) s = act(s, id, a);
+      }
+    }
+  });
+
+  it('التصويت الافتراضي رفض، وبس للي ما صوّتوا', async () => {
+    const { timeoutActions } = await import('../src/index.js');
+    let s = rigged(5, FIVE, Array(17).fill('L'));
+    s = act(s, 'p0', { type: 'nominate', chancellor: 'p1' });
+    s = act(s, 'p2', { type: 'vote', ja: true });
+    const actions = timeoutActions(s, Math.random);
+    assert.deepEqual(actions.map(([id]) => id), ['p0', 'p1', 'p3', 'p4']);
+    assert.ok(actions.every(([, a]) => a.type === 'vote' && a.ja === false));
+  });
+});

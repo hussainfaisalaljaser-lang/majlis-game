@@ -4,6 +4,8 @@ import '../services/backend.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
 import '../widgets/daily_reward.dart';
+import 'leaderboard_screen.dart';
+import 'missions_screen.dart';
 import 'profile_screen.dart';
 import 'tables_screen.dart';
 
@@ -26,6 +28,8 @@ class HomeScreen extends StatelessWidget {
             const _ProfileHeader(),
             const SizedBox(height: 14),
             _DailyBanner(onTap: () => showDailyReward(context)),
+            const SizedBox(height: 10),
+            const _MissionsCard(),
             const SizedBox(height: 14),
             _ModeCard(
               emoji: '🕵️',
@@ -66,7 +70,7 @@ class HomeScreen extends StatelessWidget {
                   title: 'الدوري',
                   subtitle: 'ترتيب أسبوعي',
                   colors: const [Color(0xFFF59E0B), Color(0xFF92400E)],
-                  onTap: () => _soon(context),
+                  onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const LeaderboardScreen())),
                 ),
                 _ModeCard(
                   emoji: '🤖',
@@ -86,6 +90,7 @@ class HomeScreen extends StatelessWidget {
         selectedIndex: 0,
         onDestinationSelected: (i) => switch (i) {
           0 => null,
+          2 => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const LeaderboardScreen())),
           3 => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ProfileScreen())),
           _ => _soon(context),
         },
@@ -96,6 +101,55 @@ class HomeScreen extends StatelessWidget {
           NavigationDestination(icon: Text('👤', style: TextStyle(fontSize: 22)), label: 'ملفي'),
         ],
       ),
+    );
+  }
+}
+
+/// ملخص المهام اليومية في الرئيسية، مع نقطة حمرا لو فيه مكافأة تنتظرك.
+class _MissionsCard extends StatelessWidget {
+  const _MissionsCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder(
+      valueListenable: Backend.instance.profile,
+      builder: (context, p, _) {
+        final claimable = p.claimableMissions;
+        final claimed = p.missions.claimed.length;
+        return InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const MissionsScreen())),
+          child: Ink(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            decoration: BoxDecoration(
+              color: AppColors.card,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: claimable > 0 ? AppColors.gold : AppColors.line, width: claimable > 0 ? 1.5 : 1),
+            ),
+            child: Row(
+              children: [
+                const Text('✅', style: TextStyle(fontSize: 24)),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('المهام اليومية', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
+                      Text(
+                        claimable > 0
+                            ? '🎁 عندك ${arabicNumber(claimable)} مكافأة تنتظرك!'
+                            : 'خلصت ${arabicNumber(claimed)} من ٥ · العب واكسب ذهب',
+                        style: TextStyle(fontSize: 12, color: claimable > 0 ? AppColors.gold : AppColors.muted),
+                      ),
+                    ],
+                  ),
+                ),
+                const Icon(Icons.chevron_left, color: AppColors.muted),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 }

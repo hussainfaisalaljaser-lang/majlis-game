@@ -64,9 +64,28 @@ class _GameScreenState extends State<GameScreen> {
       if (mounted) setState(() => _room = room);
     });
     // عشان فقاعات الردود تختفي بعد كم ثانية.
+    // كل ثانية: نحدّث العداد وفقاعات الردود، ونطلب من السيرفر يكمّل لو خلص الوقت.
     _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (mounted && (_room?.reactions.isNotEmpty ?? false)) setState(() {});
+      if (!mounted) return;
+      setState(() {});
+      _checkTimeout();
     });
+  }
+
+  DateTime? _lastTimeoutCall;
+
+  /// لو خلص وقت الدور، أي لاعب في الطاولة يطلب من السيرفر يكمّل. نوزع الطلبات على المقاعد
+  /// عشان ما يطلبون كلهم بنفس اللحظة، والسيرفر ينفذ مرة وحدة بس.
+  void _checkTimeout() {
+    final v = _view;
+    final deadline = v?.deadline;
+    if (v == null || deadline == null || v.phase == Phase.gameOver) return;
+    final now = DateTime.now();
+    final myDelay = Duration(milliseconds: 1000 + 400 * v.me.seat);
+    if (now.isBefore(deadline.add(myDelay))) return;
+    if (_lastTimeoutCall != null && now.difference(_lastTimeoutCall!).inSeconds < 3) return;
+    _lastTimeoutCall = now;
+    _backend.timeout(widget.code).catchError((_) => false);
   }
 
   @override
@@ -333,6 +352,55 @@ class _TableCenter extends StatelessWidget {
   }
 }
 
+/// شريط الوقت المتبقي للدور. يحمر في آخر ٥ ثواني.
+class _TurnTimer extends StatelessWidget {
+  const _TurnTimer({required this.view});
+
+  final GameView view;
+
+  /// نفس engine/src/rules.ts → PHASE_SECONDS.
+  static const _seconds = {
+    Phase.nomination: 30,
+    Phase.election: 25,
+    Phase.presidentDiscard: 20,
+    Phase.chancellorEnact: 20,
+    Phase.vetoResponse: 15,
+    Phase.power: 30,
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    final total = _seconds[view.phase] ?? 30;
+    final left = view.deadline!.difference(DateTime.now()).inSeconds.clamp(0, total);
+    final urgent = left <= 5;
+    final color = urgent ? AppColors.traitor : AppColors.gold;
+    return Row(
+      children: [
+        Text('⏱️', style: TextStyle(fontSize: urgent ? 16 : 14)),
+        const SizedBox(width: 6),
+        Expanded(
+          child: LinearProgressIndicator(
+            value: left / total,
+            minHeight: 6,
+            borderRadius: BorderRadius.circular(6),
+            backgroundColor: AppColors.card,
+            color: color,
+          ),
+        ),
+        const SizedBox(width: 8),
+        SizedBox(
+          width: 28,
+          child: Text(
+            arabicNumber(left),
+            textAlign: TextAlign.center,
+            style: TextStyle(color: color, fontWeight: FontWeight.w800),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 class _ActionPanel extends StatelessWidget {
   const _ActionPanel({
     required this.view,
@@ -382,6 +450,10 @@ class _ActionPanel extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
+          if (view.deadline != null && view.phase != Phase.gameOver) ...[
+            _TurnTimer(view: view),
+            const SizedBox(height: 10),
+          ],
           _main(context),
           const SizedBox(height: 10),
           _reactions(),

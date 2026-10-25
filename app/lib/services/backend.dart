@@ -5,6 +5,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 
 import '../firebase_options.dart';
+import '../models/leaderboard.dart';
 import '../models/profile.dart';
 import '../models/room.dart';
 
@@ -76,6 +77,21 @@ class Backend {
   Future<({int coins, int diamonds, int streak})> claimDaily() async {
     final r = await _call('claimDaily', {});
     return (coins: r['coins'] as int, diamonds: r['diamonds'] as int, streak: r['streak'] as int);
+  }
+
+  /// يرجع كم ذهب انضاف.
+  Future<int> claimMission(String id) async => (await _call('claimMission', {'id': id}))['coins'] as int;
+
+  /// يطلب من السيرفر يلعب بدال اللي خلص وقته. يرجع true لو انطبق.
+  Future<bool> timeout(String code) async => (await _call('timeout', {'code': code}))['applied'] == true;
+
+  /// أفضل ٥٠ لاعب: هذا الأسبوع (بعدد الفوز فيه) أو من البداية.
+  Stream<List<LeaderboardEntry>> watchLeaderboard({required bool weekly}) {
+    final col = _db.collection('leaderboard');
+    final q = weekly
+        ? col.where('week', isEqualTo: gulfWeek(DateTime.now())).orderBy('weeklyWins', descending: true)
+        : col.orderBy('gamesWon', descending: true);
+    return q.limit(50).snapshots().map((s) => [for (final d in s.docs) LeaderboardEntry.fromJson(d.id, d.data())]);
   }
 
   Future<String> createRoom({required int maxPlayers}) async {

@@ -1,6 +1,7 @@
 import { FieldValue, type Firestore, type Transaction } from 'firebase-admin/firestore';
 import { HttpsError } from 'firebase-functions/v2/https';
 import { DAILY_REWARDS, STARTING_COINS, gulfDay, levelFor, previousDay } from './economy.js';
+import type { MissionState } from './missions.js';
 
 export const AVATARS = ['😎', '👩', '🧔', '👨‍🦱', '👴', '👱‍♀️', '🧑', '👩‍🦰', '👨', '🧕', '🥷', '🤠', '👳‍♂️', '🧙', '🕵️', '🦸'];
 
@@ -18,7 +19,34 @@ export interface Profile {
   gamesWon: number;
   lastDaily: string | null;
   dailyStreak: number;
+  missions?: MissionState;
+  /** الفوز في هذا الأسبوع، لجدول الترتيب الأسبوعي. */
+  week?: string | null;
+  weeklyWins?: number;
   createdAt?: FieldValue;
+}
+
+/** اللي يطلع للكل في جدول الترتيب (بدون الذهب وباقي الخصوصيات). */
+export interface LeaderboardEntry {
+  name: string;
+  avatar: string;
+  level: number;
+  gamesWon: number;
+  gamesPlayed: number;
+  week: string | null;
+  weeklyWins: number;
+}
+
+export function toLeaderboard(p: Profile): LeaderboardEntry {
+  return {
+    name: p.name,
+    avatar: p.avatar,
+    level: p.level,
+    gamesWon: p.gamesWon,
+    gamesPlayed: p.gamesPlayed,
+    week: p.week ?? null,
+    weeklyWins: p.weeklyWins ?? 0,
+  };
 }
 
 export function newProfile(): Profile {
