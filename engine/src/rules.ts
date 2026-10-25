@@ -11,7 +11,14 @@ export const LEADER_DANGER_ZONE = 3;
 export const VETO_UNLOCK = 5;
 export const MAX_FAILED_ELECTIONS = 3;
 
+/** البوليسات: ١٧ (١١ خونة و٦ أوفياء)، تنخلط مرة وحدة بس في بداية اللعبة. */
 export const DECK = { L: 6, T: 11 } as const;
+
+/**
+ * لما تخلص خانة السحب: false = بوليسات خانة الرمي ترجع بنفس ترتيبها (أول وحدة انرمت أول وحدة تنسحب)،
+ * true = تنخلط من جديد. طور تجريبي، نقرر بعدين أي واحد نعتمد.
+ */
+export const RESHUFFLE_DISCARDS = false;
 
 /** عدد الخونة (بدون الزعيم) حسب عدد اللاعبين. */
 export function traitorCount(players: number): number {

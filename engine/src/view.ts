@@ -42,6 +42,8 @@ export interface PlayerView {
   lastElected: GameState['lastElected'];
   electionTracker: number;
   drawPileCount: number;
+  /** كم بوليسة في خانة الرمي. */
+  discardPileCount: number;
   loyalPolicies: number;
   traitorPolicies: number;
   pendingPower: Power | null;
@@ -111,6 +113,7 @@ export function viewFor(s: GameState, playerId: PlayerId): PlayerView {
     lastElected: s.lastElected,
     electionTracker: s.electionTracker,
     drawPileCount: s.drawPile.length,
+    discardPileCount: s.discardPile.length,
     loyalPolicies: s.loyalPolicies,
     traitorPolicies: s.traitorPolicies,
     pendingPower: s.pendingPower,

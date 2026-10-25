@@ -87,6 +87,7 @@ class GameView {
         lastChancellor = (j['lastElected'] as Map?)?['chancellor'] as String?,
         electionTracker = j['electionTracker'] as int,
         drawPileCount = j['drawPileCount'] as int,
+        discardPileCount = j['discardPileCount'] as int? ?? 0,
         loyalPolicies = j['loyalPolicies'] as int,
         traitorPolicies = j['traitorPolicies'] as int,
         pendingPower = j['pendingPower'] == null ? null : Power.values.byName(j['pendingPower'] as String),
@@ -120,6 +121,7 @@ class GameView {
   final String? lastChancellor;
   final int electionTracker;
   final int drawPileCount;
+  final int discardPileCount;
   final int loyalPolicies;
   final int traitorPolicies;
   final Power? pendingPower;

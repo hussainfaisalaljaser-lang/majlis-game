@@ -224,6 +224,29 @@ describe('القدرات', () => {
   });
 });
 
+describe('البوليسات', () => {
+  it('خانة الرمي ترجع لخانة السحب بنفس ترتيب الرمي (أول مرمية أول مسحوبة)', () => {
+    let s = rigged(5, FIVE, ['T', 'L', 'T']);
+    s.discardPile = ['L', 'T', 'L', 'T'];
+    s = act(s, 'p0', { type: 'nominate', chancellor: 'p1' });
+    s = voteAll(s, true);
+    s = act(s, 'p0', { type: 'discard', index: 0 }); // يرمي T
+    s = act(s, 'p1', { type: 'enact', index: 0 }); // يمرر L ويرمي T
+    assert.equal(s.loyalPolicies, 1);
+    assert.deepEqual(s.drawPile, ['L', 'T', 'L', 'T', 'T', 'T']);
+    assert.deepEqual(s.discardPile, []);
+  });
+
+  it('لو باقي بوليسة أو ثنتين، المرمية تنحط تحتها', () => {
+    let s = rigged(5, FIVE, ['L', 'L', 'L', 'T']);
+    s.discardPile = ['T', 'T'];
+    s = govern(s, 'p1');
+    // سحب ٣ وبقى T وحدة، فالمرمية (القديمة ثم الجديدة) تنحط تحتها
+    assert.deepEqual(s.drawPile, ['T', 'T', 'T', 'L', 'L']);
+    assert.equal(viewFor(s, 'p2').discardPileCount, 0);
+  });
+});
+
 describe('الفيتو', () => {
   function vetoReady(): GameState {
     let s = rigged(5, FIVE, ['T', 'T', 'T', 'L', 'L', 'L']);

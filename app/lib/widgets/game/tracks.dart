@@ -77,7 +77,7 @@ class PolicyTracks extends StatelessWidget {
                 border: Border.all(color: AppColors.line),
               ),
               child: Text(
-                '🂠 ${arabicNumber(view.drawPileCount)} كرت',
+                '🂠 سحب ${arabicNumber(view.drawPileCount)} · 🗑️ رمي ${arabicNumber(view.discardPileCount)}',
                 style: const TextStyle(color: AppColors.muted, fontSize: 12, fontWeight: FontWeight.w700),
               ),
             ),

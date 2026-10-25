@@ -1,5 +1,6 @@
 import {
   DECK,
+  RESHUFFLE_DISCARDS,
   LEADER_DANGER_ZONE,
   LOYAL_TO_WIN,
   MAX_FAILED_ELECTIONS,
@@ -351,13 +352,20 @@ function startRound(s: GameState, presidentId: PlayerId): void {
   s.phase = 'nomination';
 }
 
-/** لو الكروت المتبقية أقل من المطلوب، نخلط المرمية معها. */
+/**
+ * لو خانة السحب ما فيها كفاية، بوليسات خانة الرمي تنحط تحت الباقي فيها.
+ * خانة الرمي مرتبة بترتيب الرمي، فأول بوليسة انرمت تكون أول وحدة تنسحب منها (إلا لو RESHUFFLE_DISCARDS).
+ */
 function ensureDeck(s: GameState, needed: number): void {
   if (s.drawPile.length >= needed) return;
-  const [shuffled, rng] = shuffle([...s.drawPile, ...s.discardPile], s.rngState);
-  s.drawPile = shuffled;
+  if (RESHUFFLE_DISCARDS) {
+    const [shuffled, rng] = shuffle([...s.drawPile, ...s.discardPile], s.rngState);
+    s.drawPile = shuffled;
+    s.rngState = rng;
+  } else {
+    s.drawPile = [...s.drawPile, ...s.discardPile];
+  }
   s.discardPile = [];
-  s.rngState = rng;
 }
 
 function endGame(s: GameState, winner: Team, reason: WinReason): GameState {
