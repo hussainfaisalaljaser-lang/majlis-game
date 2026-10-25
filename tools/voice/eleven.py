@@ -8,7 +8,7 @@ ELEVEN_STABILITY: 0 = حماسي ومعبّر، 0.5 = طبيعي، 1 = ثابت.
 
 يحتاج ELEVENLABS_API_KEY. الصوت لازم يكون مضاف في حسابك (My Voices).
 """
-import json, os, sys, urllib.error, urllib.request
+import json, os, re, sys, urllib.error, urllib.request
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 LINES = json.load(open(os.path.join(HERE, 'lines.json'), encoding='utf-8'))
@@ -16,11 +16,26 @@ KEY = os.environ['ELEVENLABS_API_KEY']
 MODEL = os.environ.get('ELEVEN_MODEL') or 'eleven_v3'
 
 
-def say(text, voice, path, stability=None):
-    body = {'text': text, 'model_id': MODEL, 'language_code': 'ar'}
+def say(text, voice, path, stability=None, cfg=None):
+    cfg = cfg or {}
+    model = cfg.get('model', MODEL)
+    if cfg.get('strip_tags'):
+        text = re.sub(r'\[[^\]]+\]\s*', '', text)
+    text = cfg.get('prefix', '') + text
+    body = {'text': text, 'model_id': model}
+    if not cfg.get('no_lang') and model == 'eleven_v3':
+        body['language_code'] = 'ar'
     stability = os.environ.get('ELEVEN_STABILITY') if stability is None else stability
+    stability = cfg.get('stability', stability)
+    settings = {}
     if stability not in (None, ''):
-        body['voice_settings'] = {'stability': float(stability)}
+        settings['stability'] = float(stability)
+    if 'similarity' in cfg:
+        settings['similarity_boost'] = cfg['similarity']
+    if 'style' in cfg:
+        settings['style'] = cfg['style']
+    if settings:
+        body['voice_settings'] = settings
     req = urllib.request.Request(
         f'https://api.elevenlabs.io/v1/text-to-speech/{voice}?output_format=mp3_44100_128',
         data=json.dumps(body).encode(),
@@ -50,14 +65,15 @@ def main():
         for key, text in LINES['lines'].items():
             say(text, voice, os.path.join(out, key + '.mp3'))
             print('✓', key)
-    elif mode == 'variants':
+    elif mode == 'experiment':
+        # نفس الجمل بأكثر من إعداد (نموذج ولهجة ومشاعر)، عشان نقارن
         voice, out = sys.argv[2], sys.argv[3]
         os.makedirs(out, exist_ok=True)
-        for key, options in LINES['variants'].items():
-            for i, text in enumerate(options, 1):
-                for stab, label in ((0.0, 'creative'), (0.5, 'natural')):
-                    say(text, voice, os.path.join(out, f'{key}_{i}_{label}.mp3'), stab)
-                    print('✓', key, i, label)
+        exp = LINES['experiment']
+        for name, cfg in exp['configs'].items():
+            for key, text in exp['texts'].items():
+                say(text, voice, os.path.join(out, f'{name}__{key}.mp3'), cfg=cfg)
+                print('✓', name, key)
     elif mode == 'preview':
         voice, out = sys.argv[2], sys.argv[3]
         os.makedirs(out, exist_ok=True)

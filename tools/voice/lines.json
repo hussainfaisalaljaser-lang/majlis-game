@@ -34,30 +34,34 @@
     "power_execute": "[dramatic tone] الرئيس بيطيّر واحد من المجلس…",
     "executed": "[sad] طار من المجلس… الله يعينه.",
     "guarded": "[excited] نجا! طلع حارس!",
-    "hurry": "[urgent] باقي خمس ثواني، بسرعة!",
+    "hurry": "[excited] يالله… الوقت بيخلص!",
     "win_loyal": "[excited] فازوا الأوفياء! ألف مبروك!",
     "win_traitor": "[laughs] فازوا الخونة! هاردلك يا الأوفياء."
   },
-  "variants": {
-    "gov_passed": [
-      "[cheerful] وافقوا على الحكومة!",
-      "[excited] الحكومة مَشَت!",
-      "[cheerful] الحكومة نجحت!"
-    ],
-    "enact_traitor": [
-      "[serious] قرار جديد للخونة…",
-      "[whispers] نزل قرار للخونة…",
-      "[sad] للأسف… قرار للخونة."
-    ],
-    "chaos": [
-      "[excited] فوضى! أول قرار في الكومة نزل لحاله!",
-      "[surprised] يا ساتر… فوضى! نزل قرار لحاله!",
-      "[dramatic tone] فوضى… والقرار نزل لحاله!"
-    ],
-    "hurry": [
-      "[excited] باقي لك خمس ثواني… يالله بسرعة!",
-      "بسرعة! باقي خمس ثواني.",
-      "[whispers] يالله… الوقت بيخلص!"
-    ]
+  "experiment": {
+    "texts": {
+      "gov_passed": "[excited] الحكومة مشت! وافقوا عليها!",
+      "enact_traitor": "[sad] يا خسارة… نزل قرار للخونة.",
+      "chaos": "[surprised] يا ساتر! فوضى… القرار نزل لحاله!"
+    },
+    "configs": {
+      "A_v3_saudi_tag": {
+        "model": "eleven_v3",
+        "prefix": "[Saudi accent] ",
+        "stability": 0.0
+      },
+      "B_v3_no_lang": {
+        "model": "eleven_v3",
+        "no_lang": true,
+        "stability": 0.0
+      },
+      "C_v2_expressive": {
+        "model": "eleven_multilingual_v2",
+        "strip_tags": true,
+        "stability": 0.3,
+        "similarity": 0.9,
+        "style": 0.6
+      }
+    }
   }
 }
