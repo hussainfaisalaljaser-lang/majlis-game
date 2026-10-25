@@ -42,10 +42,12 @@
   },
   "experiment": {
     "texts": {
-      "power_investigate__a": "الرئيس بيتحرّى عن واحد منكم… ويشوف هو وفي ولا خاين!",
-      "power_investigate__b": "يا ويل اللي بيختاره… الرئيس بيحقق معه!",
-      "power_investigate__c": "الرئيس بيعرف سر واحد منكم!",
-      "power_investigate__d": "تحقيق! الرئيس بيختار واحد ويكشف فريقه."
+      "power_investigate__a": "الرئيس بيحقق…",
+      "power_investigate__b": "يلا يا رئيس… اختار مين تحقق معه!",
+      "power_investigate__c": "هالحين الرئيس بيشوف… مين الصادق ومين الكذاب.",
+      "power_investigate__d": "اللحظة الحاسمة! الرئيس بيحقق مع لاعب.",
+      "power_investigate__e": "الرئيس بيختار واحد منكم… ويعرف إذا هو منّا ولا من الخونة.",
+      "power_investigate__f": "انتبهوا يا جماعة… فيه تحقيق!"
     },
     "configs": {
       "take1": {
