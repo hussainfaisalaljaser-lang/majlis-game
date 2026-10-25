@@ -1,0 +1,46 @@
+# صوت الراوي العربي: يولّد عينات الأصوات أو كل جمل اللعبة بـ Google Text-to-Speech.
+# يشتغل يدوي من صفحة Actions، أو لما تتغير الجمل في tools/voice.
+name: Narrator voice
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'samples = عينة لكل صوت، lines = كل الجمل'
+        default: samples
+      voice:
+        description: 'اسم الصوت (لـ lines)'
+        default: ''
+  push:
+    branches: ['**']
+    paths: ['tools/voice/**', '.github/workflows/voice.yml']
+
+jobs:
+  tts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install google-auth requests
+      - name: Generate
+        env:
+          SA: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          MODE: ${{ inputs.mode || 'samples' }}
+          VOICE: ${{ inputs.voice || '' }}
+        run: |
+          echo "$SA" > "$RUNNER_TEMP/sa.json"
+          export GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/sa.json"
+          # لو فيه ملف tools/voice/voice.txt، هذا الصوت المعتمد ونولّد كل الجمل فيه
+          if [ -z "$VOICE" ] && [ -f tools/voice/voice.txt ]; then MODE=lines; VOICE=$(cat tools/voice/voice.txt); fi
+          if [ "$MODE" = lines ]; then
+            python tools/voice/tts.py lines "$VOICE" out/voice
+          else
+            python tools/voice/tts.py samples out/samples
+          fi
+          rm "$RUNNER_TEMP/sa.json"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: voice
+          path: out
