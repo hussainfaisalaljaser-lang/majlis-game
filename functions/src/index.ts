@@ -4,7 +4,6 @@ import { FieldValue, getFirestore, type Transaction } from 'firebase-admin/fires
 import { getMessaging } from 'firebase-admin/messaging';
 import { logger, setGlobalOptions } from 'firebase-functions/v2';
 import { HttpsError, onCall, type CallableRequest } from 'firebase-functions/v2/https';
-import { onSchedule } from 'firebase-functions/v2/scheduler';
 import {
   MAX_PLAYERS,
   MIN_PLAYERS,
@@ -300,6 +299,8 @@ export const ensureProfile = onCall(async (req) => {
     const rewarded = applyLevelRewards(p);
     if (rewarded !== p || (p.dev ?? false) !== dev) tx.set(userRef(uid), { ...rewarded, dev });
   });
+  // أسبوع جديد؟ نتوّج أبطال اللي فات (مرة وحدة). أي خطأ هنا ما يمنع اللاعب يدخل.
+  await maybeCrown(Date.now()).catch((e) => logger.warn('التتويج', e));
   return {};
 });
 
@@ -968,12 +969,23 @@ async function crownChampions(week: string, now: number): Promise<string[]> {
   return list.map((c) => c.uid);
 }
 
-/** كل أحد ١٢:٠٢ بالليل (الخليج): تتويج أبطال الأسبوع اللي خلص. */
-export const weeklyChampions = onSchedule({ schedule: '2 0 * * 0', timeZone: 'Asia/Riyadh' }, async () => {
-  const now = Date.now();
-  const champions = await crownChampions(gulfWeek(now - 3600_000), now);
-  logger.info('أبطال الأسبوع', { champions });
-});
+/**
+ * تتويج أبطال الأسبوع اللي خلص، أول ما يفتح أي لاعب اللعبة بعد بداية أسبوع جديد (الأحد).
+ * القفل في meta/crownLock يضمن إنه يصير مرة وحدة بس لكل أسبوع حتى لو فتح أكثر من لاعب بنفس اللحظة.
+ */
+async function maybeCrown(now: number): Promise<void> {
+  const lastWeek = gulfWeek(now - 7 * 86400_000);
+  const lockRef = db.doc('meta/crownLock');
+  const mine = await db.runTransaction(async (tx) => {
+    const lock = (await tx.get(lockRef)).data();
+    if (lock?.week === lastWeek) return false;
+    tx.set(lockRef, { week: lastWeek, at: now });
+    return true;
+  });
+  if (!mine) return;
+  const champions = await crownChampions(lastWeek, now);
+  logger.info('أبطال الأسبوع', { week: lastWeek, champions });
+}
 
 /** يستلم مكافأة مهمة خلصها اليوم. */
 export const claimMission = onCall(async (req) => {
