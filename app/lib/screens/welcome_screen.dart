@@ -37,43 +37,61 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
     return NightScaffold(
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(24, 12, 24, 20),
-          child: Column(
+          padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 12),
+          child: Row(
             children: [
-              const Spacer(),
-              ClipRRect(
-                borderRadius: BorderRadius.circular(36),
-                child: Image.asset('assets/logo.png', width: 150, height: 150),
+              // الشعار والشخصيات
+              Expanded(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(30),
+                      child: Image.asset('assets/logo.png', width: 120, height: 120),
+                    ),
+                    const SizedBox(height: 8),
+                    const GoldText('مجلس الخونة', size: 38),
+                    const SizedBox(height: 4),
+                    const Text(
+                      'بينكم خونة… اكشفهم قبل لا يحكمون المجلس',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: AppColors.muted, fontSize: 14),
+                    ),
+                    const SizedBox(height: 12),
+                    const _Faces(),
+                  ],
+                ),
               ),
-              const SizedBox(height: 18),
-              const GoldText('مجلس الخونة', size: 40),
-              const SizedBox(height: 8),
-              const Text(
-                'بينكم خونة… اكشفهم قبل لا يحكمون المجلس',
-                textAlign: TextAlign.center,
-                style: TextStyle(color: AppColors.muted, fontSize: 15),
+              const SizedBox(width: 28),
+              // طريقة الدخول
+              Expanded(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    GoogleButton(onPressed: _busy ? null : _google),
+                    const SizedBox(height: 8),
+                    const Text(
+                      '🎁 ٥٠٠ ذهب هدية، وحسابك ينحفظ لو غيّرت جوالك',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: AppColors.gold, fontSize: 13, fontWeight: FontWeight.w700),
+                    ),
+                    const SizedBox(height: 22),
+                    GameButton(
+                      label: 'ادخل كضيف',
+                      semantics: 'ادخل كضيف',
+                      tone: ButtonTone.ghost,
+                      height: 50,
+                      fontSize: 17,
+                      onPressed: _busy ? null : () => setState(() => _pickProfile = true),
+                    ),
+                    const SizedBox(height: 6),
+                    const Text(
+                      'تقدر تربط حسابك بعدين من «ملفي»',
+                      style: TextStyle(color: AppColors.muted, fontSize: 12),
+                    ),
+                  ],
+                ),
               ),
-              const SizedBox(height: 26),
-              const _Faces(),
-              const Spacer(),
-              GoogleButton(onPressed: _busy ? null : _google),
-              const SizedBox(height: 8),
-              const Text(
-                '🎁 ٥٠٠ ذهب هدية، وحسابك ينحفظ لو غيّرت جوالك',
-                textAlign: TextAlign.center,
-                style: TextStyle(color: AppColors.gold, fontSize: 13, fontWeight: FontWeight.w700),
-              ),
-              const SizedBox(height: 14),
-              GameButton(
-                label: 'ادخل كضيف',
-                semantics: 'ادخل كضيف',
-                tone: ButtonTone.ghost,
-                height: 50,
-                fontSize: 17,
-                onPressed: _busy ? null : () => setState(() => _pickProfile = true),
-              ),
-              const SizedBox(height: 6),
-              const Text('تقدر تربط حسابك بعدين من «ملفي»', style: TextStyle(color: AppColors.muted, fontSize: 12)),
             ],
           ),
         ),

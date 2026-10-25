@@ -385,50 +385,87 @@ class _GameScreenState extends State<GameScreen> {
     return PopScope(
       canPop: v.phase == Phase.gameOver,
       child: NightScaffold(
-        appBar: AppBar(
-          automaticallyImplyLeading: v.phase == Phase.gameOver,
-          title: Text('الجولة ${arabicNumber(v.round)}'),
-          actions: [
-            GestureDetector(
-              onTap: _showRole,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  color: roleColor.withValues(alpha: .15),
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: roleColor.withValues(alpha: .6)),
-                ),
-                child: Text(
-                  '$roleName${special == null ? '' : ' · ${specialInfo[special]!.$1}'}',
-                  style: TextStyle(color: roleColor == AppColors.loyal ? AppColors.loyalLight : AppColors.traitorLight, fontWeight: FontWeight.w800, fontSize: 13),
-                ),
-              ),
-            ),
-            ValueListenableBuilder(
-              valueListenable: Sfx.muted,
-              builder: (context, muted, _) => IconButton(
-                tooltip: muted ? 'شغّل الصوت' : 'اكتم الصوت',
-                onPressed: Sfx.toggle,
-                icon: GameIcon(muted ? 'mute' : 'sound', size: 22, color: AppColors.muted),
-              ),
-            ),
-            IconButton(
-              tooltip: 'السجل',
-              onPressed: () => showGameLog(context, v),
-              icon: const GameIcon('scroll', size: 24, color: AppColors.gold),
-            ),
-          ],
-        ),
         body: SafeArea(
-          top: false,
           child: Stack(
             children: [
-              Column(
+              Row(
                 children: [
-                  Padding(padding: const EdgeInsets.symmetric(horizontal: 12), child: PolicyTracks(view: v)),
+                  // اللوحة الجانبية (يمين): الجولة والمسارات وحركتك والردود.
+                  _SidePanel(
+                    header: Row(
+                      children: [
+                        if (v.phase == Phase.gameOver)
+                          IconButton(
+                            visualDensity: VisualDensity.compact,
+                            onPressed: () => Navigator.of(context).maybePop(),
+                            icon: const Icon(Icons.arrow_forward, size: 20),
+                          ),
+                        Text(
+                          'الجولة ${arabicNumber(v.round)}',
+                          style: const TextStyle(fontFamily: kufi, fontWeight: FontWeight.w700, fontSize: 17),
+                        ),
+                        const SizedBox(width: 8),
+                        Flexible(
+                          child: GestureDetector(
+                            onTap: _showRole,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                              decoration: BoxDecoration(
+                                color: roleColor.withValues(alpha: .15),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: roleColor.withValues(alpha: .6)),
+                              ),
+                              child: Text(
+                                '$roleName${special == null ? '' : ' · ${specialInfo[special]!.$1}'}',
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  color: roleColor == AppColors.loyal ? AppColors.loyalLight : AppColors.traitorLight,
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                        const Spacer(),
+                        ValueListenableBuilder(
+                          valueListenable: Sfx.muted,
+                          builder: (context, muted, _) => IconButton(
+                            visualDensity: VisualDensity.compact,
+                            tooltip: muted ? 'شغّل الصوت' : 'اكتم الصوت',
+                            onPressed: Sfx.toggle,
+                            icon: GameIcon(muted ? 'mute' : 'sound', size: 20, color: AppColors.muted),
+                          ),
+                        ),
+                        IconButton(
+                          visualDensity: VisualDensity.compact,
+                          tooltip: 'السجل',
+                          onPressed: () => showGameLog(context, v),
+                          icon: const GameIcon('scroll', size: 22, color: AppColors.gold),
+                        ),
+                      ],
+                    ),
+                    tracks: PolicyTracks(view: v),
+                    action: _ActionPanel(
+                      view: v,
+                      busy: _busy,
+                      name: (id) => _name(v, id),
+                      pendingReaction: _pendingReaction,
+                      claimDismissed: _claimDismissedRound == v.round,
+                      onAct: _act,
+                      onCancelReaction: () => setState(() => _pendingReaction = null),
+                      onDismissClaim: () => setState(() => _claimDismissedRound = v.round),
+                    ),
+                    reactions: v.phase == Phase.gameOver
+                        ? null
+                        : _Reactions(
+                            onReact: (kind) =>
+                                kind.needsTarget ? setState(() => _pendingReaction = kind) : _react(kind),
+                          ),
+                  ),
                   Expanded(
                     child: Padding(
-                      padding: const EdgeInsets.fromLTRB(6, 24, 6, 2),
+                      padding: const EdgeInsets.fromLTRB(4, 4, 4, 4),
                       child: GameTable(
                         view: v,
                         room: _room,
@@ -439,17 +476,6 @@ class _GameScreenState extends State<GameScreen> {
                         center: _TableCenter(view: v, name: (id) => _name(v, id)),
                       ),
                     ),
-                  ),
-                  _ActionPanel(
-                    view: v,
-                    busy: _busy,
-                    name: (id) => _name(v, id),
-                    pendingReaction: _pendingReaction,
-                    claimDismissed: _claimDismissedRound == v.round,
-                    onAct: _act,
-                    onReact: (kind) => kind.needsTarget ? setState(() => _pendingReaction = kind) : _react(kind),
-                    onCancelReaction: () => setState(() => _pendingReaction = null),
-                    onDismissClaim: () => setState(() => _claimDismissedRound = v.round),
                   ),
                 ],
               ),
@@ -466,6 +492,42 @@ class _GameScreenState extends State<GameScreen> {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// اللوحة الجانبية بالعرض: فوق الجولة والمسارات، وتحت حركتك والردود السريعة.
+class _SidePanel extends StatelessWidget {
+  const _SidePanel({required this.header, required this.tracks, required this.action, this.reactions});
+
+  final Widget header;
+  final Widget tracks;
+  final Widget action;
+  final Widget? reactions;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 290,
+      padding: const EdgeInsets.fromLTRB(10, 4, 10, 8),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [Color(0xEE221A46), Color(0xEE160F2E)],
+        ),
+        borderRadius: const BorderRadiusDirectional.horizontal(end: Radius.circular(24)),
+        border: BorderDirectional(end: BorderSide(color: AppColors.gold.withValues(alpha: .35), width: 2)),
+      ),
+      child: Column(
+        children: [
+          header,
+          FittedBox(fit: BoxFit.scaleDown, child: SizedBox(width: 380, child: tracks)),
+          Divider(height: 12, color: AppColors.gold.withValues(alpha: .2)),
+          Expanded(child: action),
+          if (reactions != null) ...[const SizedBox(height: 6), reactions!],
+        ],
       ),
     );
   }
@@ -570,7 +632,6 @@ class _ActionPanel extends StatelessWidget {
     required this.pendingReaction,
     required this.claimDismissed,
     required this.onAct,
-    required this.onReact,
     required this.onCancelReaction,
     required this.onDismissClaim,
   });
@@ -581,7 +642,6 @@ class _ActionPanel extends StatelessWidget {
   final ReactionKind? pendingReaction;
   final bool claimDismissed;
   final ValueChanged<Map<String, dynamic>> onAct;
-  final ValueChanged<ReactionKind> onReact;
   final VoidCallback onCancelReaction;
   final VoidCallback onDismissClaim;
 
@@ -604,26 +664,18 @@ class _ActionPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Color(0xFF221A46), Color(0xFF160F2E)]),
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-        border: Border(top: BorderSide(color: AppColors.gold.withValues(alpha: .35), width: 2)),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (view.deadline != null && view.phase != Phase.gameOver) ...[
-            _TurnTimer(view: view),
-            const SizedBox(height: 10),
-          ],
-          _main(context),
-          const SizedBox(height: 10),
-          _reactions(),
+    return Column(
+      children: [
+        if (view.deadline != null && view.phase != Phase.gameOver) ...[
+          _TurnTimer(view: view),
+          const SizedBox(height: 6),
         ],
-      ),
+        Expanded(
+          child: Center(
+            child: SingleChildScrollView(child: _main(context)),
+          ),
+        ),
+      ],
     );
   }
 
@@ -753,11 +805,11 @@ class _ActionPanel extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               for (final p in v.peeked ?? const <Policy>[])
-                Padding(padding: const EdgeInsets.all(4), child: PolicyCard(policy: p, skin: _skin, width: 80)),
+                Padding(padding: const EdgeInsets.all(4), child: PolicyCard(policy: p, skin: _skin, width: 66)),
             ],
           ),
-          const SizedBox(height: 10),
-          GameButton(label: 'تمام', onPressed: busy ? null : () => onAct({'type': 'acknowledgePeek'})),
+          const SizedBox(height: 8),
+          GameButton(label: 'تمام', height: 46, fontSize: 17, onPressed: busy ? null : () => onAct({'type': 'acknowledgePeek'})),
         ]);
       case Phase.power when v.amPresident:
         return _hint('${powerEmoji[v.pendingPower]} ${powerName[v.pendingPower]}: اختر لاعب من الطاولة 👆');
@@ -788,7 +840,7 @@ class _ActionPanel extends StatelessWidget {
       children: [
         for (final (i, p) in hand.indexed)
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 6),
+            padding: const EdgeInsets.symmetric(horizontal: 5),
             child: TweenAnimationBuilder<double>(
               tween: Tween(begin: 0, end: 1),
               duration: Duration(milliseconds: 300 + i * 120),
@@ -797,6 +849,7 @@ class _ActionPanel extends StatelessWidget {
               child: PolicyCard(
                 policy: p,
                 skin: _skin,
+                width: hand.length == 3 ? 72 : 80,
                 label: '$verb كرت ${i + 1} ${p == Policy.loyal ? 'أوفياء' : 'خونة'}',
                 onTap: busy
                     ? null
@@ -811,16 +864,24 @@ class _ActionPanel extends StatelessWidget {
     );
   }
 
-  Widget _reactions() {
-    if (view.phase == Phase.gameOver) return const SizedBox.shrink();
+}
+
+/// الردود السريعة: بدال الشات، كلها إيموجي وعبارات جاهزة.
+class _Reactions extends StatelessWidget {
+  const _Reactions({required this.onReact});
+
+  final ValueChanged<ReactionKind> onReact;
+
+  @override
+  Widget build(BuildContext context) {
     return SizedBox(
-      height: 36,
+      height: 32,
       child: ListView(
         scrollDirection: Axis.horizontal,
         children: [
           for (final k in ReactionKind.values)
             Padding(
-              padding: const EdgeInsets.only(left: 6),
+              padding: const EdgeInsetsDirectional.only(end: 6),
               child: Semantics(
                 button: true,
                 label: 'رد ${k.name}',
@@ -828,14 +889,17 @@ class _ActionPanel extends StatelessWidget {
                 child: GestureDetector(
                   onTap: () => onReact(k),
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                    padding: const EdgeInsets.symmetric(horizontal: 9),
                     alignment: Alignment.center,
                     decoration: BoxDecoration(
                       color: Colors.black.withValues(alpha: .3),
-                      borderRadius: BorderRadius.circular(18),
+                      borderRadius: BorderRadius.circular(16),
                       border: Border.all(color: Colors.white.withValues(alpha: .14), width: 1.5),
                     ),
-                    child: Text(k.label.isEmpty ? k.emoji : '${k.emoji} ${k.label}', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
+                    child: Text(
+                      k.label.isEmpty ? k.emoji : '${k.emoji} ${k.label}',
+                      style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700),
+                    ),
                   ),
                 ),
               ),
@@ -875,74 +939,114 @@ class _GameOver extends StatelessWidget {
     final loyalWon = view.winnerLoyal ?? false;
     final iWon = (view.yourRole == Role.loyal) == loyalWon;
     final teamColor = loyalWon ? AppColors.loyal : AppColors.traitor;
+    final roles = [
+      for (final p in view.players)
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 3),
+          child: Row(
+            children: [
+              PlayerAvatar(avatar: room?.player(p.id)?.avatar ?? 'masked', size: 32, dead: !p.alive),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  p.id == view.you ? 'أنت' : p.name,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontWeight: FontWeight.w700),
+                ),
+              ),
+              if (p.knownSpecial != null) Text('${specialInfo[p.knownSpecial]!.$1}  ', style: const TextStyle(fontSize: 12)),
+              Text(
+                roleInfo[p.knownRole]!.$1,
+                style: TextStyle(
+                  fontFamily: kufi,
+                  color: p.knownRole == Role.loyal ? AppColors.loyalLight : AppColors.traitorLight,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+        ),
+    ];
     return Container(
       color: Colors.black.withValues(alpha: .78),
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsets.all(12),
       child: Center(
-        child: SingleChildScrollView(
-          child: TweenAnimationBuilder<double>(
-            tween: Tween(begin: .8, end: 1),
-            duration: const Duration(milliseconds: 600),
-            curve: Curves.elasticOut,
-            builder: (context, s, child) => Transform.scale(scale: s, child: child),
-            child: Container(
-              padding: const EdgeInsets.fromLTRB(16, 20, 16, 18),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(26),
-                gradient: RadialGradient(
-                  center: const Alignment(0, -1),
-                  radius: 1.3,
-                  colors: [teamColor.withValues(alpha: .45), AppColors.panel],
-                ),
-                border: Border.all(color: AppColors.gold.withValues(alpha: .6), width: 2),
+        child: TweenAnimationBuilder<double>(
+          tween: Tween(begin: .8, end: 1),
+          duration: const Duration(milliseconds: 600),
+          curve: Curves.elasticOut,
+          builder: (context, s, child) => Transform.scale(scale: s, child: child),
+          child: Container(
+            constraints: const BoxConstraints(maxWidth: 680),
+            padding: const EdgeInsets.fromLTRB(18, 14, 18, 14),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(26),
+              gradient: RadialGradient(
+                center: const AlignmentDirectional(-.6, -1).resolve(Directionality.of(context)),
+                radius: 1.4,
+                colors: [teamColor.withValues(alpha: .45), AppColors.panel],
               ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
+              border: Border.all(color: AppColors.gold.withValues(alpha: .6), width: 2),
+            ),
+            child: ConstrainedBox(
+              constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(context).height - 50),
+              child: Row(
                 children: [
-                  Text(iWon ? '🏆' : '💔', style: const TextStyle(fontSize: 60)),
-                  GoldText(iWon ? 'فزت!' : 'خسرت', size: 38),
-                  const SizedBox(height: 4),
-                  Text(
-                    '${loyalWon ? 'فاز الأوفياء 🔵' : 'فاز الخونة 🔴'} · ${_winReasons[view.winReason] ?? ''}',
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(fontSize: 15, color: Color(0xFFD9CFFF)),
-                  ),
-                  if (room?.results[view.you] case final r?) ...[
-                    const SizedBox(height: 12),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
+                  // النتيجة
+                  Expanded(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
                       children: [
-                        if (r.coins > 0) _Reward('+${arabicNumber(r.coins)} 🪙', AppColors.gold),
-                        if (r.coins > 0) const SizedBox(width: 10),
-                        _Reward('+${arabicNumber(r.xp)} ⭐', AppColors.diamond),
-                      ],
-                    ),
-                  ],
-                  const SizedBox(height: 16),
-                  const Text('الأدوار الحقيقية', style: TextStyle(fontFamily: kufi, fontWeight: FontWeight.w700, fontSize: 16)),
-                  const SizedBox(height: 8),
-                  for (final p in view.players)
-                    Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 3),
-                      child: Row(
-                        children: [
-                          PlayerAvatar(avatar: room?.player(p.id)?.avatar ?? 'masked', size: 34, dead: !p.alive),
-                          const SizedBox(width: 10),
-                          Expanded(child: Text(p.id == view.you ? 'أنت' : p.name, style: const TextStyle(fontWeight: FontWeight.w700))),
-                          if (p.knownSpecial != null) Text('${specialInfo[p.knownSpecial]!.$1}  ', style: const TextStyle(fontSize: 12)),
-                          Text(
-                            roleInfo[p.knownRole]!.$1,
-                            style: TextStyle(
-                              fontFamily: kufi,
-                              color: p.knownRole == Role.loyal ? AppColors.loyalLight : AppColors.traitorLight,
-                              fontWeight: FontWeight.w700,
-                            ),
+                        Text(iWon ? '🏆' : '💔', style: const TextStyle(fontSize: 50)),
+                        GoldText(iWon ? 'فزت!' : 'خسرت', size: 36),
+                        const SizedBox(height: 2),
+                        Text(
+                          '${loyalWon ? 'فاز الأوفياء 🔵' : 'فاز الخونة 🔴'}\n${_winReasons[view.winReason] ?? ''}',
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(fontSize: 14, color: Color(0xFFD9CFFF)),
+                        ),
+                        if (room?.results[view.you] case final r?) ...[
+                          const SizedBox(height: 10),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              if (r.coins > 0) _Reward('+${arabicNumber(r.coins)} 🪙', AppColors.gold),
+                              if (r.coins > 0) const SizedBox(width: 10),
+                              _Reward('+${arabicNumber(r.xp)} ⭐', AppColors.diamond),
+                            ],
                           ),
                         ],
-                      ),
+                        const SizedBox(height: 14),
+                        GameButton(
+                          label: '🏠 الرئيسية',
+                          semantics: 'الرئيسية',
+                          height: 48,
+                          fontSize: 17,
+                          onPressed: () => Navigator.of(context).popUntil((r) => r.isFirst),
+                        ),
+                      ],
                     ),
-                  const SizedBox(height: 16),
-                  GameButton(label: '🏠 الرئيسية', semantics: 'الرئيسية', onPressed: () => Navigator.of(context).popUntil((r) => r.isFirst)),
+                  ),
+                  SizedBox(height: 180, child: VerticalDivider(width: 28, color: AppColors.gold.withValues(alpha: .25))),
+                  // الأدوار الحقيقية
+                  Expanded(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Text(
+                          'الأدوار الحقيقية',
+                          style: TextStyle(fontFamily: kufi, fontWeight: FontWeight.w700, fontSize: 16),
+                        ),
+                        const SizedBox(height: 6),
+                        Flexible(
+                          child: ConstrainedBox(
+                            constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(context).height - 110),
+                            child: SingleChildScrollView(child: Column(children: roles)),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ],
               ),
             ),

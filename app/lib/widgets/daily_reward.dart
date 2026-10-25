@@ -45,7 +45,7 @@ class _DailyRewardDialogState extends State<_DailyRewardDialog> {
       backgroundColor: AppColors.panel,
       title: const Text('🎁 الهدية اليومية', textAlign: TextAlign.center),
       content: SizedBox(
-        width: 320,
+        width: 560,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -105,7 +105,7 @@ class _DayTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: day == 7 ? 140 : 66,
+      width: day == 7 ? 100 : 66,
       padding: const EdgeInsets.symmetric(vertical: 8),
       decoration: BoxDecoration(
         color: done ? const Color(0xFF163D26) : AppColors.card,

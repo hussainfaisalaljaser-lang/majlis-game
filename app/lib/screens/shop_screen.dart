@@ -40,11 +40,19 @@ class ShopScreen extends StatelessWidget {
             indicatorColor: AppColors.gold,
             labelColor: AppColors.gold,
             unselectedLabelColor: AppColors.muted,
-            tabs: [Tab(text: '🖼️ الإطارات'), Tab(text: '🃏 الكروت'), Tab(text: '💎 الجواهر')],
+            tabs: [
+              Tab(text: '🖼️ الإطارات'),
+              Tab(text: '🃏 الكروت'),
+              Tab(text: '💎 الجواهر'),
+            ],
           ),
         ),
         body: const TabBarView(
-          children: [_ItemsGrid(slot: ShopSlot.frame), _ItemsGrid(slot: ShopSlot.cards), _DiamondPacks()],
+          children: [
+            _ItemsGrid(slot: ShopSlot.frame),
+            _ItemsGrid(slot: ShopSlot.cards),
+            _DiamondPacks(),
+          ],
         ),
       ),
     );
@@ -98,12 +106,12 @@ class _ItemsGridState extends State<_ItemsGrid> {
     return ValueListenableBuilder(
       valueListenable: Backend.instance.profile,
       builder: (context, p, _) => GridView.builder(
-        padding: const EdgeInsets.all(14),
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 2,
-          mainAxisSpacing: 12,
-          crossAxisSpacing: 12,
-          childAspectRatio: .72,
+        padding: const EdgeInsets.fromLTRB(14, 10, 14, 14),
+        gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+          maxCrossAxisExtent: 190,
+          mainAxisSpacing: 10,
+          crossAxisSpacing: 10,
+          mainAxisExtent: 196,
         ),
         itemCount: items.length,
         itemBuilder: (context, i) {
@@ -162,7 +170,7 @@ class _ItemCard extends StatelessWidget {
     }
 
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
         color: AppColors.card,
         borderRadius: BorderRadius.circular(16),
@@ -178,25 +186,32 @@ class _ItemCard extends StatelessWidget {
                 color: item.rarity.color.withValues(alpha: .15),
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: Text(item.rarity.label, style: TextStyle(color: item.rarity.color, fontSize: 11, fontWeight: FontWeight.w700)),
+              child: Text(
+                item.rarity.label,
+                style: TextStyle(color: item.rarity.color, fontSize: 11, fontWeight: FontWeight.w700),
+              ),
             ),
           ),
           Expanded(
             child: Center(
               child: item.slot == ShopSlot.frame
-                  ? PlayerAvatar(avatar: profile.avatar, style: item.frame, size: 84)
+                  ? PlayerAvatar(avatar: profile.avatar, style: item.frame, size: 72)
                   : Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Transform.scale(scale: .62, child: PolicyCard(policy: Policy.loyal, skin: item.cards)),
-                        Transform.scale(scale: .62, child: PolicyCard(policy: Policy.traitor, skin: item.cards)),
+                        PolicyCard(policy: Policy.loyal, skin: item.cards, width: 50),
+                        const SizedBox(width: 6),
+                        PolicyCard(policy: Policy.traitor, skin: item.cards, width: 50),
                       ],
                     ),
             ),
           ),
           Text(item.name, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
           const SizedBox(height: 8),
-          SizedBox(width: double.infinity, child: Semantics(label: 'غرض ${item.id}', child: action)),
+          SizedBox(
+            width: double.infinity,
+            child: Semantics(label: 'غرض ${item.id}', child: action),
+          ),
         ],
       ),
     );
@@ -225,38 +240,50 @@ class _DiamondPacks extends StatelessWidget {
             style: TextStyle(color: Color(0xFFC9BFFF), height: 1.6),
           ),
         ),
-        const SizedBox(height: 14),
-        for (final pack in diamondPacks)
-          Container(
-            margin: const EdgeInsets.only(bottom: 10),
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: AppColors.card,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: AppColors.line),
-            ),
-            child: Row(
-              children: [
-                const Text('💎', style: TextStyle(fontSize: 34)),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('${arabicNumber(pack.diamonds)} جوهرة', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 17)),
-                      if (pack.bonus.isNotEmpty)
-                        Text('${pack.bonus} زيادة', style: const TextStyle(color: AppColors.green, fontSize: 12)),
-                    ],
-                  ),
+        const SizedBox(height: 12),
+        GridView.count(
+          crossAxisCount: 2,
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          mainAxisSpacing: 10,
+          crossAxisSpacing: 10,
+          childAspectRatio: 4.2,
+          children: [
+            for (final pack in diamondPacks)
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: AppColors.card,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: AppColors.line),
                 ),
-                OutlinedButton(
-                  style: OutlinedButton.styleFrom(minimumSize: const Size(110, 44)),
-                  onPressed: null,
-                  child: Text(pack.price),
+                child: Row(
+                  children: [
+                    const Text('💎', style: TextStyle(fontSize: 34)),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '${arabicNumber(pack.diamonds)} جوهرة',
+                            style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 17),
+                          ),
+                          if (pack.bonus.isNotEmpty)
+                            Text('${pack.bonus} زيادة', style: const TextStyle(color: AppColors.green, fontSize: 12)),
+                        ],
+                      ),
+                    ),
+                    OutlinedButton(
+                      style: OutlinedButton.styleFrom(minimumSize: const Size(110, 44)),
+                      onPressed: null,
+                      child: Text(pack.price),
+                    ),
+                  ],
                 ),
-              ],
-            ),
-          ),
+              ),
+          ],
+        ),
       ],
     );
   }

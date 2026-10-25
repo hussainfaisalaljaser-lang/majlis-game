@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
 import 'screens/home_screen.dart';
@@ -15,6 +16,9 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   // في نسخة التجربة على الويب نفعّل طبقة الوصول، عشان الاختبارات الآلية تقدر تضغط الأزرار بأسمائها.
   if (kIsWeb && const bool.fromEnvironment('USE_EMULATOR')) SemanticsBinding.instance.ensureSemantics();
+  // اللعبة بالعرض، مثل ألعاب الطاولة. ونخفي أشرطة النظام عشان الشاشة كلها للعبة.
+  await SystemChrome.setPreferredOrientations([DeviceOrientation.landscapeLeft, DeviceOrientation.landscapeRight]);
+  SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
   await Future.wait([Backend.instance.init(), Sfx.init()]);
   runApp(const MajlisApp());
   await Push.init();

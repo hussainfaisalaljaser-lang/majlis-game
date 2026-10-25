@@ -71,40 +71,56 @@ class _RoleRevealState extends State<_RoleReveal> with SingleTickerProviderState
     final front = _CardFace(
       glow: color,
       edge: dark,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
+      child: Row(
         children: [
-          PlayerAvatar(avatar: me?.avatar ?? 'masked', frame: color, size: 108),
-          const SizedBox(height: 10),
-          Text(name, style: TextStyle(fontFamily: kufi, fontSize: 38, fontWeight: FontWeight.w700, color: dark)),
-          if (special != null)
-            Container(
-              margin: const EdgeInsets.only(top: 2),
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
-              decoration: BoxDecoration(color: dark, borderRadius: BorderRadius.circular(10)),
-              child: Text(specialInfo[special]!.$1, style: const TextStyle(fontFamily: kufi, fontWeight: FontWeight.w700)),
-            ),
-          const SizedBox(height: 8),
-          Text(
-            special == null ? goal : specialInfo[special]!.$2,
-            textAlign: TextAlign.center,
-            style: const TextStyle(color: AppColors.ink, fontSize: 14, height: 1.6, fontWeight: FontWeight.w600),
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              PlayerAvatar(avatar: me?.avatar ?? 'masked', frame: color, size: 96),
+              const SizedBox(height: 4),
+              Text(name, style: TextStyle(fontFamily: kufi, fontSize: 32, fontWeight: FontWeight.w700, color: dark)),
+              if (special != null)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+                  decoration: BoxDecoration(color: dark, borderRadius: BorderRadius.circular(10)),
+                  child: Text(
+                    specialInfo[special]!.$1,
+                    style: const TextStyle(fontFamily: kufi, fontWeight: FontWeight.w700),
+                  ),
+                ),
+            ],
           ),
-          if (seerTarget != null) ...[
-            const SizedBox(height: 8),
-            _Known(room: widget.room, player: seerTarget, label: '🔴 خائن: ${seerTarget.name}'),
-          ],
-          if (mates.isNotEmpty) ...[
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 10,
-              alignment: WrapAlignment.center,
+          const SizedBox(width: 18),
+          Expanded(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                for (final m in mates)
-                  _Known(room: widget.room, player: m, label: '${m.knownRole == Role.leader ? '🦹 الزعيم' : '🔴 خائن'}: ${m.name}'),
+                Text(
+                  special == null ? goal : specialInfo[special]!.$2,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(color: AppColors.ink, fontSize: 15, height: 1.6, fontWeight: FontWeight.w700),
+                ),
+                if (seerTarget != null || mates.isNotEmpty) ...[
+                  const SizedBox(height: 10),
+                  Wrap(
+                    spacing: 10,
+                    runSpacing: 6,
+                    alignment: WrapAlignment.center,
+                    children: [
+                      if (seerTarget != null)
+                        _Known(room: widget.room, player: seerTarget, label: '🔴 خائن: ${seerTarget.name}'),
+                      for (final m in mates)
+                        _Known(
+                          room: widget.room,
+                          player: m,
+                          label: '${m.knownRole == Role.leader ? '🦹 الزعيم' : '🔴 خائن'}: ${m.name}',
+                        ),
+                    ],
+                  ),
+                ],
               ],
             ),
-          ],
+          ),
         ],
       ),
     );
@@ -112,12 +128,18 @@ class _RoleRevealState extends State<_RoleReveal> with SingleTickerProviderState
     final back = _CardFace(
       glow: AppColors.gold,
       edge: AppColors.goldDark,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Image.asset('assets/logo.png', width: 120, height: 120),
-          const SizedBox(height: 10),
-          const Text('دورك السري', style: TextStyle(fontFamily: kufi, fontSize: 26, fontWeight: FontWeight.w700, color: AppColors.ink)),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(26),
+            child: Image.asset('assets/logo.png', width: 120, height: 120),
+          ),
+          const SizedBox(width: 20),
+          const Text(
+            'دورك السري',
+            style: TextStyle(fontFamily: kufi, fontSize: 30, fontWeight: FontWeight.w700, color: AppColors.ink),
+          ),
         ],
       ),
     );
@@ -129,7 +151,7 @@ class _RoleRevealState extends State<_RoleReveal> with SingleTickerProviderState
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             const Text('❖ غطِّ الشاشة! ❖', style: TextStyle(fontFamily: kufi, color: AppColors.goldLight, fontSize: 16, letterSpacing: 1)),
-            const SizedBox(height: 16),
+            const SizedBox(height: 10),
             AnimatedBuilder(
               animation: _flip,
               builder: (context, _) {
@@ -147,15 +169,16 @@ class _RoleRevealState extends State<_RoleReveal> with SingleTickerProviderState
                 );
               },
             ),
-            const SizedBox(height: 26),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 40),
+            const SizedBox(height: 14),
+            SizedBox(
+              width: 300,
               child: AnimatedBuilder(
                 animation: _flip,
                 builder: (context, _) => GameButton(
                   label: 'فهمت 🤫',
                   semantics: 'فهمت',
                   tone: v.yourRole == Role.loyal ? ButtonTone.purple : ButtonTone.red,
+                  height: 48,
                   onPressed: _flip.isCompleted ? () => Navigator.pop(context) : null,
                 ),
               ),
@@ -195,9 +218,9 @@ class _CardFace extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 300,
-      constraints: const BoxConstraints(minHeight: 420),
-      padding: const EdgeInsets.fromLTRB(20, 26, 20, 22),
+      width: 540,
+      height: 236,
+      padding: const EdgeInsets.fromLTRB(22, 16, 22, 16),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(24),
         gradient: const LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Color(0xFFF8EBD0), AppColors.parchmentDark]),
@@ -269,17 +292,18 @@ class VoteReveal extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
+    return Container(
+      constraints: const BoxConstraints(maxWidth: 720),
       padding: const EdgeInsets.symmetric(horizontal: 18),
       child: Panel(
         gradient: const LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Color(0xFF2E2266), AppColors.panel]),
         borderColor: AppColors.gold.withValues(alpha: .5),
-        padding: const EdgeInsets.fromLTRB(14, 18, 14, 20),
+        padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             const GoldText('🗳️ نتيجة التصويت', size: 24),
-            const SizedBox(height: 14),
+            const SizedBox(height: 10),
             Wrap(
               spacing: 10,
               runSpacing: 12,

@@ -151,25 +151,112 @@ class _WaitingScreenState extends State<WaitingScreen> {
       child: NightScaffold(
         appBar: AppBar(title: Text(tier == null ? 'روم خاص 🔒' : 'طاولة ${tier.name} ${tier.emoji}')),
         body: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Column(
-              children: [
-                Text(
-                  isPrivate
-                      ? '👥 اعزم أصحابك بالكود'
-                      : full
-                          ? '✅ اكتملت الطاولة! اللعبة بتبدأ…'
-                          : '🔍 نبحث عن لاعبين…',
-                  style: const TextStyle(color: AppColors.muted, fontSize: 15),
+          top: false,
+          child: Row(
+            children: [
+              // المعلومات والأزرار
+              SizedBox(
+                width: 300,
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                  child: Column(
+                    children: [
+                      Text(
+                        isPrivate
+                            ? '👥 اعزم أصحابك بالكود'
+                            : full
+                                ? '✅ اكتملت الطاولة! اللعبة بتبدأ…'
+                                : '🔍 نبحث عن لاعبين…',
+                        style: const TextStyle(color: AppColors.muted, fontSize: 14),
+                      ),
+                      const SizedBox(height: 8),
+                      _CodeBox(code: widget.code ?? 'K7Q2M'),
+                      const SizedBox(height: 10),
+                      LinearProgressIndicator(
+                        value: players.length / max,
+                        minHeight: 8,
+                        borderRadius: BorderRadius.circular(10),
+                        backgroundColor: AppColors.card,
+                        color: AppColors.gold,
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        isPrivate
+                            ? '${arabicNumber(players.length)} من ${arabicNumber(max)} · يحتاج ٥ لاعبين على الأقل'
+                            : _botCountdown != null && _botCountdown! > 0
+                                ? '${arabicNumber(players.length)} من ${arabicNumber(max)} · لو ما اكتملت خلال ${arabicNumber(_botCountdown!)} ثانية نكمّلها ببوتات 🤖'
+                                : '${arabicNumber(players.length)} من ${arabicNumber(max)} · تبدأ تلقائياً لما تكتمل',
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(color: AppColors.muted, fontSize: 12),
+                      ),
+                      const SizedBox(height: 10),
+                      if ((_room?.entryFee ?? tier?.entryFee ?? 0) > 0) ...[
+                        _PotBox(
+                          pot: (_room?.entryFee ?? tier!.entryFee) *
+                              (players.any((p) => p.bot) ? players.where((p) => !p.bot).length : max),
+                        ),
+                        const SizedBox(height: 10),
+                      ],
+                      if (isPrivate && isHost) ...[
+                        Row(
+                          children: [
+                            Expanded(
+                              child: GameButton(
+                                label: '🤖 أضف بوت',
+                                tone: ButtonTone.purple,
+                                height: 48,
+                                fontSize: 16,
+                                onPressed: full || _addingBot ? null : _addBot,
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: GameButton(
+                                label: _starting ? 'لحظة…' : '▶ ابدأ',
+                                semantics: 'ابدأ',
+                                height: 48,
+                                fontSize: 16,
+                                onPressed: players.length >= 5 && !_starting ? _start : null,
+                              ),
+                            ),
+                          ],
+                        ),
+                        if (players.any((p) => p.bot))
+                          const Padding(
+                            padding: EdgeInsets.only(top: 4),
+                            child: Text('اضغط على البوت عشان تشيله', style: TextStyle(color: AppColors.muted, fontSize: 12)),
+                          ),
+                        const SizedBox(height: 10),
+                      ],
+                      GameButton(
+                        label: '✖ خروج',
+                        semantics: 'خروج',
+                        tone: ButtonTone.ghost,
+                        height: 44,
+                        fontSize: 16,
+                        onPressed: _leave,
+                      ),
+                      if ((_room?.entryFee ?? 0) > 0)
+                        const Padding(
+                          padding: EdgeInsets.only(top: 6),
+                          child: Text(
+                            'لو طلعت قبل ما تبدأ اللعبة يرجع لك ذهبك',
+                            style: TextStyle(color: AppColors.muted, fontSize: 12),
+                          ),
+                        ),
+                    ],
+                  ),
                 ),
-                const SizedBox(height: 12),
-                _CodeBox(code: widget.code ?? 'K7Q2M'),
-                const SizedBox(height: 18),
-                Expanded(
+              ),
+              // المقاعد
+              Expanded(
+                child: Center(
                   child: GridView.count(
-                    crossAxisCount: 3,
-                    mainAxisSpacing: 12,
+                    crossAxisCount: 5,
+                    shrinkWrap: true,
+                    padding: const EdgeInsets.fromLTRB(12, 0, 16, 12),
+                    mainAxisSpacing: 8,
+                    childAspectRatio: .95,
                     children: [
                       for (var i = 0; i < max; i++)
                         i < players.length
@@ -187,65 +274,8 @@ class _WaitingScreenState extends State<WaitingScreen> {
                     ],
                   ),
                 ),
-                LinearProgressIndicator(
-                  value: players.length / max,
-                  minHeight: 10,
-                  borderRadius: BorderRadius.circular(10),
-                  backgroundColor: AppColors.card,
-                  color: AppColors.gold,
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  isPrivate
-                      ? '${arabicNumber(players.length)} من ${arabicNumber(max)} · يحتاج ٥ لاعبين على الأقل'
-                      : _botCountdown != null && _botCountdown! > 0
-                          ? '${arabicNumber(players.length)} من ${arabicNumber(max)} · لو ما اكتملت خلال ${arabicNumber(_botCountdown!)} ثانية نكمّلها ببوتات 🤖'
-                          : '${arabicNumber(players.length)} من ${arabicNumber(max)} · تبدأ تلقائياً لما تكتمل',
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(color: AppColors.muted, fontSize: 13),
-                ),
-                const SizedBox(height: 12),
-                if ((_room?.entryFee ?? tier?.entryFee ?? 0) > 0)
-                  _PotBox(
-                    pot: (_room?.entryFee ?? tier!.entryFee) *
-                        (players.any((p) => p.bot) ? players.where((p) => !p.bot).length : max),
-                  ),
-                if (isPrivate && isHost) ...[
-                  Row(
-                    children: [
-                      Expanded(
-                        child: GameButton(
-                          label: '🤖 أضف بوت',
-                          tone: ButtonTone.purple,
-                          onPressed: full || _addingBot ? null : _addBot,
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: GameButton(
-                          label: _starting ? 'لحظة…' : '▶ ابدأ',
-                          semantics: 'ابدأ',
-                          onPressed: players.length >= 5 && !_starting ? _start : null,
-                        ),
-                      ),
-                    ],
-                  ),
-                  if (players.any((p) => p.bot))
-                    const Padding(
-                      padding: EdgeInsets.only(top: 6),
-                      child: Text('اضغط على البوت عشان تشيله', style: TextStyle(color: AppColors.muted, fontSize: 12)),
-                    ),
-                ],
-                const SizedBox(height: 12),
-                GameButton(label: '✖ خروج', semantics: 'خروج', tone: ButtonTone.ghost, height: 46, fontSize: 16, onPressed: _leave),
-                if ((_room?.entryFee ?? 0) > 0)
-                  const Padding(
-                    padding: EdgeInsets.only(top: 6),
-                    child: Text('لو طلعت قبل ما تبدأ اللعبة يرجع لك ذهبك', style: TextStyle(color: AppColors.muted, fontSize: 12)),
-                  ),
-                const SizedBox(height: 12),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),

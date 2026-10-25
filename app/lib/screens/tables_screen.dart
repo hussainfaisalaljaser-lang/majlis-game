@@ -76,61 +76,43 @@ class _TablesScreenState extends State<TablesScreen> {
     return NightScaffold(
       appBar: AppBar(title: const Text('🕵️ مجلس الخونة', style: TextStyle(fontWeight: FontWeight.w800))),
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: Column(
-            children: [
-              SegmentedButton<int>(
-                showSelectedIcon: false,
-                segments: [
-                  for (final n in playerCounts)
-                    ButtonSegment(value: n, label: Text('${arabicNumber(n)} لاعبين')),
-                ],
-                selected: {_playerCount},
-                onSelectionChanged: (s) => setState(() => _playerCount = s.first),
-              ),
-              const SizedBox(height: 12),
-              Expanded(
-                child: ValueListenableBuilder(
-                  valueListenable: Backend.instance.profile,
-                  builder: (context, profile, _) => ListView.separated(
-                    itemCount: tableTiers.length,
-                    separatorBuilder: (_, _) => const SizedBox(height: 9),
-                    itemBuilder: (context, i) {
-                      final t = tableTiers[i];
-                      final locked = _locked(profile, t);
-                      final poor = profile.coins < t.entryFee;
-                      return _TierTile(
-                        tier: t,
-                        players: _playerCount,
-                        locked: locked,
-                        poor: poor,
-                        selected: t == _tier,
-                        onTap: locked || poor ? null : () => setState(() => _tier = t),
-                      );
-                    },
-                  ),
-                ),
-              ),
-              GameButton(
-                label: _busy ? 'لحظة…' : '▶ العب الحين',
-                semantics: 'العب الحين',
-                onPressed: _busy
-                    ? null
-                    : () => _enter(
-                          () => Backend.instance.quickMatch(maxPlayers: _playerCount, tierId: _tier.id),
-                          tier: _tier,
-                        ),
-              ),
-              const SizedBox(height: 10),
-              Row(
-                children: [
-                  Expanded(
-                    child: GameButton(
+        top: false,
+        child: Row(
+          children: [
+            // عدد اللاعبين والأزرار
+            SizedBox(
+              width: 290,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                child: Column(
+                  children: [
+                    SegmentedButton<int>(
+                      showSelectedIcon: false,
+                      style: const ButtonStyle(visualDensity: VisualDensity.compact),
+                      segments: [
+                        for (final n in playerCounts)
+                          ButtonSegment(value: n, label: Text('${arabicNumber(n)} لاعبين')),
+                      ],
+                      selected: {_playerCount},
+                      onSelectionChanged: (s) => setState(() => _playerCount = s.first),
+                    ),
+                    const Spacer(),
+                    GameButton(
+                      label: _busy ? 'لحظة…' : '▶ العب الحين',
+                      semantics: 'العب الحين',
+                      onPressed: _busy
+                          ? null
+                          : () => _enter(
+                                () => Backend.instance.quickMatch(maxPlayers: _playerCount, tierId: _tier.id),
+                                tier: _tier,
+                              ),
+                    ),
+                    const SizedBox(height: 10),
+                    GameButton(
                       label: '➕ روم خاص',
                       semantics: 'أنشئ روم خاص',
                       tone: ButtonTone.purple,
-                      height: 48,
+                      height: 46,
                       fontSize: 16,
                       onPressed: _busy
                           ? null
@@ -140,23 +122,49 @@ class _TablesScreenState extends State<TablesScreen> {
                                     : null,
                               ),
                     ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: GameButton(
+                    const SizedBox(height: 10),
+                    GameButton(
                       label: '🔑 ادخل بكود',
                       semantics: 'ادخل بكود صديق',
                       tone: ButtonTone.ghost,
-                      height: 48,
+                      height: 46,
                       fontSize: 16,
                       onPressed: _busy || !Backend.instance.isReady ? null : _joinByCode,
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-              const SizedBox(height: 12),
-            ],
-          ),
+            ),
+            // مستويات الطاولات
+            Expanded(
+              child: ValueListenableBuilder(
+                valueListenable: Backend.instance.profile,
+                builder: (context, profile, _) => GridView.builder(
+                  padding: const EdgeInsets.fromLTRB(12, 0, 16, 12),
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 2,
+                    mainAxisSpacing: 9,
+                    crossAxisSpacing: 9,
+                    mainAxisExtent: 70,
+                  ),
+                  itemCount: tableTiers.length,
+                  itemBuilder: (context, i) {
+                    final t = tableTiers[i];
+                    final locked = _locked(profile, t);
+                    final poor = profile.coins < t.entryFee;
+                    return _TierTile(
+                      tier: t,
+                      players: _playerCount,
+                      locked: locked,
+                      poor: poor,
+                      selected: t == _tier,
+                      onTap: locked || poor ? null : () => setState(() => _tier = t),
+                    );
+                  },
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );

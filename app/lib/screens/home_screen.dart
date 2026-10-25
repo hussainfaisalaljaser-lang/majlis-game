@@ -57,62 +57,95 @@ class HomeScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return NightScaffold(
       body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(14, 10, 14, 16),
+        child: Row(
           children: [
-            const _Header(),
-            const SizedBox(height: 14),
-            _Hero(onPlay: () => _push(context, const TablesScreen())),
-            const SizedBox(height: 14),
-            Row(
-              children: [
-                Expanded(
-                  child: _Tile(
-                    icon: 'friends',
-                    title: 'مع أصحابك',
-                    colors: const [Color(0xFF2FBF71), Color(0xFF145C38)],
-                    shadow: const Color(0xFF0B3A22),
-                    onTap: () => _push(context, const TablesScreen()),
-                  ),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsetsDirectional.fromSTEB(14, 8, 10, 12),
+                child: Column(
+                  children: [
+                    const _Header(),
+                    const SizedBox(height: 10),
+                    Expanded(
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Expanded(flex: 10, child: _Hero(onPlay: () => _push(context, const TablesScreen()))),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            flex: 11,
+                            child: Column(
+                              children: [
+                                Expanded(
+                                  flex: 3,
+                                  child: Row(
+                                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                                    children: [
+                                      Expanded(
+                                        child: _Tile(
+                                          icon: 'friends',
+                                          title: 'مع أصحابك',
+                                          colors: const [Color(0xFF2FBF71), Color(0xFF145C38)],
+                                          shadow: const Color(0xFF0B3A22),
+                                          onTap: () => _push(context, const TablesScreen()),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 10),
+                                      Expanded(
+                                        child: _Tile(
+                                          icon: 'bot',
+                                          title: 'تدريب',
+                                          subtitle: 'أنت و٤ بوتات',
+                                          colors: const [Color(0xFF7C5CFF), Color(0xFF3A1F9C)],
+                                          shadow: const Color(0xFF23125E),
+                                          onTap: () => _startPractice(context),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 10),
+                                      Expanded(
+                                        child: _Tile(
+                                          icon: 'trophy',
+                                          title: 'الدوري',
+                                          colors: const [Color(0xFFF2B53A), Color(0xFF9C5E06)],
+                                          shadow: const Color(0xFF5C3603),
+                                          onTap: () => _push(context, const LeaderboardScreen()),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(height: 12),
+                                Expanded(
+                                  flex: 2,
+                                  child: Row(
+                                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                                    children: [
+                                      Expanded(child: _DailyCard(onTap: () => showDailyReward(context))),
+                                      const SizedBox(width: 10),
+                                      SizedBox(
+                                        width: 128,
+                                        child: _MissionsCard(onTap: () => _push(context, const MissionsScreen())),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: _Tile(
-                    icon: 'bot',
-                    title: 'تدريب',
-                    subtitle: 'أنت و٤ بوتات',
-                    colors: const [Color(0xFF7C5CFF), Color(0xFF3A1F9C)],
-                    shadow: const Color(0xFF23125E),
-                    onTap: () => _startPractice(context),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: _Tile(
-                    icon: 'trophy',
-                    title: 'الدوري',
-                    colors: const [Color(0xFFF2B53A), Color(0xFF9C5E06)],
-                    shadow: const Color(0xFF5C3603),
-                    onTap: () => _push(context, const LeaderboardScreen()),
-                  ),
-                ),
-              ],
+              ),
             ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(child: _DailyCard(onTap: () => showDailyReward(context))),
-                const SizedBox(width: 10),
-                SizedBox(width: 128, child: _MissionsCard(onTap: () => _push(context, const MissionsScreen()))),
-              ],
+            _SideNav(
+              onShop: () => _push(context, const ShopScreen()),
+              onRank: () => _push(context, const LeaderboardScreen()),
+              onProfile: () => _push(context, const ProfileScreen()),
             ),
           ],
         ),
-      ),
-      bottomNavigationBar: _BottomNav(
-        onShop: () => _push(context, const ShopScreen()),
-        onRank: () => _push(context, const LeaderboardScreen()),
-        onProfile: () => _push(context, const ProfileScreen()),
       ),
     );
   }
@@ -206,7 +239,6 @@ class _Hero extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 220,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(24),
         gradient: const RadialGradient(
@@ -221,7 +253,7 @@ class _Hero extends StatelessWidget {
       child: Stack(
         children: [
           // فوانيس
-          for (final x in [.08, .92])
+          for (final x in [.06, .94])
             Align(
               alignment: Alignment(x * 2 - 1, -1),
               child: Column(
@@ -240,12 +272,8 @@ class _Hero extends StatelessWidget {
                 ],
               ),
             ),
-          const Positioned(left: 14, bottom: 18, child: PlayerAvatar(avatar: 'pearl', size: 78)),
-          const Positioned(left: 76, bottom: 32, child: PlayerAvatar(avatar: 'desert', size: 80)),
-          const Positioned(left: 142, bottom: 46, child: PlayerAvatar(avatar: 'masked', frame: AppColors.traitor, size: 92)),
-          Positioned(
-            right: 18,
-            top: 22,
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 14),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -254,18 +282,42 @@ class _Hero extends StatelessWidget {
                   decoration: BoxDecoration(color: AppColors.traitor, borderRadius: BorderRadius.circular(8)),
                   child: const Text('🔥 الأكثر لعباً', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800)),
                 ),
-                const SizedBox(height: 6),
-                const Text('مجلس\nالخونة', style: TextStyle(fontFamily: kufi, fontSize: 30, fontWeight: FontWeight.w700, height: 1.1)),
                 const SizedBox(height: 4),
+                const Text(
+                  'مجلس الخونة',
+                  style: TextStyle(fontFamily: kufi, fontSize: 26, fontWeight: FontWeight.w700, height: 1.2),
+                ),
                 const Text('٥ إلى ١٠ لاعبين', style: TextStyle(fontSize: 12, color: Color(0xFFD9CFFF))),
+                const Expanded(
+                  child: FittedBox(
+                    child: Padding(
+                      padding: EdgeInsets.all(6),
+                      child: SizedBox(
+                        width: 230,
+                        height: 100,
+                        child: Stack(
+                          children: [
+                            Positioned(left: 0, top: 18, child: PlayerAvatar(avatar: 'pearl', size: 72)),
+                            Positioned(right: 0, top: 18, child: PlayerAvatar(avatar: 'desert', size: 72)),
+                            Positioned(left: 65, top: 0, child: PlayerAvatar(avatar: 'masked', frame: AppColors.traitor, size: 96)),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                SizedBox(
+                  width: double.infinity,
+                  child: GameButton(
+                    label: '▶ العب الحين',
+                    semantics: 'العب الحين',
+                    height: 48,
+                    fontSize: 18,
+                    onPressed: onPlay,
+                  ),
+                ),
               ],
             ),
-          ),
-          Positioned(
-            right: 16,
-            bottom: 14,
-            width: 150,
-            child: GameButton(label: '▶ العب الحين', semantics: 'العب الحين', height: 46, fontSize: 17, onPressed: onPlay),
           ),
         ],
       ),
@@ -302,8 +354,7 @@ class _Tile extends StatelessWidget {
           onTap();
         },
         child: Container(
-          height: 104,
-          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 6),
+          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 6),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(18),
             gradient: LinearGradient(begin: Alignment.topRight, end: Alignment.bottomLeft, colors: colors),
@@ -343,7 +394,6 @@ class _DailyCard extends StatelessWidget {
           child: GestureDetector(
             onTap: onTap,
             child: Container(
-              height: 76,
               padding: const EdgeInsets.symmetric(horizontal: 12),
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(18),
@@ -403,7 +453,6 @@ class _MissionsCard extends StatelessWidget {
           child: GestureDetector(
             onTap: onTap,
             child: Container(
-              height: 76,
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(18),
@@ -438,8 +487,9 @@ class _MissionsCard extends StatelessWidget {
   }
 }
 
-class _BottomNav extends StatelessWidget {
-  const _BottomNav({required this.onShop, required this.onRank, required this.onProfile});
+/// شريط التنقل على الجنب (بالعرض)، بدال الشريط اللي تحت.
+class _SideNav extends StatelessWidget {
+  const _SideNav({required this.onShop, required this.onRank, required this.onProfile});
 
   final VoidCallback onShop;
   final VoidCallback onRank;
@@ -456,30 +506,34 @@ class _BottomNav extends StatelessWidget {
               behavior: HitTestBehavior.opaque,
               onTap: onTap,
               child: Column(
-                mainAxisSize: MainAxisSize.min,
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                     decoration: BoxDecoration(
                       color: on ? AppColors.gold.withValues(alpha: .16) : null,
                       borderRadius: BorderRadius.circular(14),
                     ),
                     child: GameIcon(icon, size: 26, color: on ? AppColors.gold : AppColors.muted),
                   ),
-                  const SizedBox(height: 3),
-                  Text(label, style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w800, color: on ? AppColors.gold : AppColors.muted)),
+                  const SizedBox(height: 2),
+                  Text(
+                    label,
+                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: on ? AppColors.gold : AppColors.muted),
+                  ),
                 ],
               ),
             ),
           ),
         );
     return Container(
-      padding: EdgeInsets.fromLTRB(6, 10, 6, 10 + MediaQuery.paddingOf(context).bottom),
+      width: 78,
+      padding: const EdgeInsets.symmetric(vertical: 8),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [AppColors.panel, AppColors.bg]),
-        border: Border(top: BorderSide(color: Colors.white.withValues(alpha: .08), width: 1.5)),
+        gradient: const LinearGradient(colors: [AppColors.panel, AppColors.bg]),
+        border: BorderDirectional(start: BorderSide(color: Colors.white.withValues(alpha: .08), width: 1.5)),
       ),
-      child: Row(
+      child: Column(
         children: [
           item('home', 'الرئيسية', null, on: true),
           item('shop', 'المتجر', onShop),

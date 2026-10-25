@@ -52,7 +52,9 @@ ThemeData buildTheme() {
       surfaceTintColor: Colors.transparent,
       elevation: 0,
       centerTitle: false,
-      titleTextStyle: TextStyle(fontFamily: kufi, fontSize: 21, fontWeight: FontWeight.w700, color: AppColors.text),
+      // بالعرض الارتفاع غالي، فالشريط اللي فوق أنحف.
+      toolbarHeight: 46,
+      titleTextStyle: TextStyle(fontFamily: kufi, fontSize: 20, fontWeight: FontWeight.w700, color: AppColors.text),
     ),
     dialogTheme: DialogThemeData(
       backgroundColor: AppColors.panel,
