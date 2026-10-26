@@ -141,6 +141,10 @@ export interface Room {
   /** الوضع السريع (الوقت نص). */
   quick?: boolean;
   results?: Record<string, GameResult>;
+  /** متى خلصت اللعبة. بعدها الطاولة تبقى مفتوحة للسوالف لين يطلعون. */
+  finishedAtMs?: number;
+  /** اللي طلعوا من الطاولة بعد ما خلصت اللعبة (يبان للباقين إنهم طلعوا). */
+  gone?: string[];
 }
 
 export interface Reaction {
@@ -152,6 +156,8 @@ export interface Reaction {
 
 // الردود المسموحة (REACTIONS) في الكتالوج: كلام وملصقات، ما فيه كتابة حرة أبداً.
 const MAX_REACTIONS = 40;
+/** الطاولة بعد اللعبة تبقى للسوالف، بس مو للأبد: بعد نص ساعة تقفل. */
+const AFTER_GAME_CHAT_MS = 30 * 60_000;
 
 // بدون الحروف اللي تتلخبط مثل O و 0 و I و 1.
 const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -859,7 +865,7 @@ async function finishTurn(
     tx.set(userRef(player.id), updated);
     tx.set(boardRef(player.id), toLeaderboard(updated));
   });
-  tx.update(roomRef, { ...roomUpdate, status: 'finished', results });
+  tx.update(roomRef, { ...roomUpdate, status: 'finished', results, finishedAtMs: Date.now() });
   return whoToNotify(prev.state, next);
 }
 
@@ -883,7 +889,10 @@ function requireNotBanned(p: Profile): void {
   }
 }
 
-/** اللاعب يطلع من لعبة شغالة: يكمل عنه بوت لين النهاية، وما ياخذ فوز ولا جائزة. */
+/**
+ * اللاعب يطلع من لعبة شغالة: يكمل عنه بوت لين النهاية، وما ياخذ فوز ولا جائزة.
+ * وبعد ما تخلص: يطلع من الطاولة بس، ويبان للباقين إنه طلع.
+ */
 export const leaveGame = onCall(async (req) => {
   const uid = requireAuth(req);
   const code = String(req.data?.code ?? '');
@@ -892,8 +901,12 @@ export const leaveGame = onCall(async (req) => {
     if (!snap.exists) throw new HttpsError('not-found', 'اللعبة مو موجودة');
     const prev = splitGame(snap.data() as StoredGame);
     if (!prev.state.players.some((p) => p.id === uid)) throw new HttpsError('permission-denied', 'أنت مو في هذي اللعبة');
-    if (prev.state.phase === 'gameOver' || (prev.state.autopilot ?? []).includes(uid)) return null;
     const room = (await tx.get(db.doc(`rooms/${code}`))).data() as Room;
+    if (prev.state.phase === 'gameOver') {
+      if (!(room.gone ?? []).includes(uid)) tx.update(db.doc(`rooms/${code}`), { gone: [...(room.gone ?? []), uid] });
+      return null;
+    }
+    if ((prev.state.autopilot ?? []).includes(uid)) return null;
     const next = runInstantBots({ ...prev.state, autopilot: [...(prev.state.autopilot ?? []), uid] });
     const notes = await finishTurn(tx, code, { ...prev, key: '' }, next, new Map());
     handOver(tx, room, [uid]);
@@ -1174,9 +1187,20 @@ export const react = onCall(async (req) => {
   await db.runTransaction(async (tx) => {
     const ref = db.doc(`rooms/${code}`);
     const room = (await tx.get(ref)).data() as Room | undefined;
+    const game = (await tx.get(db.doc(`games/${code}`))).data() as StoredGame | undefined;
     const profile = await readProfile(db, tx, uid);
-    if (!room || room.status !== 'playing') throw new HttpsError('failed-precondition', 'اللعبة مو شغالة');
+    if (!room || room.status === 'waiting') throw new HttpsError('failed-precondition', 'اللعبة مو شغالة');
     if (!room.players.some((p) => p.uid === uid)) throw new HttpsError('permission-denied', 'أنت مو في هذي الطاولة');
+    // بعد ما تخلص اللعبة الطاولة تبقى للسوالف (للكل، حتى المطرودين) لين يطلعون.
+    const over = room.status === 'finished';
+    if (over && ((room.gone ?? []).includes(uid) || Date.now() - (room.finishedAtMs ?? 0) > AFTER_GAME_CHAT_MS)) {
+      throw new HttpsError('failed-precondition', 'الطاولة قفلت');
+    }
+    if (over && (kind === 'suspect' || kind === 'trust')) throw new HttpsError('failed-precondition', 'اللعبة خلصت');
+    // المطرود ما يتكلم لين تخلص اللعبة.
+    if (!over && game?.players.find((p) => p.id === uid)?.alive === false) {
+      throw new HttpsError('failed-precondition', 'انطردت من المجلس، ما تقدر تتكلم');
+    }
     if (spec.pack && !owns(profile, spec.pack)) {
       throw new HttpsError('permission-denied', 'هذا الرد من باقة ما تملكها للحين');
     }

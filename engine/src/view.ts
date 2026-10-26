@@ -57,8 +57,8 @@ export interface PlayerView {
   canVeto: boolean;
   /** نتائج التحقيقات اللي سويتها أنت. */
   yourInvestigations: Investigation[];
-  /** تقدر تدّعي الحين؟ وكم كرت؟ */
-  claimable: { office: 'president' | 'chancellor'; count: number } | null;
+  /** تقدر تدّعي الحين؟ وكم كرت؟ ومعه الكروت اللي وصلتك فعلاً (من السيرفر، عشان تعرف وش الصدق). */
+  claimable: { office: 'president' | 'chancellor'; count: number; truth: Policy[] | null } | null;
   winner: Team | null;
   winReason: WinReason | null;
   log: GameEvent[];
@@ -83,9 +83,15 @@ export function viewFor(s: GameState, playerId: PlayerId): PlayerView {
 
   const leg = s.lastLegislature;
   let claimable: PlayerView['claimable'] = null;
-  if (leg && !over && !leg.claimed.includes(playerId)) {
-    if (leg.government.president === playerId) claimable = { office: 'president', count: 3 };
-    else if (leg.government.chancellor === playerId) claimable = { office: 'chancellor', count: 2 };
+  // المطرود ما يتكلم، فما يدّعي.
+  if (leg && !over && me.alive && !leg.claimed.includes(playerId)) {
+    const drawn = s.hands?.[leg.round];
+    const truth = (cards: Policy[] | undefined, count: number) => (cards?.length === count ? [...cards] : null);
+    if (leg.government.president === playerId) {
+      claimable = { office: 'president', count: 3, truth: truth(drawn?.president, 3) };
+    } else if (leg.government.chancellor === playerId) {
+      claimable = { office: 'chancellor', count: 2, truth: truth(drawn?.chancellor, 2) };
+    }
   }
 
   return {

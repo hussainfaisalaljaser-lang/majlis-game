@@ -24,6 +24,10 @@ abstract final class Sfx {
       final prefs = await SharedPreferences.getInstance();
       muted.value = prefs.getBool(_key) ?? false;
     } catch (_) {}
+    // لما يطلع من التطبيق يسكت الراوي على طول.
+    Music.visible.addListener(() {
+      if (!Music.visible.value) hush();
+    });
   }
 
   static Future<void> toggle() async {
@@ -40,7 +44,8 @@ abstract final class Sfx {
   /// يقول جملة من assets/voice. لو الراوي يتكلم، تنتظر دورها لين يخلص (ما يقطع جملة بجملة).
   /// السيرفر يعطي وقت بين الأحداث، فالطابور ما يطول. أي خطأ (ملف ناقص أو متصفح يمنع الصوت) ينتجاهل.
   static void say(String line) {
-    if (muted.value) return;
+    // برا التطبيق ما يتكلم الراوي (اللعبة تكمل بالبوتات وهو برا).
+    if (muted.value || !Music.visible.value) return;
     if (_queue.length >= 4) _queue.removeFirst();
     _queue.add(line);
     if (!_speaking) _next();

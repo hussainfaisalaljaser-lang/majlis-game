@@ -4,45 +4,15 @@ import 'catalog.dart';
 
 export 'catalog.dart';
 
-/// حركات الإطار (تترسم في widgets/fx.dart → FramePainter).
-enum FrameFx {
-  spin,
-  pulse,
-  sparkle,
-  comet,
-  dual,
-  flame,
-  orbit,
-  electric,
-  wave,
-  snow,
-  leaves,
-  smoke,
-  stars,
-  heartbeat,
-  shine,
-  rays,
-  ornament,
-  crown,
-  sand,
-}
+/// كيف يتحرك الإطار: النادر ثابت ولمعة تمر كل كم ثانية، والملحمي والأسطوري يتحركون دايم.
+enum FrameMotion { glint, live }
 
-/// شكل إطار الصورة: ألوان الحلقة والتوهج والحركات.
+/// شكل إطار الصورة: رسمته في widgets/frames (لكل إطار رسمة ما تتكرر).
 class FrameStyle {
-  const FrameStyle(this.colors, {this.glow, this.accent, this.fx = const [], this.sig});
+  const FrameStyle(this.sig, {this.motion = FrameMotion.live});
 
-  final List<Color> colors;
-  final Color? glow;
-
-  /// لون اللمعات والجزيئات.
-  final Color? accent;
-  final List<FrameFx> fx;
-
-  /// رسمة خاصة بالإطار (widgets/fx_sig.dart) بدال الحركات العامة.
-  final String? sig;
-
-  /// فيه شي يتحرك (التاج لحاله ثابت). الثابت ما يحتاج ساعة حركات ترسمه كل فريم.
-  bool get animated => sig != null || fx.any((f) => f != FrameFx.crown);
+  final String sig;
+  final FrameMotion motion;
 }
 
 /// حركات فقاعة الكلام (widgets/fx.dart → BubblePainter).

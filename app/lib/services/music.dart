@@ -12,18 +12,40 @@ abstract final class Music {
 
   static AudioPlayer? _player;
   static String? _track;
+
+  /// المقطع اللي في المشغّل فعلاً (يختلف عن [_track] لو تغيّر وهو برا التطبيق).
+  static String? _playing;
   static bool _ducked = false;
   // ignore: unused_field
   static AppLifecycleListener? _lifecycle;
+
+  /// التطبيق ظاهر قدام اللاعب. لما يطلع منه ما نشغّل شي (لا موسيقى ولا راوي) لين يرجع.
+  static final visible = ValueNotifier<bool>(true);
 
   static Future<void> init() async {
     try {
       muted.value = (await SharedPreferences.getInstance()).getBool(_key) ?? false;
     } catch (_) {}
     _lifecycle = AppLifecycleListener(
-      onHide: () => _player?.pause().catchError((_) {}),
+      onHide: () {
+        visible.value = false;
+        _player?.pause().catchError((_) {});
+      },
       onShow: () {
-        if (!muted.value && _track != null) _player?.resume().catchError((_) {});
+        visible.value = true;
+        if (muted.value || _track == null) return;
+        // لو تغيّر المقطع وهو برا، نشغّل الجديد من أوله.
+        if (_player == null || _playing != _track) {
+          _start();
+        } else {
+          _player?.resume().catchError((_) {});
+        }
+      },
+      // قفّل التطبيق كله: نوقف الصوت ونفكه.
+      onDetach: () {
+        visible.value = false;
+        _player?.dispose().catchError((_) {});
+        _player = null;
       },
     );
   }
@@ -37,13 +59,15 @@ abstract final class Music {
 
   static Future<void> _start() async {
     final track = _track;
-    if (track == null || muted.value) return;
+    // وهو برا التطبيق (مثلاً بدت اللعبة من غرفة الانتظار): تبدأ لما يرجع.
+    if (track == null || muted.value || !visible.value) return;
     try {
       // ما نحتاج مكان الأغنية. متابعته (كل فريم افتراضياً) تخلي الشاشة كلها تنرسم ٦٠ مرة بالثانية طول ما الموسيقى شغالة.
       final player = _player ??= AudioPlayer()
         ..positionUpdater = null
         ..setReleaseMode(ReleaseMode.loop);
       await player.stop();
+      _playing = track;
       await player.play(AssetSource('music/$track.mp3'), volume: _ducked ? _duckedVolume : _volume);
     } catch (_) {}
   }

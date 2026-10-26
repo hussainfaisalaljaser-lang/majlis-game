@@ -63,6 +63,7 @@ class Room {
     this.reactions = const [],
     this.opinions = const {},
     this.quick = false,
+    this.gone = const {},
   });
 
   factory Room.fromJson(Map<String, dynamic> j) => Room(
@@ -92,6 +93,7 @@ class Room {
         key as String: {for (final o in (value as Map).entries) o.key as String: o.value == 'suspect'},
     },
     quick: j['quick'] as bool? ?? false,
+    gone: {for (final g in (j['gone'] as List?) ?? const []) g as String},
   );
 
   final String code;
@@ -118,6 +120,9 @@ class Room {
 
   /// opinions[من][في] = true لو يشك فيه، false لو يثق فيه.
   final Map<String, Map<String, bool>> opinions;
+
+  /// اللي طلعوا من الطاولة بعد ما خلصت اللعبة.
+  final Set<String> gone;
 
   RoomPlayer? player(String uid) => players.where((p) => p.uid == uid).firstOrNull;
 

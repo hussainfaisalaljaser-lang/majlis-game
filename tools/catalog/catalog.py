@@ -10,44 +10,73 @@ import json, os
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
 
 # ───────────── الإطارات ─────────────
-# fx: spin pulse sparkle comet dual flame orbit electric wave snow leaves smoke stars heartbeat shine rays ornament crown sand
+# كل إطار له رسمته في app/lib/widgets/frames (sig): النادر ثابت ولمعة تمر كل كم ثانية، والملحمي يتحرك،
+# والأسطوري أكثر من طبقة وله لحظة خاصة. ولا إطار فيه تاج (التاج علامة الرئيس في الطاولة).
 FRAMES = [
-    dict(id='frame_none', name='بدون إطار', rarity='common', default=True, colors=[], fx=[]),
-    dict(id='frame_ice', name='جليد', rarity='rare', coins=3000, colors=['5EE0FF', 'B8F4FF', 'FFFFFF'], glow='5EE0FF', fx=['shine', 'snow']),
-    dict(id='frame_sand', name='رمل', rarity='rare', coins=4000, colors=['E8C27A', 'B5823C', 'F7E2B0'], glow='E8C27A', accent='F7E2B0', fx=['spin', 'sand']),
-    dict(id='frame_oasis', name='واحة', rarity='rare', coins=5000, colors=['2ECC71', '1ABC9C', 'A3E635'], glow='34D399', accent='A3E635', fx=['leaves', 'pulse']),
-    dict(id='frame_pearl', name='لؤلؤ', rarity='rare', coins=6000, colors=['FFFFFF', 'E6E1F0', 'CFC7E8'], glow='FFFFFF', accent='FFFFFF', fx=['orbit', 'shine']),
-    dict(id='frame_night', name='ليل نجد', rarity='rare', coins=7000, colors=['1E3A8A', '312E81', '93C5FD'], glow='60A5FA', accent='E0E7FF', fx=['stars', 'spin']),
-    dict(id='frame_fire', name='نار', rarity='epic', coins=8000, colors=['FF3D00', 'FFB300'], glow='FF6D00', accent='FFB300', fx=['flame', 'pulse'], sig='fire',
+    dict(id='frame_none', name='بدون إطار', rarity='common', default=True),
+    dict(id='frame_ice', name='جليد', rarity='rare', coins=3000, sig='ice',
+         desc='بلور ثلج مقطّع، وأصابع ثلج معلقة تحت صورتك'),
+    dict(id='frame_sand', name='رمل', rarity='rare', coins=4000, sig='sand',
+         desc='طبقات حجر رملي، وكثبان ناعمة تحت صورتك'),
+    dict(id='frame_oasis', name='واحة', rarity='rare', coins=5000, sig='oasis',
+         desc='نخلتين حول صورتك بعذوق التمر، وحلقة ماي صافي'),
+    dict(id='frame_pearl', name='لؤلؤ', rarity='rare', coins=6000, sig='pearl',
+         desc='عقد لؤلؤ أبيض، وحبة لؤلؤ كبيرة معلقة تحت'),
+    dict(id='frame_night', name='ليل نجد', rarity='rare', coins=7000, sig='night',
+         desc='بيوت طين نجدية تحت صورتك، ونوافذها تضوي بالليل'),
+    dict(id='frame_fire', name='نار', rarity='epic', coins=8000, sig='fire',
          desc='ألسنة لهب تطلع من حول صورتك، وشرار يطير لفوق'),
-    dict(id='frame_smoke', name='دخان', rarity='epic', coins=9000, colors=['4C1D95', '111827', 'A78BFA'], glow='7C3AED', accent='A78BFA', fx=['smoke', 'spin']),
-    dict(id='frame_lightning', name='برق', rarity='epic', coins=10000, colors=['2979FF', 'FFFFFF', '7C4DFF', '00E5FF'], glow='448AFF', accent='E0F2FE', fx=['electric', 'spin']),
-    dict(id='frame_comet', name='شهاب', rarity='epic', coins=11000, colors=['0F172A', '1E3A8A'], glow='38BDF8', accent='7DD3FC', fx=['comet']),
-    dict(id='frame_neon', name='نيون', rarity='epic', coins=12000, colors=['00F5FF', 'FF00E5'], glow='00F5FF', accent='FF00E5', fx=['dual', 'pulse']),
-    dict(id='frame_rainbow', name='قوس قزح', rarity='epic', coins=15000, colors=['FF1744', 'FFEA00', '00E676', '00B0FF', 'D500F9'], glow='FFFFFF', fx=['wave', 'spin']),
-    dict(id='frame_emerald', name='زمرد', rarity='epic', diamonds=15, colors=['00C853', '69F0AE', '00897B'], glow='00E676', accent='B9F6CA', fx=['orbit', 'pulse']),
-    dict(id='frame_blood', name='دم الخونة', rarity='epic', diamonds=20, colors=['B71C1C', '1A0000', 'FF1744'], glow='FF1744', accent='FF5252', fx=['heartbeat', 'smoke']),
-    dict(id='frame_blackgold', name='الذهب الأسود', rarity='epic', diamonds=25, colors=['111111', 'FFD54F', '3E2723', 'FFB300'], glow='FFC107', accent='FFE082', fx=['dual', 'shine']),
-    dict(id='frame_sun', name='الشمس', rarity='legendary', diamonds=30, colors=['FFB300', 'FF6F00', 'FFF59D'], glow='FFC400', accent='FFE57F', fx=['rays', 'pulse']),
-    dict(id='frame_arabesque', name='نقوش', rarity='legendary', diamonds=35, colors=['0E7490', 'FCD34D', '155E75'], glow='FCD34D', accent='FCD34D', fx=['ornament', 'shine']),
-    dict(id='frame_king', name='الملك', rarity='legendary', diamonds=40, colors=['FFD54F', 'FF8F00', 'FFF8E1', 'FFB300'], glow='FFC107', accent='FFF8E1', fx=['shine', 'sparkle', 'crown']),
-    dict(id='frame_galaxy', name='مجرة', rarity='legendary', diamonds=45, colors=['7C4DFF', 'FF4081', '18FFFF', '311B92'], glow='B388FF', accent='FFFFFF', fx=['spin', 'sparkle', 'orbit'], sig='galaxy',
-         desc='مجرة تدور ورا صورتك وكواكب تلف حولها. لحظتها الخاصة: انفجار نجمي لما تقعد أو تصير رئيس أو تفوز'),
+    dict(id='frame_smoke', name='دخان', rarity='epic', coins=9000, sig='smoke',
+         desc='مبخرة تحت صورتك، ودخان البخور يلف حولها ويطلع'),
+    dict(id='frame_lightning', name='برق', rarity='epic', coins=10000, sig='lightning',
+         desc='شرارات كهربا تنط على الحلقة، وبرق يضرب كل شوي'),
+    dict(id='frame_comet', name='شهاب', rarity='epic', coins=11000, sig='comet',
+         desc='شهاب يدور حول صورتك ويخلي وراه غبار نجوم'),
+    dict(id='frame_neon', name='نيون', rarity='epic', coins=12000, sig='neon',
+         desc='أنابيب نيون تطنّ وترمش مثل لوحات المحلات'),
+    dict(id='frame_rainbow', name='قوس قزح', rarity='epic', coins=15000, sig='rainbow',
+         desc='صبغ ملوّن يسيل حول صورتك وينقّط من تحت'),
+    dict(id='frame_emerald', name='زمرد', rarity='epic', diamonds=15, sig='emerald',
+         desc='أحجار زمرد مركّبة بذهب، والضو ينتقل من حجر لحجر'),
+    dict(id='frame_blood', name='دم الخونة', rarity='epic', diamonds=20, sig='blood',
+         desc='الحلقة تنبض مثل القلب، وقطرات دم تنزل منها'),
+    dict(id='frame_blackgold', name='الذهب الأسود', rarity='epic', diamonds=25, sig='blackgold',
+         desc='حجر أسود فيه عروق ذهب ذايب تمشي وتتوهج'),
+    dict(id='frame_sun', name='الشمس', rarity='legendary', diamonds=30, sig='sun',
+         desc='شمس بأشعة تدور وتوهج. لحظتها الخاصة: انفجار شمسي'),
+    dict(id='frame_arabesque', name='نقوش', rarity='legendary', diamonds=35, sig='arabesque',
+         desc='زخرفة إسلامية ترسم نفسها بالذهب حول صورتك وتتوهج'),
+    dict(id='frame_king', name='الطاووس', rarity='legendary', diamonds=40, sig='peacock',
+         desc='ذيل طاووس ينفرد ورا صورتك، وعيونه تتلوّن مثل الحرير'),
+    dict(id='frame_galaxy', name='مجرة', rarity='legendary', diamonds=45, sig='galaxy',
+         desc='مجرة تدور ورا صورتك وكواكب تلف حولها. لحظتها الخاصة: انفجار نجمي'),
     # هدايا المستويات
-    dict(id='frame_lv10', name='فارس المجلس', rarity='rare', level=10, colors=['CD7F32', '8B4513', 'F4A460'], glow='E39B5B', accent='FFE0B2', fx=['shine', 'pulse']),
-    dict(id='frame_lv20', name='النخبة', rarity='epic', level=20, colors=['E5E7EB', '9CA3AF', 'FFFFFF'], glow='E5E7EB', accent='FFFFFF', fx=['dual', 'shine']),
-    dict(id='frame_lv30', name='الذهبي', rarity='epic', level=30, colors=['FFE082', 'FFB300', 'FFF8E1'], glow='FFC107', accent='FFFFFF', fx=['sparkle', 'shine']),
-    dict(id='frame_lv40', name='الياقوت', rarity='legendary', level=40, colors=['E11D48', '9F1239', 'FDA4AF'], glow='FB7185', accent='FFE4E6', fx=['flame', 'orbit']),
-    dict(id='frame_lv50', name='أسطورة المجلس', rarity='legendary', level=50, colors=['FFD54F', 'FF4081', '7C4DFF', '18FFFF'], glow='FFFFFF', accent='FFF59D', fx=['comet', 'sparkle', 'wave', 'crown']),
+    dict(id='frame_lv10', name='فارس المجلس', rarity='rare', level=10, sig='knight',
+         desc='درع برونز بمسامير، وشارة الفارس تحت صورتك'),
+    dict(id='frame_lv20', name='النخبة', rarity='epic', level=20, sig='elite',
+         desc='فضة مصقولة ينعكس عليها الضو، ولمعات صغيرة حولها'),
+    dict(id='frame_lv30', name='الذهبي', rarity='epic', level=30, sig='golden',
+         desc='عقد جنيهات ذهب يدور، وكل جنيه ينقلب ويلمع'),
+    dict(id='frame_lv40', name='الياقوت', rarity='legendary', level=40, sig='ruby',
+         desc='بلورات ياقوت تطلع من الحلقة وداخلها نار ترجف'),
+    dict(id='frame_lv50', name='أسطورة المجلس', rarity='legendary', level=50, sig='phoenix',
+         desc='عنقاء من نار ملوّنة: جناحينها ينفردون حول صورتك'),
     # الموسم الأول (من الباتل باس)
-    dict(id='frame_s1f', name='هلال الموسم', rarity='rare', season='s1', colors=['0F766E', 'FCD34D', '134E4A'], glow='5EEAD4', accent='FDE68A', fx=['stars', 'spin']),
-    dict(id='frame_s1a', name='ليالي المجلس', rarity='epic', season='s1', colors=['1E1B4B', 'FCD34D', '0F766E'], glow='FCD34D', accent='FDE68A', fx=['ornament', 'pulse']),
-    dict(id='frame_s1b', name='عاصفة الموسم', rarity='legendary', season='s1', colors=['0EA5E9', '1E1B4B', 'E0F2FE'], glow='38BDF8', accent='FFFFFF', fx=['electric', 'comet']),
-    dict(id='frame_s1c', name='تاج الموسم الأول', rarity='legendary', season='s1', colors=['FCD34D', '0F766E', 'FFFFFF', '7C3AED'], glow='FDE68A', accent='FFFFFF', fx=['rays', 'sparkle', 'wave', 'crown']),
+    dict(id='frame_s1f', name='هلال الموسم', rarity='rare', season='s1', sig='crescent',
+         desc='هلال ذهبي يحضن صورتك، ونجوم ذهب'),
+    dict(id='frame_s1a', name='ليالي المجلس', rarity='epic', season='s1', sig='lanterns',
+         desc='فوانيس رمضان تتمرجح، وزينة أضواء تلمع بالدور'),
+    dict(id='frame_s1b', name='عاصفة الموسم', rarity='legendary', season='s1', sig='storm',
+         desc='دوامة عاصفة تلف حولك، وبرق يومض داخلها'),
+    dict(id='frame_s1c', name='احتفال الموسم الأول', rarity='legendary', season='s1', sig='fireworks',
+         desc='ألعاب نارية تنفجر حول صورتك احتفال بالموسم'),
     # أبطال الأسبوع (لأسبوع واحد)
-    dict(id='frame_champ1', name='بطل الأسبوع', rarity='legendary', champion=1, colors=['FFD700', 'FFF59D', 'FF8F00'], glow='FFD700', accent='FFFDE7', fx=['rays', 'sparkle', 'crown']),
-    dict(id='frame_champ2', name='وصيف الأسبوع', rarity='legendary', champion=2, colors=['F1F5F9', '94A3B8', 'FFFFFF'], glow='E2E8F0', accent='FFFFFF', fx=['shine', 'sparkle', 'crown']),
-    dict(id='frame_champ3', name='ثالث الأسبوع', rarity='legendary', champion=3, colors=['E0A060', '8D5524', 'FFD7A8'], glow='E0A060', accent='FFE0B2', fx=['shine', 'pulse', 'crown']),
+    dict(id='frame_champ1', name='بطل الأسبوع', rarity='legendary', champion=1, sig='champ1',
+         desc='إكليل غار ذهبي وميدالية المركز الأول، وقصاصات احتفال'),
+    dict(id='frame_champ2', name='وصيف الأسبوع', rarity='legendary', champion=2, sig='champ2',
+         desc='إكليل غار فضي وميدالية المركز الثاني، ولمعات صقيع'),
+    dict(id='frame_champ3', name='ثالث الأسبوع', rarity='legendary', champion=3, sig='champ3',
+         desc='إكليل غار برونزي وميدالية المركز الثالث، وجمر يطير'),
 ]
 
 # ───────────── فقاعات الكلام ─────────────
@@ -394,13 +423,9 @@ def dart():
     L.append('const catalog = <ShopItem>[')
     for slot, i, d in items():
         args = [f'id: {dstr(i)}', f'slot: ShopSlot.{slot}', f'name: {dstr(d["name"])}', f'rarity: Rarity.{d["rarity"]}'] + price(d)
-        if slot == 'frame' and d['colors']:
-            fx = ', '.join('FrameFx.' + f for f in d['fx'])
-            extra = []
-            if 'glow' in d: extra.append(f'glow: {col(d["glow"])}')
-            if 'accent' in d: extra.append(f'accent: {col(d["accent"])}')
-            if 'sig' in d: extra.append(f'sig: {dstr(d["sig"])}')
-            args.append(f'frame: FrameStyle({cols(d["colors"])}, fx: [{fx}]' + (', ' + ', '.join(extra) if extra else '') + ')')
+        if slot == 'frame' and 'sig' in d:
+            motion = 'glint' if d['rarity'] == 'rare' else 'live'
+            args.append(f'frame: FrameStyle({dstr(d["sig"])}, motion: FrameMotion.{motion})')
         if slot == 'bubble':
             fx = ', '.join('BubbleFx.' + f for f in d['fx'])
             args.append(f'bubble: BubbleStyle(bg: {cols(d["bg"])}, border: {col(d["border"])}, text: {col(d["text"])}, fx: [{fx}])')

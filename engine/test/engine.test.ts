@@ -273,6 +273,16 @@ describe('الفيتو', () => {
     assert.equal(s.presidentId, 'p1');
   });
 
+  it('الفيتو بعد رفضتين يعتبر الرفضة الثالثة: يتمرر أول قرار تلقائياً', () => {
+    let s = vetoReady();
+    s.electionTracker = 2;
+    s = act(s, 'p1', { type: 'proposeVeto' });
+    s = act(s, 'p0', { type: 'respondVeto', accept: true });
+    assert.equal(s.electionTracker, 0);
+    assert.equal(s.lastElected, null);
+    assert.ok(s.log.some((e) => e.type === 'enacted' && e.chaos));
+  });
+
   it('رفض الفيتو يجبر الوزير يمرر', () => {
     let s = vetoReady();
     s = act(s, 'p1', { type: 'proposeVeto' });
@@ -288,7 +298,10 @@ describe('الادعاءات', () => {
   it('الرئيس يدّعي ٣ والوزير ٢، مرة وحدة بس، ومسموح الكذب', () => {
     let s = rigged(5, FIVE, ['L', 'L', 'T', 'L', 'L', 'L']);
     s = govern(s, 'p1');
-    assert.deepEqual(viewFor(s, 'p0').claimable, { office: 'president', count: 3 });
+    // ومعه الكروت اللي وصلته فعلاً، عشان الشاشة تعلّم له الصدق حتى لو فتح اللعبة من جديد
+    assert.deepEqual(viewFor(s, 'p0').claimable, { office: 'president', count: 3, truth: ['L', 'L', 'T'] });
+    assert.deepEqual(viewFor(s, 'p1').claimable, { office: 'chancellor', count: 2, truth: ['L', 'T'] });
+    assert.equal(viewFor(s, 'p2').claimable, null);
     s = act(s, 'p0', { type: 'claim', policies: ['T', 'T', 'T'] });
     assert.throws(() => act(s, 'p0', { type: 'claim', policies: ['L', 'L', 'L'] }), RuleError);
     assert.throws(() => act(s, 'p1', { type: 'claim', policies: ['L', 'L', 'L'] }), RuleError);
@@ -296,6 +309,14 @@ describe('الادعاءات', () => {
     assert.throws(() => act(s, 'p2', { type: 'claim', policies: ['L', 'T'] }), RuleError);
     const claims = s.log.filter((e) => e.type === 'claim');
     assert.equal(claims.length, 2);
+  });
+
+  it('المطرود ما يتكلم: ما له ادعاء', () => {
+    let s = rigged(5, FIVE, ['L', 'L', 'T', 'L', 'L', 'L']);
+    s = govern(s, 'p1');
+    s.players[0].alive = false;
+    assert.equal(viewFor(s, 'p0').claimable, null);
+    assert.throws(() => act(s, 'p0', { type: 'claim', policies: ['L', 'L', 'T'] }), RuleError);
   });
 });
 

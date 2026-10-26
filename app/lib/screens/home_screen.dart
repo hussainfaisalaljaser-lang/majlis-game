@@ -16,6 +16,7 @@ import 'how_to_play_screen.dart';
 import 'leaderboard_screen.dart';
 import 'missions_screen.dart';
 import 'pass_screen.dart';
+import 'private_screen.dart';
 import 'profile_screen.dart';
 import 'shop_screen.dart';
 import 'tables_screen.dart';
@@ -88,10 +89,11 @@ class HomeScreen extends StatelessWidget {
                                             Expanded(
                                               child: _Tile(
                                                 icon: 'friends',
-                                                title: 'مع أصحابك',
+                                                title: 'خاص',
+                                                subtitle: 'روم مع أصحابك',
                                                 colors: const [Color(0xFF2FBF71), Color(0xFF145C38)],
                                                 shadow: const Color(0xFF0B3A22),
-                                                onTap: () => _push(context, const TablesScreen()),
+                                                onTap: () => _push(context, const PrivateScreen()),
                                               ),
                                             ),
                                             const SizedBox(width: 10),
@@ -406,10 +408,10 @@ class _Hero extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 const Text(
-                  'مجلس الخونة',
+                  'عشوائي',
                   style: TextStyle(fontFamily: kufi, fontSize: 26, fontWeight: FontWeight.w700, height: 1.2),
                 ),
-                const Text('٥ إلى ١٠ لاعبين', style: TextStyle(fontSize: 12, color: Color(0xFFD9CFFF))),
+                const Text('العب أونلاين مع ناس من كل مكان', style: TextStyle(fontSize: 12, color: Color(0xFFD9CFFF))),
                 const Expanded(
                   child: FittedBox(
                     child: Padding(

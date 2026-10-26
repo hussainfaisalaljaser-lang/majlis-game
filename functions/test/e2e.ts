@@ -224,6 +224,19 @@ async function main(): Promise<void> {
   }
   console.log('✓ نهاية الروم الخاص: خبرة للكل، والفايزين انحسب لهم فوز');
 
+  // ٥أ. بعد اللعبة: الطاولة تبقى للسوالف (حتى المطرودين) لين يطلعون، واللي يطلع يبان للباقين
+  const roomRef = doc(getFirestore(host.app), `rooms/${code}`);
+  await rest[2].call('react', { code, kind: 'b_laugh' });
+  await expectError(rest[3].call('react', { code, kind: 'suspect', target: host.uid }), 'failed-precondition');
+  const deadOne = players.find((p) => end.players.some((x) => x.id === p.uid && !x.alive) && p !== rest[0]);
+  if (deadOne) await deadOne.call('react', { code, kind: 'innocent' });
+  await rest[2].call('leaveGame', { code });
+  await rest[2].call('leaveGame', { code });
+  assert.deepEqual((await getDoc(roomRef)).data()!.gone, [rest[2].uid], 'اللي طلع ينحفظ مرة وحدة');
+  await new Promise((r) => setTimeout(r, 1600));
+  await expectError(rest[2].call('react', { code, kind: 'b_laugh' }), 'failed-precondition');
+  console.log(`✓ بعد اللعبة: الطاولة تبقى للسوالف${deadOne ? ' (حتى المطرود)' : ''}، واللي يطلع يبان إنه طلع`);
+
   // ٥ب. المهام اليومية
   const m0 = (await rest[0].profile()).missions;
   assert.equal(m0.progress.play3, 1);

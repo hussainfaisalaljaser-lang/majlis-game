@@ -5,6 +5,7 @@ import '../models/profile.dart';
 import '../services/backend.dart';
 import '../theme.dart';
 import 'common.dart';
+import 'fx.dart';
 import 'ui.dart';
 
 /// رقم النسخة من البناء (CI يمرره: --dart-define=BUILD=رقم التشغيل).
@@ -47,6 +48,22 @@ class SettingsCard extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(10, 6, 10, 6),
       child: Column(
         children: [
+          // الجوالات الضعيفة: توقف حركات الإطارات والشخصيات وتبقى الرسمات ثابتة.
+          ValueListenableBuilder(
+            valueListenable: FxClock.lite,
+            builder: (context, lite, _) => SwitchListTile(
+              contentPadding: const EdgeInsets.symmetric(horizontal: 6),
+              dense: true,
+              secondary: const Gfx('bolt', size: 24),
+              title: const Text('حركات خفيفة', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+              subtitle: const Text(
+                'توقف حركات الإطارات والشخصيات. للجوالات الضعيفة',
+                style: TextStyle(color: AppColors.muted, fontSize: 11.5),
+              ),
+              value: lite,
+              onChanged: FxClock.setLite,
+            ),
+          ),
           item(
             'lock',
             profile.blocked.isEmpty ? 'المحظورين' : 'المحظورين (${arabicNumber(profile.blocked.length)})',

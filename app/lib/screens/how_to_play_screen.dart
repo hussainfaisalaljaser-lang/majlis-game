@@ -9,6 +9,7 @@ import '../theme.dart';
 import '../widgets/bubble.dart';
 import '../widgets/common.dart';
 import '../widgets/game/policy_card.dart';
+import '../widgets/game/tracks.dart';
 import '../widgets/ui.dart';
 import 'game_screen.dart';
 
@@ -110,9 +111,17 @@ Future<void> offerTutorial(BuildContext context) async {
   }
 }
 
-typedef _Slide = ({String voice, String title, String body, Widget art});
+/// صفحة شرح: نص (وفيه نقاط لها عنوان ملوّن) وملاحظة مهمة، ورسمة، وجملة الراوي اللي تقراها.
+typedef _Slide = ({
+  String voice,
+  String title,
+  String body,
+  List<(String, String, Color)> points,
+  String? note,
+  Widget art,
+});
 
-/// كيف ألعب: ٦ صفحات قصيرة، والراوي يقرا كل صفحة، وآخرها تبدأ لعبة الشرح.
+/// كيف ألعب: فكرة اللعبة وقوانينها في ٧ صفحات قصيرة، والراوي يقرا كل صفحة، وآخرها تبدأ لعبة الشرح.
 class HowToPlayScreen extends StatefulWidget {
   const HowToPlayScreen({super.key});
 
@@ -126,40 +135,102 @@ class _HowToPlayScreenState extends State<HowToPlayScreen> {
 
   static final List<_Slide> _slides = [
     (
-      voice: 'tut_s1',
-      title: 'هلا والله في المجلس!',
-      body: 'هذا مجلس الخونة: بيننا أوفياء… وبيننا خونة متخبّين.\nتعال أعلمك كيف تلعب في دقيقتين.',
+      voice: 'how_1',
+      title: 'فكرة اللعبة',
+      body:
+          'تنقسم اللعبة إلى فريقين: الأوفياء والخونة. لكل فريق هدف مختلف، وهويات اللاعبين سرية.\n'
+          'مهمتك هي مساعدة فريقك على الفوز، ومعرفة من يقف في صفك ومن يعارضك.',
+      points: const [],
+      note: null,
       art: const _WelcomeArt(),
     ),
     (
-      voice: 'tut_s2',
-      title: 'الأوفياء والخونة',
-      body: 'الأوفياء هم الأكثر، بس ما يدرون مين الخاين.\nأما الخونة فيعرفون بعض، ومعهم زعيمهم.',
+      voice: 'how_2',
+      title: 'الأدوار',
+      body: '',
+      points: const [
+        ('الأوفياء', 'هدفهم الفوز وإيقاف الخونة.', AppColors.loyalLight),
+        ('الخونة', 'يعملون سرًا لتحقيق الفوز دون كشف هوياتهم.', AppColors.traitorLight),
+        (
+          'زعيم الخونة',
+          'الشخصية التي يسعى الخونة لإيصالها إلى منصب الوزير بعد تمرير ٣ قرارات حمراء.',
+          AppColors.traitorLight,
+        ),
+        ('أدوار خاصة', 'بعض الأوفياء لهم دور خاص (العرّاف أو الحارس)، وشرحه يظهر في بطاقة دورك.', AppColors.gold),
+      ],
+      note: null,
       art: const _TeamsArt(),
     ),
     (
-      voice: 'tut_s3',
-      title: 'الرئيس والوزير',
-      body: 'كل جولة فيه رئيس، يختار له وزير.\nوبعدين الكل يصوّت: موافق أو رافض.',
+      voice: 'how_3',
+      title: 'كيف يفوز كل فريق؟',
+      body: '',
+      points: const [
+        ('الأوفياء', 'يفوزون بتمرير ٥ قرارات للأوفياء، أو بإقصاء زعيم الخونة.', AppColors.loyalLight),
+        (
+          'الخونة',
+          'يفوزون بتمرير ٦ قرارات للخونة، أو بإيصال زعيمهم إلى منصب الوزير بعد تمرير ٣ قرارات للخونة.',
+          AppColors.traitorLight,
+        ),
+      ],
+      note: null,
+      art: const _WinArt(),
+    ),
+    (
+      voice: 'how_4',
+      title: 'اختيار الحكومة',
+      body:
+          'في كل جولة، يختار الرئيس لاعبًا ليكون الوزير. بعد ذلك، يصوّت الجميع على قبول الحكومة أو رفضها.\n'
+          'إذا رُفضت، تنتقل الرئاسة إلى اللاعب التالي. وإذا رُفضت ٣ حكومات متتالية، يُمرَّر أول قرار في الكومة تلقائيًا.',
+      points: const [],
+      note: null,
       art: const _GovernmentArt(),
     ),
     (
-      voice: 'tut_s4',
-      title: 'القرارات',
-      body: 'إذا انتخبوا الحكومة، يمرّرون قرار.\n٥ قرارات زرقا يفوز الأوفياء، و٦ حمرا يفوزون الخونة.',
-      art: const _PoliciesArt(),
+      voice: 'how_5',
+      title: 'تمرير القرارات',
+      body:
+          'بعد قبول الحكومة، يسحب الرئيس ٣ قرارات، ويختار منها قرارين ليرسلهما إلى الوزير. '
+          'بعدها يختار الوزير قرارًا واحدًا لتمريره، ويتخلص من الثاني.',
+      points: const [],
+      note: 'مهم: اختيارات الرئيس والوزير سرية، ويقدر أي واحد منهم يكذب!',
+      art: const _PassArt(),
     ),
     (
-      voice: 'tut_s5',
-      title: 'الكلام… والكذب!',
-      body: 'بعد كل قرار، الرئيس والوزير يقولون وش وصلهم… وممكن يكذبون!\nوالقرار الأحمر يعطي الرئيس قدرة قوية.',
-      art: const _ClaimsArt(),
+      voice: 'how_6',
+      title: 'كيف تكتشف الخونة؟',
+      body:
+          'راقب اختيارات اللاعبين وتصويتاتهم، والقرارات التي تمرّرها الحكومات.\n'
+          'قارن أقوال اللاعبين بأفعالهم، وحاول اتخاذ اختياراتك بناءً على ما يحدث خلال اللعبة.',
+      points: const [],
+      note: null,
+      art: const _DetectArt(),
     ),
     (
-      voice: 'tut_s6',
-      title: 'انتبه للزعيم!',
-      body: 'إذا انطرد الزعيم فاز الأوفياء.\nوإذا صار وزير بعد ٣ قرارات حمرا، فازوا الخونة.',
-      art: const _LeaderArt(),
+      voice: 'how_7',
+      title: 'القدرات الخاصة',
+      body: 'بعض القرارات الحمراء تعطي الرئيس قدرة خاصة:',
+      points: const [
+        ('التحقيق', 'يكشف إذا كان اللاعب وفيًا أو خائنًا، لكن لا يكشف إذا كان زعيم الخونة.', AppColors.gold),
+        ('الطرد', 'إخراج لاعب من اللعبة نهائيًا.', AppColors.gold),
+        ('التلصص', 'الاطلاع على القرارات الثلاثة القادمة.', AppColors.gold),
+        ('الانتخاب الخاص', 'يختار الرئيس من يكون الرئيس القادم.', AppColors.gold),
+        (
+          'حق الفيتو',
+          'بعد ٥ قرارات حمراء، يطلب الوزير رفض القرارين، وإذا وافق الرئيس تُلغى الحكومة وتنتقل الرئاسة للاعب التالي.',
+          AppColors.gold,
+        ),
+      ],
+      note: null,
+      art: const _PowersArt(),
+    ),
+    (
+      voice: 'how_8',
+      title: 'حان وقت اللعب!',
+      body: 'أصبحت تعرف الأساسيات، والآن حان وقت اللعب!',
+      points: const [],
+      note: null,
+      art: const _ReadyArt(),
     ),
   ];
 
@@ -299,6 +370,8 @@ class _SlideView extends StatelessWidget {
 
   final _Slide slide;
 
+  static const _text = TextStyle(fontSize: 15, height: 1.6, fontWeight: FontWeight.w700);
+
   @override
   Widget build(BuildContext context) {
     return Padding(
@@ -306,7 +379,7 @@ class _SlideView extends StatelessWidget {
       child: Row(
         children: [
           Expanded(
-            flex: 6,
+            flex: 5,
             child: Container(
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(24),
@@ -322,56 +395,118 @@ class _SlideView extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 18),
+          // النص يتمرر لو طال على الشاشات الصغيرة.
           Expanded(
-            flex: 5,
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                GoldText(slide.title, size: 26, align: TextAlign.start),
-                const SizedBox(height: 10),
-                Text(slide.body, style: const TextStyle(fontSize: 16.5, height: 1.65, fontWeight: FontWeight.w700)),
-                const SizedBox(height: 12),
-                Row(
+            flex: 6,
+            child: Center(
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const PlayerAvatar(avatar: 'sheikh', size: 30),
-                    const SizedBox(width: 8),
-                    ValueListenableBuilder(
-                      valueListenable: Sfx.muted,
-                      builder: (context, muted, _) => GestureDetector(
-                        onTap: () {
-                          if (muted) {
-                            Sfx.toggle().then((_) => Sfx.say(slide.voice));
-                          } else {
-                            Sfx.hush();
-                            Sfx.say(slide.voice);
-                          }
-                        },
+                    GoldText(slide.title, size: 24, align: TextAlign.start),
+                    const SizedBox(height: 8),
+                    if (slide.body.isNotEmpty) Text(slide.body, style: _text),
+                    for (final (label, text, color) in slide.points)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 5),
                         child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Gfx(muted ? 'mute' : 'sound', size: 22),
-                            const SizedBox(width: 4),
-                            Text(
-                              muted ? 'شغّل صوت الراوي' : 'اسمعها مرة ثانية',
-                              style: const TextStyle(
-                                color: AppColors.muted,
-                                fontSize: 12.5,
-                                fontWeight: FontWeight.w700,
+                            Container(
+                              width: 7,
+                              height: 7,
+                              margin: const EdgeInsets.only(top: 9, left: 7, right: 7),
+                              decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+                            ),
+                            Expanded(
+                              child: Text.rich(
+                                TextSpan(
+                                  children: [
+                                    TextSpan(
+                                      text: '$label: ',
+                                      style: TextStyle(color: color, fontWeight: FontWeight.w900),
+                                    ),
+                                    TextSpan(text: text),
+                                  ],
+                                ),
+                                style: _text,
                               ),
                             ),
                           ],
                         ),
                       ),
-                    ),
+                    if (slide.note case final note?)
+                      Container(
+                        margin: const EdgeInsets.only(top: 10),
+                        padding: const EdgeInsets.fromLTRB(10, 6, 12, 6),
+                        decoration: BoxDecoration(
+                          color: AppColors.gold.withValues(alpha: .12),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: AppColors.gold.withValues(alpha: .6)),
+                        ),
+                        child: Row(
+                          children: [
+                            const Gfx('warning', size: 24),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                note,
+                                style: _text.copyWith(color: AppColors.gold, fontWeight: FontWeight.w800),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    const SizedBox(height: 10),
+                    _Replay(voice: slide.voice),
                   ],
                 ),
-              ],
+              ),
             ),
           ),
         ],
       ),
     );
   }
+}
+
+/// زر صغير يعيد جملة الراوي (أو يشغّل صوته لو مسكّت).
+class _Replay extends StatelessWidget {
+  const _Replay({required this.voice});
+
+  final String voice;
+
+  @override
+  Widget build(BuildContext context) => Row(
+    children: [
+      const PlayerAvatar(avatar: 'sheikh', size: 30),
+      const SizedBox(width: 8),
+      ValueListenableBuilder(
+        valueListenable: Sfx.muted,
+        builder: (context, muted, _) => GestureDetector(
+          onTap: () {
+            if (muted) {
+              Sfx.toggle().then((_) => Sfx.say(voice));
+            } else {
+              Sfx.hush();
+              Sfx.say(voice);
+            }
+          },
+          child: Row(
+            children: [
+              Gfx(muted ? 'mute' : 'sound', size: 22),
+              const SizedBox(width: 4),
+              Text(
+                muted ? 'شغّل صوت الراوي' : 'اسمعها مرة ثانية',
+                style: const TextStyle(color: AppColors.muted, fontSize: 12.5, fontWeight: FontWeight.w700),
+              ),
+            ],
+          ),
+        ),
+      ),
+    ],
+  );
 }
 
 /// اسم صغير تحت الرسمة.
@@ -517,49 +652,169 @@ class _GovernmentArt extends StatelessWidget {
   }
 }
 
-class _PoliciesArt extends StatelessWidget {
-  const _PoliciesArt();
+/// صف نتيجة: أيقونة، وكيف يفوز الفريق، وختمه.
+class _Outcome extends StatelessWidget {
+  const _Outcome(this.icon, this.text, {required this.loyal});
+
+  final String icon;
+  final String text;
+  final bool loyal;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    width: 250,
+    margin: const EdgeInsets.symmetric(vertical: 4),
+    padding: const EdgeInsets.fromLTRB(10, 7, 12, 7),
+    decoration: BoxDecoration(
+      color: (loyal ? AppColors.loyal : AppColors.traitor).withValues(alpha: .18),
+      borderRadius: BorderRadius.circular(16),
+      border: Border.all(color: loyal ? AppColors.loyalLight : AppColors.traitorLight, width: 1.6),
+    ),
+    child: Row(
+      children: [
+        Gfx(icon, size: 30),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(text, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800, height: 1.35)),
+        ),
+        Seal(loyal: loyal, size: 32),
+      ],
+    ),
+  );
+}
+
+/// كيف يفوز كل فريق: طريقتين لكل واحد.
+class _WinArt extends StatelessWidget {
+  const _WinArt();
+
+  @override
+  Widget build(BuildContext context) => const Column(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      _Outcome('check', '٥ قرارات للأوفياء', loyal: true),
+      _Outcome('dagger', 'إقصاء زعيم الخونة', loyal: true),
+      SizedBox(height: 8),
+      _Outcome('check', '٦ قرارات للخونة', loyal: false),
+      _Outcome('warning', 'الزعيم وزير بعد ٣ قرارات حمراء', loyal: false),
+    ],
+  );
+}
+
+/// ٣ كروت عند الرئيس ← كرتين للوزير ← قرار واحد يتمرر.
+class _PassArt extends StatelessWidget {
+  const _PassArt();
 
   @override
   Widget build(BuildContext context) {
-    Widget track(int n, Color color, String label) => Column(
+    Widget cards(List<Policy> list, {double width = 50, double opacity = 1}) => Row(
+      mainAxisSize: MainAxisSize.min,
       children: [
-        Row(
-          children: [
-            for (var i = 0; i < n; i++)
-              Container(
-                width: 22,
-                height: 22,
-                margin: const EdgeInsets.all(2.5),
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: color.withValues(alpha: .25),
-                  border: Border.all(color: color, width: 2.5),
-                ),
-              ),
-          ],
-        ),
+        for (final p in list)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 2),
+            child: Opacity(
+              opacity: opacity,
+              child: PolicyCard(policy: p, width: width),
+            ),
+          ),
+      ],
+    );
+    Widget arrow() => Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 6),
+      child: Transform.flip(flipX: Directionality.of(context) == TextDirection.rtl, child: const Gfx('pick', size: 34)),
+    );
+    Widget step(Widget top, Widget cardsRow, String label, Color color) => Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        top,
+        const SizedBox(height: 6),
+        cardsRow,
         _Caption(label, color: color),
       ],
+    );
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        step(
+          const PlayerAvatar(avatar: 'emir', frame: AppColors.gold, size: 64),
+          cards(const [Policy.traitor, Policy.loyal, Policy.traitor]),
+          'الرئيس يسحب ٣',
+          AppColors.gold,
+        ),
+        arrow(),
+        step(
+          const PlayerAvatar(avatar: 'scholar', frame: AppColors.loyalLight, size: 64),
+          cards(const [Policy.loyal, Policy.traitor]),
+          'الوزير ياخذ ٢',
+          AppColors.loyalLight,
+        ),
+        arrow(),
+        step(const Seal(loyal: true, size: 64), cards(const [Policy.loyal], width: 58), 'يتمرر ١', AppColors.text),
+      ],
+    );
+  }
+}
+
+/// راقب الكلام والتصويت: واحد يدّعي (ويمكن يكذب)، وتحته تصويت الطاولة.
+class _DetectArt extends StatelessWidget {
+  const _DetectArt();
+
+  @override
+  Widget build(BuildContext context) {
+    Widget vote(String avatar, bool yes) => Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 5),
+      child: Column(
+        children: [
+          PlayerAvatar(avatar: avatar, size: 46),
+          const SizedBox(height: 3),
+          Container(
+            width: 50,
+            padding: const EdgeInsets.symmetric(vertical: 1),
+            decoration: BoxDecoration(
+              color: yes ? AppColors.green : AppColors.traitor,
+              borderRadius: BorderRadius.circular(7),
+            ),
+            child: Text(
+              yes ? 'نعم' : 'لا',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontFamily: kufi,
+                fontWeight: FontWeight.w700,
+                color: yes ? const Color(0xFF062814) : Colors.white,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        const Row(
+        Row(
           mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            PolicyCard(policy: Policy.loyal, width: 84),
-            SizedBox(width: 26),
-            PolicyCard(policy: Policy.traitor, width: 84),
+            const PlayerAvatar(avatar: 'merchant', size: 80),
+            const SizedBox(width: 8),
+            Padding(
+              padding: const EdgeInsets.only(top: 6),
+              child: ChatBubble(style: bubbleStyle(null), text: 'والله وصلني ٣ حمر!', fontSize: 16, maxWidth: 200),
+            ),
+            const SizedBox(width: 6),
+            const Gfx('liar', size: 50),
           ],
         ),
         const SizedBox(height: 14),
         Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            track(5, AppColors.loyalLight, '٥ للأوفياء'),
-            const SizedBox(width: 20),
-            track(6, AppColors.traitorLight, '٦ للخونة'),
+            vote('pearl', true),
+            vote('desert', false),
+            vote('rose', true),
+            vote('sheikh', false),
+            const SizedBox(width: 6),
+            const Gfx('search', size: 44),
           ],
         ),
       ],
@@ -567,104 +822,69 @@ class _PoliciesArt extends StatelessWidget {
   }
 }
 
-class _ClaimsArt extends StatelessWidget {
-  const _ClaimsArt();
-
-  @override
-  Widget build(BuildContext context) => Column(
-    mainAxisSize: MainAxisSize.min,
-    children: [
-      Row(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const PlayerAvatar(avatar: 'merchant', size: 84),
-          const SizedBox(width: 8),
-          Padding(
-            padding: const EdgeInsets.only(top: 6),
-            child: ChatBubble(style: bubbleStyle(null), text: 'والله وصلني ٣ حمر!', fontSize: 16, maxWidth: 200),
-          ),
-          const SizedBox(width: 6),
-          const Gfx('liar', size: 54),
-        ],
-      ),
-      const SizedBox(height: 16),
-      Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          for (final (icon, label) in const [
-            ('search', 'تحقيق'),
-            ('eye', 'كشف الكروت'),
-            ('crown', 'رئيس جديد'),
-            ('dagger', 'طرد'),
-          ])
-            Container(
-              width: 82,
-              margin: const EdgeInsets.symmetric(horizontal: 4),
-              padding: const EdgeInsets.symmetric(vertical: 6),
-              decoration: BoxDecoration(
-                color: AppColors.traitor.withValues(alpha: .14),
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: AppColors.traitor.withValues(alpha: .6)),
-              ),
-              child: Column(
-                children: [
-                  Gfx(icon, size: 34),
-                  const SizedBox(height: 2),
-                  Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800)),
-                ],
-              ),
-            ),
-        ],
-      ),
-    ],
-  );
-}
-
-class _LeaderArt extends StatelessWidget {
-  const _LeaderArt();
+/// قدرات الرئيس، والفيتو.
+class _PowersArt extends StatelessWidget {
+  const _PowersArt();
 
   @override
   Widget build(BuildContext context) {
-    Widget outcome(String icon, String text, bool loyal) => Container(
-      width: 250,
-      margin: const EdgeInsets.symmetric(vertical: 5),
-      padding: const EdgeInsets.fromLTRB(10, 8, 12, 8),
+    Widget tile(String icon, String label) => Container(
+      width: 96,
+      margin: const EdgeInsets.all(5),
+      padding: const EdgeInsets.symmetric(vertical: 8),
       decoration: BoxDecoration(
-        color: (loyal ? AppColors.loyal : AppColors.traitor).withValues(alpha: .18),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: loyal ? AppColors.loyalLight : AppColors.traitorLight, width: 1.6),
+        color: AppColors.traitor.withValues(alpha: .14),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.traitor.withValues(alpha: .6)),
       ),
-      child: Row(
+      child: Column(
         children: [
-          Gfx(icon, size: 32),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(text, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800, height: 1.35)),
-          ),
-          Seal(loyal: loyal, size: 34),
+          Gfx(icon, size: 40),
+          const SizedBox(height: 3),
+          Text(label, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800)),
         ],
       ),
     );
-    return Row(
+    return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Container(
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            boxShadow: [BoxShadow(color: AppColors.traitor.withValues(alpha: .55), blurRadius: 40, spreadRadius: 4)],
-          ),
-          child: const LeaderSeal(size: 150),
-        ),
-        const SizedBox(width: 16),
-        Column(
+        Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            outcome('dagger', 'انطرد الزعيم: يفوزون الأوفياء', true),
-            outcome('warning', 'صار وزير بعد ٣ حمر: يفوزون الخونة', false),
+            for (final p in [Power.investigate, Power.execute, Power.peek]) tile(powerIcon[p]!, powerName[p]!),
           ],
+        ),
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [tile(powerIcon[Power.specialElection]!, powerName[Power.specialElection]!), tile('hand', 'فيتو')],
         ),
       ],
     );
   }
+}
+
+/// آخر صفحة: الشعار بين الختمين.
+class _ReadyArt extends StatelessWidget {
+  const _ReadyArt();
+
+  @override
+  Widget build(BuildContext context) => Row(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      const Seal(loyal: true, size: 70),
+      const SizedBox(width: 16),
+      Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(32),
+          boxShadow: [BoxShadow(color: AppColors.gold.withValues(alpha: .45), blurRadius: 36, spreadRadius: 2)],
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(32),
+          child: Image.asset('assets/logo.png', width: 150, height: 150),
+        ),
+      ),
+      const SizedBox(width: 16),
+      const Seal(loyal: false, size: 70),
+    ],
+  );
 }

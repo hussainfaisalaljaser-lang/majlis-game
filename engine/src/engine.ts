@@ -284,7 +284,7 @@ function resolveElection(s: GameState): void {
     return;
   }
 
-  s.electionTracker = 0;
+  // العداد ما يتصفر هنا: يتصفر لما يتمرر قرار. فلو انتُخبت حكومة ورمت الكرتين بالفيتو، تنحسب رفضة.
   s.lastElected = { president: s.presidentId, chancellor: s.nomineeId! };
   const chancellor = s.players.find((p) => p.id === s.nomineeId)!;
   if (s.traitorPolicies >= LEADER_DANGER_ZONE && chancellor.role === 'leader') {

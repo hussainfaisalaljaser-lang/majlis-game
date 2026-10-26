@@ -109,9 +109,10 @@ class GameTable extends StatelessWidget {
                 builder: (context) {
                   final offset = (p.seat - mySeat) % n;
                   final angle = angles[offset];
+                  final top = ry + ry * math.sin(angle);
                   return Positioned(
                     left: rx - rx * math.cos(angle),
-                    top: ry + ry * math.sin(angle),
+                    top: top,
                     width: seatW,
                     height: seatH,
                     child: ListenableBuilder(
@@ -121,6 +122,8 @@ class GameTable extends StatelessWidget {
                         duration: const Duration(milliseconds: 400),
                         curve: Curves.easeOutBack,
                         child: _SeatView(
+                          // المقاعد اللي فوق: الملصق ينزل تحت الصورة عشان ما ينقص من فوق الشاشة.
+                          stickerBelow: top < 30,
                           player: p,
                           view: view,
                           room: room,
@@ -308,6 +311,7 @@ const noteColors = {
 class _SeatView extends StatelessWidget {
   const _SeatView({
     this.dim = 1,
+    this.stickerBelow = false,
     required this.player,
     required this.view,
     required this.room,
@@ -330,12 +334,18 @@ class _SeatView extends StatelessWidget {
   /// شفافية المقعد (يظلم وقت التصويت).
   final double dim;
 
+  /// الملصق يطلع تحت الصورة بدال فوقها (المقاعد اللي فوق).
+  final bool stickerBelow;
+
   @override
   Widget build(BuildContext context) {
     final p = player;
     final isMe = p.id == view.you;
     final rp = room?.player(p.id);
     final role = p.knownRole;
+    final over = view.phase == Phase.gameOver;
+    // طلع من الطاولة بعد ما خلصت اللعبة.
+    final gone = room?.gone.contains(p.id) ?? false;
     // اللي حظرتهم: ما تشوف ردودهم ولا رأيهم.
     final blocked = Backend.instance.profile.value.blocked;
     final opinion = room?.opinionOf(p.id, ignore: blocked);
@@ -349,6 +359,8 @@ class _SeatView extends StatelessWidget {
     Color? frame;
     if (selectable) {
       frame = AppColors.gold;
+    } else if (over) {
+      if (role == Role.traitor || role == Role.leader) frame = AppColors.traitor;
     } else if (p.id == view.presidentId) {
       frame = AppColors.gold;
     } else if (p.id == view.nomineeId) {
@@ -371,7 +383,7 @@ class _SeatView extends StatelessWidget {
           alignment: Alignment.topCenter,
           children: [
             AnimatedOpacity(
-              opacity: dim,
+              opacity: gone ? math.min(dim, .4) : dim,
               duration: const Duration(milliseconds: 400),
               child: Column(
                 children: [
@@ -393,13 +405,17 @@ class _SeatView extends StatelessWidget {
                         ),
                       ),
                       if (!p.alive) const Positioned.fill(child: Center(child: Gfx('skull', size: 34))),
-                      if (p.id == view.presidentId) const Positioned(top: -26, left: 0, right: 0, child: _Crown()),
+                      if (!over && p.id == view.presidentId)
+                        const Positioned(top: -26, left: 0, right: 0, child: _Crown()),
                       // ختم أحمر على كل خاين تعرفه (يبقى حتى لو صار رئيس أو وزير وتغيّر لون الإطار).
-                      if (!isMe && (role == Role.traitor || role == Role.leader))
+                      // وبعد اللعبة الكل يبان ختمه، حتى الأوفياء.
+                      if (role != null && (over || !isMe && (role == Role.traitor || role == Role.leader)))
                         Positioned(
                           left: -8,
                           bottom: -4,
-                          child: role == Role.leader ? const LeaderSeal(size: 32) : const Seal(loyal: false, size: 26),
+                          child: role == Role.leader
+                              ? const LeaderSeal(size: 32)
+                              : Seal(loyal: role == Role.loyal, size: 26),
                         ),
                       if (p.knownSpecial == Special.guardian && !isMe) const _Badge('shield', left: -6, bottom: -2),
                       if (rp?.bot ?? false) const _Badge('bot', right: -8, top: 16),
@@ -451,7 +467,9 @@ class _SeatView extends StatelessWidget {
                     ],
                   ),
                   const SizedBox(height: 3),
-                  if (p.id == view.presidentId)
+                  if (over) ...[
+                    if (gone) const _Office('طلع', Color(0xFF5B5F78), Colors.white),
+                  ] else if (p.id == view.presidentId)
                     const _Office('الرئيس', AppColors.gold, AppColors.goldInk)
                   else if (p.id == view.nomineeId)
                     const _Office('الوزير', Color(0xFFA78BFA), Color(0xFF1E0F4A)),
@@ -481,7 +499,7 @@ class _SeatView extends StatelessWidget {
             ),
             if (reaction != null)
               Positioned(
-                top: stickerById(reaction.kind) != null ? -62 : -30,
+                top: stickerById(reaction.kind) == null ? -30 : (stickerBelow ? 56 : -62),
                 child: _Bubble(reaction: reaction, view: view, bubble: rp?.bubble),
               ),
           ],

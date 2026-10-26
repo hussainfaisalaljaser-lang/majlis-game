@@ -14,6 +14,7 @@ class ReactionsSheet extends StatefulWidget {
     required this.onText,
     required this.onSticker,
     this.onClearOpinion,
+    this.over = false,
   });
 
   final Profile profile;
@@ -22,6 +23,9 @@ class ReactionsSheet extends StatefulWidget {
 
   /// يطلع زر "أشيل رأيي" لو عنده رأي في أحد.
   final VoidCallback? onClearOpinion;
+
+  /// اللعبة خلصت: سوالف بس، ما فيه "أشك" و"أثق".
+  final bool over;
 
   @override
   State<ReactionsSheet> createState() => _ReactionsSheetState();
@@ -95,7 +99,7 @@ class _ReactionsSheetState extends State<ReactionsSheet> {
           runSpacing: 10,
           children: [
             for (final r in textReactions)
-              if (r.pack == null || p.owns(r.pack!))
+              if ((r.pack == null || p.owns(r.pack!)) && !(widget.over && (r.id == 'suspect' || r.id == 'trust')))
                 Semantics(
                   button: true,
                   label: 'رد ${r.id}',

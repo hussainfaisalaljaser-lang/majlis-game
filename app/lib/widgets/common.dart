@@ -140,11 +140,14 @@ class PlayerAvatar extends StatelessWidget {
   Widget build(BuildContext context) {
     // ساعة الحركات بس للي فيه شي يتحرك، والباقي صورة ثابتة ما تنرسم كل فريم.
     final style = frame == null ? this.style : null;
-    final moving = avatarArt(avatar) != null || (style?.animated ?? false);
-    if (!animate || !moving) return _build(const AlwaysStoppedAnimation(0), null);
+    final art = avatarArt(avatar) != null;
+    if (!animate || !art && style == null) return _build(const AlwaysStoppedAnimation(0), null);
+    // الإطار النادر يتحرك بس وقت لمعته (إلا لو الشخصية نفسها تتحرك).
+    final glint = !art && style?.motion == FrameMotion.glint;
     // الحركة ترسم الصورة بس كل فريم، مو الشاشة كلها اللي حولها.
     return RepaintBoundary(
       child: FxClock(
+        glint: glint,
         builder: (context, t) => _MomentScope(time: t, momentKey: momentKey, builder: (moment) => _build(t, moment)),
       ),
     );
@@ -202,11 +205,11 @@ class PlayerAvatar extends StatelessWidget {
               ),
             ),
           );
-    if (frame == null && style != null) {
+    final front = frame == null && style != null
+        ? sigFramePainter(style, t, avatar: size, layer: SigLayer.front, moment: moment)
+        : null;
+    if (style != null && front != null) {
       final back = sigFramePainter(style, t, avatar: size, layer: SigLayer.back, moment: moment);
-      final front =
-          sigFramePainter(style, t, avatar: size, layer: SigLayer.front, moment: moment) ??
-          FramePainter(style, t, ring: ring);
       return SizedBox(
         width: outer,
         height: outer,
@@ -287,7 +290,9 @@ class _MomentScopeState extends State<_MomentScope> {
 
   void _onEvent() {
     final e = Moments.events.value;
-    if (e != null && widget.momentKey != null && e.$1 == widget.momentKey) _at.value = widget.time.value;
+    // في الحركات الخفيفة الساعة واقفة، فاللحظة تعلق في أولها: ما نشغلها.
+    if (e == null || FxClock.lite.value || widget.momentKey == null || e.$1 != widget.momentKey) return;
+    _at.value = widget.time.value;
   }
 
   @override

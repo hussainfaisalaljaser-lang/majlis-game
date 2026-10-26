@@ -3,13 +3,13 @@ import 'package:flutter/material.dart';
 import '../models/profile.dart';
 import '../models/table_tier.dart';
 import '../services/backend.dart';
-import '../services/telemetry.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
 import '../widgets/ui.dart';
 import 'waiting_screen.dart';
 
-/// اختيار عدد اللاعبين ومستوى الطاولة، مثل يلا لودو.
+/// اللعب العشوائي: تختار عدد اللاعبين ومستوى الطاولة، وندخلك مع لاعبين من كل مكان (مثل يلا لودو).
+/// اللعب مع الأصحاب في «خاص» (private_screen.dart).
 class TablesScreen extends StatefulWidget {
   const TablesScreen({super.key});
 
@@ -52,40 +52,18 @@ class _TablesScreenState extends State<TablesScreen> {
     );
   }
 
-  Future<void> _joinByCode() async {
-    final controller = TextEditingController();
-    final code = await showDialog<String>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Row(children: [Gfx('key', size: 28), SizedBox(width: 8), Text('ادخل كود الروم')]),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          maxLength: 5,
-          textCapitalization: TextCapitalization.characters,
-          textDirection: TextDirection.ltr,
-          textAlign: TextAlign.center,
-          style: const TextStyle(fontSize: 24, letterSpacing: 6, fontWeight: FontWeight.w800),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('إلغاء')),
-          FilledButton(onPressed: () => Navigator.pop(context, controller.text.trim()), child: const Text('دخول')),
-        ],
-      ),
-    );
-    if (code == null || code.isEmpty) return;
-    await _enter(() async {
-      final joined = await Backend.instance.joinRoom(code);
-      Telemetry.joinRoom('code');
-      return joined;
-    });
-  }
-
   @override
   Widget build(BuildContext context) {
     return NightScaffold(
       appBar: AppBar(
-        title: const Text('مجلس الخونة', style: TextStyle(fontWeight: FontWeight.w800)),
+        title: const Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Gfx('games', size: 30),
+            SizedBox(width: 8),
+            Text('عشوائي · مع لاعبين من كل مكان', style: TextStyle(fontWeight: FontWeight.w800)),
+          ],
+        ),
       ),
       body: SafeArea(
         top: false,
@@ -143,32 +121,6 @@ class _TablesScreenState extends State<TablesScreen> {
                               ),
                               tier: _tier,
                             ),
-                    ),
-                    const SizedBox(height: 10),
-                    GameButton(
-                      label: 'روم خاص',
-                      icon: const Gfx('plus', size: 26),
-                      semantics: 'أنشئ روم خاص',
-                      tone: ButtonTone.purple,
-                      height: 46,
-                      fontSize: 16,
-                      onPressed: _busy
-                          ? null
-                          : () => _enter(
-                              Backend.instance.isReady
-                                  ? () => Backend.instance.createRoom(maxPlayers: _playerCount, quick: _quick)
-                                  : null,
-                            ),
-                    ),
-                    const SizedBox(height: 10),
-                    GameButton(
-                      label: 'ادخل بكود',
-                      icon: const Gfx('key', size: 26),
-                      semantics: 'ادخل بكود صديق',
-                      tone: ButtonTone.ghost,
-                      height: 46,
-                      fontSize: 16,
-                      onPressed: _busy || !Backend.instance.isReady ? null : _joinByCode,
                     ),
                   ],
                 ),

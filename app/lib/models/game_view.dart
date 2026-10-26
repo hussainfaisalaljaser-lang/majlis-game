@@ -95,6 +95,7 @@ class GameView {
       canVeto = j['canVeto'] as bool,
       investigations = [for (final i in j['yourInvestigations'] as List) Investigation.fromJson(_map(i))],
       claimCount = (j['claimable'] as Map?)?['count'] as int?,
+      claimTruth = ((j['claimable'] as Map?)?['truth'] as List?)?.map(Policy.parse).toList(),
       winnerLoyal = j['winner'] == null ? null : j['winner'] == 'loyal',
       winReason = j['winReason'] as String?,
       log = [for (final e in j['log'] as List) GameEvent.fromJson(_map(e))],
@@ -140,6 +141,9 @@ class GameView {
 
   /// كم كرت تقدر تدّعي (٣ للرئيس، ٢ للوزير)، أو null لو ما لك ادعاء.
   final int? claimCount;
+
+  /// الكروت اللي وصلتك فعلاً في الحكومة اللي تدّعي عنها (من السيرفر).
+  final List<Policy>? claimTruth;
   final bool? winnerLoyal;
   final String? winReason;
   final List<GameEvent> log;

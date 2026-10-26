@@ -4,6 +4,7 @@ import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
+import 'screens/frame_gallery.dart';
 import 'screens/home_screen.dart';
 import 'screens/welcome_screen.dart';
 import 'services/backend.dart';
@@ -13,6 +14,7 @@ import 'services/push.dart';
 import 'services/music.dart';
 import 'services/sfx.dart';
 import 'services/telemetry.dart';
+import 'widgets/fx.dart';
 import 'widgets/ui.dart';
 import 'theme.dart';
 
@@ -24,11 +26,12 @@ Future<void> main() async {
   if (kIsWeb && const bool.fromEnvironment('USE_EMULATOR')) {
     SemanticsBinding.instance.ensureSemantics();
     installCaptureHook();
+    if (Uri.base.queryParameters['gallery'] == 'frames') return runApp(const FrameGalleryApp());
   }
   // اللعبة بالعرض، مثل ألعاب الطاولة. ونخفي أشرطة النظام عشان الشاشة كلها للعبة.
   await SystemChrome.setPreferredOrientations([DeviceOrientation.landscapeLeft, DeviceOrientation.landscapeRight]);
   SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
-  await Future.wait([Backend.instance.init(), Sfx.init(), Music.init()]);
+  await Future.wait([Backend.instance.init(), Sfx.init(), Music.init(), FxClock.init()]);
   await Telemetry.init();
   Music.play('menu');
   runApp(const MajlisApp());

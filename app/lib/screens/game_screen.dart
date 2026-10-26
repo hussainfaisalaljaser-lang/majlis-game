@@ -95,6 +95,10 @@ class _GameScreenState extends State<GameScreen> {
   /// شفنا اللعبة وهي شغالة (مو بس نتيجتها).
   bool _live = false;
 
+  /// بعد اللعبة: النتيجة كاملة مفتوحة فوق الطاولة (وإلا الطاولة تبقى للسوالف والملخص في نصها).
+  bool _resultsOpen = false;
+  bool _leftTable = false;
+
   /// مشاهد تنتظر دورها فوق الطاولة (كشف التصويت، الختم، الطرد…)، ومعها جملة الراوي.
   final List<(Widget, String, Duration)> _scenes = [];
 
@@ -136,7 +140,10 @@ class _GameScreenState extends State<GameScreen> {
       _afterUpdate(view);
     }, onError: (Object e) => debugPrint('view listener: $e'));
     _roomSub = _backend.watchRoom(widget.code).listen((room) {
-      if (mounted) setState(() => _room = room);
+      if (!mounted) return;
+      final before = _room;
+      setState(() => _room = room);
+      if (before != null && room != null) _announceLeavers(before, room);
     }, onError: (Object e) => debugPrint('room listener: $e'));
     // كل ثانية: نحدّث العداد وفقاعات الردود، ونطلب من السيرفر يكمّل لو خلص الوقت.
     _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
@@ -148,6 +155,18 @@ class _GameScreenState extends State<GameScreen> {
     });
   }
 
+  /// اللي يطلع يبان للكل: وقت اللعبة يكمل عنه بوت، وبعدها يطلع من الطاولة.
+  void _announceLeavers(Room before, Room room) {
+    for (final p in room.players) {
+      if (p.uid == _backend.uid || p.uid.startsWith('bot_')) continue;
+      if (room.gone.contains(p.uid) && !before.gone.contains(p.uid)) {
+        _toast('${p.name} طلع من الطاولة');
+      } else if (p.bot && !(before.player(p.uid)?.bot ?? true)) {
+        _toast('${p.name} طلع من اللعبة، ويكمل عنه بوت');
+      }
+    }
+  }
+
   /// اللحظات الخاصة للإطارات الأسطورية: لما تبدأ اللعبة (الكل)، ولما أحد يصير رئيس، والفايزين بالنهاية.
   void _moments(GameView? before, GameView v) {
     if (before == null) {
@@ -157,6 +176,7 @@ class _GameScreenState extends State<GameScreen> {
       return;
     }
     if (v.presidentId != before.presidentId) Moments.trigger(v.presidentId);
+    if (v.phase == Phase.gameOver && before.phase != Phase.gameOver && v.tutorial) _resultsOpen = true;
     if (v.phase == Phase.gameOver && before.phase != Phase.gameOver && v.winnerLoyal != null) {
       for (final p in v.players) {
         final role = p.knownRole;
@@ -305,6 +325,8 @@ class _GameScreenState extends State<GameScreen> {
 
   @override
   void dispose() {
+    // طلعت من الطاولة بعد ما خلصت اللعبة (بالزر أو بالرجوع): الباقين يشوفون إنك طلعت.
+    if (_view?.phase == Phase.gameOver && !_leftTable) _backend.leaveGame(widget.code).ignore();
     _tipTimer?.cancel();
     _timeoutTimer?.cancel();
     Push.setCurrentGame(null);
@@ -680,7 +702,8 @@ class _GameScreenState extends State<GameScreen> {
 
   /// الردود السريعة: زر واحد يفتح اللوحة (كلام وملصقات)، بدال الشات.
   void _openReactions() {
-    final hasOpinion = (_room?.opinions[_backend.uid] ?? const {}).isNotEmpty;
+    final over = _view?.phase == Phase.gameOver;
+    final hasOpinion = !over && (_room?.opinions[_backend.uid] ?? const {}).isNotEmpty;
     showModalBottomSheet<void>(
       context: context,
       backgroundColor: AppColors.panel,
@@ -691,6 +714,7 @@ class _GameScreenState extends State<GameScreen> {
         height: MediaQuery.sizeOf(context).height * .82,
         child: ReactionsSheet(
           profile: _backend.profile.value,
+          over: over,
           onText: (r) {
             Navigator.pop(context);
             r.target ? setState(() => _pendingReaction = r) : _react(r.id);
@@ -784,8 +808,10 @@ class _GameScreenState extends State<GameScreen> {
     return _claimOpen == key || (_claimLater != key && !_isMyTurn(v));
   }
 
-  /// الكروت اللي وصلتك فعلاً في الحكومة اللي تدّعي عنها (لو شفتها من هالجهاز).
+  /// الكروت اللي وصلتك فعلاً في الحكومة اللي تدّعي عنها: من السيرفر (يعرفها أكيد، حتى لو فتحت اللعبة
+  /// من جديد)، وإلا اللي شفناها على هالجهاز (سيرفر قديم).
   List<Policy>? _truth(GameView v) {
+    if (v.claimTruth case final truth? when truth.length == v.claimCount) return truth;
     final round = int.tryParse(_claimKey(v).split(':').last);
     final hand = round == null ? null : _seenHands[round];
     return hand != null && hand.length == v.claimCount ? hand : null;
@@ -885,7 +911,9 @@ class _GameScreenState extends State<GameScreen> {
                     onNote: _editNote,
                     onTapPlayer: (id) => _tapPlayer(v, id),
                     spotlight: v.phase == Phase.election && pickHint == null ? {v.presidentId, ?v.nomineeId} : null,
-                    center: _TableCenter(view: v, room: _room),
+                    center: over
+                        ? _ResultCenter(view: v, room: _room, onTap: () => setState(() => _resultsOpen = true))
+                        : _TableCenter(view: v, room: _room),
                   ),
                 ),
               ),
@@ -908,7 +936,7 @@ class _GameScreenState extends State<GameScreen> {
                   roleColor: roleColor,
                   special: special,
                   onRole: _showRole,
-                  onBack: over ? () => Navigator.of(context).maybePop() : _confirmLeave,
+                  onBack: over ? _leaveTable : _confirmLeave,
                 ),
               ),
               // فوق يسار: النقاط مصغرة، تنضغط وتكبر
@@ -921,45 +949,47 @@ class _GameScreenState extends State<GameScreen> {
                       )
                     : MiniTracks(view: v, onTap: () => showTracksBoard(context, v)),
               ),
-              // تحت يمين: التفاعل والعرّاف
-              if (!over)
-                PositionedDirectional(
-                  bottom: 10,
-                  start: 10,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      if (v.seerReady && !_sent.containsKey('seer')) ...[
-                        _RoundButton(
-                          gfx: 'seer',
-                          label: 'كشف العراف',
-                          color: const Color(0xFF7C5CFF),
-                          active: _seerPicking,
-                          onTap: () => setState(() {
-                            _pendingReaction = null;
-                            _seerPicking = !_seerPicking;
-                          }),
-                        ),
-                        const SizedBox(height: 10),
-                      ],
-                      if (_tip == 'tut_chat')
-                        _Pulse(
-                          child: _RoundButton(
-                            gfx: 'chat',
-                            label: 'تفاعل',
-                            color: AppColors.gold,
-                            active: true,
-                            onTap: () {
-                              _closeTip();
-                              _openReactions();
-                            },
-                          ),
-                        )
-                      else
-                        _RoundButton(gfx: 'chat', label: 'تفاعل', color: AppColors.gold, onTap: _openReactions),
+              // تحت يمين: التفاعل والعرّاف (والتفاعل يبقى بعد اللعبة للسوالف)
+              PositionedDirectional(
+                bottom: 10,
+                start: 10,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (!over && v.seerReady && !_sent.containsKey('seer')) ...[
+                      _RoundButton(
+                        gfx: 'seer',
+                        label: 'كشف العراف',
+                        color: const Color(0xFF7C5CFF),
+                        active: _seerPicking,
+                        onTap: () => setState(() {
+                          _pendingReaction = null;
+                          _seerPicking = !_seerPicking;
+                        }),
+                      ),
+                      const SizedBox(height: 10),
                     ],
-                  ),
+                    // المطرود يتفرج بس، ما يتكلم (لين تخلص اللعبة).
+                    if (!v.me.alive && !over)
+                      const SizedBox.shrink()
+                    else if (_tip == 'tut_chat')
+                      _Pulse(
+                        child: _RoundButton(
+                          gfx: 'chat',
+                          label: 'تفاعل',
+                          color: AppColors.gold,
+                          active: true,
+                          onTap: () {
+                            _closeTip();
+                            _openReactions();
+                          },
+                        ),
+                      )
+                    else
+                      _RoundButton(gfx: 'chat', label: 'تفاعل', color: AppColors.gold, onTap: _openReactions),
+                  ],
                 ),
+              ),
               // جنب زر التفاعل: الادعاء اللي أجّلته (تحت، عشان ما يغطي مقعد أحد)
               if (!over && _canClaim(v) && !_claimPending(v))
                 PositionedDirectional(
@@ -967,6 +997,9 @@ class _GameScreenState extends State<GameScreen> {
                   start: 74,
                   child: _Pulse(child: _ClaimChip(onTap: () => setState(() => _claimOpen = _claimKey(v)))),
                 ),
+              // بعد اللعبة: الطاولة تبقى، واللي يبي يطلع يضغط خروج.
+              if (over && _scenes.isEmpty)
+                PositionedDirectional(bottom: 17, start: 74, child: _ExitChip(onTap: _leaveTable)),
               // تحت يسار: السجل والصوت
               PositionedDirectional(
                 bottom: 10,
@@ -1021,7 +1054,14 @@ class _GameScreenState extends State<GameScreen> {
                     child: _CoachCard(key: ValueKey(tip), text: _tips[tip]!, onClose: _closeTip),
                   ),
                 ),
-              if (over && _scenes.isEmpty) _GameOver(view: v, room: _room, onPlayer: _editNote),
+              if (over && _scenes.isEmpty && _resultsOpen)
+                _GameOver(
+                  view: v,
+                  room: _room,
+                  onPlayer: _editNote,
+                  onClose: () => setState(() => _resultsOpen = false),
+                  onLeave: _leaveTable,
+                ),
               if (_scenes.isNotEmpty)
                 Positioned.fill(
                   child: EventOverlay(
@@ -1040,6 +1080,14 @@ class _GameScreenState extends State<GameScreen> {
 
   bool _leaving = false;
   bool _kickShown = false;
+
+  /// بعد ما خلصت اللعبة: تطلع من الطاولة للرئيسية، والباقين يشوفون عند كرسيك إنك طلعت.
+  void _leaveTable() {
+    if (_leftTable) return;
+    _leftTable = true;
+    _backend.leaveGame(widget.code).ignore();
+    Navigator.of(context).popUntil((r) => r.isFirst);
+  }
 
   /// تطلع من اللعبة؟ يكمل عنك بوت، وما تاخذ فوز ولا جائزة.
   Future<void> _confirmLeave() async {
@@ -1589,6 +1637,78 @@ class _TableCenter extends StatelessWidget {
   }
 }
 
+/// نص الصينية بعد اللعبة: فزت أو خسرت، ومين فاز وليش، وجوائزك. تنضغط وتفتح النتيجة كاملة.
+class _ResultCenter extends StatelessWidget {
+  const _ResultCenter({required this.view, required this.room, required this.onTap});
+
+  final GameView view;
+  final Room? room;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final loyalWon = view.winnerLoyal ?? false;
+    final iWon = (view.yourRole == Role.loyal) == loyalWon;
+    final r = room?.results[view.you];
+    return Semantics(
+      button: true,
+      label: 'النتيجة كاملة',
+      excludeSemantics: true,
+      child: GestureDetector(
+        onTap: onTap,
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  iWon ? const Gfx('trophy', size: 40) : Seal(loyal: loyalWon, size: 40),
+                  const SizedBox(width: 6),
+                  GoldText(iWon ? 'فزت!' : 'خسرت', size: 30),
+                ],
+              ),
+              Text(
+                '${loyalWon ? 'فاز الأوفياء' : 'فاز الخونة'} · ${_winReasons[view.winReason] ?? ''}',
+                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Color(0xFFD9CFFF)),
+              ),
+              if (r != null) ...[
+                const SizedBox(height: 6),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (r.coins > 0) ...[
+                      Amount('coin', '+${arabicNumber(r.coins)}', size: 18, style: _rewardStyle(AppColors.gold)),
+                      const SizedBox(width: 12),
+                    ],
+                    Amount('xp', '+${arabicNumber(r.xp)}', size: 18, style: _rewardStyle(AppColors.diamond)),
+                  ],
+                ),
+              ],
+              const SizedBox(height: 6),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: .35),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: AppColors.gold.withValues(alpha: .6)),
+                ),
+                child: const Text(
+                  'النتيجة كاملة',
+                  style: TextStyle(color: AppColors.gold, fontWeight: FontWeight.w800, fontSize: 12.5),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  static TextStyle _rewardStyle(Color color) => TextStyle(color: color, fontWeight: FontWeight.w800, fontSize: 15);
+}
+
 /// صورة في الصينية: الرئيس بتاج مرسوم فوقه، أو الوزير، أو دائرة فاضية تنبض لين يختاره الرئيس.
 class _TraySeat extends StatelessWidget {
   const _TraySeat({required this.avatar, required this.name, this.crown = false, this.waiting = false, this.cards = 0});
@@ -2015,6 +2135,42 @@ class _ClaimChip extends StatelessWidget {
   );
 }
 
+/// بعد اللعبة: تطلع من الطاولة (الباقين يشوفون إنك طلعت).
+class _ExitChip extends StatelessWidget {
+  const _ExitChip({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+    button: true,
+    label: 'خروج',
+    excludeSemantics: true,
+    child: GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsetsDirectional.fromSTEB(8, 4, 14, 4),
+        decoration: BoxDecoration(
+          color: AppColors.panel.withValues(alpha: .92),
+          borderRadius: BorderRadius.circular(22),
+          border: Border.all(color: AppColors.traitorLight.withValues(alpha: .8), width: 2),
+        ),
+        child: const Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Gfx('exit', size: 28),
+            SizedBox(width: 6),
+            Text(
+              'خروج',
+              style: TextStyle(fontFamily: kufi, fontSize: 14, fontWeight: FontWeight.w700),
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
+}
+
 class _Reward extends StatelessWidget {
   const _Reward(this.text, this.color, {required this.icon});
 
@@ -2074,13 +2230,23 @@ class _TutorialDone extends StatelessWidget {
 }
 
 class _GameOver extends StatelessWidget {
-  const _GameOver({required this.view, required this.room, required this.onPlayer});
+  const _GameOver({
+    required this.view,
+    required this.room,
+    required this.onPlayer,
+    required this.onClose,
+    required this.onLeave,
+  });
 
   final GameView view;
   final Room? room;
 
   /// ضغطة على لاعب: بطاقته (تقدر تبلّغ عنه بعد اللعبة).
   final ValueChanged<String> onPlayer;
+
+  /// ترجع للطاولة (تسولف مع الباقين)، أو تطلع منها.
+  final VoidCallback onClose;
+  final VoidCallback onLeave;
 
   @override
   Widget build(BuildContext context) {
@@ -2123,100 +2289,124 @@ class _GameOver extends StatelessWidget {
           ),
         ),
     ];
-    return Container(
-      color: Colors.black.withValues(alpha: .78),
-      padding: const EdgeInsets.all(12),
-      child: Center(
-        child: TweenAnimationBuilder<double>(
-          tween: Tween(begin: .8, end: 1),
-          duration: const Duration(milliseconds: 600),
-          curve: Curves.elasticOut,
-          builder: (context, s, child) => Transform.scale(scale: s, child: child),
-          child: Container(
-            constraints: const BoxConstraints(maxWidth: 680),
-            padding: const EdgeInsets.fromLTRB(18, 14, 18, 14),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(26),
-              gradient: RadialGradient(
-                center: const AlignmentDirectional(-.6, -1).resolve(Directionality.of(context)),
-                radius: 1.4,
-                colors: [teamColor.withValues(alpha: .45), AppColors.panel],
-              ),
-              border: Border.all(color: AppColors.gold.withValues(alpha: .6), width: 2),
-            ),
-            child: ConstrainedBox(
-              constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(context).height - 50),
-              child: Row(
-                children: [
-                  // النتيجة
-                  Expanded(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        iWon ? const Gfx('trophy', size: 64) : Seal(loyal: loyalWon, size: 64),
-                        GoldText(iWon ? 'فزت!' : 'خسرت', size: 36),
-                        const SizedBox(height: 2),
-                        Text(
-                          '${loyalWon ? 'فاز الأوفياء' : 'فاز الخونة'}\n${_winReasons[view.winReason] ?? ''}',
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(fontSize: 14, color: Color(0xFFD9CFFF)),
-                        ),
-                        if (view.tutorial) ...[const SizedBox(height: 8), _TutorialDone()],
-                        if (room?.results[view.you] case final r?) ...[
-                          const SizedBox(height: 10),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              if (r.coins > 0) _Reward('+${arabicNumber(r.coins)}', AppColors.gold, icon: 'coin'),
-                              if (r.coins > 0) const SizedBox(width: 10),
-                              _Reward('+${arabicNumber(r.xp)}', AppColors.diamond, icon: 'xp'),
-                              if (r.rank case final rank? when rank != 0) ...[
-                                const SizedBox(width: 10),
-                                _Reward(
-                                  '${rank > 0 ? '+' : '−'}${arabicNumber(rank.abs())} تصنيف',
-                                  rank > 0 ? AppColors.green : AppColors.traitorLight,
-                                  icon: 'rank_${RankTier.of(Backend.instance.profile.value.rankPoints).id}',
+    return GestureDetector(
+      onTap: onClose,
+      child: Container(
+        color: Colors.black.withValues(alpha: .78),
+        padding: const EdgeInsets.all(12),
+        child: Center(
+          child: GestureDetector(
+            onTap: () {},
+            child: TweenAnimationBuilder<double>(
+              tween: Tween(begin: .8, end: 1),
+              duration: const Duration(milliseconds: 600),
+              curve: Curves.elasticOut,
+              builder: (context, s, child) => Transform.scale(scale: s, child: child),
+              child: Container(
+                constraints: const BoxConstraints(maxWidth: 680),
+                padding: const EdgeInsets.fromLTRB(18, 14, 18, 14),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(26),
+                  gradient: RadialGradient(
+                    center: const AlignmentDirectional(-.6, -1).resolve(Directionality.of(context)),
+                    radius: 1.4,
+                    colors: [teamColor.withValues(alpha: .45), AppColors.panel],
+                  ),
+                  border: Border.all(color: AppColors.gold.withValues(alpha: .6), width: 2),
+                ),
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(context).height - 50),
+                  child: Row(
+                    children: [
+                      // النتيجة
+                      Expanded(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            iWon ? const Gfx('trophy', size: 64) : Seal(loyal: loyalWon, size: 64),
+                            GoldText(iWon ? 'فزت!' : 'خسرت', size: 36),
+                            const SizedBox(height: 2),
+                            Text(
+                              '${loyalWon ? 'فاز الأوفياء' : 'فاز الخونة'}\n${_winReasons[view.winReason] ?? ''}',
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(fontSize: 14, color: Color(0xFFD9CFFF)),
+                            ),
+                            if (view.tutorial) ...[const SizedBox(height: 8), _TutorialDone()],
+                            if (room?.results[view.you] case final r?) ...[
+                              const SizedBox(height: 10),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  if (r.coins > 0) _Reward('+${arabicNumber(r.coins)}', AppColors.gold, icon: 'coin'),
+                                  if (r.coins > 0) const SizedBox(width: 10),
+                                  _Reward('+${arabicNumber(r.xp)}', AppColors.diamond, icon: 'xp'),
+                                  if (r.rank case final rank? when rank != 0) ...[
+                                    const SizedBox(width: 10),
+                                    _Reward(
+                                      '${rank > 0 ? '+' : '−'}${arabicNumber(rank.abs())} تصنيف',
+                                      rank > 0 ? AppColors.green : AppColors.traitorLight,
+                                      icon: 'rank_${RankTier.of(Backend.instance.profile.value.rankPoints).id}',
+                                    ),
+                                  ],
+                                ],
+                              ),
+                            ],
+                            const SizedBox(height: 14),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: GameButton(
+                                    label: 'ارجع للطاولة',
+                                    icon: const Gfx('chat', size: 24),
+                                    semantics: 'ارجع للطاولة',
+                                    height: 48,
+                                    fontSize: 16,
+                                    onPressed: onClose,
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: GameButton(
+                                    label: 'خروج',
+                                    icon: const Gfx('exit', size: 24),
+                                    semantics: 'خروج',
+                                    tone: ButtonTone.ghost,
+                                    height: 48,
+                                    fontSize: 16,
+                                    onPressed: onLeave,
+                                  ),
                                 ),
                               ],
-                            ],
-                          ),
-                        ],
-                        const SizedBox(height: 14),
-                        GameButton(
-                          label: 'الرئيسية',
-                          icon: const Gfx('home', size: 26),
-                          semantics: 'الرئيسية',
-                          height: 48,
-                          fontSize: 17,
-                          onPressed: () => Navigator.of(context).popUntil((r) => r.isFirst),
+                            ),
+                          ],
                         ),
-                      ],
-                    ),
-                  ),
-                  SizedBox(
-                    height: 180,
-                    child: VerticalDivider(width: 28, color: AppColors.gold.withValues(alpha: .25)),
-                  ),
-                  // الأدوار الحقيقية
-                  Expanded(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Text(
-                          'الأدوار الحقيقية',
-                          style: TextStyle(fontFamily: kufi, fontWeight: FontWeight.w700, fontSize: 16),
+                      ),
+                      SizedBox(
+                        height: 180,
+                        child: VerticalDivider(width: 28, color: AppColors.gold.withValues(alpha: .25)),
+                      ),
+                      // الأدوار الحقيقية
+                      Expanded(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Text(
+                              'الأدوار الحقيقية',
+                              style: TextStyle(fontFamily: kufi, fontWeight: FontWeight.w700, fontSize: 16),
+                            ),
+                            const SizedBox(height: 6),
+                            Flexible(
+                              child: ConstrainedBox(
+                                constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(context).height - 110),
+                                child: SingleChildScrollView(child: Column(children: roles)),
+                              ),
+                            ),
+                          ],
                         ),
-                        const SizedBox(height: 6),
-                        Flexible(
-                          child: ConstrainedBox(
-                            constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(context).height - 110),
-                            child: SingleChildScrollView(child: Column(children: roles)),
-                          ),
-                        ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
-                ],
+                ),
               ),
             ),
           ),
