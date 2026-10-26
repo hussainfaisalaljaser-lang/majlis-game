@@ -24,6 +24,7 @@ class GameTable extends StatelessWidget {
     this.selectable = const {},
     this.onSelect,
     this.onNote,
+    this.onTapPlayer,
     this.now,
     this.spotlight,
   });
@@ -37,8 +38,11 @@ class GameTable extends StatelessWidget {
   final Set<String> selectable;
   final ValueChanged<String>? onSelect;
 
-  /// ضغطة طويلة على لاعب: تحط ملاحظتك عليه.
+  /// بطاقة اللاعب (ضغطة طويلة، أو ضغطة لما ما فيه اختيار).
   final ValueChanged<String>? onNote;
+
+  /// ضغطة على لاعب ما ينفع تختاره الحين (الافتراضي: بطاقته).
+  final ValueChanged<String>? onTapPlayer;
   final DateTime? now;
 
   /// وقت التصويت: الطاولة تظلم إلا الرئيس والوزير، عشان التركيز يكون عليهم.
@@ -51,6 +55,8 @@ class GameTable extends StatelessWidget {
     final players = [...view.players]..sort((a, b) => a.seat.compareTo(b.seat));
     final mySeat = view.me.seat;
     final n = players.length;
+    // وقت الاختيار (ترشيح، قدرة…) اللي ما ينفع تختارهم يظلمون، عشان يبان مين تقدر تختار.
+    final picking = onSelect != null && selectable.isNotEmpty;
 
     return LayoutBuilder(
       builder: (context, box) {
@@ -123,13 +129,17 @@ class GameTable extends StatelessWidget {
                           selectable: selectable.contains(p.id),
                           // وقت التصويت الكل يظلم إلا الحكومة، بس الخونة اللي تعرفهم يبقون واضحين.
                           // (الكلام والملصقات تبقى واضحة دايم)
-                          dim: spotlight == null || spotlight!.contains(p.id)
-                              ? 1
-                              : (p.id != view.you && (p.knownRole == Role.traitor || p.knownRole == Role.leader)
+                          dim: spotlight != null && !spotlight!.contains(p.id)
+                              ? (p.id != view.you && (p.knownRole == Role.traitor || p.knownRole == Role.leader)
                                     ? .85
-                                    : .3),
+                                    : .3)
+                              : picking && !selectable.contains(p.id) && p.id != view.you
+                              ? .45
+                              : 1,
                           // تختاره (وقت الترشيح أو القدرة)، وإلا تفتح بطاقته.
-                          onTap: selectable.contains(p.id) ? () => onSelect?.call(p.id) : () => onNote?.call(p.id),
+                          onTap: selectable.contains(p.id)
+                              ? () => onSelect?.call(p.id)
+                              : () => (onTapPlayer ?? onNote)?.call(p.id),
                           onLongPress: () => onNote?.call(p.id),
                         ),
                       ),

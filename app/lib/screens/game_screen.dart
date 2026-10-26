@@ -559,6 +559,37 @@ class _GameScreenState extends State<GameScreen> {
     );
   }
 
+  /// ضغطة على لاعب ما ينفع تختاره: لو هو دورك تختار نقول لك ليش، وإلا تنفتح بطاقته.
+  void _tapPlayer(GameView v, String id) {
+    final why = _whyNot(v, id);
+    if (why == null) return _editNote(id);
+    _toast(why);
+  }
+
+  /// ليش هاللاعب ما ينفع تختاره الحين (وقت ترشيحك أو قدرتك بس).
+  String? _whyNot(GameView v, String id) {
+    if (!v.amPresident || !v.me.alive || _pendingReaction != null || _seerPicking || _clearPick) return null;
+    final nominating = v.phase == Phase.nomination;
+    final power =
+        v.phase == Phase.power &&
+        (v.pendingPower == Power.investigate ||
+            v.pendingPower == Power.specialElection ||
+            v.pendingPower == Power.execute);
+    if (!nominating && !power) return null;
+    if (_busy) return 'لحظة…';
+    final p = v.player(id);
+    if (id == v.you) return nominating ? 'ما تقدر ترشّح نفسك، اختر لاعب ثاني' : 'اختر لاعب غيرك';
+    if (!p.alive) return '${p.name} مطرود من المجلس';
+    if (nominating && id == v.lastChancellor) {
+      return '${p.name} كان الوزير في الحكومة اللي قبل، وما يصير وزير مرتين ورا بعض. اختر غيره';
+    }
+    if (nominating && id == v.lastPresident) return '${p.name} كان الرئيس في الحكومة اللي قبل، فما يصير وزير هالجولة';
+    if (v.pendingPower == Power.investigate && v.investigations.any((i) => i.target == id)) {
+      return 'حققت مع ${p.name} قبل، اختر غيره';
+    }
+    return null;
+  }
+
   /// الردود السريعة: زر واحد يفتح اللوحة (كلام وملصقات)، بدال الشات.
   void _openReactions() {
     final hasOpinion = (_room?.opinions[_backend.uid] ?? const {}).isNotEmpty;
@@ -736,6 +767,7 @@ class _GameScreenState extends State<GameScreen> {
                     selectable: selectable,
                     onSelect: onSelect,
                     onNote: _editNote,
+                    onTapPlayer: (id) => _tapPlayer(v, id),
                     spotlight: v.phase == Phase.election && pickHint == null ? {v.presidentId, ?v.nomineeId} : null,
                     center: _TableCenter(view: v, room: _room),
                   ),
@@ -978,7 +1010,7 @@ class _GameScreenState extends State<GameScreen> {
     if (!v.me.alive) return const [];
     switch (v.phase) {
       case Phase.nomination when v.amPresident:
-        return [_banner('أنت الرئيس! اختر وزير من الطاولة', icon: 'crown')];
+        return [_banner('أنت الرئيس! اضغط على اللاعب اللي تبيه وزير', icon: 'crown')];
       case Phase.election when !v.me.hasVoted:
         return [
           _besideSeat(
