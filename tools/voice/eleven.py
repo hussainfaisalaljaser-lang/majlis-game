@@ -2,6 +2,8 @@
 
   python eleven.py lines VOICE_ID OUT [key1,key2]   جمل اللعبة (lines.json)، كلها أو المذكورة بس
 
+لو lines.json فيه "check": true، كل جملة تنسمع بعد ما تتولد (heard.json) عشان نلقى الكلمات اللي انقرت غلط.
+
 الإعداد المعتمد في lines.json → config، وأي جملة لها إعداد خاص في overrides.
 يحتاج ELEVENLABS_API_KEY. الصوت لازم يكون مضاف في حسابك (My Voices).
 """
@@ -50,6 +52,28 @@ def say(text, voice, path, stability=None, cfg=None):
         f.write(data)
 
 
+def hear(path):
+    """يسمع الملف (تحويل الكلام لنص) ويرجع اللي انقال فعلاً، عشان نلقى الكلمات اللي انقرت غلط."""
+    boundary = 'majlis' + os.urandom(8).hex()
+    head = lambda name, extra='': f'--{boundary}\r\nContent-Disposition: form-data; name="{name}"{extra}\r\n'
+    body = b''.join([
+        (head('model_id') + '\r\nscribe_v1\r\n').encode(),
+        (head('language_code') + '\r\nar\r\n').encode(),
+        (head('file', f'; filename="{os.path.basename(path)}"') + 'Content-Type: audio/mpeg\r\n\r\n').encode(),
+        open(path, 'rb').read(),
+        f'\r\n--{boundary}--\r\n'.encode(),
+    ])
+    req = urllib.request.Request(
+        'https://api.elevenlabs.io/v1/speech-to-text',
+        data=body,
+        headers={'xi-api-key': KEY, 'Content-Type': f'multipart/form-data; boundary={boundary}'},
+        method='POST')
+    try:
+        return json.loads(urllib.request.urlopen(req, timeout=120).read())['text']
+    except urllib.error.HTTPError as e:
+        return f'(ما قدرنا نسمعه: {e.code} {e.read().decode(errors="replace")[:200]})'
+
+
 def compose(prompt, length_ms, path):
     req = urllib.request.Request(
         'https://api.elevenlabs.io/v1/music?output_format=mp3_44100_128',
@@ -92,9 +116,17 @@ def main():
                 say(text, voice, os.path.join(out, f'{name}__{key}.mp3'), cfg=cfg)
                 print('✓', name, key)
     elif mode == 'lines':
+        heard = {}
         for key in keys:
-            say(LINES['lines'][key], voice, os.path.join(out, key + '.mp3'), cfg=cfg_for(key))
+            path = os.path.join(out, key + '.mp3')
+            say(LINES['lines'][key], voice, path, cfg=cfg_for(key))
             print('✓', key)
+            # "check": نسمع كل جملة بعد ما تتولد ونحفظ اللي انقال، نقارنه بالنص
+            if LINES.get('check'):
+                heard[key] = {'text': LINES['lines'][key], 'heard': hear(path)}
+                print('  سمعناه:', heard[key]['heard'])
+        if heard:
+            json.dump(heard, open(os.path.join(out, 'heard.json'), 'w', encoding='utf-8'), ensure_ascii=False, indent=2)
     else:
         sys.exit(__doc__)
 
