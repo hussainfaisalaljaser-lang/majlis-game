@@ -70,6 +70,7 @@ class GameEvent {
 class GameView {
   GameView.fromJson(Map<String, dynamic> j)
     : you = j['you'] as String,
+      tutorial = j['tutorial'] as bool? ?? false,
       yourRole = Role.values.byName(j['yourRole'] as String),
       yourSpecial = j['yourSpecial'] == null ? null : Special.values.byName(j['yourSpecial'] as String),
       seerSees = j['seerSees'] as String?,
@@ -101,6 +102,9 @@ class GameView {
   static Map<String, dynamic> _map(Object? o) => Map<String, dynamic>.from(o as Map);
 
   final String you;
+
+  /// لعبة الشرح: الراوي يطلع نصايح لكل خطوة.
+  final bool tutorial;
   final Role yourRole;
   final Special? yourSpecial;
 

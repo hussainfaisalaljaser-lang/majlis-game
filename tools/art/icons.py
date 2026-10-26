@@ -697,6 +697,35 @@ def _(ic):
     return ICONS['fire'](ic)
 
 
+@icon('guide')
+def _(ic):
+    # كتاب مفتوح فيه علامة استفهام: كيف ألعب
+    return (shape(ic, 'M64 30 Q40 16 10 22 V104 Q40 98 64 112 Z', ('#FFFDF5', '#F4E7C8', '#D9C192', '#5A3D18'))
+            + shape(ic, 'M64 30 Q88 16 118 22 V104 Q88 98 64 112 Z', ('#FFFDF5', '#EFDDB5', '#CDB07A', '#5A3D18'))
+            + shape(ic, 'M6 26 V110 Q38 102 64 118 Q90 102 122 110 V26', BROWN, 4.5, 'fill="none"')
+            + '<path d="M22 44 Q36 40 52 46 M22 58 Q36 54 52 60 M22 72 Q36 68 52 74" stroke="#B9834A" stroke-width="3.5" fill="none" stroke-linecap="round"/>'
+            + shape(ic, 'M100 16 H112 V40 L106 34 L100 40 Z', RED, 3)
+            + text(88, 96, '؟', 50, '#EF4B55', '#5E0812', 5))
+
+
+@icon('invite')
+def _(ic):
+    # فقاعة خضرا فيها سهم مشاركة: ادعُ أصحابك
+    return (shape(ic, 'M64 10 Q116 10 116 56 Q116 100 64 100 Q52 100 42 97 L16 114 L24 88 Q12 76 12 56 Q12 10 64 10 Z', GREEN)
+            + line('M40 72 Q42 46 70 44', '#0A4227', 14) + line('M40 72 Q42 46 70 44', '#fff', 8)
+            + shape(ic, 'M66 28 L92 44 L66 60 Z', WHITE, 4)
+            + shine(42, 28, 16, 7))
+
+
+@icon('link')
+def _(ic):
+    # حلقتين سلسلة: انسخ الرابط
+    ring = 'M-30 -16 H6 Q22 -16 22 0 Q22 16 6 16 H-30 Q-46 16 -46 0 Q-46 -16 -30 -16 Z M-28 -6 Q-36 -6 -36 0 Q-36 6 -28 6 H4 Q12 6 12 0 Q12 -6 4 -6 Z'
+    return (f'<g transform="translate(52 76) rotate(-40)">' + shape(ic, ring, SILVER, 4, 'fill-rule="evenodd"') + '</g>'
+            + f'<g transform="translate(84 52) rotate(-40)">' + shape(ic, ring, GOLD, 4, 'fill-rule="evenodd"') + '</g>'
+            + shine(78, 34, 8, 4))
+
+
 def svg(body, defs):
     sh = ('<filter id="sh" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur in="SourceAlpha" stdDeviation="3"/>'
           '<feOffset dx="0" dy="4" result="o"/><feComponentTransfer in="o" result="s"><feFuncA type="linear" slope=".45"/></feComponentTransfer>'

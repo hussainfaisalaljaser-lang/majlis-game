@@ -102,6 +102,8 @@ export interface GameState {
   misses?: Record<PlayerId, number>;
   /** الحارس استخدم حمايته؟ */
   guardianUsed: boolean;
+  /** لعبة الشرح للاعب الجديد: وقت أطول، والبوتات توافق على أول حكومة (السيرفر يعبّيها). */
+  tutorial?: boolean;
   winner: Team | null;
   winReason: WinReason | null;
   log: GameEvent[];

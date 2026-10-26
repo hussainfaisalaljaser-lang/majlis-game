@@ -470,6 +470,55 @@ async function main(): Promise<void> {
     console.log('✓ الباتل باس: المجاني والمدفوع، والاستلام مرة وحدة');
   }
 
+  // لعبة الشرح: أنت وفي وأول رئيس، والبوتات يوافقون على أول حكومة، والمكافأة لمن يكملها بس
+  const newbie = await client(77);
+  await newbie.call('ensureProfile');
+  const newbieCoins = (await newbie.profile()).coins;
+  const botTurns = async (code: string, mine: (v: PlayerView) => Record<string, unknown> | null) => {
+    let steps = 0;
+    for (;;) {
+      const v = (await newbie.view(code)) as PlayerView & { deadline: number | null };
+      if (v.phase === 'gameOver') return steps;
+      assert.ok(steps++ < 400, 'لعبة الشرح طولت');
+      const move = mine(v);
+      if (move) {
+        await newbie.call('act', { code, action: move });
+        continue;
+      }
+      if (v.deadline) await new Promise((r) => setTimeout(r, Math.max(0, v.deadline! - Date.now()) + 50));
+      await newbie.call('timeout', { code });
+    }
+  };
+  // اللي يطلع من الشرح قبل لا يخلص ما ياخذ المكافأة
+  const { code: quit } = await newbie.call<{ code: string }>('startTutorial');
+  await newbie.call('leaveGame', { code: quit });
+  await botTurns(quit, () => null);
+  const quitter = await newbie.profile();
+  assert.ok(!quitter.tutorialDone, 'طلع قبل لا يخلص');
+  assert.ok(!(quitter.gifts ?? []).some((g: { kind: string }) => g.kind === 'tutorial'));
+
+  const { code: tut } = await newbie.call<{ code: string }>('startTutorial');
+  const first = await newbie.view(tut);
+  assert.equal(first.tutorial, true);
+  assert.equal(first.yourRole, 'loyal');
+  assert.equal(first.yourSpecial, null);
+  assert.equal(first.presidentId, newbie.uid);
+  assert.equal(first.players.length, 5);
+  let firstGov: boolean | null = null;
+  const tutSteps = await botTurns(tut, (v) => {
+    // أول حكومة: الكل وافق، فتوصل للرئيس الكروت
+    if (firstGov === null && v.phase === 'presidentDiscard') firstGov = v.round === 1;
+    if (firstGov === null && v.round > 1) firstGov = false;
+    return nextMove(v);
+  });
+  assert.equal(firstGov, true, 'أول حكومة تنتخب في الشرح');
+  const tutProfile = await newbie.profile();
+  assert.equal(tutProfile.tutorialDone, true);
+  assert.ok(tutProfile.coins >= newbieCoins + 500, 'مكافأة الشرح وصلت');
+  assert.equal(tutProfile.gifts.filter((g: { kind: string }) => g.kind === 'tutorial').length, 1);
+  console.log(`✓ لعبة الشرح: وفي وأول رئيس، الحكومة الأولى تمر، و+٥٠٠ لمن يكملها (${tutSteps} خطوة)`);
+  await deleteApp(newbie.app);
+
   // أبطال الأسبوع: أول ٣ ياخذون إطار وشخصية مؤقتة
   const { champions } = await dev.call<{ champions: string[] }>('devTool', { action: 'crown' });
   assert.ok(champions.length >= 1, 'فيه فايزين هالأسبوع');

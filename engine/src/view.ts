@@ -17,6 +17,8 @@ import type {
 /** اللي يشوفه لاعب واحد من اللعبة: كل شي عام + أسراره هو بس. هذا اللي يوصل للجوال. */
 export interface PlayerView {
   you: PlayerId;
+  /** لعبة الشرح (التطبيق يطلع فيها نصايح الراوي). */
+  tutorial: boolean;
   yourRole: Role;
   /** دورك الخاص لو عندك (عرّاف أو حارس). */
   yourSpecial: Special | null;
@@ -86,6 +88,7 @@ export function viewFor(s: GameState, playerId: PlayerId): PlayerView {
 
   return {
     you: playerId,
+    tutorial: s.tutorial ?? false,
     yourRole: me.role,
     yourSpecial: me.special,
     seerSees: me.special === 'seer' ? s.seerSees : null,

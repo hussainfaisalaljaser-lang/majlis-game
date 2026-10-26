@@ -69,11 +69,15 @@ class RewardView extends StatelessWidget {
 /// نافذة هدية (مستوى أو بطولة) مع احتفال.
 Future<void> showGiftDialog(BuildContext context, Gift g) {
   HapticFeedback.heavyImpact();
-  Sfx.say(g.champion ? 'win_loyal' : 'enact_loyal');
-  final title = g.champion
+  if (!g.tutorial) Sfx.say(g.champion ? 'win_loyal' : 'enact_loyal');
+  final title = g.tutorial
+      ? 'خلّصت الشرح!'
+      : g.champion
       ? (g.n == 1 ? 'بطل الأسبوع!' : (g.n == 2 ? 'وصيف الأسبوع!' : 'ثالث الأسبوع!'))
       : 'هدية المستوى ${arabicNumber(g.n)}!';
-  final note = g.champion
+  final note = g.tutorial
+      ? 'هذي هديتك على أول لعبة. الحين أنت جاهز تلعب مع الناس!'
+      : g.champion
       ? 'الإطار والشخصية لك لين التتويج الجاي (أسبوع). لابسها الحين!'
       : 'وصلت ملفك، تقدر تلبسها من المتجر أو ملفك.';
   return showGeneralDialog<void>(
@@ -113,7 +117,7 @@ Future<void> showGiftDialog(BuildContext context, Gift g) {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Gfx(g.champion ? 'medal${g.n}' : 'gift', size: 46),
+                        Gfx(g.tutorial ? 'trophy' : (g.champion ? 'medal${g.n}' : 'gift'), size: 46),
                         const SizedBox(width: 10),
                         GoldText(title, size: 28),
                       ],

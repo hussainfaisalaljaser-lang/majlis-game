@@ -17,6 +17,9 @@ abstract final class Sfx {
   static bool _speaking = false;
   static final _quiet = <Completer<void>>[];
 
+  /// الجملة اللي تنقال الحين تخلص لما يكمل الملف أو ننقطعها (hush).
+  static Completer<void>? _done;
+
   static Future<void> init() async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -44,6 +47,17 @@ abstract final class Sfx {
     if (!_speaking) _next();
   }
 
+  /// يسكت الراوي على طول ويمسح اللي ينتظر (مثل لما تقلب صفحة في الشرح).
+  static void hush() {
+    _queue.clear();
+    _player?.stop().catchError((_) {});
+    _finish(_done);
+  }
+
+  static void _finish(Completer<void>? c) {
+    if (c != null && !c.isCompleted) c.complete();
+  }
+
   /// يخلص لما يسكت الراوي (مثلاً بطاقة الدور تنتظر الترحيب يخلص قبل ما تنقلب).
   static Future<void> whenQuiet() {
     if (!_speaking) return Future.value();
@@ -69,11 +83,16 @@ abstract final class Sfx {
     if (const bool.fromEnvironment('USE_EMULATOR')) {
       debugPrint('narrator: $line ${DateTime.now().millisecondsSinceEpoch}');
     }
+    final done = _done = Completer<void>();
+    StreamSubscription<void>? sub;
     try {
       final player = _player ??= AudioPlayer()..setReleaseMode(ReleaseMode.stop);
+      sub = player.onPlayerComplete.listen((_) => _finish(done));
       await player.play(AssetSource('voice/$line.mp3'));
-      await player.onPlayerComplete.first.timeout(const Duration(seconds: 8));
+      // جمل الشرح أطول شوي (لين ١٠ ثواني).
+      await done.future.timeout(const Duration(seconds: 12));
     } catch (_) {}
+    await sub?.cancel();
     _next();
   }
 }

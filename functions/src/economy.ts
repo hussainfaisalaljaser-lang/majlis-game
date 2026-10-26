@@ -22,6 +22,9 @@ export function tierById(id: unknown): TableTier | null {
 /** ذهب البداية لكل لاعب جديد. يكفي يجرب طاولة المدينة مرتين. */
 export const STARTING_COINS = 2000;
 
+/** مكافأة أول مرة يخلّص لعبة الشرح. */
+export const TUTORIAL_REWARD = 500;
+
 /** مكافأة أول مرة يربط حسابه بقوقل. */
 export const LINK_REWARD = 500;
 

@@ -22,11 +22,12 @@ import {
   type Action,
   type GameState,
 } from '../../engine/src/index.js';
-import { BOT_THINK_JITTER_MS, botThink, scenesDelay, startGrace } from './pacing.js';
+import { BOT_THINK_JITTER_MS, TUTORIAL_TIME_FACTOR, botThink, scenesDelay, startGrace, tutorialBotExtra } from './pacing.js';
 import {
   xpForLevel,
   LINK_REWARD,
   MISSION_PASS_POINTS,
+  TUTORIAL_REWARD,
   XP_PER_GAME,
   XP_PER_WIN,
   levelFor,
@@ -51,7 +52,7 @@ import {
   type Profile,
 } from './profile.js';
 import { CATALOG, CHAMPION_REWARDS, REACTIONS, SEASON } from './catalog.js';
-import { addPassPoints, applyLevelRewards, claimPass, passOf, seasonActive } from './rewards.js';
+import { addPassPoints, applyLevelRewards, claimPass, grant, passOf, seasonActive } from './rewards.js';
 import { avatarOfItem, itemById, slotOf } from './shop.js';
 
 initializeApp();
@@ -110,6 +111,8 @@ export interface Room {
   reactions?: Reaction[];
   /** رأي كل لاعب في الباقين: opinions[من][في] = أشك أو أثق. منه نحسب مؤشر الشك. */
   opinions?: Record<string, Record<string, 'suspect' | 'trust'>>;
+  /** لعبة الشرح. */
+  tutorial?: boolean;
   results?: Record<string, GameResult>;
 }
 
@@ -229,8 +232,10 @@ function deadlineFor(state: GameState, now: number, waitMs = 0): number | null {
   if (state.phase === 'gameOver') return null;
   const start = now + waitMs;
   const actors = currentActors(state);
-  if (actors.length > 0 && actors.every(botPlays(state))) return start + botThink(randomInt(BOT_THINK_JITTER_MS));
-  return start + PHASE_SECONDS[state.phase] * 1000;
+  if (actors.length > 0 && actors.every(botPlays(state))) {
+    return start + botThink(randomInt(BOT_THINK_JITTER_MS)) + (state.tutorial ? tutorialBotExtra() : 0);
+  }
+  return start + PHASE_SECONDS[state.phase] * 1000 * (state.tutorial ? TUTORIAL_TIME_FACTOR : 1);
 }
 
 /** حركات البوتات اللي ما تحتاج انتظار: التصويت (سري لين يكتمل)، والادعاء بعد الحكم، وكشف العرّاف. */
@@ -259,7 +264,8 @@ function runInstantBots(state: GameState): GameState {
     if (s.phase === 'election') {
       for (const id of currentActors(s).filter(botPlays(s))) {
         if (s.phase !== 'election') break;
-        s = applyAction(s, id, botAction(s, id)!);
+        // لعبة الشرح: البوتات يوافقون على أول حكومة عشان اللاعب الجديد يشوف كيف يمر القرار.
+        s = applyAction(s, id, s.tutorial && s.round === 1 ? { type: 'vote', ja: true } : botAction(s, id)!);
         changed = true;
       }
     }
@@ -622,6 +628,63 @@ export const startGame = onCall(async (req) => {
   return {};
 });
 
+/**
+ * لعبة الشرح: أنت وفي (بدون دور خاص) وأنت أول رئيس، وأول ٣ كروت فيها أزرق وأحمر عشان يكون للاختيار معنى.
+ */
+function rigTutorial(state: GameState, uid: string): GameState {
+  const players = state.players.map((p) => ({ ...p }));
+  const me = players.find((p) => p.id === uid)!;
+  if (me.role !== 'loyal') {
+    // نبدّل مع وفي ما عنده دور خاص (الدور الخاص للأوفياء بس).
+    const other = players.find((p) => p.id !== uid && p.role === 'loyal' && !p.special)!;
+    [me.role, other.role] = [other.role, me.role];
+    [me.special, other.special] = [other.special, me.special];
+  }
+  if (me.special) {
+    const other = players.find((p) => p.id !== uid && p.role === 'loyal' && !p.special)!;
+    [me.special, other.special] = [null, me.special];
+  }
+  const drawPile = [...state.drawPile];
+  const top = drawPile.slice(0, 3);
+  if (!top.includes('L') || !top.includes('T')) {
+    const need = top.includes('L') ? 'T' : 'L';
+    const j = drawPile.findIndex((c, i) => i >= 3 && c === need);
+    if (j >= 0) [drawPile[2], drawPile[j]] = [drawPile[j], drawPile[2]];
+  }
+  return { ...state, players, presidentId: uid, rotationSeat: me.seat, drawPile, tutorial: true };
+}
+
+/** يبدأ لعبة الشرح على طول: أنت و٤ بوتات، والراوي يشرح لك كل خطوة. */
+export const startTutorial = onCall(async (req) => {
+  const uid = requireAuth(req);
+  const code = await newRoomCode();
+  await db.runTransaction(async (tx) => {
+    const p = await readProfile(db, tx, uid);
+    requireNotBanned(p);
+    const bots = [...BOTS]
+      .sort(() => Math.random() - 0.5)
+      .slice(0, 4)
+      .map((b) => ({ ...b, uid: `bot_${randomInt(1e9)}`, bot: true }));
+    const room: Room = {
+      code,
+      hostId: uid,
+      status: 'playing',
+      isPrivate: true,
+      maxPlayers: 5,
+      tierId: null,
+      entryFee: 0,
+      players: [asPlayer(uid, p), ...bots],
+      createdAt: FieldValue.serverTimestamp(),
+      createdAtMs: Date.now(),
+      tutorial: true,
+    };
+    tx.set(db.doc(`rooms/${code}`), room);
+    const state = rigTutorial(createGame(room.players.map((pl) => ({ id: pl.uid, name: pl.name })), randomInt(2 ** 31)), uid);
+    writeGame(tx, code, state, deadlineFor(state, Date.now(), startGrace()));
+  });
+  return { code };
+});
+
 /** كل حركة في اللعبة تمر من هنا. السيرفر يتأكد إنها مسموحة قبل ما يطبقها. */
 export const act = onCall(async (req) => {
   const uid = requireAuth(req);
@@ -711,8 +774,11 @@ async function finishTurn(
       weeklyWins: (p.week === week ? (p.weeklyWins ?? 0) : 0) + (won ? 1 : 0),
       missions: bumpMissions(p.missions, now, { ...bumps.get(player.id), play3: 1, ...(won ? { win1: 1 } : {}) }),
     };
-    // نقاط الموسم نفس الخبرة، وهدايا المستويات لو طلع مستوى.
-    const updated = applyLevelRewards(addPassPoints(base, xp, now));
+    // نقاط الموسم نفس الخبرة، وهدايا المستويات لو طلع مستوى، ومكافأة أول لعبة شرح.
+    let updated = applyLevelRewards(addPassPoints(base, xp, now));
+    if (next.tutorial && !updated.tutorialDone && !(next.autopilot ?? []).includes(player.id)) {
+      updated = grant({ ...updated, tutorialDone: true }, { coins: TUTORIAL_REWARD, diamonds: 0, items: [] }, { kind: 'tutorial', n: 0 });
+    }
     tx.set(userRef(player.id), updated);
     tx.set(boardRef(player.id), toLeaderboard(updated));
   });
@@ -784,7 +850,7 @@ export const timeout = onCall(async (req) => {
     } else {
       for (const [id, a] of timeoutActions(prev.state, Math.random)) next = applyAction(next, id, a);
       // اللي خلص وقته وهو ما لعب: نعدّ عليه، ولو فوّت دورين ورا بعض يلعب عنه بوت ويتعاقب.
-      const missed = actors.filter((id) => !plays(id));
+      const missed = prev.state.tutorial ? [] : actors.filter((id) => !plays(id));
       if (missed.length) {
         const misses = { ...(next.misses ?? {}) };
         for (const id of missed) {

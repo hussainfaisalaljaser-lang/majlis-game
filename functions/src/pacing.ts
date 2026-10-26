@@ -35,3 +35,9 @@ export function startGrace(): number {
 export function botThink(jitter: number): number {
   return fast() ? 2_000 + jitter : BOT_THINK_MS + jitter;
 }
+
+/** لعبة الشرح: وقت اللاعب أطول بكثير عشان يقرا النصايح، والبوتات أبطأ شوي. */
+export const TUTORIAL_TIME_FACTOR = 4;
+export function tutorialBotExtra(): number {
+  return fast() ? 0 : 3_000;
+}

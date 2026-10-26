@@ -11,7 +11,7 @@ export const AVATARS = FREE_AVATARS;
 
 /** هدية وصلت اللاعب (مستوى أو بطولة الأسبوع). التطبيق يعرضها ويشيلها بـ ackGifts. */
 export interface Gift {
-  kind: 'level' | 'champion';
+  kind: 'level' | 'champion' | 'tutorial';
   /** المستوى (للمستويات) أو المركز (للأبطال). */
   n: number;
   coins: number;
@@ -50,6 +50,8 @@ export interface Profile {
   rewardedLevel?: number;
   /** الباتل باس (rewards.ts → PassState). */
   pass?: PassState;
+  /** خلّص لعبة الشرح وأخذ مكافأتها. */
+  tutorialDone?: boolean;
   /** أجهزة اللاعب للإشعارات. */
   fcmTokens?: string[];
   /** انطرد من لعبة لأنه ما لعب: ممنوع يدخل ألعاب لين هالوقت (ملي ثانية). */

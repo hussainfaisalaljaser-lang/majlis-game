@@ -235,6 +235,9 @@ class Backend {
     return r['code'] as String;
   }
 
+  /// لعبة الشرح: أنت و٤ بوتات، تبدأ على طول، ويرجع رمزها.
+  Future<String> startTutorial() async => (await _call('startTutorial', const {}))['code'] as String;
+
   Future<void> leaveRoom(String code) => _call('leaveRoom', {'code': code});
 
   Future<void> startGame(String code) => _call('startGame', {'code': code});

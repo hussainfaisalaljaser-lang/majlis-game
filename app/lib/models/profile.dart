@@ -26,6 +26,7 @@ class Profile {
     this.temp = const {},
     this.gifts = const [],
     this.pass = const PassState(),
+    this.tutorialDone = false,
   });
 
   factory Profile.fromJson(Map<String, dynamic> j) => Profile(
@@ -54,6 +55,7 @@ class Profile {
     },
     gifts: [for (final g in (j['gifts'] as List?) ?? const []) Gift.fromJson(Map<String, dynamic>.from(g as Map))],
     pass: PassState.fromJson((j['pass'] as Map?)?.cast<String, dynamic>()),
+    tutorialDone: j['tutorialDone'] as bool? ?? false,
   );
 
   /// للعرض التجريبي بدون سيرفر (نسخة الويب).
@@ -98,6 +100,9 @@ class Profile {
 
   /// أغراض مؤقتة (أبطال الأسبوع) ولين متى.
   final Map<String, DateTime> temp;
+
+  /// خلّص لعبة الشرح (وأخذ مكافأتها).
+  final bool tutorialDone;
 
   /// هدايا وصلت وما شافها (مستويات أو بطولة).
   final List<Gift> gifts;
@@ -164,6 +169,7 @@ String gulfDay(DateTime t) => t.toUtc().add(const Duration(hours: 3)).toIso8601S
 class Gift {
   Gift.fromJson(Map<String, dynamic> j)
     : champion = j['kind'] == 'champion',
+      tutorial = j['kind'] == 'tutorial',
       n = (j['n'] as num).toInt(),
       coins = (j['coins'] as num?)?.toInt() ?? 0,
       diamonds = (j['diamonds'] as num?)?.toInt() ?? 0,
@@ -171,6 +177,9 @@ class Gift {
 
   /// بطولة الأسبوع (وإلا هدية مستوى).
   final bool champion;
+
+  /// مكافأة أول لعبة شرح.
+  final bool tutorial;
 
   /// المستوى، أو المركز للبطولة.
   final int n;
