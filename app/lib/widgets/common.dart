@@ -138,9 +138,15 @@ class PlayerAvatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (!animate) return _build(const AlwaysStoppedAnimation(0), null);
-    return FxClock(
-      builder: (context, t) => _MomentScope(time: t, momentKey: momentKey, builder: (moment) => _build(t, moment)),
+    // ساعة الحركات بس للي فيه شي يتحرك، والباقي صورة ثابتة ما تنرسم كل فريم.
+    final style = frame == null ? this.style : null;
+    final moving = avatarArt(avatar) != null || (style?.animated ?? false);
+    if (!animate || !moving) return _build(const AlwaysStoppedAnimation(0), null);
+    // الحركة ترسم الصورة بس كل فريم، مو الشاشة كلها اللي حولها.
+    return RepaintBoundary(
+      child: FxClock(
+        builder: (context, t) => _MomentScope(time: t, momentKey: momentKey, builder: (moment) => _build(t, moment)),
+      ),
     );
   }
 

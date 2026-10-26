@@ -178,13 +178,19 @@ class Backend {
     await _openAccount();
   }
 
+  /// كل الطلبات تمر من دالة وحدة في السيرفر (api): تبقى صاحية من أول طلب، فالأزرار ترد بسرعة.
+  late final _api = _functions.httpsCallable('api');
+
   Future<Map<String, dynamic>> _call(String name, Map<String, dynamic> data) async {
     try {
-      final result = await _functions.httpsCallable(name).call<Map<String, dynamic>>(data);
+      final result = await _api.call<Map<String, dynamic>>({'fn': name, 'data': data});
       return Map<String, dynamic>.from(result.data);
     } on FirebaseFunctionsException catch (e) {
       // نسخة الويب تضيف رقم الحالة آخر الرسالة (مثل [400])، ما نحتاجه.
       throw BackendException((e.message ?? 'صار خطأ، جرّب مرة ثانية').replaceAll(RegExp(r'\s*\[\d{3}\]$'), ''));
+    } catch (e) {
+      debugPrint('$name failed: $e');
+      throw BackendException('ما قدرنا نوصل للسيرفر، تأكد من النت وجرّب مرة ثانية');
     }
   }
 
@@ -243,6 +249,9 @@ class Backend {
 
   /// لعبة الشرح: أنت و٤ بوتات، تبدأ على طول، ويرجع رمزها.
   Future<String> startTutorial() async => (await _call('startTutorial', const {}))['code'] as String;
+
+  /// تدريب: روم خاص فيه أنت و٤ بوتات، يبدأ على طول بطلب واحد، ويرجع رمزه.
+  Future<String> startTraining() async => (await _call('startTraining', const {}))['code'] as String;
 
   Future<void> leaveRoom(String code) => _call('leaveRoom', {'code': code});
 

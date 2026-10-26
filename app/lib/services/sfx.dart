@@ -15,7 +15,6 @@ abstract final class Sfx {
   static AudioPlayer? _player;
   static final _queue = Queue<String>();
   static bool _speaking = false;
-  static final _quiet = <Completer<void>>[];
 
   /// الجملة اللي تنقال الحين تخلص لما يكمل الملف أو ننقطعها (hush).
   static Completer<void>? _done;
@@ -58,22 +57,10 @@ abstract final class Sfx {
     if (c != null && !c.isCompleted) c.complete();
   }
 
-  /// يخلص لما يسكت الراوي (مثلاً بطاقة الدور تنتظر الترحيب يخلص قبل ما تنقلب).
-  static Future<void> whenQuiet() {
-    if (!_speaking) return Future.value();
-    final c = Completer<void>();
-    _quiet.add(c);
-    return c.future;
-  }
-
   static Future<void> _next() async {
     if (_queue.isEmpty || muted.value) {
       _speaking = false;
       Music.duck(false);
-      for (final c in _quiet) {
-        c.complete();
-      }
-      _quiet.clear();
       return;
     }
     _speaking = true;
@@ -86,7 +73,10 @@ abstract final class Sfx {
     final done = _done = Completer<void>();
     StreamSubscription<void>? sub;
     try {
-      final player = _player ??= AudioPlayer()..setReleaseMode(ReleaseMode.stop);
+      // نعرف إن الجملة خلصت من onPlayerComplete، فما نحتاج متابعة مكانها كل فريم (تثقّل الرسم).
+      final player = _player ??= AudioPlayer()
+        ..positionUpdater = null
+        ..setReleaseMode(ReleaseMode.stop);
       sub = player.onPlayerComplete.listen((_) => _finish(done));
       await player.play(AssetSource('voice/$line.mp3'));
       // جمل الشرح أطول شوي (لين ١٠ ثواني).

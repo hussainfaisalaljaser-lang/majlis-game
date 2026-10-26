@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../models/shop.dart';
@@ -15,24 +16,25 @@ class ChatBubble extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     const tail = 7.0;
-    return FxClock(
-      builder: (context, t) => CustomPaint(
-        painter: BubblePainter(style, t, tail: tail),
-        child: ConstrainedBox(
-          constraints: BoxConstraints(maxWidth: maxWidth),
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(11, 4, 11, 5 + tail),
-            child: Text(
-              text,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              textAlign: TextAlign.center,
-              style: TextStyle(color: style.text, fontSize: fontSize, fontWeight: FontWeight.w800, height: 1.25),
-            ),
+    Widget bubble(ValueListenable<double> t) => CustomPaint(
+      painter: BubblePainter(style, t, tail: tail),
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxWidth: maxWidth),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(11, 4, 11, 5 + tail),
+          child: Text(
+            text,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.center,
+            style: TextStyle(color: style.text, fontSize: fontSize, fontWeight: FontWeight.w800, height: 1.25),
           ),
         ),
       ),
     );
+    // الفقاعة العادية ثابتة، واللي فيها حركات ترسم نفسها بس كل فريم.
+    if (!style.animated) return bubble(const AlwaysStoppedAnimation(0));
+    return RepaintBoundary(child: FxClock(builder: (context, t) => bubble(t)));
   }
 }
 

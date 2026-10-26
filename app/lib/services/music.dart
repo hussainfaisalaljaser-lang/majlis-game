@@ -39,7 +39,10 @@ abstract final class Music {
     final track = _track;
     if (track == null || muted.value) return;
     try {
-      final player = _player ??= AudioPlayer()..setReleaseMode(ReleaseMode.loop);
+      // ما نحتاج مكان الأغنية. متابعته (كل فريم افتراضياً) تخلي الشاشة كلها تنرسم ٦٠ مرة بالثانية طول ما الموسيقى شغالة.
+      final player = _player ??= AudioPlayer()
+        ..positionUpdater = null
+        ..setReleaseMode(ReleaseMode.loop);
       await player.stop();
       await player.play(AssetSource('music/$track.mp3'), volume: _ducked ? _duckedVolume : _volume);
     } catch (_) {}

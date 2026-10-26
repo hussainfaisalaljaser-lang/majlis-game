@@ -45,11 +45,7 @@ class HomeScreen extends StatelessWidget {
       ),
     );
     try {
-      final code = await backend.createRoom(maxPlayers: 5);
-      for (var i = 0; i < 4; i++) {
-        await backend.addBots(code);
-      }
-      await backend.startGame(code);
+      final code = await backend.startTraining();
       navigator.pop();
       navigator.push(MaterialPageRoute(builder: (_) => GameScreen(code: code)));
     } on BackendException catch (e) {

@@ -75,10 +75,19 @@ class _GameScreenState extends State<GameScreen> {
 
   GameView? _view;
   Room? _room;
-  bool _busy = false;
   bool _roleShown = false;
   int _seenInvestigations = 0;
-  int? _claimDismissedRound;
+
+  /// حركات أرسلناها وننتظر السيرفر يطبقها (مفتاح الدور، أو الادعاء، أو 'seer')، ومعها كلمة تطلع لك مكان الأزرار.
+  /// الأزرار تختفي من أول ضغطة عشان ما تحس بتأخير، ولو رفضها السيرفر ترجع.
+  final _sent = <String, String>{};
+
+  /// الكروت اللي وصلتك في كل جولة (٣ للرئيس، ٢ للوزير)، عشان نعلّم لك الصدق وقت الادعاء.
+  final _seenHands = <int, List<Policy>>{};
+
+  /// الادعاء اللي قلت له «بعدين» (يبقى له زر صغير يرجّعه)، واللي فتحته من الزر.
+  String? _claimLater;
+  String? _claimOpen;
   int? _seenLog;
   bool _wasMyTurn = false;
   bool _endSoundPlayed = false;
@@ -113,7 +122,16 @@ class _GameScreenState extends State<GameScreen> {
       if (data == null || !mounted) return;
       final view = GameView.fromJson(data);
       final before = _view;
-      setState(() => _view = view);
+      setState(() {
+        _view = view;
+        // اللي طبقه السيرفر (أو راح وقته) ما ننتظره بعد.
+        final turn = _turnKey(view), claim = _claimKey(view);
+        _sent.removeWhere((k, _) => k != turn && k != claim && !(k == 'seer' && view.seerReady));
+        final mine =
+            (view.phase == Phase.presidentDiscard && view.amPresident) ||
+            (view.phase == Phase.chancellorEnact && view.amNominee);
+        if (mine && view.hand.isNotEmpty) _seenHands[view.round] = view.hand;
+      });
       _moments(before, view);
       _afterUpdate(view);
     }, onError: (Object e) => debugPrint('view listener: $e'));
@@ -148,20 +166,50 @@ class _GameScreenState extends State<GameScreen> {
   }
 
   DateTime? _lastTimeoutCall;
+  Timer? _timeoutTimer;
 
-  /// لو خلص وقت الدور، أي لاعب في الطاولة يطلب من السيرفر يكمّل. نوزع الطلبات على المقاعد
+  /// لو خلص وقت الدور، أي لاعب في الطاولة يطلب من السيرفر يكمّل. نوزع الطلبات على اللاعبين
   /// عشان ما يطلبون كلهم بنفس اللحظة، والسيرفر ينفذ مرة وحدة بس.
   void _checkTimeout() {
     final v = _view;
     final deadline = v?.deadline;
     if (v == null || deadline == null || v.phase == Phase.gameOver) return;
     final now = DateTime.now();
-    final myDelay = Duration(milliseconds: 1000 + 400 * v.me.seat);
-    if (now.isBefore(deadline.add(myDelay))) return;
-    if (_lastTimeoutCall != null && now.difference(_lastTimeoutCall!).inSeconds < 3) return;
+    if (now.isBefore(deadline.add(_timeoutDelay(v)))) return;
+    if (_lastTimeoutCall != null && now.difference(_lastTimeoutCall!) < const Duration(seconds: 2)) return;
     _lastTimeoutCall = now;
     _backend.timeout(widget.code).catchError((_) => false);
   }
+
+  /// نطلب بالضبط لما يجي وقتنا (مو مع عداد الثانية)، عشان دور البوت ما يتأخر.
+  void _scheduleTimeout(GameView v) {
+    _timeoutTimer?.cancel();
+    final deadline = v.deadline;
+    if (deadline == null || v.phase == Phase.gameOver) return;
+    final wait = deadline.add(_timeoutDelay(v)).difference(DateTime.now());
+    _timeoutTimer = Timer(wait.isNegative ? Duration.zero : wait + const Duration(milliseconds: 30), _checkTimeout);
+  }
+
+  /// متى نطلب بعد آخر الوقت: البوت السيرفر حاسب وقت تفكيره فنطلب على طول، واللاعب نعطيه ثانية زيادة.
+  /// وأول لاعب (مو بوت) في الطاولة يطلب أول، والباقي ورا بعض لو ما مشى.
+  Duration _timeoutDelay(GameView v) {
+    final humans = [
+      for (final p in v.players)
+        if (!_botPlays(v, p.id)) p.id,
+    ];
+    final order = humans.indexOf(v.you).clamp(0, 99);
+    return Duration(milliseconds: (_botTurn(v) ? 150 : 1000) + 600 * order);
+  }
+
+  static bool _botPlays(GameView v, String id) => id.startsWith('bot_') || v.autopilot.contains(id);
+
+  /// الدور على بوتات بس.
+  static bool _botTurn(GameView v) => switch (v.phase) {
+    Phase.election => v.players.where((p) => p.alive && !p.hasVoted).every((p) => _botPlays(v, p.id)),
+    Phase.chancellorEnact => v.nomineeId != null && _botPlays(v, v.nomineeId!),
+    Phase.gameOver => false,
+    _ => _botPlays(v, v.presidentId),
+  };
 
   /// الراوي ينبهك مرة وحدة لما يبقى ٥ ثواني على دورك.
   DateTime? _hurriedFor;
@@ -258,6 +306,7 @@ class _GameScreenState extends State<GameScreen> {
   @override
   void dispose() {
     _tipTimer?.cancel();
+    _timeoutTimer?.cancel();
     Push.setCurrentGame(null);
     Music.play('menu');
     _viewSub.cancel();
@@ -268,6 +317,7 @@ class _GameScreenState extends State<GameScreen> {
   }
 
   void _afterUpdate(GameView view) {
+    _scheduleTimeout(view);
     if (view.autopilot.contains(view.you) && view.phase != Phase.gameOver) {
       WidgetsBinding.instance.addPostFrameCallback((_) => _kicked());
     }
@@ -389,17 +439,36 @@ class _GameScreenState extends State<GameScreen> {
     if (_scenes.isNotEmpty) Sfx.say(_scenes.first.$2);
   }
 
-  Future<void> _act(Map<String, dynamic> action) async {
-    if (_busy) return;
-    setState(() => _busy = true);
+  /// مفتاح الدور الحالي (نفس turnKey في السيرفر): يتغير لما يجي دور جديد، والتصويت الواحد ما يغيره.
+  static String _turnKey(GameView v) => '${v.round}:${v.phase.name}:${v.pendingPower?.name ?? ''}:${v.canVeto}';
+
+  /// الادعاء يخص آخر حكومة مررت قرار.
+  static String _claimKey(GameView v) {
+    for (final e in v.log.reversed) {
+      if (e.type == 'enacted' && e.data['government'] != null) return 'claim:${e.round}';
+    }
+    return 'claim';
+  }
+
+  /// يرسل حركتك. الأزرار تختفي على طول وتطلع [note] مكانها لين يرد السيرفر، ولو رفضها ترجع مع السبب.
+  /// [key] للحركات اللي مو من دورك (الادعاء وكشف العرّاف)، وإلا مفتاح الدور الحالي.
+  Future<void> _act(Map<String, dynamic> action, {String note = '', String? key}) async {
+    final v = _view;
+    if (v == null) return;
+    final k = key ?? _turnKey(v);
+    if (_sent.containsKey(k)) return;
+    HapticFeedback.selectionClick();
+    setState(() => _sent[k] = note);
     try {
       await _backend.act(widget.code, action);
     } on BackendException catch (e) {
+      if (mounted) setState(() => _sent.remove(k));
       _toast(e.message);
-    } finally {
-      if (mounted) setState(() => _busy = false);
     }
   }
+
+  /// أرسلت حركتك لهالدور وتنتظر.
+  bool _waiting(GameView v) => _sent.containsKey(_turnKey(v));
 
   /// رأيي الحالي في لاعب: true أشك، false أثق، null ما عندي رأي.
   bool? _myOpinion(String target) => _room?.opinions[_backend.uid]?[target];
@@ -595,8 +664,7 @@ class _GameScreenState extends State<GameScreen> {
         (v.pendingPower == Power.investigate ||
             v.pendingPower == Power.specialElection ||
             v.pendingPower == Power.execute);
-    if (!nominating && !power) return null;
-    if (_busy) return 'لحظة…';
+    if (!nominating && !power || _waiting(v)) return null;
     final p = v.player(id);
     if (id == v.you) return nominating ? 'ما تقدر ترشّح نفسك، اختر لاعب ثاني' : 'اختر لاعب غيرك';
     if (!p.alive) return '${p.name} مطرود من المجلس';
@@ -669,7 +737,7 @@ class _GameScreenState extends State<GameScreen> {
         },
         (id) {
           setState(() => _seerPicking = false);
-          _confirm(v, 'تكشف فريق', id, {'type': 'seerReveal', 'target': id});
+          _confirm(v, 'تكشف فريق', id, {'type': 'seerReveal', 'target': id}, key: 'seer');
         },
       );
     }
@@ -683,14 +751,17 @@ class _GameScreenState extends State<GameScreen> {
         (id) => _react(pending.id, target: id),
       );
     }
-    if (_busy || !v.amPresident) return (const {}, null);
+    if (_waiting(v) || !v.amPresident) return (const {}, null);
     final others = {
       for (final p in v.alive)
         if (p.id != v.you) p.id,
     };
     switch ((v.phase, v.pendingPower)) {
       case (Phase.nomination, _):
-        return ({for (final p in v.eligibleChancellors) p.id}, (id) => _act({'type': 'nominate', 'chancellor': id}));
+        return (
+          {for (final p in v.eligibleChancellors) p.id},
+          (id) => _act({'type': 'nominate', 'chancellor': id}, note: 'رشّحت ${v.player(id).name} وزير'),
+        );
       case (Phase.power, Power.investigate):
         final done = {for (final i in v.investigations) i.target};
         return (others.difference(done), (id) => _confirm(v, 'تحقق مع', id, {'type': 'investigate', 'target': id}));
@@ -703,16 +774,40 @@ class _GameScreenState extends State<GameScreen> {
     }
   }
 
-  /// الادعاء ينتظرك، وما عليك حركة ثانية الحين.
-  bool _claimPending(GameView v) =>
-      v.claimCount != null &&
-      _claimDismissedRound != v.round &&
-      v.phase != Phase.gameOver &&
-      !_isMyTurn(v) &&
-      _pendingReaction == null &&
-      !_seerPicking;
+  /// عندك ادعاء ما قلته (كنت الرئيس أو الوزير في آخر حكومة مررت قرار).
+  bool _canClaim(GameView v) => v.claimCount != null && v.phase != Phase.gameOver && !_sent.containsKey(_claimKey(v));
 
-  Future<void> _confirm(GameView v, String verb, String id, Map<String, dynamic> action) async {
+  /// نافذة الادعاء: تطلع لحالها بعد المشاهد لو ما عليك حركة (إلا لو قلت «بعدين»)، أو لما تفتحها من زرها.
+  bool _claimPending(GameView v) {
+    if (!_canClaim(v) || _scenes.isNotEmpty || _pendingReaction != null || _seerPicking || _clearPick) return false;
+    final key = _claimKey(v);
+    return _claimOpen == key || (_claimLater != key && !_isMyTurn(v));
+  }
+
+  /// الكروت اللي وصلتك فعلاً في الحكومة اللي تدّعي عنها (لو شفتها من هالجهاز).
+  List<Policy>? _truth(GameView v) {
+    final round = int.tryParse(_claimKey(v).split(':').last);
+    final hand = round == null ? null : _seenHands[round];
+    return hand != null && hand.length == v.claimCount ? hand : null;
+  }
+
+  void _claim(GameView v, List<Policy> policies) {
+    final key = _claimKey(v);
+    _claimOpen = null;
+    _act({
+      'type': 'claim',
+      'policies': [for (final p in policies) p.code],
+    }, key: key);
+    if (mounted) {
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(content: Text('قلت للكل إنه وصلك: ${_claimLabel(policies)}'), duration: const Duration(seconds: 2)),
+        );
+    }
+  }
+
+  Future<void> _confirm(GameView v, String verb, String id, Map<String, dynamic> action, {String? key}) async {
     final ok = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -743,7 +838,7 @@ class _GameScreenState extends State<GameScreen> {
         ],
       ),
     );
-    if (ok == true) await _act(action);
+    if (ok == true) await _act(action, key: key, note: '$verb ${v.player(id).name}…');
   }
 
   @override
@@ -754,7 +849,8 @@ class _GameScreenState extends State<GameScreen> {
         body: Center(child: CircularProgressIndicator(color: AppColors.gold)),
       );
     }
-    final (selectable, onSelect) = _selection(v);
+    // وقت المشهد الضغطة تكمّله (تتخطاه)، فما نعلّم على أحد تحته عشان ما تحس إنك اخترت وما صار شي.
+    final (selectable, onSelect) = _scenes.isEmpty ? _selection(v) : (const <String>{}, null);
     final (roleName, _, roleColor, _) = roleInfo[v.yourRole]!;
     final special = v.yourSpecial;
 
@@ -833,7 +929,7 @@ class _GameScreenState extends State<GameScreen> {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      if (v.seerReady) ...[
+                      if (v.seerReady && !_sent.containsKey('seer')) ...[
                         _RoundButton(
                           gfx: 'seer',
                           label: 'كشف العراف',
@@ -863,6 +959,13 @@ class _GameScreenState extends State<GameScreen> {
                         _RoundButton(gfx: 'chat', label: 'تفاعل', color: AppColors.gold, onTap: _openReactions),
                     ],
                   ),
+                ),
+              // جنب زر التفاعل: الادعاء اللي أجّلته (تحت، عشان ما يغطي مقعد أحد)
+              if (!over && _canClaim(v) && !_claimPending(v))
+                PositionedDirectional(
+                  bottom: 17,
+                  start: 74,
+                  child: _Pulse(child: _ClaimChip(onTap: () => setState(() => _claimOpen = _claimKey(v)))),
                 ),
               // تحت يسار: السجل والصوت
               PositionedDirectional(
@@ -895,19 +998,18 @@ class _GameScreenState extends State<GameScreen> {
                   ],
                 ),
               ),
-              // حركتك أنت
-              ..._actionLayer(v, pickHint),
+              // حركتك أنت: بعد ما تخلص المشاهد، عشان ضغطتك ما تروح للمشهد وتحس إن الزر ما اشتغل.
+              if (_scenes.isEmpty) ..._actionLayer(v, pickHint),
               if (_claimPending(v))
                 Center(
                   child: _ClaimPrompt(
                     count: v.claimCount!,
-                    president: v.claimCount == 3,
-                    busy: _busy,
-                    onClaim: (policies) => _act({
-                      'type': 'claim',
-                      'policies': [for (final p in policies) p.code],
+                    truth: _truth(v),
+                    onClaim: (policies) => _claim(v, policies),
+                    onLater: () => setState(() {
+                      _claimLater = _claimKey(v);
+                      _claimOpen = null;
                     }),
-                    onLater: () => setState(() => _claimDismissedRound = v.round),
                   ),
                 ),
               if (_tip case final tip? when !over)
@@ -1028,6 +1130,8 @@ class _GameScreenState extends State<GameScreen> {
       ];
     }
     if (!v.me.alive) return const [];
+    // أرسلت حركتك: الأزرار تختفي ويطلع لك وش سويت لين يرد السيرفر.
+    if (_sent[_turnKey(v)] case final note?) return [if (note.isNotEmpty) _banner(note, icon: 'check')];
     switch (v.phase) {
       case Phase.nomination when v.amPresident:
         return [_banner('أنت الرئيس! اضغط على اللاعب اللي تبيه وزير', icon: 'crown')];
@@ -1039,14 +1143,14 @@ class _GameScreenState extends State<GameScreen> {
               semantics: 'موافق',
               tone: ButtonTone.green,
               height: 50,
-              onPressed: _busy ? null : () => _act({'type': 'vote', 'ja': true}),
+              onPressed: () => _act({'type': 'vote', 'ja': true}, note: 'صوّتت موافق… ننتظر الباقين'),
             ),
             no: GameButton(
               label: 'رافض',
               semantics: 'رافض',
               tone: ButtonTone.red,
               height: 50,
-              onPressed: _busy ? null : () => _act({'type': 'vote', 'ja': false}),
+              onPressed: () => _act({'type': 'vote', 'ja': false}, note: 'صوّتت رافض… ننتظر الباقين'),
             ),
           ),
         ];
@@ -1058,28 +1162,31 @@ class _GameScreenState extends State<GameScreen> {
               label: 'موافق',
               tone: ButtonTone.green,
               height: 50,
-              onPressed: _busy ? null : () => _act({'type': 'respondVeto', 'accept': true}),
+              onPressed: () => _act({'type': 'respondVeto', 'accept': true}, note: 'وافقت على الفيتو'),
             ),
             no: GameButton(
               label: 'رافض',
               tone: ButtonTone.red,
               height: 50,
-              onPressed: _busy ? null : () => _act({'type': 'respondVeto', 'accept': false}),
+              onPressed: () => _act({'type': 'respondVeto', 'accept': false}, note: 'رفضت الفيتو'),
             ),
           ),
         ];
       case Phase.presidentDiscard when v.amPresident:
         return [
-          _hand('اختر الكرت اللي بترميه (سري)', _cards(v.hand, (i) => _act({'type': 'discard', 'index': i}), 'ارمِ')),
+          _hand(
+            'اختر الكرت اللي بترميه (سري)',
+            _cards(v.hand, (i) => _act({'type': 'discard', 'index': i}, note: 'رميت كرت، والباقي راح للوزير'), 'ارمِ'),
+          ),
         ];
       case Phase.chancellorEnact when v.amNominee:
         return [
           _hand(
             'اختر الكرت اللي بتمرره',
-            _cards(v.hand, (i) => _act({'type': 'enact', 'index': i}), 'مرّر'),
+            _cards(v.hand, (i) => _act({'type': 'enact', 'index': i}, note: 'مرّرت القرار'), 'مرّر'),
             extra: v.canVeto
                 ? TextButton(
-                    onPressed: _busy ? null : () => _act({'type': 'proposeVeto'}),
+                    onPressed: () => _act({'type': 'proposeVeto'}, note: 'طلبت فيتو… ننتظر رد الرئيس'),
                     child: const Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [Gfx('hand', size: 22), SizedBox(width: 4), Text('اطلب فيتو (نرمي الاثنين)')],
@@ -1108,7 +1215,7 @@ class _GameScreenState extends State<GameScreen> {
                 label: 'تمام',
                 height: 42,
                 fontSize: 16,
-                onPressed: _busy ? null : () => _act({'type': 'acknowledgePeek'}),
+                onPressed: () => _act({'type': 'acknowledgePeek'}),
               ),
             ),
           ),
@@ -1217,7 +1324,7 @@ class _GameScreenState extends State<GameScreen> {
                 skin: _skin,
                 width: 84,
                 label: '$verb كرت ${i + 1} ${p == Policy.loyal ? 'أوفياء' : 'خونة'}',
-                onTap: _busy ? null : () => onPick(i),
+                onTap: () => onPick(i),
               ),
             ),
           ),
@@ -1680,19 +1787,22 @@ class _PulseState extends State<_Pulse> with SingleTickerProviderStateMixin {
   );
 }
 
-/// الادعاء بعد الحكم: وش وصلك من كروت؟ يطلع فوق الطاولة بخيارات كبيرة وواضحة.
+/// الادعاء كلام: «٢ خونة + ١ أوفياء».
+String _claimLabel(List<Policy> option) {
+  final t = option.where((p) => p == Policy.traitor).length;
+  final l = option.length - t;
+  return [if (t > 0) '${arabicNumber(t)} خونة', if (l > 0) '${arabicNumber(l)} أوفياء'].join(' + ');
+}
+
+/// الادعاء بعد الحكم: وش تقول للكل إنه وصلك؟ ضغطة وحدة، واللي وصلك فعلاً عليه علامة «الصدق».
+/// «بعدين» يسكّرها ويبقى لها زر تحت تفتحها منه متى ما بغيت.
 class _ClaimPrompt extends StatelessWidget {
-  const _ClaimPrompt({
-    required this.count,
-    required this.president,
-    required this.busy,
-    required this.onClaim,
-    required this.onLater,
-  });
+  const _ClaimPrompt({required this.count, required this.truth, required this.onClaim, required this.onLater});
 
   final int count;
-  final bool president;
-  final bool busy;
+
+  /// الكروت اللي وصلتك فعلاً (لو شفتها من هالجهاز).
+  final List<Policy>? truth;
   final ValueChanged<List<Policy>> onClaim;
   final VoidCallback onLater;
 
@@ -1710,19 +1820,17 @@ class _ClaimPrompt extends StatelessWidget {
     ],
   };
 
-  static String _label(List<Policy> option) {
-    final t = option.where((p) => p == Policy.traitor).length;
-    final l = option.length - t;
-    return [if (t > 0) '${arabicNumber(t)} خونة', if (l > 0) '${arabicNumber(l)} أوفياء'].join(' + ');
-  }
+  static int _traitors(List<Policy> l) => l.where((p) => p == Policy.traitor).length;
 
   @override
   Widget build(BuildContext context) {
+    final truth = this.truth;
     return Container(
+      constraints: const BoxConstraints(maxWidth: 620),
       margin: const EdgeInsets.all(8),
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 6),
+      padding: const EdgeInsets.fromLTRB(18, 12, 12, 14),
       decoration: BoxDecoration(
-        color: AppColors.panel.withValues(alpha: .96),
+        color: AppColors.panel.withValues(alpha: .97),
         borderRadius: BorderRadius.circular(22),
         border: Border.all(color: AppColors.gold.withValues(alpha: .6), width: 2),
         boxShadow: const [BoxShadow(color: Colors.black87, blurRadius: 24)],
@@ -1731,71 +1839,180 @@ class _ClaimPrompt extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Row(
-            mainAxisSize: MainAxisSize.min,
             children: [
-              const Gfx('megaphone', size: 30),
-              const SizedBox(width: 6),
-              GoldText(president ? 'وش وصلك وأنت رئيس؟' : 'وش وصلك وأنت وزير؟', size: 20),
+              const Gfx('megaphone', size: 32),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    GoldText(count == 3 ? 'وش تقول إنه وصلك وأنت رئيس؟' : 'وش تقول إنه وصلك وأنت وزير؟', size: 19),
+                    Text(
+                      'وصلك ${arabicNumber(count)} كروت. اللي تختاره يطلع للكل… قول الصدق أو اكذب',
+                      style: const TextStyle(color: AppColors.muted, fontSize: 12.5),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              SizedBox(
+                width: 92,
+                child: GameButton(label: 'بعدين', tone: ButtonTone.ghost, height: 38, fontSize: 15, onPressed: onLater),
+              ),
             ],
           ),
-          Text(
-            'وصلك ${arabicNumber(count)} كروت. اختيارك يطلع للكل… قول الصدق أو اكذب',
-            style: const TextStyle(color: AppColors.muted, fontSize: 12.5),
-          ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 14),
           Wrap(
             spacing: 10,
-            runSpacing: 10,
+            runSpacing: 14,
             alignment: WrapAlignment.center,
             children: [
               for (final option in _options[count]!)
-                Semantics(
-                  button: true,
-                  label: 'ادعاء ${option.map((p) => p.code).join()}',
-                  excludeSemantics: true,
-                  child: GestureDetector(
-                    onTap: busy ? null : () => onClaim(option),
-                    child: Container(
-                      width: 104,
-                      padding: const EdgeInsets.symmetric(vertical: 8),
-                      decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          colors: [Color(0xFFFBF1DA), AppColors.parchmentDark],
-                        ),
-                        borderRadius: BorderRadius.circular(14),
-                        border: Border.all(color: AppColors.goldDark, width: 2),
-                      ),
-                      child: Column(
-                        children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              for (final p in option)
-                                Padding(
-                                  padding: const EdgeInsets.symmetric(horizontal: 1),
-                                  child: Seal(loyal: p == Policy.loyal, size: 28),
-                                ),
-                            ],
+                _ClaimOption(
+                  option: option,
+                  truth: truth != null && _traitors(truth) == _traitors(option),
+                  onTap: () => onClaim(option),
+                ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// خيار ادعاء كبير: الأختام ووصفها، وينضغط بأي مكان فيه.
+class _ClaimOption extends StatefulWidget {
+  const _ClaimOption({required this.option, required this.truth, required this.onTap});
+
+  final List<Policy> option;
+  final bool truth;
+  final VoidCallback onTap;
+
+  @override
+  State<_ClaimOption> createState() => _ClaimOptionState();
+}
+
+class _ClaimOptionState extends State<_ClaimOption> {
+  bool _down = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final edge = widget.truth ? AppColors.green : AppColors.goldDark;
+    return Semantics(
+      button: true,
+      label: 'ادعاء ${widget.option.map((p) => p.code).join()}${widget.truth ? ' (الصدق)' : ''}',
+      excludeSemantics: true,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTapDown: (_) => setState(() => _down = true),
+        onTapCancel: () => setState(() => _down = false),
+        onTapUp: (_) => setState(() => _down = false),
+        onTap: widget.onTap,
+        child: AnimatedScale(
+          scale: _down ? .93 : 1,
+          duration: const Duration(milliseconds: 90),
+          child: Stack(
+            clipBehavior: Clip.none,
+            alignment: Alignment.topCenter,
+            children: [
+              Container(
+                width: 128,
+                padding: const EdgeInsets.fromLTRB(6, 12, 6, 10),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [Color(0xFFFBF1DA), AppColors.parchmentDark],
+                  ),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: edge, width: widget.truth ? 3 : 2),
+                  boxShadow: [
+                    BoxShadow(
+                      color: widget.truth ? AppColors.green.withValues(alpha: .45) : Colors.black45,
+                      blurRadius: widget.truth ? 14 : 6,
+                    ),
+                  ],
+                ),
+                child: Column(
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        for (final p in widget.option)
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 1),
+                            child: Seal(loyal: p == Policy.loyal, size: 34),
                           ),
-                          const SizedBox(height: 4),
-                          Text(
-                            _label(option),
-                            style: const TextStyle(color: AppColors.ink, fontSize: 12, fontWeight: FontWeight.w800),
-                          ),
-                        ],
-                      ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      _claimLabel(widget.option),
+                      style: const TextStyle(color: AppColors.ink, fontSize: 13.5, fontWeight: FontWeight.w800),
+                    ),
+                  ],
+                ),
+              ),
+              if (widget.truth)
+                Positioned(
+                  top: -11,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 1),
+                    decoration: BoxDecoration(
+                      color: AppColors.green,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: const Color(0xFF0B3A22), width: 1.5),
+                    ),
+                    child: const Text(
+                      'الصدق',
+                      style: TextStyle(color: Color(0xFF062814), fontSize: 12, fontWeight: FontWeight.w900),
                     ),
                   ),
                 ),
             ],
           ),
-          TextButton(onPressed: onLater, child: const Text('بعدين')),
-        ],
+        ),
       ),
     );
   }
+}
+
+/// زر الادعاء لما تأجله: يبقى تحت لين تقول وش وصلك.
+class _ClaimChip extends StatelessWidget {
+  const _ClaimChip({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+    button: true,
+    label: 'وش وصلك؟',
+    excludeSemantics: true,
+    child: GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsetsDirectional.fromSTEB(8, 4, 14, 4),
+        decoration: BoxDecoration(
+          color: AppColors.panel.withValues(alpha: .92),
+          borderRadius: BorderRadius.circular(22),
+          border: Border.all(color: AppColors.gold, width: 2),
+          boxShadow: [BoxShadow(color: AppColors.gold.withValues(alpha: .5), blurRadius: 12)],
+        ),
+        child: const Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Gfx('megaphone', size: 30),
+            SizedBox(width: 6),
+            Text(
+              'وش وصلك؟',
+              style: TextStyle(fontFamily: kufi, fontSize: 14, fontWeight: FontWeight.w700),
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
 }
 
 class _Reward extends StatelessWidget {

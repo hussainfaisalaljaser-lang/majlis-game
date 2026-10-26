@@ -7,8 +7,12 @@ import type { GameEvent, GameState } from '../../engine/src/index.js';
  */
 const fast = () => process.env.MAJLIS_FAST_PACING === '1';
 
-/** بداية اللعبة: الترحيب (~٥ ث) + قلب بطاقة الدور وجملتها (~٦ ث). */
-export const START_GRACE_MS = 13_000;
+/**
+ * بداية اللعبة: بطاقة الدور تنقلب على طول، والراوي يقول الترحيب (~٥ ث) وبعده جملة الدور (~٣ ث).
+ * الشرح ياخذ وقت أطول عشان اللاعب الجديد يلحق يقرا.
+ */
+export const START_GRACE_MS = 8_000;
+export const TUTORIAL_START_GRACE_MS = 13_000;
 
 /** وقت كل مشهد في التطبيق مع جملة الراوي اللي معه. */
 const SCENE_MS: Partial<Record<GameEvent['type'], number>> = {
@@ -28,8 +32,9 @@ export function scenesDelay(prev: GameState, next: GameState): number {
   return next.log.slice(prev.log.length).reduce((sum, e) => sum + (SCENE_MS[e.type] ?? 0), 0);
 }
 
-export function startGrace(): number {
-  return fast() ? 0 : START_GRACE_MS;
+export function startGrace(tutorial = false): number {
+  if (fast()) return 0;
+  return tutorial ? TUTORIAL_START_GRACE_MS : START_GRACE_MS;
 }
 
 export function botThink(jitter: number): number {

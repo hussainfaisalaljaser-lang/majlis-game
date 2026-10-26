@@ -40,6 +40,9 @@ class FrameStyle {
 
   /// رسمة خاصة بالإطار (widgets/fx_sig.dart) بدال الحركات العامة.
   final String? sig;
+
+  /// فيه شي يتحرك (التاج لحاله ثابت). الثابت ما يحتاج ساعة حركات ترسمه كل فريم.
+  bool get animated => sig != null || fx.any((f) => f != FrameFx.crown);
 }
 
 /// حركات فقاعة الكلام (widgets/fx.dart → BubblePainter).
@@ -69,6 +72,8 @@ class BubbleStyle {
   final Color border;
   final Color text;
   final List<BubbleFx> fx;
+
+  bool get animated => fx.isNotEmpty;
 }
 
 /// خلفية الشخصيات المميزة المتحركة.

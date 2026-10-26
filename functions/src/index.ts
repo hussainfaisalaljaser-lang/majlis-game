@@ -2,10 +2,21 @@ import { randomInt } from 'node:crypto';
 import { getAuth } from 'firebase-admin/auth';
 import { FieldValue, type Transaction } from 'firebase-admin/firestore';
 import { logger } from 'firebase-functions/v2';
-import { HttpsError, onCall } from 'firebase-functions/v2/https';
+import { HttpsError, onCall, type CallableFunction } from 'firebase-functions/v2/https';
 import { boardRef, db, requireAuth, userRef } from './base.js';
 import { sendPush } from './push.js';
-import { forgetUser, reservePid } from './social.js';
+import {
+  buyPid,
+  findPlayer,
+  forgetUser,
+  friendRequest,
+  friendRespond,
+  inviteFriend,
+  quotePid,
+  removeFriend,
+  reservePid,
+  suggestIds,
+} from './social.js';
 import {
   MAX_PLAYERS,
   MIN_PLAYERS,
@@ -636,6 +647,36 @@ export const startGame = onCall(async (req) => {
   return {};
 });
 
+/** التدريب بطلب واحد: روم خاص فيه أنت و٤ بوتات، ويبدأ على طول (بدال ٦ طلبات ورا بعض). */
+export const startTraining = onCall(async (req) => {
+  const uid = requireAuth(req);
+  const code = await newRoomCode();
+  await db.runTransaction(async (tx) => {
+    const p = await readProfile(db, tx, uid);
+    requireNotBanned(p);
+    const bots = [...BOTS];
+    const room: Room = {
+      code,
+      hostId: uid,
+      status: 'waiting',
+      isPrivate: true,
+      maxPlayers: 5,
+      tierId: null,
+      entryFee: 0,
+      players: [
+        asPlayer(uid, p),
+        ...Array.from({ length: 4 }, () => ({ ...bots.splice(randomInt(bots.length), 1)[0], uid: `bot_${randomInt(1e9)}`, bot: true })),
+      ],
+      createdAt: FieldValue.serverTimestamp(),
+      createdAtMs: Date.now(),
+      quick: false,
+    };
+    tx.set(db.doc(`rooms/${code}`), room);
+    startGameTx(tx, room);
+  });
+  return { code };
+});
+
 /**
  * لعبة الشرح: أنت وفي (بدون دور خاص) وأنت أول رئيس، وأول ٣ كروت فيها أزرق وأحمر عشان يكون للاختيار معنى.
  */
@@ -688,7 +729,7 @@ export const startTutorial = onCall(async (req) => {
     };
     tx.set(db.doc(`rooms/${code}`), room);
     const state = rigTutorial(createGame(room.players.map((pl) => ({ id: pl.uid, name: pl.name })), randomInt(2 ** 31)), uid);
-    writeGame(tx, code, state, deadlineFor(state, Date.now(), startGrace()));
+    writeGame(tx, code, state, deadlineFor(state, Date.now(), startGrace(true)));
   });
   return { code };
 });
@@ -1381,4 +1422,23 @@ async function deleteFromRequest(id: string, confirm: boolean): Promise<object> 
   return { deleted: confirm && !!r.uid };
 }
 
-export { buyPid, findPlayer, friendRequest, friendRespond, inviteFriend, quotePid, removeFriend, suggestIds } from './social.js';
+export { buyPid, findPlayer, friendRequest, friendRespond, inviteFriend, quotePid, removeFriend, suggestIds };
+
+/**
+ * كل طلبات التطبيق من دالة وحدة: بعد أول طلب (لما تفتح اللعبة) تبقى صاحية لكل الأزرار، بدال ما كل
+ * زر يصحّي دالته لحاله (أول ضغطة كانت تتأخر ثواني). ومعالج كامل يخليها تخدم طلبات كثير بنفس الوقت
+ * بدال نسخة جديدة لكل طلب. الدوال لحالها باقية للنسخ القديمة من التطبيق.
+ */
+const ROUTES: Record<string, CallableFunction<unknown, unknown>> = {
+  ensureProfile, devTool, updateProfile, claimLinkReward, claimDaily, createRoom, joinRoom, quickMatch, addBots,
+  removeBot, leaveRoom, startGame, startTraining, startTutorial, act, leaveGame, timeout, buyItem, equipItem,
+  registerPushToken, ackGifts, buyPass, claimPassRewards, claimMission, clearOpinion, react, reportPlayer,
+  setBlocked, sendFeedback, deleteAccount, findPlayer, friendRequest, friendRespond, removeFriend, inviteFriend,
+  quotePid, suggestIds, buyPid,
+};
+
+export const api = onCall({ cpu: 1, memory: '512MiB', concurrency: 80 }, async (req) => {
+  const route = ROUTES[String(req.data?.fn ?? '')];
+  if (!route) throw new HttpsError('not-found', 'طلب مو معروف');
+  return route.run({ ...req, data: req.data?.data ?? {} });
+});

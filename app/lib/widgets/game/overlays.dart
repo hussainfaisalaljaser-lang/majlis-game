@@ -46,8 +46,8 @@ class _RoleRevealState extends State<_RoleReveal> with SingleTickerProviderState
   @override
   void initState() {
     super.initState();
-    // البطاقة تنقلب بعد ما يخلص الترحيب، عشان جملة الدور ما تركب عليه.
-    Future.delayed(const Duration(milliseconds: 500)).then((_) => Sfx.whenQuiet()).then((_) {
+    // البطاقة تنقلب على طول (ما تنتظر الترحيب)، وجملة الدور تنتظر دورها عند الراوي بعده.
+    Future.delayed(const Duration(milliseconds: 500), () {
       if (!mounted) return;
       _flip.forward().then(
         (_) => Sfx.say(switch (widget.view.yourRole) {
@@ -310,8 +310,23 @@ class _EventOverlayState extends State<EventOverlay> with SingleTickerProviderSt
             opacity: opacity.clamp(0, 1),
             child: Container(
               color: Colors.black.withValues(alpha: .6),
-              alignment: Alignment.center,
-              child: Transform.scale(scale: .7 + .3 * scale, child: child),
+              child: Stack(
+                children: [
+                  Center(
+                    child: Transform.scale(scale: .7 + .3 * scale, child: child),
+                  ),
+                  const Positioned(
+                    top: 12,
+                    left: 0,
+                    right: 0,
+                    child: Text(
+                      'اضغط بأي مكان عشان تكمل',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: AppColors.muted, fontSize: 12.5),
+                    ),
+                  ),
+                ],
+              ),
             ),
           );
         },

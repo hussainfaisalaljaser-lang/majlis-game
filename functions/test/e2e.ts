@@ -305,23 +305,25 @@ async function main(): Promise<void> {
   const rich = (await Promise.all(players.map(async (p) => ({ p, prof: await p.profile() })))).sort(
     (a, b) => b.prof.coins - a.prof.coins,
   )[0];
-  assert.ok(rich.prof.coins >= 3000, 'الفايز عنده ذهب يكفي');
+  // الفايز معه ٢٦٦٦ ذهب على الأقل (لو فازوا ٣)، والفقاعة الذهبية بـ ٢٥٠٠.
+  assert.ok(rich.prof.coins >= 2500, 'الفايز عنده ذهب يكفي');
   await expectError(rich.p.call('buyItem', { id: 'frame_king' }), 'failed-precondition');
   await expectError(rich.p.call('buyItem', { id: 'nope' }), 'invalid-argument');
-  await expectError(rich.p.call('equipItem', { id: 'frame_ice' }), 'permission-denied');
-  await rich.p.call('buyItem', { id: 'frame_ice' });
+  await expectError(rich.p.call('buyItem', { id: 'frame_rainbow' }), 'failed-precondition');
+  await expectError(rich.p.call('equipItem', { id: 'bubble_gold' }), 'permission-denied');
+  await rich.p.call('buyItem', { id: 'bubble_gold' });
   const bought = await rich.p.profile();
-  assert.equal(bought.coins, rich.prof.coins - 3000);
-  assert.deepEqual(bought.owned, ['frame_ice']);
-  assert.equal(bought.equipped.frame, 'frame_ice', 'يلبسه على طول');
-  await expectError(rich.p.call('buyItem', { id: 'frame_ice' }), 'already-exists');
-  await rich.p.call('equipItem', { id: 'frame_none' });
-  assert.equal((await rich.p.profile()).equipped.frame, 'frame_none');
-  await rich.p.call('equipItem', { id: 'frame_ice' });
+  assert.equal(bought.coins, rich.prof.coins - 2500);
+  assert.deepEqual(bought.owned, ['bubble_gold']);
+  assert.equal(bought.equipped.bubble, 'bubble_gold', 'يلبسه على طول');
+  await expectError(rich.p.call('buyItem', { id: 'bubble_gold' }), 'already-exists');
+  await rich.p.call('equipItem', { id: 'bubble_classic' });
+  assert.equal((await rich.p.profile()).equipped.bubble, 'bubble_classic');
+  await rich.p.call('equipItem', { id: 'bubble_gold' });
   const { code: shopRoom } = await rich.p.call<{ code: string }>('createRoom', { maxPlayers: 5 });
   const shopRoomData = (await getDoc(doc(getFirestore(host.app), `rooms/${shopRoom}`))).data()!;
-  assert.equal(shopRoomData.players[0].frame, 'frame_ice');
-  console.log('✓ المتجر: الشراء ينخصم ويلبس، وما ينشرى مرتين، والإطار يطلع في الطاولة');
+  assert.equal(shopRoomData.players[0].bubble, 'bubble_gold');
+  console.log('✓ المتجر: الشراء ينخصم ويلبس، وما ينشرى مرتين، وما يكفي الذهب يرفض، والفقاعة تطلع في الطاولة');
 
   // ٩. الإشعارات: الجهاز ينحفظ، والإرسال الفاشل (المحاكي ما يرسل فعلياً) ما يخرب اللعبة
   await expectError(host.call('registerPushToken', { token: 'short' }), 'invalid-argument');
@@ -735,6 +737,35 @@ async function main(): Promise<void> {
   assert.equal((await getDoc(doc(getFirestore(players[1].app), `leaderboard/${asker.uid}`))).exists(), false);
   await deleteApp(asker.app);
   console.log('✓ طلب الحذف من الموقع: المطور يراجعه ويحذف');
+
+  // كل الطلبات من دالة وحدة (api) بهوية اللاعب، والتدريب يبدأ بطلب واحد
+  const trainee = await client(57);
+  const viaApi = <T = unknown>(fn: string, data: unknown = {}) => trainee.call<T>('api', { fn, data });
+  await viaApi('ensureProfile');
+  await viaApi('updateProfile', { name: 'متدرب', avatar: 'falcon' });
+  assert.equal((await trainee.profile()).name, 'متدرب', 'الطلب وصل بهوية اللاعب');
+  await expectError(viaApi('nothing'), 'not-found');
+  await expectError(viaApi('updateProfile', { name: 'x', avatar: 'falcon' }), 'invalid-argument');
+  const training = await viaApi<{ code: string }>('startTraining');
+  const tv = await trainee.view(training.code);
+  assert.equal(tv.players.length, 5);
+  assert.equal(tv.players.filter((p) => p.id.startsWith('bot_')).length, 4, 'أنت و٤ بوتات');
+  assert.equal(tv.phase, 'nomination');
+  const troom = (await getDoc(doc(getFirestore(trainee.app), `rooms/${training.code}`))).data()!;
+  assert.deepEqual([troom.isPrivate, troom.status, troom.hostId], [true, 'playing', trainee.uid]);
+  // الحركات والمؤقت كذلك من api: ترشّح لو أنت الرئيس، وإلا البوت يرشّح لما يخلص وقته.
+  if (tv.presidentId === trainee.uid) {
+    const pick = tv.players.find((p) => p.id !== trainee.uid)!.id;
+    await viaApi('act', { code: training.code, action: { type: 'nominate', chancellor: pick } });
+  } else {
+    for (let i = 0; i < 20 && (await trainee.view(training.code)).phase === 'nomination'; i++) {
+      await new Promise((r) => setTimeout(r, 500));
+      await viaApi('timeout', { code: training.code });
+    }
+  }
+  assert.notEqual((await trainee.view(training.code)).phase, 'nomination', 'اللعبة مشت');
+  await deleteApp(trainee.app);
+  console.log('✓ دالة وحدة لكل الطلبات (api)، والتدريب يبدأ بطلب واحد');
 
   // أبطال الأسبوع: أول ٣ ياخذون إطار وشخصية مؤقتة
   const { champions } = await dev.call<{ champions: string[] }>('devTool', { action: 'crown' });
