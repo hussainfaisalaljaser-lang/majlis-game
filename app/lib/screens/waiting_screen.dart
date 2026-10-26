@@ -166,6 +166,11 @@ class _WaitingScreenState extends State<WaitingScreen> {
               Gfx(tier == null ? 'key' : tier.icon, size: 30),
               const SizedBox(width: 8),
               Text(tier == null ? 'روم خاص' : 'طاولة ${tier.name}'),
+              if (_room?.quick ?? false) ...[
+                const SizedBox(width: 10),
+                const Gfx('bolt', size: 22),
+                const Text(' سريع', style: TextStyle(color: AppColors.gold, fontSize: 15)),
+              ],
             ],
           ),
         ),

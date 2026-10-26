@@ -331,7 +331,10 @@ class _SeatView extends StatelessWidget {
     final opinion = room?.opinionOf(p.id, ignore: blocked);
     final reaction = blocked.contains(p.id)
         ? null
-        : room?.reactions.where((r) => r.from == p.id && now.difference(r.at).inSeconds < 5).lastOrNull;
+        // ردود البوتات وقتها بعد المشاهد (مستقبلاً)، فتطلع لما يجي وقتها.
+        : room?.reactions
+              .where((r) => r.from == p.id && !r.at.isAfter(now) && now.difference(r.at).inSeconds < 5)
+              .lastOrNull;
 
     Color? frame;
     if (selectable) {

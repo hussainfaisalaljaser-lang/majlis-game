@@ -726,6 +726,74 @@ def _(ic):
             + shine(78, 34, 8, 4))
 
 
+@icon('bolt')
+def _(ic):
+    # برق: الوضع السريع
+    return (shape(ic, 'M74 6 L22 72 H58 L46 122 L106 50 H70 Z', ('#FFF9C4', '#FFD43B', '#F08C00', '#7A3E00'), 5)
+            + shine(60, 36, 6, 14, 35, .55))
+
+
+# ═════════════ رتب التصنيف ═════════════
+BRONZE = ('#F6C49A', '#CD7F32', '#7A4512', '#3A1E06')
+DIAMOND = ('#E0F7FF', '#7DD8FF', '#2B8FD6', '#0B3A6B')
+LEGEND = ('#FBE3FF', '#E879F9', '#9D2BB8', '#3E0A4F')
+SHIELD = 'M64 10 L110 24 V60 Q110 100 64 120 Q18 100 18 60 V24 Z'
+INNER = 'M64 22 L99 33 V60 Q99 92 64 108 Q29 92 29 60 V33 Z'
+
+
+def star_path(cx, cy, r):
+    import math
+    pts = []
+    for i in range(10):
+        rr = r if i % 2 == 0 else r * .45
+        a = -math.pi / 2 + i * math.pi / 5
+        pts.append(f'{cx + rr * math.cos(a):.1f} {cy + rr * math.sin(a):.1f}')
+    return 'M' + ' L'.join(pts) + ' Z'
+
+
+def rank_shield(ic, c, inner_fill='#1E1645'):
+    return (shape(ic, SHIELD, c, 5) + f'<path d="{INNER}" fill="{inner_fill}" stroke="{c[3]}" stroke-width="2.5" opacity=".92"/>'
+            + shine(44, 30, 14, 5, -20, .5))
+
+
+def stars(ic, n, c, y=66, r=13, gap=26):
+    xs = [64 + (i - (n - 1) / 2) * gap for i in range(n)]
+    return ''.join(shape(ic, star_path(x, y, r), c, 3) for x in xs)
+
+
+@icon('rank_bronze')
+def _(ic):
+    return rank_shield(ic, BRONZE) + stars(ic, 1, BRONZE, r=20)
+
+
+@icon('rank_silver')
+def _(ic):
+    return rank_shield(ic, SILVER) + stars(ic, 2, SILVER, r=15, gap=30)
+
+
+@icon('rank_gold')
+def _(ic):
+    return rank_shield(ic, GOLD) + stars(ic, 3, GOLD, y=68, r=12, gap=22) + shape(ic, star_path(64, 46, 9), GOLD, 2.5)
+
+
+@icon('rank_diamond')
+def _(ic):
+    gem = 'M46 52 H82 L94 64 L64 98 L34 64 Z'
+    return (rank_shield(ic, DIAMOND) + shape(ic, gem, DIAMOND, 3.5)
+            + '<path d="M34 64 H94 M52 52 L58 64 L64 98 L70 64 L76 52" fill="none" stroke="#0B3A6B" stroke-width="2.5" stroke-linejoin="round"/>'
+            + '<path d="M50 56 L56 56 L54 62 Z" fill="#fff" opacity=".8"/>')
+
+
+@icon('rank_legend')
+def _(ic):
+    wing = 'M18 44 Q2 52 4 76 Q16 70 22 74 Q12 84 16 96 Q28 86 30 80'
+    wings = (shape(ic, wing, GOLD, 3.5) + f'<g transform="translate(128 0) scale(-1 1)">' + shape(ic, wing, GOLD, 3.5) + '</g>')
+    crown = 'M42 50 L48 34 L56 44 L64 28 L72 44 L80 34 L86 50 Z'
+    return (wings + rank_shield(ic, LEGEND, '#2A0F3D') + shape(ic, crown, GOLD, 3)
+            + '<circle cx="64" cy="27" r="4" fill="#FF6B6B" stroke="#6E4606" stroke-width="2"/>'
+            + stars(ic, 1, GOLD, y=76, r=18))
+
+
 def svg(body, defs):
     sh = ('<filter id="sh" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur in="SourceAlpha" stdDeviation="3"/>'
           '<feOffset dx="0" dy="4" result="o"/><feComponentTransfer in="o" result="s"><feFuncA type="linear" slope=".45"/></feComponentTransfer>'

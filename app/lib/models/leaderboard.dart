@@ -1,7 +1,8 @@
+import 'catalog.dart';
 import 'profile.dart';
 
 /// أنواع جدول الترتيب.
-enum Board { weekly, allTime, level }
+enum Board { weekly, allTime, level, ranked }
 
 /// سطر في جدول الترتيب (functions/src/profile.ts → toLeaderboard).
 class LeaderboardEntry {
@@ -17,7 +18,8 @@ class LeaderboardEntry {
       badges = {
         for (final MapEntry(:key, :value) in ((j['badges'] as Map?) ?? const {}).entries)
           key as String: (value as num).toInt(),
-      };
+      },
+      rankPoints = j['rankSeason'] == season.id ? (j['rankPoints'] as num?)?.toInt() ?? 0 : 0;
 
   final String uid;
   final String name;
@@ -31,6 +33,9 @@ class LeaderboardEntry {
 
   /// درجة كل إنجاز وصله (١ برونزي، ٢ فضي، ٣ ذهبي).
   final Map<String, int> badges;
+
+  /// نقاط التصنيف في الموسم الحالي.
+  final int rankPoints;
 
   int get winRate => gamesPlayed == 0 ? 0 : (gamesWon * 100 / gamesPlayed).round();
 }

@@ -22,6 +22,9 @@ class _TablesScreenState extends State<TablesScreen> {
   TableTier _tier = tableTiers[0];
   bool _busy = false;
 
+  /// الوضع السريع: نفس اللعبة بنص الوقت (حوالي ٥ دقايق).
+  bool _quick = false;
+
   bool _locked(Profile p, TableTier t) => t.requiredLevel > p.level || (t.vipOnly && !p.vip);
 
   /// ينفذ طلب للسيرفر ويفتح غرفة الانتظار. بدون سيرفر (نسخة الويب) يفتح العرض التجريبي.
@@ -104,7 +107,28 @@ class _TablesScreenState extends State<TablesScreen> {
                       selected: {_playerCount},
                       onSelectionChanged: (s) => setState(() => _playerCount = s.first),
                     ),
+                    const SizedBox(height: 8),
+                    SegmentedButton<bool>(
+                      showSelectedIcon: false,
+                      style: const ButtonStyle(visualDensity: VisualDensity.compact),
+                      segments: const [
+                        ButtonSegment(value: false, label: Text('عادي'), icon: Gfx('hourglass', size: 18)),
+                        ButtonSegment(value: true, label: Text('سريع'), icon: Gfx('bolt', size: 18)),
+                      ],
+                      selected: {_quick},
+                      onSelectionChanged: (s) => setState(() => _quick = s.first),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      _quick ? 'نص الوقت لكل دور، واللعبة حوالي ٥ دقايق' : 'الوقت العادي، واللعبة حوالي ١٠ دقايق',
+                      style: const TextStyle(color: AppColors.muted, fontSize: 11.5),
+                    ),
                     const Spacer(),
+                    const Text(
+                      'الطاولات العامة تحسب في تصنيفك',
+                      style: TextStyle(color: AppColors.muted, fontSize: 11.5),
+                    ),
+                    const SizedBox(height: 4),
                     GameButton(
                       label: _busy ? 'لحظة…' : 'العب الحين',
                       icon: const Gfx('games', size: 28),
@@ -112,7 +136,11 @@ class _TablesScreenState extends State<TablesScreen> {
                       onPressed: _busy
                           ? null
                           : () => _enter(
-                              () => Backend.instance.quickMatch(maxPlayers: _playerCount, tierId: _tier.id),
+                              () => Backend.instance.quickMatch(
+                                maxPlayers: _playerCount,
+                                tierId: _tier.id,
+                                quick: _quick,
+                              ),
                               tier: _tier,
                             ),
                     ),
@@ -128,7 +156,7 @@ class _TablesScreenState extends State<TablesScreen> {
                           ? null
                           : () => _enter(
                               Backend.instance.isReady
-                                  ? () => Backend.instance.createRoom(maxPlayers: _playerCount)
+                                  ? () => Backend.instance.createRoom(maxPlayers: _playerCount, quick: _quick)
                                   : null,
                             ),
                     ),

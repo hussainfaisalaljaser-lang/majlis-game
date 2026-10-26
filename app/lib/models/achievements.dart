@@ -32,3 +32,30 @@ const tierNames = ['', 'برونزي', 'فضي', 'ذهبي'];
 const tierColors = [Color(0xFF6B6490), Color(0xFFCD7F32), Color(0xFFC9D1DC), Color(0xFFF2C14E)];
 
 Achievement? achievementById(String id) => achievements.where((a) => a.id == id).firstOrNull;
+
+/// رتبة تصنيف (برونزي، فضي، ذهبي، ماسي، أسطوري): أقل نقاط لها، ومكافأة أول وصول في الموسم.
+class RankTier {
+  const RankTier(
+    this.index, {
+    required this.id,
+    required this.name,
+    required this.min,
+    required this.coins,
+    required this.diamonds,
+    required this.color,
+  });
+
+  final int index;
+  final String id;
+  final String name;
+  final int min;
+  final int coins;
+  final int diamonds;
+  final Color color;
+
+  /// الرتبة لهذي النقاط.
+  static RankTier of(int points) => rankTiers.lastWhere((t) => points >= t.min);
+
+  /// الرتبة اللي بعدها (null لو أعلى رتبة).
+  RankTier? get next => index + 1 < rankTiers.length ? rankTiers[index + 1] : null;
+}

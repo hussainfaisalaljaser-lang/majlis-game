@@ -104,6 +104,13 @@ export interface GameState {
   guardianUsed: boolean;
   /** لعبة الشرح للاعب الجديد: وقت أطول، والبوتات توافق على أول حكومة (السيرفر يعبّيها). */
   tutorial?: boolean;
+  /** الوضع السريع: نفس القوانين بس الوقت نص، والبوتات أسرع (السيرفر يعبّيها). */
+  quick?: boolean;
+  /**
+   * الكروت الحقيقية اللي وصلت كل حكومة (سرية، ما تطلع لأحد): الجولة ← كروت الرئيس الثلاث واللي عطاها الوزير.
+   * البوت يستخدم بس الجولات اللي كان فيها في الحكومة (يتذكر وش وصله).
+   */
+  hands?: Record<number, { president: Policy[]; chancellor: Policy[] }>;
   winner: Team | null;
   winReason: WinReason | null;
   log: GameEvent[];

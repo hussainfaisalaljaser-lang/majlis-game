@@ -282,6 +282,8 @@ class ProfileScreen extends StatelessWidget {
                     ],
                   ),
                   const SizedBox(height: 10),
+                  RankPanel(profile: p),
+                  const SizedBox(height: 10),
                   AchievementsPanel(profile: p),
                 ],
               ),

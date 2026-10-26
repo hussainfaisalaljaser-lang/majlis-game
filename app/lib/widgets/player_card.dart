@@ -224,8 +224,11 @@ class _PlayerCardState extends State<_PlayerCard> {
                       const SizedBox(height: 4),
                       if (widget.bot)
                         const _Chip(icon: 'bot', text: 'بوت يلعب معكم')
-                      else if (e != null)
+                      else if (e != null) ...[
                         _Chip(icon: 'xp', text: 'مستوى ${arabicNumber(e.level)}'),
+                        const SizedBox(height: 6),
+                        RankChip(points: e.rankPoints, size: 22),
+                      ],
                     ],
                   ),
                 ),

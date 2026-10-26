@@ -116,3 +116,49 @@ class BadgeStrip extends StatelessWidget {
     );
   }
 }
+
+/// شعار رتبة التصنيف (برونزي، فضي، ذهبي، ماسي، أسطوري).
+class RankEmblem extends StatelessWidget {
+  const RankEmblem({super.key, required this.tier, this.size = 40});
+
+  final RankTier tier;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+    label: 'رتبة ${tier.name}',
+    child: Gfx('rank_${tier.id}', size: size),
+  );
+}
+
+/// الرتبة بشعارها واسمها ونقاطها (للبطاقات والقوائم).
+class RankChip extends StatelessWidget {
+  const RankChip({super.key, required this.points, this.size = 22});
+
+  final int points;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = RankTier.of(points);
+    return Container(
+      padding: const EdgeInsets.fromLTRB(8, 2, 10, 2),
+      decoration: BoxDecoration(
+        color: t.color.withValues(alpha: .14),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: t.color.withValues(alpha: .7)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          RankEmblem(tier: t, size: size),
+          const SizedBox(width: 4),
+          Text(
+            '${t.name} · ${arabicNumber(points)}',
+            style: TextStyle(color: t.color, fontWeight: FontWeight.w800, fontSize: size * .58),
+          ),
+        ],
+      ),
+    );
+  }
+}

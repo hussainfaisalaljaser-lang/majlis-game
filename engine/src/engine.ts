@@ -149,6 +149,8 @@ export function applyAction(state: GameState, playerId: PlayerId, action: Action
       requirePresident(s, playerId);
       requireIndex(s.hand, action.index);
       s.discardPile.push(...s.hand.splice(action.index, 1));
+      const drawn = s.hands?.[s.round];
+      if (drawn) drawn.chancellor = [...s.hand];
       s.phase = 'chancellorEnact';
       return s;
     }
@@ -291,6 +293,7 @@ function resolveElection(s: GameState): void {
   }
   ensureDeck(s, 3);
   s.hand = s.drawPile.splice(0, 3);
+  s.hands = { ...s.hands, [s.round]: { president: [...s.hand], chancellor: [] } };
   s.phase = 'presidentDiscard';
 }
 

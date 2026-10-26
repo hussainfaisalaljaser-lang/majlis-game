@@ -117,3 +117,69 @@ class _AchievementRow extends StatelessWidget {
     );
   }
 }
+
+/// تصنيفك في الموسم: رتبتك ونقاطك، وكم باقي للرتبة الجاية.
+class RankPanel extends StatelessWidget {
+  const RankPanel({super.key, required this.profile});
+
+  final Profile profile;
+
+  @override
+  Widget build(BuildContext context) {
+    final points = profile.rankPoints;
+    final tier = RankTier.of(points);
+    final next = tier.next;
+    final progress = next == null ? 1.0 : ((points - tier.min) / (next.min - tier.min)).clamp(0.0, 1.0);
+    final days = season.end.difference(DateTime.now()).inDays;
+    return Panel(
+      gradient: LinearGradient(colors: [tier.color.withValues(alpha: .22), AppColors.panel]),
+      borderColor: tier.color.withValues(alpha: .6),
+      child: Row(
+        children: [
+          RankEmblem(tier: tier, size: 64),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Text(
+                      'التصنيف: ${tier.name}',
+                      style: TextStyle(fontFamily: kufi, fontWeight: FontWeight.w700, fontSize: 18, color: tier.color),
+                    ),
+                    const Spacer(),
+                    Text(
+                      next == null
+                          ? '${arabicNumber(points)} نقطة'
+                          : '${arabicNumber(points)} / ${arabicNumber(next.min)}',
+                      style: const TextStyle(color: AppColors.muted, fontSize: 12.5, fontWeight: FontWeight.w700),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(6),
+                  child: LinearProgressIndicator(
+                    value: progress,
+                    minHeight: 9,
+                    backgroundColor: Colors.black.withValues(alpha: .35),
+                    color: next?.color ?? tier.color,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  next == null
+                      ? 'أعلى رتبة! يتصفّر التصنيف بعد ${arabicNumber(days < 0 ? 0 : days)} يوم مع نهاية الموسم'
+                      : 'الفوز في الطاولات العامة يرفعك. الرتبة الجاية ${next.name} (+${arabicNumber(next.coins)} ذهب). '
+                            'يتصفّر بعد ${arabicNumber(days < 0 ? 0 : days)} يوم',
+                  style: const TextStyle(color: AppColors.muted, fontSize: 12, height: 1.4),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}

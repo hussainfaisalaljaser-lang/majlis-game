@@ -19,6 +19,8 @@ export interface PlayerView {
   you: PlayerId;
   /** لعبة الشرح (التطبيق يطلع فيها نصايح الراوي). */
   tutorial: boolean;
+  /** الوضع السريع (الوقت نص). */
+  quick: boolean;
   yourRole: Role;
   /** دورك الخاص لو عندك (عرّاف أو حارس). */
   yourSpecial: Special | null;
@@ -89,6 +91,7 @@ export function viewFor(s: GameState, playerId: PlayerId): PlayerView {
   return {
     you: playerId,
     tutorial: s.tutorial ?? false,
+    quick: s.quick ?? false,
     yourRole: me.role,
     yourSpecial: me.special,
     seerSees: me.special === 'seer' ? s.seerSees : null,

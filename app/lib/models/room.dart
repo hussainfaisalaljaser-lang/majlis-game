@@ -38,7 +38,7 @@ class Reaction {
     : from = j['from'] as String,
       kind = j['kind'] as String,
       target = j['target'] as String?,
-      at = DateTime.fromMillisecondsSinceEpoch(j['at'] as int);
+      at = DateTime.fromMillisecondsSinceEpoch((j['at'] as num).toInt());
 
   final String from;
 
@@ -62,6 +62,7 @@ class Room {
     this.results = const {},
     this.reactions = const [],
     this.opinions = const {},
+    this.quick = false,
   });
 
   factory Room.fromJson(Map<String, dynamic> j) => Room(
@@ -76,7 +77,12 @@ class Room {
     createdAt: j['createdAtMs'] == null ? null : DateTime.fromMillisecondsSinceEpoch(j['createdAtMs'] as int),
     results: {
       for (final MapEntry(:key, :value) in ((j['results'] as Map?) ?? const {}).entries)
-        key as String: (won: (value as Map)['won'] as bool, coins: value['coins'] as int, xp: value['xp'] as int),
+        key as String: (
+          won: (value as Map)['won'] as bool,
+          coins: value['coins'] as int,
+          xp: value['xp'] as int,
+          rank: (value['rank'] as num?)?.toInt(),
+        ),
     },
     reactions: [
       for (final r in (j['reactions'] as List?) ?? const []) Reaction.fromJson(Map<String, dynamic>.from(r as Map)),
@@ -85,6 +91,7 @@ class Room {
       for (final MapEntry(:key, :value) in ((j['opinions'] as Map?) ?? const {}).entries)
         key as String: {for (final o in (value as Map).entries) o.key as String: o.value == 'suspect'},
     },
+    quick: j['quick'] as bool? ?? false,
   );
 
   final String code;
@@ -96,6 +103,9 @@ class Room {
   final List<RoomPlayer> players;
   final int entryFee;
 
+  /// الوضع السريع: الوقت نص، واللعبة حوالي ٥ دقايق.
+  final bool quick;
+
   /// وقت إنشاء الروم. الطاولة العامة تتكمل بالبوتات بعد شوي انتظار.
   final DateTime? createdAt;
 
@@ -103,7 +113,7 @@ class Room {
   static const botFillAfter = Duration(seconds: 25);
 
   /// اللي كسبه كل لاعب لما انتهت اللعبة.
-  final Map<String, ({bool won, int coins, int xp})> results;
+  final Map<String, ({bool won, int coins, int xp, int? rank})> results;
   final List<Reaction> reactions;
 
   /// opinions[من][في] = true لو يشك فيه، false لو يثق فيه.

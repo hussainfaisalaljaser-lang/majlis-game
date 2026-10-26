@@ -31,6 +31,8 @@ class Profile {
     this.badges = const {},
     this.blocked = const {},
     this.renamed = false,
+    this.rankPoints = 0,
+    this.rankBest = 0,
   });
 
   factory Profile.fromJson(Map<String, dynamic> j) => Profile(
@@ -64,6 +66,8 @@ class Profile {
     badges: _ints(j['badges']),
     blocked: {for (final b in (j['blocked'] as List?) ?? const []) b as String},
     renamed: j['renamed'] as bool? ?? false,
+    rankPoints: (j['rank'] as Map?)?['season'] == season.id ? ((j['rank'] as Map)['points'] as num).toInt() : 0,
+    rankBest: (j['rank'] as Map?)?['season'] == season.id ? ((j['rank'] as Map)['best'] as num).toInt() : 0,
   );
 
   static Map<String, int> _ints(Object? m) => {
@@ -125,6 +129,10 @@ class Profile {
 
   /// اسمه انغيّر لأنه انبلغ عنه: نطلب منه يختار اسم جديد.
   final bool renamed;
+
+  /// نقاط التصنيف في الموسم الحالي، وأعلى نقاط وصلها فيه.
+  final int rankPoints;
+  final int rankBest;
 
   /// هدايا وصلت وما شافها (مستويات أو بطولة).
   final List<Gift> gifts;
@@ -193,6 +201,7 @@ class Gift {
     : champion = j['kind'] == 'champion',
       tutorial = j['kind'] == 'tutorial',
       achievement = j['kind'] == 'achievement' ? j['ach'] as String? : null,
+      rank = j['kind'] == 'rank',
       n = (j['n'] as num).toInt(),
       coins = (j['coins'] as num?)?.toInt() ?? 0,
       diamonds = (j['diamonds'] as num?)?.toInt() ?? 0,
@@ -206,6 +215,9 @@ class Gift {
 
   /// معرف الإنجاز لو الهدية درجة إنجاز (و[n] الدرجة).
   final String? achievement;
+
+  /// وصل رتبة تصنيف جديدة ([n] رقمها في rankTiers).
+  final bool rank;
 
   /// المستوى، أو المركز للبطولة.
   final int n;

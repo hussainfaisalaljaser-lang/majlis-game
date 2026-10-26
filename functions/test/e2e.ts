@@ -217,6 +217,7 @@ async function main(): Promise<void> {
     const after = await p.profile();
     const r = results[p.uid];
     assert.equal(r.coins, 0, 'الروم الخاص بدون جائزة ذهب');
+    assert.equal(r.rank, undefined, 'الروم الخاص ما يحسب في التصنيف');
     assert.equal(after.xp - (before[i].xp ?? 0), r.won ? 50 : 20);
     assert.equal(after.gamesPlayed, 1);
     assert.equal(after.gamesWon, r.won ? 1 : 0);
@@ -287,6 +288,18 @@ async function main(): Promise<void> {
     assert.equal(prof.coins - achCoins(prof), startCoins[i] - 1000 + expected);
   }
   console.log(`✓ الجائزة: ${winnerCount} فايزين، كل واحد أخذ ${Math.floor(5000 / winnerCount)} ذهب`);
+  // التصنيف: الطاولة العامة تحسب، والفايز يطلع، والخسران ما ينزل تحت الصفر
+  for (const p of players) {
+    const r = qmResults[p.uid];
+    assert.equal(typeof r.rank, 'number');
+    if (r.won) assert.ok(r.rank > 0, 'الفايز ياخذ نقاط تصنيف');
+    else assert.ok(r.rank <= 0);
+  }
+  const rankWinner = players.find((p) => qmResults[p.uid].won)!;
+  const rankBoard = (await getDoc(doc(getFirestore(host.app), `leaderboard/${rankWinner.uid}`))).data()!;
+  assert.equal(rankBoard.rankPoints, qmResults[rankWinner.uid].rank);
+  assert.equal((await rankWinner.profile()).rank.points, qmResults[rankWinner.uid].rank);
+  console.log(`✓ التصنيف: الفايز +${qmResults[rankWinner.uid].rank} في الموسم ${rankBoard.rankSeason}`);
 
   // ٨. المتجر: الشراء واللبس، والإطار يطلع في الطاولة
   const rich = (await Promise.all(players.map(async (p) => ({ p, prof: await p.profile() })))).sort(
@@ -357,6 +370,11 @@ async function main(): Promise<void> {
   assert.equal(hostAfter.gamesPlayed, hostBefore.gamesPlayed + 1, 'اللعبة انحسبت للاعب');
   const botBoard = await getDoc(doc(getFirestore(host.app), `leaderboard/${removed}`));
   assert.equal(botBoard.exists(), false, 'البوت ما يدخل الترتيب');
+  const botTalk = ((await getDoc(doc(getFirestore(host.app), `rooms/${botRoom}`))).data()!.reactions ?? []).filter(
+    (r: { from: string }) => r.from.startsWith('bot_'),
+  );
+  assert.ok(botTalk.length > 0, 'البوتات يتفاعلون في الطاولة');
+  console.log(`  البوتات ردّوا ${botTalk.length} مرة: ${botTalk.map((r: { kind: string }) => r.kind).join('، ')}`);
   console.log('✓ البوتات: تنضاف وتنشال، وتلعب بنفسها لين النهاية، وما تدخل الترتيب');
 
   // الخروج من لعبة شغالة: يكمل عنه بوت، وما يقدر يلعب بعدها
@@ -526,6 +544,21 @@ async function main(): Promise<void> {
   assert.equal(tutProfile.gifts.filter((g: { kind: string }) => g.kind === 'tutorial').length, 1);
   console.log(`✓ لعبة الشرح: وفي وأول رئيس، الحكومة الأولى تمر، و+٥٠٠ لمن يكملها (${tutSteps} خطوة)`);
   await deleteApp(newbie.app);
+
+  // الوضع السريع: الروم يوصل للعبة، ووقت دور اللاعب نص الوقت، والطاولات السريعة ما تختلط بالعادية
+  const { code: quickRoom } = await players[3].call<{ code: string }>('createRoom', { maxPlayers: 5, quick: true });
+  for (let i = 0; i < 4; i++) await players[3].call('addBots', { code: quickRoom });
+  await players[3].call('startGame', { code: quickRoom });
+  const qv = (await players[3].view(quickRoom)) as PlayerView & { deadline: number | null };
+  assert.equal(qv.quick, true);
+  await players[3].call('leaveGame', { code: quickRoom });
+  const { code: normalTable } = await players[1].call<{ code: string }>('quickMatch', { maxPlayers: 6, tierId: 'starter' });
+  const { code: quickTable } = await players[2].call<{ code: string }>('quickMatch', { maxPlayers: 6, tierId: 'starter', quick: true });
+  assert.notEqual(normalTable, quickTable, 'السريع ما يدخل طاولة عادية');
+  const { code: quickTable2 } = await players[4].call<{ code: string }>('quickMatch', { maxPlayers: 6, tierId: 'starter', quick: true });
+  assert.equal(quickTable2, quickTable, 'السريع يدخل طاولة سريعة');
+  for (const [p, c] of [[players[1], normalTable], [players[2], quickTable], [players[4], quickTable]] as const) await p.call('leaveRoom', { code: c });
+  console.log('✓ الوضع السريع: الروم والطاولات العامة');
 
   // الأسماء المسيئة تنرفض
   await expectError(players[0].call('updateProfile', { name: 'شرموط', avatar: 'falcon' }), 'invalid-argument');

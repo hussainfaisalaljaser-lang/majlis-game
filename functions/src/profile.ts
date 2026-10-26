@@ -4,15 +4,17 @@ import { DAILY_REWARDS, STARTING_COINS, gulfDay, levelFor, previousDay } from '.
 import type { MissionState } from './missions.js';
 import { CATALOG, FREE_AVATARS } from './catalog.js';
 import type { Stats } from './achievements.js';
+import type { RankState } from './rank.js';
 import type { PassState } from './rewards.js';
 import { DEFAULT_EQUIPPED, avatarOfItem, isDefault, type EquipSlot } from './shop.js';
+import { rankOf } from './rank.js';
 
 /** الشخصيات المجانية (app/assets/avatars). */
 export const AVATARS = FREE_AVATARS;
 
 /** هدية وصلت اللاعب (مستوى، بطولة الأسبوع، الشرح، إنجاز). التطبيق يعرضها ويشيلها بـ ackGifts. */
 export interface Gift {
-  kind: 'level' | 'champion' | 'tutorial' | 'achievement';
+  kind: 'level' | 'champion' | 'tutorial' | 'achievement' | 'rank';
   /** المستوى (للمستويات) أو المركز (للأبطال) أو الدرجة (للإنجازات). */
   n: number;
   /** معرف الإنجاز (للإنجازات). */
@@ -58,6 +60,8 @@ export interface Profile {
   /** إحصائيات الإنجازات (achievements.ts)، ودرجة كل إنجاز وصلها (١ برونزي، ٢ فضي، ٣ ذهبي). */
   stats?: Stats;
   badges?: Record<string, number>;
+  /** تصنيفه في الطاولات العامة (rank.ts). */
+  rank?: RankState;
   /** لاعبين حظرهم: ما يشوف ردودهم ولا رأيهم، وما تجمعه المطابقة معهم. */
   blocked?: string[];
   /** حد البلاغات والرسائل في اليوم. */
@@ -96,6 +100,9 @@ export interface LeaderboardEntry {
   weeklyWins: number;
   /** درجات الإنجازات اللي يعرضها ملفه للناس. */
   badges: Record<string, number>;
+  /** نقاط التصنيف وموسمها (جدول التصنيف يقرا الموسم الحالي بس). */
+  rankSeason: string;
+  rankPoints: number;
 }
 
 export function toLeaderboard(p: Profile): LeaderboardEntry {
@@ -110,6 +117,8 @@ export function toLeaderboard(p: Profile): LeaderboardEntry {
     week: p.week ?? null,
     weeklyWins: p.weeklyWins ?? 0,
     badges: p.badges ?? {},
+    rankSeason: rankOf(p).season,
+    rankPoints: rankOf(p).points,
   };
 }
 

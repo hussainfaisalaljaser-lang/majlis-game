@@ -71,6 +71,7 @@ class GameView {
   GameView.fromJson(Map<String, dynamic> j)
     : you = j['you'] as String,
       tutorial = j['tutorial'] as bool? ?? false,
+      quick = j['quick'] as bool? ?? false,
       yourRole = Role.values.byName(j['yourRole'] as String),
       yourSpecial = j['yourSpecial'] == null ? null : Special.values.byName(j['yourSpecial'] as String),
       seerSees = j['seerSees'] as String?,
@@ -97,7 +98,7 @@ class GameView {
       winnerLoyal = j['winner'] == null ? null : j['winner'] == 'loyal',
       winReason = j['winReason'] as String?,
       log = [for (final e in j['log'] as List) GameEvent.fromJson(_map(e))],
-      deadline = j['deadline'] == null ? null : DateTime.fromMillisecondsSinceEpoch(j['deadline'] as int);
+      deadline = j['deadline'] == null ? null : DateTime.fromMillisecondsSinceEpoch((j['deadline'] as num).toInt());
 
   static Map<String, dynamic> _map(Object? o) => Map<String, dynamic>.from(o as Map);
 
@@ -105,6 +106,9 @@ class GameView {
 
   /// لعبة الشرح: الراوي يطلع نصايح لكل خطوة.
   final bool tutorial;
+
+  /// الوضع السريع: وقت كل دور نص الوقت العادي.
+  final bool quick;
   final Role yourRole;
   final Special? yourSpecial;
 

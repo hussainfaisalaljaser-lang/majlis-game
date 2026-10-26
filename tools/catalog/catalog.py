@@ -221,6 +221,18 @@ ACHIEVEMENTS = [
 ]
 
 
+# ───────────── التصنيف (الطاولات العامة) ─────────────
+# نقاط التصنيف تتصفّر كل موسم. أول ما توصل رتبة في الموسم تاخذ مكافأتها (مرة وحدة).
+RANK_WIN, RANK_LOSS = 24, 16
+RANK_TIERS = [
+    dict(id='bronze', name='برونزي', min=0, coins=0, diamonds=0, color='CD7F32'),
+    dict(id='silver', name='فضي', min=200, coins=1500, diamonds=0, color='C9D1DC'),
+    dict(id='gold', name='ذهبي', min=500, coins=3000, diamonds=10, color='F2C14E'),
+    dict(id='diamond', name='ماسي', min=900, coins=5000, diamonds=25, color='7DD8FF'),
+    dict(id='legend', name='أسطوري', min=1400, coins=10000, diamonds=60, color='E879F9'),
+]
+
+
 # ───────────── الموسم (الباتل باس) ─────────────
 def R(coins=0, diamonds=0, items=()):
     return dict(coins=coins, diamonds=diamonds, items=list(items))
@@ -269,6 +281,7 @@ def check():
         for it in r['items']: assert it in known, it
     for c in CHAMPIONS.values():
         for it in c['items']: assert it in known, it
+    assert [t['min'] for t in RANK_TIERS] == sorted(t['min'] for t in RANK_TIERS) and RANK_TIERS[0]['min'] == 0
     ach = [a['id'] for a in ACHIEVEMENTS]
     assert len(ach) == len(set(ach)), 'إنجاز مكرر'
     for a in ACHIEVEMENTS:
@@ -333,6 +346,13 @@ def ts():
     for a in ACHIEVEMENTS: L.append('  ' + json.dumps({k: a[k] for k in ('id', 'stat', 'tiers')}) + ',')
     L.append('];')
     L.append(f'/** ذهب كل درجة. */\nexport const ACHIEVEMENT_REWARDS = {json.dumps(ACHIEVEMENT_REWARDS)};')
+    L.append('')
+    L.append('/** التصنيف: نقاط الفوز والخسارة، ورتب الموسم (أقل نقاط لكل رتبة ومكافأة أول وصول لها). */')
+    L.append(f'export const RANK_WIN = {RANK_WIN};')
+    L.append(f'export const RANK_LOSS = {RANK_LOSS};')
+    L.append('export const RANK_TIERS: { id: string; min: number; coins: number; diamonds: number }[] = [')
+    for t in RANK_TIERS: L.append('  ' + json.dumps({k: t[k] for k in ('id', 'min', 'coins', 'diamonds')}) + ',')
+    L.append('];')
     L.append('')
     L.append('/** الموسم الحالي (الباتل باس). start/end بتوقيت الخليج، والمكافآت حسب الدرجة. */')
     season = {k: SEASON[k] for k in ('id', 'start', 'end', 'price', 'tier_points', 'tiers')}
@@ -432,6 +452,14 @@ def dart():
         L.append(f"  Achievement({dstr(a['id'])}, stat: {dstr(a['stat'])}, tiers: {a['tiers']}, name: {dstr(a['name'])}, desc: {dstr(a['desc'])}, icon: {dstr(a['icon'])}),")
     L.append('];')
     L.append(f"const achievementRewards = {ACHIEVEMENT_REWARDS};")
+    L.append('')
+    L.append('/// رتب التصنيف (نفس functions/src/catalog.ts → RANK_TIERS).')
+    L.append('const rankTiers = <RankTier>[')
+    for i, t in enumerate(RANK_TIERS):
+        L.append(f"  RankTier({i}, id: {dstr(t['id'])}, name: {dstr(t['name'])}, min: {t['min']}, coins: {t['coins']}, diamonds: {t['diamonds']}, color: {col(t['color'])}),")
+    L.append('];')
+    L.append(f'const rankWin = {RANK_WIN};')
+    L.append(f'const rankLoss = {RANK_LOSS};')
     L.append('')
     L.append('/// الموسم الحالي (الباتل باس). نفس functions/src/catalog.ts → SEASON.')
     L.append('final season = Season(')

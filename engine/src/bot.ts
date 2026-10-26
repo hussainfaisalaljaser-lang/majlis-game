@@ -1,6 +1,6 @@
 import { alivePlayers, eligibleChancellors, teamOf } from './engine.js';
 import { LEADER_DANGER_ZONE, leaderKnowsTraitors } from './rules.js';
-import type { Action, GameState, Player, PlayerId, Policy } from './types.js';
+import type { Action, Claim, GameState, Government, Player, PlayerId, Policy } from './types.js';
 
 /**
  * عقل البوت: يلعب بس من اللي يعرفه (دوره، وأعوانه لو خائن، والسجل العام، وتحقيقاته).
@@ -50,7 +50,10 @@ export function botSeerReveal(s: GameState, botId: PlayerId, rand: Rand = Math.r
   return pick(others.filter((p) => suspicion(s, botId, p.id) === top), rand).id;
 }
 
-/** درجة الشك من السجل العام: كل حكومة مررت أحمر تزيد الشك، والأزرق ينقصه. */
+/**
+ * درجة الشك من السجل العام: كل حكومة مررت أحمر تزيد الشك، والأزرق ينقصه،
+ * والادعاءات اللي ما تركب مع بعض (أو مع اللي يعرفه البوت لو كان في الحكومة) تزيده.
+ */
 export function suspicion(s: GameState, botId: PlayerId, target: PlayerId): number {
   if (knownTraitor(s, botId, target)) return 100;
   if (knownLoyal(s, botId, target)) return -100;
@@ -59,6 +62,67 @@ export function suspicion(s: GameState, botId: PlayerId, target: PlayerId): numb
     if (e.type === 'enacted' && e.government) {
       const inGov = e.government.president === target || e.government.chancellor === target;
       if (inGov) score += e.policy === 'T' ? 1 : -0.6;
+    }
+  }
+  return score + claimSuspicion(s, botId, target);
+}
+
+const blues = (ps: Policy[]) => ps.filter((p) => p === 'L').length;
+const sameCards = (a: Policy[], b: Policy[]) => a.length === b.length && blues(a) === blues(b);
+
+/** ادعاء الرئيس (٣) يركب مع ادعاء الوزير (٢)؟ يعني الوزير وصله نفس الثلاث ناقص كرت. */
+function fits(president: Policy[], chancellor: Policy[]): boolean {
+  const b = blues(president);
+  const c = blues(chancellor);
+  return (c === b && b <= 2) || (c === b - 1 && b >= 1);
+}
+
+/** كل حكومة مررت قرار: مين فيها، وش تمرر، ووش ادعى كل واحد. */
+function legislatures(s: GameState): Map<number, { gov: Government; enacted: Policy; pres?: Claim; chan?: Claim }> {
+  const out = new Map<number, { gov: Government; enacted: Policy; pres?: Claim; chan?: Claim }>();
+  for (const e of s.log) {
+    if (e.type === 'enacted' && e.government && !e.chaos) out.set(e.round, { gov: e.government, enacted: e.policy });
+    if (e.type === 'claim') {
+      const leg = out.get(e.round);
+      if (leg) leg[e.claim.office === 'president' ? 'pres' : 'chan'] = e.claim;
+    }
+  }
+  return out;
+}
+
+/**
+ * الشك من الادعاءات. البوت اللي كان في الحكومة يعرف وش وصله بالضبط (s.hands)، فيكشف كذب شريكه:
+ * عطيته أزرق ومرّر أحمر، أو رمى أزرق وعطاني أحمرين. وغيره يشوف بس إذا الادعاءين يتناقضون.
+ */
+function claimSuspicion(s: GameState, botId: PlayerId, target: PlayerId): number {
+  let score = 0;
+  for (const [round, leg] of legislatures(s)) {
+    const { gov, enacted, pres, chan } = leg;
+    if (gov.president !== target && gov.chancellor !== target) continue;
+    const passed = s.hands?.[round]?.chancellor;
+    if (passed?.length === 2 && gov.president === botId && target === gov.chancellor) {
+      // أنا الرئيس: عطيته أزرق ومرّر أحمر، أو ادعى غير اللي عطيته.
+      if (enacted === 'T' && blues(passed) > 0) score += 8;
+      else if (chan && !sameCards(chan.policies, passed)) score += 6;
+      else score -= 1;
+      continue;
+    }
+    if (passed?.length === 2 && gov.chancellor === botId && target === gov.president) {
+      // أنا الوزير: ادعاؤه ما يركب مع اللي وصلني، أو كان معه أزرق وعطاني أحمرين.
+      if (pres && !fits(pres.policies, passed)) score += 8;
+      else if (pres && blues(pres.policies) > 0 && blues(passed) === 0) score += 6;
+      else score -= blues(passed) > 0 ? 1 : 0;
+      continue;
+    }
+    if (pres && chan) {
+      // من برا: الادعاءين يتناقضون؟ واحد منهم يكذب.
+      if (!fits(pres.policies, chan.policies) || (enacted === 'T' ? blues(chan.policies) === 2 : blues(chan.policies) === 0)) {
+        score += 2;
+      } else if (target === gov.chancellor && enacted === 'T' && blues(chan.policies) > 0) {
+        score += 3; // يقول وصله أزرق ومرّر أحمر
+      } else if (target === gov.president && blues(pres.policies) > 0 && blues(chan.policies) === 0) {
+        score += 3; // يقول كان معه أزرق ورماه
+      }
     }
   }
   return score;
@@ -127,11 +191,27 @@ function choosePowerTarget(s: GameState, botId: PlayerId, rand: Rand, mode: 'inv
   return mode === 'elect' ? ranked[ranked.length - 1] : ranked[0];
 }
 
-/** الادعاء بعد الحكم: الوفي يقول الصدق، والخائن يغطي على نفسه بإنه "ما جاه إلا أحمر". */
+/**
+ * الادعاء بعد الحكم: البوت يتذكر وش وصله فعلاً. الوفي يقول الصدق، والخائن يقول الصدق
+ * إلا لو يفضحه: رمى أزرق (يقول كلها حمر)، أو كان معه أزرق ومرّر أحمر (يلوم الرئيس).
+ */
 export function botClaim(s: GameState, botId: PlayerId, office: 'president' | 'chancellor', rand: Rand): Policy[] {
   const n = office === 'president' ? 3 : 2;
   const enacted = [...s.log].reverse().find((e) => e.type === 'enacted' && !e.chaos);
   const policy = enacted?.type === 'enacted' ? enacted.policy : 'T';
+  const leg = s.lastLegislature;
+  const drawn = leg ? s.hands?.[leg.round] : undefined;
+  const mine = drawn ? (office === 'president' ? drawn.president : drawn.chancellor) : undefined;
+  if (drawn && mine?.length === n) {
+    const sorted = [...mine].sort();
+    if (!isTraitorTeam(me(s, botId)) || policy !== 'T') return sorted;
+    const partner = office === 'president' ? leg!.government.chancellor : leg!.government.president;
+    if (office === 'president' && (blues(drawn.chancellor) < blues(mine) || knownTraitor(s, botId, partner))) {
+      return ['T', 'T', 'T'];
+    }
+    if (office === 'chancellor' && blues(mine) > 0) return ['T', 'T'];
+    return sorted;
+  }
   if (!isTraitorTeam(me(s, botId))) {
     // الوفي ما يتذكر الكروت بالضبط هنا، فيدّعي شي منطقي مع اللي تمرر.
     if (policy === 'T') return Array<Policy>(n).fill('T');
@@ -197,4 +277,86 @@ export function currentActors(s: GameState): PlayerId[] {
     default:
       return [];
   }
+}
+
+// ───────────── ردود البوتات في الطاولة ─────────────
+
+export interface BotReaction {
+  from: PlayerId;
+  /** رد من الكتالوج: كلام (suspect، liar، innocent…) أو ملصق. */
+  kind: string;
+  target: PlayerId | null;
+}
+
+const isBot = (id: PlayerId) => id.startsWith('bot_');
+
+// ملصقات البوتات (منها من باقات المتجر، عشان اللاعب يشوفها ويعرف إنها موجودة).
+const STICKERS = {
+  laugh: ['b_laugh', 'laugh_tears', 'laugh_clap', 'laugh_point'],
+  think: ['b_think', 'b_eyes'],
+  shock: ['shock_jaw', 'shock_hands', 'shock_what'],
+  upset: ['b_angry', 'ang_upset', 'ang_steam'],
+  smug: ['b_smirk', 'b_shh', 'cof_cup'],
+};
+
+/**
+ * البوتات يتفاعلون مع اللي صار (الأحداث الجديدة بين [prev] و[next]): يدافعون عن أنفسهم، ويشكّون،
+ * ويكشفون اللي كذب عليهم، ويضحكون أو يزعلون آخر اللعبة. كل بوت مرة وحدة، وبالكثير ٣ ردود.
+ */
+export function botReactions(prev: GameState, next: GameState, rand: Rand = Math.random): BotReaction[] {
+  const bots = next.players.filter((p) => isBot(p.id) && (p.alive || next.phase === 'gameOver'));
+  if (bots.length === 0) return [];
+  const out: BotReaction[] = [];
+  const said = new Set<PlayerId>();
+  const add = (from: PlayerId, kind: string, target: PlayerId | null = null) => {
+    if (said.has(from) || out.length >= 3 || from === target) return;
+    said.add(from);
+    out.push({ from, kind, target });
+  };
+  const shuffled = [...bots].sort(() => rand() - 0.5);
+  for (const e of next.log.slice(prev.log.length)) {
+    if (e.type === 'enacted' && e.government && !e.chaos) {
+      const gov = [e.government.president, e.government.chancellor];
+      if (e.policy === 'T') {
+        for (const id of gov) if (isBot(id) && rand() < 0.45) add(id, 'innocent');
+        for (const b of shuffled) {
+          if (gov.includes(b.id) || rand() > 0.35) continue;
+          // الوفي يشك في الأكثر شبهة، والخاين يرمي التهمة على الوفي اللي في الحكومة.
+          const target = isTraitorTeam(b)
+            ? (gov.find((id) => !knownTraitor(next, b.id, id) && id !== b.id) ?? null)
+            : [...gov].sort((x, y) => suspicion(next, b.id, y) - suspicion(next, b.id, x))[0];
+          if (target) add(b.id, 'suspect', target);
+        }
+      } else {
+        for (const id of gov) if (isBot(id) && rand() < 0.25) add(id, pick(STICKERS.smug, rand));
+      }
+    }
+    if (e.type === 'claim') {
+      // ادعاء يناقض اللي وصل البوت فعلاً (كان شريكه في الحكومة): كذاب!
+      const leg = legislatures(next).get(e.round);
+      const passed = next.hands?.[e.round]?.chancellor;
+      if (leg && passed?.length === 2) {
+        const partner = e.claim.office === 'president' ? leg.gov.chancellor : leg.gov.president;
+        const bot = next.players.find((p) => p.id === partner);
+        const lie =
+          e.claim.office === 'president' ? !fits(e.claim.policies, passed) : !sameCards(e.claim.policies, passed);
+        if (bot && isBot(bot.id) && bot.alive && !isTraitorTeam(bot) && lie) add(bot.id, 'liar', e.claim.by);
+        else if (lie && rand() < 0.3) {
+          const watcher = shuffled.find((b) => b.alive && b.id !== e.claim.by && b.id !== partner);
+          if (watcher) add(watcher.id, pick(STICKERS.think, rand));
+        }
+      }
+    }
+    if (e.type === 'executed' || e.type === 'guarded') {
+      const watcher = shuffled.find((b) => b.alive && b.id !== e.by);
+      if (watcher && rand() < 0.5) add(watcher.id, pick(STICKERS.shock, rand));
+    }
+    if (e.type === 'gameOver') {
+      for (const b of shuffled) {
+        if (rand() > 0.5) continue;
+        add(b.id, teamOf(b.role) === e.winner ? pick(STICKERS.laugh, rand) : pick(STICKERS.upset, rand));
+      }
+    }
+  }
+  return out;
 }

@@ -414,6 +414,7 @@ describe('البوتات', () => {
       wins[s.winner!]++;
     }
     // بوتات متوازنة: ما فيه فريق يفوز دايماً.
+    console.log('فوز البوتات في ١٠٠٠ لعبة:', JSON.stringify(wins));
     assert.ok(wins.loyal > 150 && wins.traitor > 150, `الفوز: ${JSON.stringify(wins)}`);
   });
 
@@ -436,6 +437,55 @@ describe('البوتات', () => {
     const enact = botAction(s, 'p1', () => 0.5)!;
     s = act(s, 'p1', enact);
     assert.equal(s.loyalPolicies, 1);
+  });
+});
+
+describe('البوتات الأذكى', () => {
+  it('الوفي يدّعي اللي وصله بالضبط، والخاين يكذب لما الصدق يفضحه', async () => {
+    const { botAction, botClaim, suspicion } = await import('../src/index.js');
+    // p0 رئيس وفي، p1 وزير خاين. الرئيس يسحب أحمر، أزرق، أحمر.
+    let s = rigged(5, ['loyal', 'traitor', 'loyal', 'loyal', 'leader'], ['T', 'L', 'T', 'L', 'L', 'L']);
+    s = act(s, 'p0', { type: 'nominate', chancellor: 'p1' });
+    s = voteAll(s, true);
+    s = act(s, 'p0', botAction(s, 'p0', () => 0.5)!);
+    assert.deepEqual([...s.hand].sort(), ['L', 'T'], 'الوفي يعطي الوزير أزرق وأحمر');
+    // الخاين يمرر الأحمر
+    s = act(s, 'p1', { type: 'enact', index: s.hand.indexOf('T') });
+    assert.deepEqual(botClaim(s, 'p0', 'president', () => 0.5), ['L', 'T', 'T'], 'الوفي يقول الصدق');
+    assert.deepEqual(botClaim(s, 'p1', 'chancellor', () => 0.5), ['T', 'T'], 'الخاين يلوم الرئيس');
+    // الرئيس الوفي يعرف إنه عطاه أزرق: الوزير خاين أكيد تقريباً
+    assert.ok(suspicion(s, 'p0', 'p1') >= 8);
+    // وبعد الادعاءين، الباقين يشوفون إن واحد منهم كذاب
+    s = act(s, 'p0', { type: 'claim', policies: ['L', 'T', 'T'] });
+    s = act(s, 'p1', { type: 'claim', policies: ['T', 'T'] });
+    assert.ok(suspicion(s, 'p2', 'p1') > suspicion(s, 'p2', 'p3'));
+  });
+
+  it('البوتات يتفاعلون: يدافعون ويشكّون ويقولون كذاب', async () => {
+    const { botReactions } = await import('../src/index.js');
+    const bots = Array.from({ length: 5 }, (_, i) => ({ id: `bot_${i}`, name: `بوت ${i}` }));
+    let s = createGame(bots, 3);
+    s.players.forEach((p, i) => {
+      p.role = (['loyal', 'traitor', 'loyal', 'loyal', 'leader'] as Role[])[i];
+      p.special = null;
+    });
+    s.drawPile = ['T', 'L', 'T', 'L', 'L', 'L'];
+    s.presidentId = 'bot_0';
+    s.rotationSeat = 0;
+    s = act(s, 'bot_0', { type: 'nominate', chancellor: 'bot_1' });
+    s = voteAll(s, true);
+    s = act(s, 'bot_0', { type: 'discard', index: s.hand.indexOf('T') });
+    const before = s;
+    s = act(s, 'bot_1', { type: 'enact', index: s.hand.indexOf('T') });
+    const afterRed = botReactions(before, s, () => 0.1);
+    assert.ok(afterRed.length > 0 && afterRed.length <= 3);
+    assert.ok(afterRed.some((r) => r.kind === 'innocent' || r.kind === 'suspect'));
+    assert.equal(new Set(afterRed.map((r) => r.from)).size, afterRed.length, 'كل بوت مرة وحدة');
+    // الوزير الخاين يكذب: الرئيس البوت الوفي يقول عنه كذاب
+    const beforeClaim = s;
+    s = act(s, 'bot_1', { type: 'claim', policies: ['T', 'T'] });
+    const afterLie = botReactions(beforeClaim, s, () => 0.9);
+    assert.deepEqual(afterLie, [{ from: 'bot_0', kind: 'liar', target: 'bot_1' }]);
   });
 });
 

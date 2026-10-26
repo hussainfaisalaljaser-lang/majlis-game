@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 
+import '../models/achievements.dart';
 import '../models/leaderboard.dart';
 import '../models/shop.dart';
 import '../services/backend.dart';
 import '../theme.dart';
+import '../widgets/badges.dart';
 import '../widgets/common.dart';
 import '../widgets/player_card.dart';
 import '../widgets/ui.dart';
@@ -66,6 +68,7 @@ class _Tabs extends StatelessWidget {
           (Board.weekly, 'هذا الأسبوع', 'fire'),
           (Board.allTime, 'الكل', 'trophy'),
           (Board.level, 'المستوى', 'xp'),
+          (Board.ranked, 'التصنيف', 'rank_gold'),
         ])
           Semantics(
             button: true,
@@ -114,20 +117,39 @@ class _Board extends StatelessWidget {
     Board.weekly => e.weeklyWins,
     Board.allTime => e.gamesWon,
     Board.level => e.level,
+    Board.ranked => e.rankPoints,
   };
 
-  /// النتيجة بأيقونتها (فوز أو مستوى).
-  Widget _scoreView(LeaderboardEntry e, {double size = 18, Color color = AppColors.gold}) => Row(
-    mainAxisSize: MainAxisSize.min,
-    children: [
-      Gfx(board == Board.level ? 'xp' : 'trophy', size: size),
-      const SizedBox(width: 3),
-      Text(
-        board == Board.level ? 'مستوى ${arabicNumber(e.level)}' : '${arabicNumber(_score(e))} فوز',
-        style: TextStyle(color: color, fontWeight: FontWeight.w800, fontSize: size * .78),
-      ),
-    ],
-  );
+  bool get ranked => board == Board.ranked;
+
+  /// النتيجة بأيقونتها (فوز أو مستوى أو رتبة التصنيف).
+  Widget _scoreView(LeaderboardEntry e, {double size = 18, Color color = AppColors.gold}) => ranked
+      ? Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            RankEmblem(tier: RankTier.of(e.rankPoints), size: size * 1.3),
+            const SizedBox(width: 3),
+            Text(
+              arabicNumber(e.rankPoints),
+              style: TextStyle(
+                color: RankTier.of(e.rankPoints).color,
+                fontWeight: FontWeight.w800,
+                fontSize: size * .8,
+              ),
+            ),
+          ],
+        )
+      : Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Gfx(board == Board.level ? 'xp' : 'trophy', size: size),
+            const SizedBox(width: 3),
+            Text(
+              board == Board.level ? 'مستوى ${arabicNumber(e.level)}' : '${arabicNumber(_score(e))} فوز',
+              style: TextStyle(color: color, fontWeight: FontWeight.w800, fontSize: size * .78),
+            ),
+          ],
+        );
 
   @override
   Widget build(BuildContext context) {
@@ -157,7 +179,11 @@ class _Board extends StatelessWidget {
                       child: entries.isEmpty
                           ? Center(
                               child: Text(
-                                weekly ? 'ما أحد فاز هذا الأسبوع للحين.\nكن أول واحد!' : 'ما فيه أحد في الترتيب للحين',
+                                weekly
+                                    ? 'ما أحد فاز هذا الأسبوع للحين.\nكن أول واحد!'
+                                    : ranked
+                                    ? 'ما أحد دخل التصنيف هالموسم للحين.\nالعب في الطاولات العامة!'
+                                    : 'ما فيه أحد في الترتيب للحين',
                                 textAlign: TextAlign.center,
                                 style: const TextStyle(color: AppColors.muted, height: 1.6),
                               ),
@@ -172,6 +198,7 @@ class _Board extends StatelessWidget {
                             ),
                     ),
                     if (weekly) const _ChampionPrizes(),
+                    if (ranked) const _RankLadder(),
                   ],
                 ),
               ),
@@ -318,6 +345,58 @@ class _Podium extends StatelessWidget {
             ),
           ),
       ],
+    );
+  }
+}
+
+/// رتب التصنيف ومكافأة أول وصول لكل وحدة في الموسم.
+class _RankLadder extends StatelessWidget {
+  const _RankLadder();
+
+  @override
+  Widget build(BuildContext context) {
+    final mine = Backend.instance.profile.value.rankPoints;
+    final current = RankTier.of(mine);
+    return Container(
+      padding: const EdgeInsets.fromLTRB(8, 6, 8, 6),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: .25),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.line),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            'رتبتك: ${current.name} (${arabicNumber(mine)}) · يتصفّر مع الموسم',
+            style: const TextStyle(color: AppColors.muted, fontSize: 11.5),
+          ),
+          const SizedBox(height: 4),
+          Row(
+            children: [
+              for (final t in rankTiers)
+                Expanded(
+                  child: Opacity(
+                    opacity: t.index <= current.index ? 1 : .55,
+                    child: Column(
+                      children: [
+                        RankEmblem(tier: t, size: 30),
+                        Text(
+                          t.name,
+                          style: TextStyle(color: t.color, fontSize: 10.5, fontWeight: FontWeight.w800),
+                        ),
+                        Text(
+                          t.coins == 0 ? arabicNumber(t.min) : '+${arabicNumber(t.coins)}',
+                          style: const TextStyle(color: AppColors.muted, fontSize: 9.5),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 }

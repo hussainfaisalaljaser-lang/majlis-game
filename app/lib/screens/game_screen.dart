@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../models/achievements.dart';
 import '../models/game_view.dart';
 import '../models/room.dart';
 import '../models/shop.dart';
@@ -1211,6 +1212,7 @@ class _RoundHud extends StatelessWidget {
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
+              if (view.quick) const Padding(padding: EdgeInsetsDirectional.only(end: 2), child: Gfx('bolt', size: 16)),
               Text(
                 'الجولة ${arabicNumber(view.round)}',
                 style: const TextStyle(fontFamily: kufi, fontWeight: FontWeight.w700, fontSize: 15),
@@ -1353,7 +1355,7 @@ class _TopTimer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final total = (_phaseSeconds[view.phase] ?? 30) * (view.tutorial ? 4 : 1);
+    final total = (_phaseSeconds[view.phase] ?? 30) * (view.tutorial ? 4 : (view.quick ? .5 : 1));
     final left = view.deadline!.difference(DateTime.now()).inMilliseconds.clamp(0, total * 1000) / 1000;
     final urgent = left <= 5;
     return LinearProgressIndicator(
@@ -1899,6 +1901,14 @@ class _GameOver extends StatelessWidget {
                               if (r.coins > 0) _Reward('+${arabicNumber(r.coins)}', AppColors.gold, icon: 'coin'),
                               if (r.coins > 0) const SizedBox(width: 10),
                               _Reward('+${arabicNumber(r.xp)}', AppColors.diamond, icon: 'xp'),
+                              if (r.rank case final rank? when rank != 0) ...[
+                                const SizedBox(width: 10),
+                                _Reward(
+                                  '${rank > 0 ? '+' : '−'}${arabicNumber(rank.abs())} تصنيف',
+                                  rank > 0 ? AppColors.green : AppColors.traitorLight,
+                                  icon: 'rank_${RankTier.of(Backend.instance.profile.value.rankPoints).id}',
+                                ),
+                              ],
                             ],
                           ),
                         ],

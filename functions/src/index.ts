@@ -12,6 +12,7 @@ import {
   RuleError,
   applyAction,
   botAction,
+  botReactions,
   botSeerReveal,
   botClaim,
   createGame,
@@ -23,7 +24,16 @@ import {
   type Action,
   type GameState,
 } from '../../engine/src/index.js';
-import { BOT_THINK_JITTER_MS, TUTORIAL_TIME_FACTOR, botThink, scenesDelay, startGrace, tutorialBotExtra } from './pacing.js';
+import {
+  BOT_THINK_JITTER_MS,
+  QUICK_TIME_FACTOR,
+  TUTORIAL_TIME_FACTOR,
+  botThink,
+  quickBotThink,
+  scenesDelay,
+  startGrace,
+  tutorialBotExtra,
+} from './pacing.js';
 import {
   xpForLevel,
   gulfDay,
@@ -40,6 +50,7 @@ import { MISSIONS, bumpMissions, gulfWeek, todaysMissions, type MissionId } from
 import { isDev } from './dev.js';
 import { applyStats, statsFromGame } from './achievements.js';
 import { offensiveName } from './moderation.js';
+import { applyRank, rankDelta, rankOf } from './rank.js';
 import { whoToNotify, type Note } from './notify.js';
 import {
   avatarOf,
@@ -96,6 +107,8 @@ export interface GameResult {
   won: boolean;
   coins: number;
   xp: number;
+  /** نقاط التصنيف (الطاولات العامة بس). */
+  rank?: number;
 }
 
 export interface Room {
@@ -117,6 +130,8 @@ export interface Room {
   opinions?: Record<string, Record<string, 'suspect' | 'trust'>>;
   /** لعبة الشرح. */
   tutorial?: boolean;
+  /** الوضع السريع (الوقت نص). */
+  quick?: boolean;
   results?: Record<string, GameResult>;
 }
 
@@ -209,10 +224,13 @@ function chargeEntry(tx: Transaction, uid: string, p: Profile, fee: number): voi
 
 /** يبدأ اللعبة داخل نفس العملية: يوزع الأدوار ويكتب نسخة كل لاعب. */
 function startGameTx(tx: Transaction, room: Room): GameState {
-  const state = createGame(
-    room.players.map((p) => ({ id: p.uid, name: p.name })),
-    randomInt(2 ** 31),
-  );
+  const state: GameState = {
+    ...createGame(
+      room.players.map((p) => ({ id: p.uid, name: p.name })),
+      randomInt(2 ** 31),
+    ),
+    quick: room.quick ?? false,
+  };
   tx.update(db.doc(`rooms/${room.code}`), { status: 'playing' });
   writeGame(tx, room.code, state, deadlineFor(state, Date.now(), startGrace()));
   return state;
@@ -234,13 +252,17 @@ const AFK_BAN_MS = 5 * 60_000;
  */
 function deadlineFor(state: GameState, now: number, waitMs = 0): number | null {
   if (state.phase === 'gameOver') return null;
-  const start = now + waitMs;
+  // رقم صحيح دايم (التطبيق يقراه int).
+  const start = Math.round(now + waitMs);
   const actors = currentActors(state);
   if (actors.length > 0 && actors.every(botPlays(state))) {
+    const jitter = randomInt(BOT_THINK_JITTER_MS);
+    if (state.quick) return start + quickBotThink(jitter);
     // لعبة الشرح: أول جولتين البوتات أبطأ عشان اللاعب يلحق يقرا النصايح.
-    return start + botThink(randomInt(BOT_THINK_JITTER_MS)) + (state.tutorial && state.round <= 2 ? tutorialBotExtra() : 0);
+    return start + botThink(jitter) + (state.tutorial && state.round <= 2 ? tutorialBotExtra() : 0);
   }
-  return start + PHASE_SECONDS[state.phase] * 1000 * (state.tutorial ? TUTORIAL_TIME_FACTOR : 1);
+  const factor = state.tutorial ? TUTORIAL_TIME_FACTOR : state.quick ? QUICK_TIME_FACTOR : 1;
+  return start + Math.round(PHASE_SECONDS[state.phase] * 1000 * factor);
 }
 
 /** حركات البوتات اللي ما تحتاج انتظار: التصويت (سري لين يكتمل)، والادعاء بعد الحكم، وكشف العرّاف. */
@@ -478,6 +500,7 @@ export const createRoom = onCall(async (req) => {
       players: [asPlayer(uid, p)],
       createdAt: FieldValue.serverTimestamp(),
       createdAtMs: Date.now(),
+      quick: req.data?.quick === true,
     };
     tx.set(db.doc(`rooms/${code}`), room);
   });
@@ -515,6 +538,7 @@ export const quickMatch = onCall(async (req) => {
   const maxPlayers = cleanMaxPlayers(req.data?.maxPlayers);
   const tier = tierById(req.data?.tierId);
   if (!tier) throw new HttpsError('invalid-argument', 'اختار طاولة');
+  const quick = req.data?.quick === true;
 
   const open = await db
     .collection('rooms')
@@ -522,6 +546,7 @@ export const quickMatch = onCall(async (req) => {
     .where('isPrivate', '==', false)
     .where('maxPlayers', '==', maxPlayers)
     .where('tierId', '==', tier.id)
+    .where('quick', '==', quick)
     .limit(10)
     .get();
 
@@ -561,6 +586,7 @@ export const quickMatch = onCall(async (req) => {
       players: [asPlayer(uid, p)],
       createdAt: FieldValue.serverTimestamp(),
       createdAtMs: Date.now(),
+      quick,
     };
     tx.set(db.doc(`rooms/${code}`), room);
   });
@@ -759,17 +785,32 @@ async function finishTurn(
   const over = next.phase === 'gameOver';
   const humans = next.players.filter((p) => !isBot(p.id));
   const uids = over ? humans.map((p) => p.id) : [...bumps.keys()];
+  // البوتات يتفاعلون مع اللي صار (يدافعون، يشكّون، يقولون كذاب…).
+  const chatter = botReactions(prev.state, next);
   const roomRef = db.doc(`rooms/${code}`);
-  const room = over ? ((await tx.get(roomRef)).data() as Room) : null;
+  const room = over || chatter.length ? ((await tx.get(roomRef)).data() as Room) : null;
   // اللي حذف حسابه وسط اللعبة ما نرجّع له ملف.
   const profiles = (await Promise.all(uids.map((uid) => tx.get(userRef(uid))))).map((s) =>
     s.exists ? (s.data() as Profile) : null,
   );
 
-  const deadline = turnKey(next) === prev.key ? prev.deadline : deadlineFor(next, now, scenesDelay(prev.state, next));
+  const delay = scenesDelay(prev.state, next);
+  const deadline = turnKey(next) === prev.key ? prev.deadline : deadlineFor(next, now, delay);
   writeGame(tx, code, next, deadline);
 
-  if (!room) {
+  // ردود البوتات تطلع بعد المشاهد (كشف التصويت والختم)، وحدة ورا الثانية.
+  const roomUpdate: Record<string, unknown> = {};
+  if (chatter.length && room) {
+    const at = now + delay;
+    const added = chatter.map((c, i) => ({ from: c.from, kind: c.kind, target: c.target, at: at + i * 1500 }));
+    roomUpdate.reactions = [...(room.reactions ?? []), ...added].slice(-MAX_REACTIONS);
+    for (const c of chatter) {
+      if (c.target && (c.kind === 'suspect' || c.kind === 'trust')) roomUpdate[`opinions.${c.from}.${c.target}`] = c.kind;
+    }
+  }
+
+  if (!over) {
+    if (Object.keys(roomUpdate).length) tx.update(roomRef, roomUpdate);
     uids.forEach((uid, i) => {
       const p = profiles[i];
       if (p) tx.set(userRef(uid), { ...p, missions: bumpMissions(p.missions, now, bumps.get(uid)!) });
@@ -777,6 +818,7 @@ async function finishTurn(
     return whoToNotify(prev.state, next);
   }
 
+  if (!room) throw new HttpsError('not-found', 'الروم مو موجود');
   // البوتات ما يدفعون، فالجائزة من رسوم البشر بس. ونصيب البوت الفايز ما يروح لأحد.
   const winners = next.players.filter((p) => teamOf(p.role) === next.winner);
   const pot = room.entryFee * humans.length;
@@ -809,10 +851,16 @@ async function finishTurn(
     }
     // الإنجازات: إحصائيات هاللعبة، ودرجات جديدة لو وصلها.
     updated = applyStats(updated, statsFromGame(next, player.id, won), won);
+    // التصنيف: الطاولات العامة بس (اللي طلع يخسر نقاط).
+    if (!room.isPrivate && !next.tutorial) {
+      const before = rankOf(updated).points;
+      updated = applyRank(updated, rankDelta(won, humans.length, next.players.length));
+      results[player.id] = { ...results[player.id], rank: rankOf(updated).points - before };
+    }
     tx.set(userRef(player.id), updated);
     tx.set(boardRef(player.id), toLeaderboard(updated));
   });
-  tx.update(roomRef, { status: 'finished', results });
+  tx.update(roomRef, { ...roomUpdate, status: 'finished', results });
   return whoToNotify(prev.state, next);
 }
 

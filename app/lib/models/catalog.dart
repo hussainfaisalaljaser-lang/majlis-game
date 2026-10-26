@@ -1434,6 +1434,17 @@ const achievements = <Achievement>[
 ];
 const achievementRewards = [150, 400, 1000];
 
+/// رتب التصنيف (نفس functions/src/catalog.ts → RANK_TIERS).
+const rankTiers = <RankTier>[
+  RankTier(0, id: 'bronze', name: 'برونزي', min: 0, coins: 0, diamonds: 0, color: Color(0xFFCD7F32)),
+  RankTier(1, id: 'silver', name: 'فضي', min: 200, coins: 1500, diamonds: 0, color: Color(0xFFC9D1DC)),
+  RankTier(2, id: 'gold', name: 'ذهبي', min: 500, coins: 3000, diamonds: 10, color: Color(0xFFF2C14E)),
+  RankTier(3, id: 'diamond', name: 'ماسي', min: 900, coins: 5000, diamonds: 25, color: Color(0xFF7DD8FF)),
+  RankTier(4, id: 'legend', name: 'أسطوري', min: 1400, coins: 10000, diamonds: 60, color: Color(0xFFE879F9)),
+];
+const rankWin = 24;
+const rankLoss = 16;
+
 /// الموسم الحالي (الباتل باس). نفس functions/src/catalog.ts → SEASON.
 final season = Season(
   id: 's1',

@@ -73,15 +73,20 @@ class RewardView extends StatelessWidget {
 Future<void> showGiftDialog(BuildContext context, Gift g) {
   HapticFeedback.heavyImpact();
   final ach = g.achievement == null ? null : achievementById(g.achievement!);
+  final rank = g.rank ? rankTiers[g.n.clamp(0, rankTiers.length - 1)] : null;
   if (!g.tutorial && ach == null) Sfx.say(g.champion ? 'win_loyal' : 'enact_loyal');
-  final title = ach != null
+  final title = rank != null
+      ? 'وصلت رتبة ${rank.name}!'
+      : ach != null
       ? 'إنجاز جديد: ${ach.name}'
       : g.tutorial
       ? 'خلّصت الشرح!'
       : g.champion
       ? (g.n == 1 ? 'بطل الأسبوع!' : (g.n == 2 ? 'وصيف الأسبوع!' : 'ثالث الأسبوع!'))
       : 'هدية المستوى ${arabicNumber(g.n)}!';
-  final note = ach != null
+  final note = rank != null
+      ? 'هذي مكافأة أول وصول للرتبة هالموسم. كمّل في الطاولات العامة عشان تطلع أكثر.'
+      : ach != null
       ? 'وصلت الدرجة ${tierNames[g.n.clamp(0, 3)]}: ${ach.descFor(g.n - 1)}. تطلع في ملفك للكل.'
       : g.tutorial
       ? 'هذي هديتك على أول لعبة. الحين أنت جاهز تلعب مع الناس!'
@@ -125,7 +130,9 @@ Future<void> showGiftDialog(BuildContext context, Gift g) {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        if (ach != null)
+                        if (rank != null)
+                          RankEmblem(tier: rank, size: 54)
+                        else if (ach != null)
                           BadgeMedal(achievement: ach, tier: g.n, size: 50)
                         else
                           Gfx(g.tutorial ? 'trophy' : (g.champion ? 'medal${g.n}' : 'gift'), size: 46),

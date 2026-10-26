@@ -36,6 +36,12 @@ export function botThink(jitter: number): number {
   return fast() ? 2_000 + jitter : BOT_THINK_MS + jitter;
 }
 
+/** الوضع السريع: وقت كل دور نص الوقت العادي، والبوت يفكر أقل. */
+export const QUICK_TIME_FACTOR = 0.5;
+export function quickBotThink(jitter: number): number {
+  return (fast() ? 2_000 : 1_500) + Math.floor(jitter / 2);
+}
+
 /** لعبة الشرح: وقت اللاعب أطول بكثير عشان يقرا النصايح، والبوتات أبطأ شوي. */
 export const TUTORIAL_TIME_FACTOR = 4;
 export function tutorialBotExtra(): number {

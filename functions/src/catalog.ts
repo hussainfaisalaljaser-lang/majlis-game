@@ -273,6 +273,17 @@ export const ACHIEVEMENTS: { id: string; stat: string; tiers: number[] }[] = [
 /** ذهب كل درجة. */
 export const ACHIEVEMENT_REWARDS = [150, 400, 1000];
 
+/** التصنيف: نقاط الفوز والخسارة، ورتب الموسم (أقل نقاط لكل رتبة ومكافأة أول وصول لها). */
+export const RANK_WIN = 24;
+export const RANK_LOSS = 16;
+export const RANK_TIERS: { id: string; min: number; coins: number; diamonds: number }[] = [
+  {"id": "bronze", "min": 0, "coins": 0, "diamonds": 0},
+  {"id": "silver", "min": 200, "coins": 1500, "diamonds": 0},
+  {"id": "gold", "min": 500, "coins": 3000, "diamonds": 10},
+  {"id": "diamond", "min": 900, "coins": 5000, "diamonds": 25},
+  {"id": "legend", "min": 1400, "coins": 10000, "diamonds": 60},
+];
+
 /** الموسم الحالي (الباتل باس). start/end بتوقيت الخليج، والمكافآت حسب الدرجة. */
 export const SEASON = {"id": "s1", "start": "2026-10-25", "end": "2026-12-27", "price": 150, "tier_points": 150, "tiers": 30, "free": {"2": {"coins": 300, "diamonds": 0, "items": []}, "4": {"coins": 500, "diamonds": 0, "items": []}, "6": {"coins": 0, "diamonds": 5, "items": []}, "8": {"coins": 800, "diamonds": 0, "items": []}, "10": {"coins": 0, "diamonds": 0, "items": ["bubble_s1f"]}, "12": {"coins": 1000, "diamonds": 0, "items": []}, "14": {"coins": 0, "diamonds": 5, "items": []}, "16": {"coins": 1200, "diamonds": 0, "items": []}, "18": {"coins": 0, "diamonds": 0, "items": ["frame_s1f"]}, "20": {"coins": 1500, "diamonds": 0, "items": []}, "22": {"coins": 0, "diamonds": 10, "items": []}, "24": {"coins": 1800, "diamonds": 0, "items": []}, "26": {"coins": 0, "diamonds": 10, "items": []}, "28": {"coins": 2000, "diamonds": 0, "items": []}, "30": {"coins": 3000, "diamonds": 15, "items": []}}, "premium": {"1": {"coins": 0, "diamonds": 0, "items": ["avatar_s1a"]}, "2": {"coins": 500, "diamonds": 0, "items": []}, "3": {"coins": 1000, "diamonds": 0, "items": []}, "4": {"coins": 0, "diamonds": 5, "items": []}, "5": {"coins": 0, "diamonds": 0, "items": ["stk_s1"]}, "6": {"coins": 1000, "diamonds": 0, "items": []}, "7": {"coins": 0, "diamonds": 10, "items": []}, "8": {"coins": 1500, "diamonds": 0, "items": []}, "9": {"coins": 0, "diamonds": 0, "items": ["bubble_s1"]}, "10": {"coins": 0, "diamonds": 0, "items": ["frame_s1a"]}, "11": {"coins": 1500, "diamonds": 0, "items": []}, "12": {"coins": 0, "diamonds": 0, "items": ["cards_s1"]}, "13": {"coins": 0, "diamonds": 10, "items": []}, "14": {"coins": 2000, "diamonds": 0, "items": []}, "15": {"coins": 0, "diamonds": 0, "items": ["avatar_s1b"]}, "16": {"coins": 2000, "diamonds": 0, "items": []}, "17": {"coins": 0, "diamonds": 15, "items": []}, "18": {"coins": 0, "diamonds": 0, "items": ["table_s1"]}, "19": {"coins": 2500, "diamonds": 0, "items": []}, "20": {"coins": 0, "diamonds": 0, "items": ["frame_s1b"]}, "21": {"coins": 2500, "diamonds": 0, "items": []}, "22": {"coins": 0, "diamonds": 15, "items": []}, "23": {"coins": 3000, "diamonds": 0, "items": []}, "24": {"coins": 0, "diamonds": 0, "items": ["bubble_s1b"]}, "25": {"coins": 0, "diamonds": 20, "items": []}, "26": {"coins": 3500, "diamonds": 0, "items": []}, "27": {"coins": 4000, "diamonds": 0, "items": []}, "28": {"coins": 0, "diamonds": 25, "items": []}, "29": {"coins": 5000, "diamonds": 0, "items": []}, "30": {"coins": 0, "diamonds": 30, "items": ["avatar_s1c", "frame_s1c"]}}} as {
   id: string; start: string; end: string; price: number; tier_points: number; tiers: number;

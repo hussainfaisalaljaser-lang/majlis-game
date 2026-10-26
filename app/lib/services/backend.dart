@@ -8,6 +8,7 @@ import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
 import '../firebase_options.dart';
+import '../models/catalog.dart';
 import '../models/leaderboard.dart';
 import '../models/profile.dart';
 import '../models/room.dart';
@@ -220,12 +221,13 @@ class Backend {
       Board.weekly => col.where('week', isEqualTo: gulfWeek(DateTime.now())).orderBy('weeklyWins', descending: true),
       Board.allTime => col.orderBy('gamesWon', descending: true),
       Board.level => col.orderBy('level', descending: true).orderBy('xp', descending: true),
+      Board.ranked => col.where('rankSeason', isEqualTo: season.id).orderBy('rankPoints', descending: true),
     };
     return q.limit(50).snapshots().map((s) => [for (final d in s.docs) LeaderboardEntry.fromJson(d.id, d.data())]);
   }
 
-  Future<String> createRoom({required int maxPlayers}) async {
-    final r = await _call('createRoom', {'maxPlayers': maxPlayers});
+  Future<String> createRoom({required int maxPlayers, bool quick = false}) async {
+    final r = await _call('createRoom', {'maxPlayers': maxPlayers, 'quick': quick});
     return r['code'] as String;
   }
 
@@ -234,8 +236,8 @@ class Backend {
     return r['code'] as String;
   }
 
-  Future<String> quickMatch({required int maxPlayers, required String tierId}) async {
-    final r = await _call('quickMatch', {'maxPlayers': maxPlayers, 'tierId': tierId});
+  Future<String> quickMatch({required int maxPlayers, required String tierId, bool quick = false}) async {
+    final r = await _call('quickMatch', {'maxPlayers': maxPlayers, 'tierId': tierId, 'quick': quick});
     return r['code'] as String;
   }
 
