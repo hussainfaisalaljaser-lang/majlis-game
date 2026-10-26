@@ -12,6 +12,9 @@ class FxClock extends StatefulWidget {
 
   final Widget Function(BuildContext context, ValueListenable<double> time) builder;
 
+  /// للتصوير (services/capture.dart): وقت ثابت تتحكم فيه الصفحة بدال الساعة.
+  static final manual = ValueNotifier<double?>(null);
+
   @override
   State<FxClock> createState() => _FxClockState();
 }
@@ -19,8 +22,15 @@ class FxClock extends StatefulWidget {
 class _FxClockState extends State<FxClock> with SingleTickerProviderStateMixin {
   // كل حركة تبدأ من نقطة مختلفة عشان الإطارات المتشابهة ما تتحرك سوا.
   late final double _offset = math.Random().nextDouble() * 100;
-  late final ValueNotifier<double> _time = ValueNotifier(_offset);
-  late final Ticker _ticker = createTicker((d) => _time.value = _offset + d.inMicroseconds / 1e6)..start();
+  late final ValueNotifier<double> _time = ValueNotifier(_offset + (FxClock.manual.value ?? 0));
+  late final Ticker _ticker;
+
+  @override
+  void initState() {
+    super.initState();
+    // الساعة تبدأ مع الودجت نفسه (قبل كانت late وما تنلمس إلا في dispose، فالحركات كانت واقفة).
+    _ticker = createTicker((d) => _time.value = _offset + (FxClock.manual.value ?? d.inMicroseconds / 1e6))..start();
+  }
 
   @override
   void dispose() {

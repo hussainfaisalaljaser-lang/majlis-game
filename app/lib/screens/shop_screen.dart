@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../models/profile.dart';
@@ -6,6 +8,8 @@ import '../services/backend.dart';
 import '../services/telemetry.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
+import '../widgets/fx.dart';
+import '../widgets/fx_sig.dart';
 import '../widgets/item_preview.dart';
 import '../widgets/pid.dart';
 import '../widgets/ui.dart';
@@ -69,13 +73,17 @@ class _ShopScreenState extends State<ShopScreen> {
           children: [
             _Rail(selected: _tab, onSelect: (i) => setState(() => _tab = i)),
             Expanded(
-              child: AnimatedSwitcher(
-                duration: const Duration(milliseconds: 220),
-                child: _tab == ShopScreen.idsTab
-                    ? const _PremiumIdsSection(key: ValueKey('ids'))
-                    : section.slot == null
-                    ? const _DiamondPacks(key: ValueKey('gems'))
-                    : _ItemsGrid(key: ValueKey(section.slot), slot: section.slot!),
+              child: ValueListenableBuilder(
+                valueListenable: _previewOpen,
+                builder: (context, open, child) => TickerMode(enabled: !open, child: child!),
+                child: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 220),
+                  child: _tab == ShopScreen.idsTab
+                      ? const _PremiumIdsSection(key: ValueKey('ids'))
+                      : section.slot == null
+                      ? const _DiamondPacks(key: ValueKey('gems'))
+                      : _ItemsGrid(key: ValueKey(section.slot), slot: section.slot!),
+                ),
               ),
             ),
           ],
@@ -255,30 +263,133 @@ class _ItemsGridState extends State<_ItemsGrid> {
   }
 }
 
-/// نافذة المعاينة الكبيرة. لو [buy] تطلع بزر الشراء وترجع true لو وافق.
-Future<bool?> showItemPreview(BuildContext context, ShopItem item, {bool buy = false}) {
-  final p = Backend.instance.profile.value;
-  final price = item.coins != null ? ('coin', item.coins!) : ('gem', item.diamonds ?? 0);
-  return showGeneralDialog<bool>(
-    context: context,
-    barrierDismissible: true,
-    barrierLabel: 'معاينة',
-    barrierColor: Colors.black.withValues(alpha: .7),
-    transitionDuration: const Duration(milliseconds: 260),
-    transitionBuilder: (context, a, _, child) => ScaleTransition(
-      scale: CurvedAnimation(parent: a, curve: Curves.easeOutBack),
-      child: FadeTransition(opacity: a, child: child),
-    ),
-    pageBuilder: (context, _, _) => Center(
+/// نافذة المعاينة الكبيرة: الحركة كاملة بحجم كبير وعلى الطاولة، عشان اللي بيشتري يعرف وش ياخذ.
+/// لو [buy] تطلع بزر الشراء وترجع true لو وافق.
+Future<bool?> showItemPreview(BuildContext context, ShopItem item, {bool buy = false}) async {
+  _previewOpen.value = true;
+  try {
+    return await _showPreview(context, item, buy);
+  } finally {
+    _previewOpen.value = false;
+  }
+}
+
+/// المعاينة مفتوحة: الأغراض اللي ورها توقف حركتها (توفّر على الجوال).
+final _previewOpen = ValueNotifier(false);
+
+Future<bool?> _showPreview(BuildContext context, ShopItem item, bool buy) => showGeneralDialog<bool>(
+  context: context,
+  barrierDismissible: true,
+  barrierLabel: 'معاينة',
+  barrierColor: Colors.black.withValues(alpha: .75),
+  transitionDuration: const Duration(milliseconds: 260),
+  transitionBuilder: (context, a, _, child) => ScaleTransition(
+    scale: CurvedAnimation(parent: a, curve: Curves.easeOutBack),
+    child: FadeTransition(opacity: a, child: child),
+  ),
+  pageBuilder: (context, _, _) => _PreviewDialog(item: item, buy: buy),
+);
+
+class _PreviewDialog extends StatefulWidget {
+  const _PreviewDialog({required this.item, required this.buy});
+
+  final ShopItem item;
+  final bool buy;
+
+  @override
+  State<_PreviewDialog> createState() => _PreviewDialogState();
+}
+
+class _PreviewDialogState extends State<_PreviewDialog> {
+  Timer? _moment;
+
+  /// الإطار الأسطوري الخاص: لحظته تشتغل أول ما تفتح المعاينة، وتتكرر كل كم ثانية.
+  bool get _hasMoment => widget.item.rarity == Rarity.legendary && widget.item.frame?.sig != null;
+
+  @override
+  void initState() {
+    super.initState();
+    // (بالتصوير الوقت ثابت، فاللحظة تنادى من الزر)
+    if (_hasMoment && FxClock.manual.value == null) {
+      Future.delayed(const Duration(milliseconds: 700), () {
+        if (mounted) Moments.trigger('preview');
+      });
+      _moment = Timer.periodic(const Duration(seconds: 6), (_) => Moments.trigger('preview'));
+    }
+  }
+
+  @override
+  void dispose() {
+    _moment?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final item = widget.item;
+    final p = Backend.instance.profile.value;
+    final price = item.coins != null ? ('coin', item.coins!) : ('gem', item.diamonds ?? 0);
+    final avatarLike = item.slot == ShopSlot.frame || item.slot == ShopSlot.avatar;
+    Widget avatarAt(double size) => PlayerAvatar(
+      avatar: item.slot == ShopSlot.avatar ? item.avatar! : p.avatar,
+      style: item.slot == ShopSlot.frame ? item.frame : frameStyle(p.frame),
+      size: size,
+      momentKey: 'preview',
+    );
+    final actions = widget.buy
+        ? Row(
+            children: [
+              Expanded(
+                child: GameButton(
+                  label: 'لا',
+                  tone: ButtonTone.ghost,
+                  height: 48,
+                  fontSize: 17,
+                  onPressed: () => Navigator.pop(context, false),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                flex: 2,
+                child: GameButton(
+                  label: p.dev ? 'اشترِ (ببلاش للمطور)' : 'اشترِ بـ ${arabicNumber(price.$2)}',
+                  icon: Gfx(price.$1, size: 26),
+                  height: 48,
+                  fontSize: 17,
+                  onPressed: () => Navigator.pop(context, true),
+                ),
+              ),
+            ],
+          )
+        : !item.buyable && !item.isDefault
+        ? _SourceNote(item: item, big: true)
+        : null;
+    final title = Column(
+      crossAxisAlignment: avatarLike ? CrossAxisAlignment.start : CrossAxisAlignment.center,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _RarityChip(item.rarity),
+        const SizedBox(height: 6),
+        Text(
+          item.name,
+          style: const TextStyle(fontFamily: kufi, fontSize: 24, fontWeight: FontWeight.w700),
+        ),
+        if (item.desc != null) ...[
+          const SizedBox(height: 4),
+          Text(item.desc!, style: const TextStyle(color: AppColors.muted, fontSize: 13.5, height: 1.5)),
+        ],
+      ],
+    );
+    return Center(
       child: Material(
         color: Colors.transparent,
         child: Container(
-          width: 560,
-          constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(context).height * .9),
+          width: avatarLike ? 640 : 560,
+          constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(context).height * .92),
           padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
           decoration: BoxDecoration(
             gradient: RadialGradient(
-              center: const Alignment(0, -.4),
+              center: const Alignment(.55, -.2),
               radius: 1.1,
               colors: [item.rarity.color.withValues(alpha: .35), AppColors.panel],
             ),
@@ -287,52 +398,65 @@ Future<bool?> showItemPreview(BuildContext context, ShopItem item, {bool buy = f
             boxShadow: [BoxShadow(color: item.rarity.color.withValues(alpha: .35), blurRadius: 30)],
           ),
           child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _RarityChip(item.rarity),
-                const SizedBox(height: 6),
-                Text(
-                  item.name,
-                  style: const TextStyle(fontFamily: kufi, fontSize: 24, fontWeight: FontWeight.w700),
-                ),
-                const SizedBox(height: 18),
-                ItemPreview(item: item, profile: p, big: true),
-                const SizedBox(height: 18),
-                if (buy)
-                  Row(
+            child: avatarLike
+                ? Row(
                     children: [
+                      // كبير: الحركة بتفاصيلها
+                      SizedBox(width: 230, height: 230, child: Center(child: avatarAt(150))),
+                      const SizedBox(width: 16),
                       Expanded(
-                        child: GameButton(
-                          label: 'لا',
-                          tone: ButtonTone.ghost,
-                          height: 48,
-                          fontSize: 17,
-                          onPressed: () => Navigator.pop(context, false),
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        flex: 2,
-                        child: GameButton(
-                          label: p.dev ? 'اشترِ (ببلاش للمطور)' : 'اشترِ بـ ${arabicNumber(price.$2)}',
-                          icon: Gfx(price.$1, size: 26),
-                          height: 48,
-                          fontSize: 17,
-                          onPressed: () => Navigator.pop(context, true),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            title,
+                            const SizedBox(height: 12),
+                            Row(
+                              children: [
+                                avatarAt(62),
+                                const SizedBox(width: 12),
+                                const Expanded(
+                                  child: Text(
+                                    'كذا يطلع على الطاولة وفي ملفك، والكل يشوفه',
+                                    style: TextStyle(color: AppColors.muted, fontSize: 12.5, height: 1.5),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            if (_hasMoment) ...[
+                              const SizedBox(height: 10),
+                              Align(
+                                alignment: AlignmentDirectional.centerStart,
+                                child: GameButton(
+                                  label: 'شوف اللحظة الخاصة',
+                                  icon: const Gfx('bolt', size: 22),
+                                  tone: ButtonTone.purple,
+                                  height: 40,
+                                  fontSize: 14,
+                                  onPressed: () => Moments.trigger('preview'),
+                                ),
+                              ),
+                            ],
+                            if (actions != null) ...[const SizedBox(height: 14), actions],
+                          ],
                         ),
                       ),
                     ],
                   )
-                else if (!item.buyable && !item.isDefault)
-                  _SourceNote(item: item, big: true),
-              ],
-            ),
+                : Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      title,
+                      const SizedBox(height: 18),
+                      ItemPreview(item: item, profile: p, big: true),
+                      if (actions != null) ...[const SizedBox(height: 18), actions],
+                    ],
+                  ),
           ),
         ),
       ),
-    ),
-  );
+    );
+  }
 }
 
 class _RarityChip extends StatelessWidget {
@@ -499,7 +623,10 @@ class _ItemCard extends StatelessWidget {
                 ],
               ),
               PositionedDirectional(top: 7, start: 7, child: _RarityChip(item.rarity)),
-              if (state == _State.locked) const PositionedDirectional(top: 6, end: 7, child: Gfx('lock', size: 20)),
+              if (state == _State.locked)
+                const PositionedDirectional(top: 6, end: 7, child: Gfx('lock', size: 20))
+              else
+                const PositionedDirectional(top: 6, end: 8, child: Opacity(opacity: .85, child: Gfx('eye', size: 20))),
             ],
           ),
         ),

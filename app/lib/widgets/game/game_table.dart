@@ -381,12 +381,15 @@ class _SeatView extends StatelessWidget {
                       AnimatedScale(
                         scale: selectable ? 1.1 : 1,
                         duration: const Duration(milliseconds: 250),
+                        // الإطار المشترى يبان دايم، والتمييز (رئيس، مختار، خاين تعرفه) توهج حوله
                         child: PlayerAvatar(
                           avatar: rp?.avatar ?? 'masked',
-                          frame: frame,
+                          frame: frameStyle(rp?.frame) == null ? frame : null,
+                          highlight: frameStyle(rp?.frame) == null ? null : frame,
                           style: frameStyle(rp?.frame),
                           size: 62,
                           dead: !p.alive,
+                          momentKey: p.id,
                         ),
                       ),
                       if (!p.alive) const Positioned.fill(child: Center(child: Gfx('skull', size: 34))),

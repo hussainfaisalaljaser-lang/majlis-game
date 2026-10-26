@@ -34,6 +34,7 @@ flutter:
   assets:
     - assets/logo.png
     - assets/avatars/
+    - assets/avatars/anim/falconer/
     - assets/images/
     - assets/icons/
     - assets/voice/

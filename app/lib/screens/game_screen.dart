@@ -15,6 +15,7 @@ import '../services/sfx.dart';
 import '../services/telemetry.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
+import '../widgets/fx_sig.dart';
 import '../widgets/game/game_log.dart';
 import '../widgets/game/game_table.dart';
 import '../widgets/game/overlays.dart';
@@ -111,7 +112,9 @@ class _GameScreenState extends State<GameScreen> {
     _viewSub = _backend.watchView(widget.code).listen((data) {
       if (data == null || !mounted) return;
       final view = GameView.fromJson(data);
+      final before = _view;
       setState(() => _view = view);
+      _moments(before, view);
       _afterUpdate(view);
     }, onError: (Object e) => debugPrint('view listener: $e'));
     _roomSub = _backend.watchRoom(widget.code).listen((room) {
@@ -125,6 +128,23 @@ class _GameScreenState extends State<GameScreen> {
       _tick();
       if (_view case final v?) _coach(v);
     });
+  }
+
+  /// اللحظات الخاصة للإطارات الأسطورية: لما تبدأ اللعبة (الكل)، ولما أحد يصير رئيس، والفايزين بالنهاية.
+  void _moments(GameView? before, GameView v) {
+    if (before == null) {
+      for (final (i, p) in v.players.indexed) {
+        Future.delayed(Duration(milliseconds: 600 + i * 250), () => Moments.trigger(p.id));
+      }
+      return;
+    }
+    if (v.presidentId != before.presidentId) Moments.trigger(v.presidentId);
+    if (v.phase == Phase.gameOver && before.phase != Phase.gameOver && v.winnerLoyal != null) {
+      for (final p in v.players) {
+        final role = p.knownRole;
+        if (role != null && (role == Role.loyal) == v.winnerLoyal) Moments.trigger(p.id);
+      }
+    }
   }
 
   DateTime? _lastTimeoutCall;

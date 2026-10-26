@@ -18,7 +18,8 @@ FRAMES = [
     dict(id='frame_oasis', name='واحة', rarity='rare', coins=5000, colors=['2ECC71', '1ABC9C', 'A3E635'], glow='34D399', accent='A3E635', fx=['leaves', 'pulse']),
     dict(id='frame_pearl', name='لؤلؤ', rarity='rare', coins=6000, colors=['FFFFFF', 'E6E1F0', 'CFC7E8'], glow='FFFFFF', accent='FFFFFF', fx=['orbit', 'shine']),
     dict(id='frame_night', name='ليل نجد', rarity='rare', coins=7000, colors=['1E3A8A', '312E81', '93C5FD'], glow='60A5FA', accent='E0E7FF', fx=['stars', 'spin']),
-    dict(id='frame_fire', name='نار', rarity='epic', coins=8000, colors=['FF3D00', 'FFB300'], glow='FF6D00', accent='FFB300', fx=['flame', 'pulse']),
+    dict(id='frame_fire', name='نار', rarity='epic', coins=8000, colors=['FF3D00', 'FFB300'], glow='FF6D00', accent='FFB300', fx=['flame', 'pulse'], sig='fire',
+         desc='ألسنة لهب تطلع من حول صورتك، وشرار يطير لفوق'),
     dict(id='frame_smoke', name='دخان', rarity='epic', coins=9000, colors=['4C1D95', '111827', 'A78BFA'], glow='7C3AED', accent='A78BFA', fx=['smoke', 'spin']),
     dict(id='frame_lightning', name='برق', rarity='epic', coins=10000, colors=['2979FF', 'FFFFFF', '7C4DFF', '00E5FF'], glow='448AFF', accent='E0F2FE', fx=['electric', 'spin']),
     dict(id='frame_comet', name='شهاب', rarity='epic', coins=11000, colors=['0F172A', '1E3A8A'], glow='38BDF8', accent='7DD3FC', fx=['comet']),
@@ -30,7 +31,8 @@ FRAMES = [
     dict(id='frame_sun', name='الشمس', rarity='legendary', diamonds=30, colors=['FFB300', 'FF6F00', 'FFF59D'], glow='FFC400', accent='FFE57F', fx=['rays', 'pulse']),
     dict(id='frame_arabesque', name='نقوش', rarity='legendary', diamonds=35, colors=['0E7490', 'FCD34D', '155E75'], glow='FCD34D', accent='FCD34D', fx=['ornament', 'shine']),
     dict(id='frame_king', name='الملك', rarity='legendary', diamonds=40, colors=['FFD54F', 'FF8F00', 'FFF8E1', 'FFB300'], glow='FFC107', accent='FFF8E1', fx=['shine', 'sparkle', 'crown']),
-    dict(id='frame_galaxy', name='مجرة', rarity='legendary', diamonds=45, colors=['7C4DFF', 'FF4081', '18FFFF', '311B92'], glow='B388FF', accent='FFFFFF', fx=['spin', 'sparkle', 'orbit']),
+    dict(id='frame_galaxy', name='مجرة', rarity='legendary', diamonds=45, colors=['7C4DFF', 'FF4081', '18FFFF', '311B92'], glow='B388FF', accent='FFFFFF', fx=['spin', 'sparkle', 'orbit'], sig='galaxy',
+         desc='مجرة تدور ورا صورتك وكواكب تلف حولها. لحظتها الخاصة: انفجار نجمي لما تقعد أو تصير رئيس أو تفوز'),
     # هدايا المستويات
     dict(id='frame_lv10', name='فارس المجلس', rarity='rare', level=10, colors=['CD7F32', '8B4513', 'F4A460'], glow='E39B5B', accent='FFE0B2', fx=['shine', 'pulse']),
     dict(id='frame_lv20', name='النخبة', rarity='epic', level=20, colors=['E5E7EB', '9CA3AF', 'FFFFFF'], glow='E5E7EB', accent='FFFFFF', fx=['dual', 'shine']),
@@ -87,7 +89,8 @@ AVATARS = [
     dict(id='diver', name='الغوّاص', rarity='rare', coins=7000, bg=['0EA5E9', '0C4A6E'], fx='bubbles'),
     dict(id='poet', name='الشاعر', rarity='rare', coins=7000, bg=['7C3AED', '1E1B4B'], fx='stars'),
     dict(id='camel', name='الجمل', rarity='rare', coins=8000, bg=['F59E0B', '7C2D12'], fx='embers'),
-    dict(id='falconer', name='الصقّار', rarity='epic', coins=12000, bg=['8C6D46', '3A2A16'], fx='rays'),
+    dict(id='falconer', name='الصقّار', rarity='epic', coins=12000, bg=['8C6D46', '3A2A16'], fx='rays', anim='falconer',
+         desc='يرمش ويتنفس، وصقره يلف راسه ويفرد جناحه'),
     dict(id='lady_gold', name='الأميرة', rarity='epic', coins=12000, bg=['E64980', '5C0F2E'], fx='sparkle'),
     dict(id='pilot', name='الطيّار', rarity='epic', coins=12000, bg=['38BDF8', '1E3A8A'], fx='rays'),
     dict(id='seer', name='العرّاف', rarity='epic', coins=14000, bg=['A855F7', '2E1065'], fx='aurora'),
@@ -396,13 +399,17 @@ def dart():
             extra = []
             if 'glow' in d: extra.append(f'glow: {col(d["glow"])}')
             if 'accent' in d: extra.append(f'accent: {col(d["accent"])}')
+            if 'sig' in d: extra.append(f'sig: {dstr(d["sig"])}')
             args.append(f'frame: FrameStyle({cols(d["colors"])}, fx: [{fx}]' + (', ' + ', '.join(extra) if extra else '') + ')')
         if slot == 'bubble':
             fx = ', '.join('BubbleFx.' + f for f in d['fx'])
             args.append(f'bubble: BubbleStyle(bg: {cols(d["bg"])}, border: {col(d["border"])}, text: {col(d["text"])}, fx: [{fx}])')
         if slot == 'avatar':
             args.append(f'avatar: {dstr(d["id"])}')
-            args.append(f'avatarArt: AvatarArt({cols(d["bg"])}, AvatarFx.{d["fx"]})')
+            anim = f', anim: {dstr(d["anim"])}' if 'anim' in d else ''
+            args.append(f'avatarArt: AvatarArt({cols(d["bg"])}, AvatarFx.{d["fx"]}{anim})')
+        if 'desc' in d:
+            args.append(f'desc: {dstr(d["desc"])}')
         if slot == 'table':
             args.append('table: TableSkin.majlis' if d['art'] == 'majlis' else f'table: TableSkin.of({dstr(d["art"])})')
         if slot == 'cards' and 'loyal' in d:

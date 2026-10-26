@@ -7,6 +7,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'screens/home_screen.dart';
 import 'screens/welcome_screen.dart';
 import 'services/backend.dart';
+import 'services/capture.dart';
 import 'services/links.dart';
 import 'services/push.dart';
 import 'services/music.dart';
@@ -20,7 +21,10 @@ Future<void> main() async {
   // أول شي نسمع للروابط، عشان ما يفوتنا رابط الدعوة اللي فتح اللعبة.
   Links.init();
   // في نسخة التجربة على الويب نفعّل طبقة الوصول، عشان الاختبارات الآلية تقدر تضغط الأزرار بأسمائها.
-  if (kIsWeb && const bool.fromEnvironment('USE_EMULATOR')) SemanticsBinding.instance.ensureSemantics();
+  if (kIsWeb && const bool.fromEnvironment('USE_EMULATOR')) {
+    SemanticsBinding.instance.ensureSemantics();
+    installCaptureHook();
+  }
   // اللعبة بالعرض، مثل ألعاب الطاولة. ونخفي أشرطة النظام عشان الشاشة كلها للعبة.
   await SystemChrome.setPreferredOrientations([DeviceOrientation.landscapeLeft, DeviceOrientation.landscapeRight]);
   SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);

@@ -1,7 +1,10 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../models/shop.dart';
+import 'anim_avatar.dart';
 import 'fx.dart';
+import 'fx_sig.dart';
 
 /// يحول الأرقام للأرقام العربية مع فاصل الآلاف: 12500 ← ١٢٬٥٠٠
 String arabicNumber(int n) {
@@ -106,39 +109,52 @@ String avatarAsset(String id) =>
     'assets/avatars/${avatarIds.contains(id) || premiumAvatars.contains(id) ? id : 'masked'}.webp';
 
 /// صورة اللاعب. [frame] لون للتمييز (مثل الرئيس أو المختار)، و[style] إطار من المتجر.
-/// لو الاثنين موجودين، لون التمييز يغلب. الشخصيات المميزة لها خلفية متحركة تضوي.
+/// لو الاثنين موجودين، لون التمييز يغلب. وعشان الإطار المشترى يبان دايم، استخدم [highlight] بداله:
+/// توهج حول الإطار بدون ما يغطيه. الشخصيات المميزة لها خلفية متحركة تضوي، وبعضها يتحرك بنفسه.
+/// [momentKey] مفتاح اللحظات الخاصة (رقم اللاعب): الإطار الأسطوري يسوي انفجاره لما ينادى.
 class PlayerAvatar extends StatelessWidget {
   const PlayerAvatar({
     super.key,
     required this.avatar,
     this.frame,
+    this.highlight,
     this.style,
     this.size = 52,
     this.dead = false,
     this.animate = true,
+    this.momentKey,
   });
 
   final String avatar;
   final Color? frame;
+  final Color? highlight;
   final FrameStyle? style;
   final double size;
   final bool dead;
 
   /// الحركات (ممكن تنطفي في القوائم الطويلة).
   final bool animate;
+  final String? momentKey;
 
   @override
   Widget build(BuildContext context) {
+    if (!animate) return _build(const AlwaysStoppedAnimation(0), null);
+    return FxClock(
+      builder: (context, t) => _MomentScope(time: t, momentKey: momentKey, builder: (moment) => _build(t, moment)),
+    );
+  }
+
+  Widget _build(ValueListenable<double> t, ValueListenable<double?>? moment) {
     final art = avatarArt(avatar);
-    Widget img = Image.asset(avatarAsset(avatar), width: size, height: size, fit: BoxFit.cover);
+    final anim = animate ? art?.anim : null;
+    Widget img = anim != null
+        ? AnimAvatar(id: anim, size: size, time: t)
+        : Image.asset(avatarAsset(avatar), width: size, height: size, fit: BoxFit.cover);
     if (art != null) {
       img = Stack(
+        clipBehavior: Clip.none,
         children: [
-          Positioned.fill(
-            child: animate
-                ? FxClock(builder: (context, t) => CustomPaint(painter: AvatarBgPainter(art, t)))
-                : CustomPaint(painter: AvatarBgPainter(art, const AlwaysStoppedAnimation(0))),
-          ),
+          Positioned.fill(child: CustomPaint(painter: AvatarBgPainter(art, t))),
           img,
         ],
       );
@@ -150,12 +166,41 @@ class PlayerAvatar extends StatelessWidget {
     final style = this.style;
     final ring = size * .07;
     final outer = size + ring * 2;
+    // طبقة فوق الإطار (جناح يطلع برا الدائرة مثلاً)
+    final pop = anim == null || dead
+        ? null
+        : Positioned(
+            left: ring,
+            top: ring,
+            width: size,
+            height: size,
+            child: IgnorePointer(
+              child: AnimAvatar(id: anim, size: size, time: t, pop: true),
+            ),
+          );
+    final glow = highlight == null
+        ? null
+        : Positioned.fill(
+            child: IgnorePointer(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: highlight!.withValues(alpha: .85),
+                      blurRadius: size * .28,
+                      spreadRadius: size * .05,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
     if (frame == null && style != null) {
-      final painter = animate
-          ? FxClock(
-              builder: (context, t) => CustomPaint(painter: FramePainter(style, t, ring: ring)),
-            )
-          : CustomPaint(painter: FramePainter(style, const AlwaysStoppedAnimation(0), ring: ring));
+      final back = sigFramePainter(style, t, avatar: size, layer: SigLayer.back, moment: moment);
+      final front =
+          sigFramePainter(style, t, avatar: size, layer: SigLayer.front, moment: moment) ??
+          FramePainter(style, t, ring: ring);
       return SizedBox(
         width: outer,
         height: outer,
@@ -163,24 +208,38 @@ class PlayerAvatar extends StatelessWidget {
           clipBehavior: Clip.none,
           alignment: Alignment.center,
           children: [
+            ?glow,
+            if (back != null)
+              Positioned.fill(
+                child: IgnorePointer(child: CustomPaint(painter: back)),
+              ),
             img,
             Positioned.fill(
-              child: RepaintBoundary(child: IgnorePointer(child: painter)),
+              child: RepaintBoundary(
+                child: IgnorePointer(child: CustomPaint(painter: front)),
+              ),
             ),
+            ?pop,
           ],
         ),
       );
     }
-    return Container(
+    final ringed = Container(
       width: outer,
       height: outer,
       padding: EdgeInsets.all(ring),
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        color: frame ?? Colors.white.withValues(alpha: .18),
+        color: frame ?? highlight ?? Colors.white.withValues(alpha: .18),
         boxShadow: frame == null ? null : [BoxShadow(color: frame!.withValues(alpha: .55), blurRadius: 14)],
       ),
       child: img,
+    );
+    if (pop == null && glow == null) return ringed;
+    return SizedBox(
+      width: outer,
+      height: outer,
+      child: Stack(clipBehavior: Clip.none, children: [?glow, ringed, ?pop]),
     );
   }
 
@@ -190,4 +249,41 @@ class PlayerAvatar extends StatelessWidget {
     .33, .33, .33, 0, 0,
     0, 0, 0, .55, 0,
   ];
+}
+
+/// يسجل وقت اللحظة الخاصة (بساعة الحركات نفسها) لما تنادى بمفتاح هالصورة.
+class _MomentScope extends StatefulWidget {
+  const _MomentScope({required this.time, required this.momentKey, required this.builder});
+
+  final ValueListenable<double> time;
+  final String? momentKey;
+  final Widget Function(ValueListenable<double?> moment) builder;
+
+  @override
+  State<_MomentScope> createState() => _MomentScopeState();
+}
+
+class _MomentScopeState extends State<_MomentScope> {
+  final _at = ValueNotifier<double?>(null);
+
+  @override
+  void initState() {
+    super.initState();
+    Moments.events.addListener(_onEvent);
+  }
+
+  @override
+  void dispose() {
+    Moments.events.removeListener(_onEvent);
+    _at.dispose();
+    super.dispose();
+  }
+
+  void _onEvent() {
+    final e = Moments.events.value;
+    if (e != null && widget.momentKey != null && e.$1 == widget.momentKey) _at.value = widget.time.value;
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.builder(_at);
 }

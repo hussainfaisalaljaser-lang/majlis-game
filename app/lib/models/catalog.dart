@@ -83,7 +83,9 @@ const catalog = <ShopItem>[
       fx: [FrameFx.flame, FrameFx.pulse],
       glow: Color(0xFFFF6D00),
       accent: Color(0xFFFFB300),
+      sig: 'fire',
     ),
+    desc: 'ألسنة لهب تطلع من حول صورتك، وشرار يطير لفوق',
   ),
   ShopItem(
     id: 'frame_smoke',
@@ -238,7 +240,9 @@ const catalog = <ShopItem>[
       fx: [FrameFx.spin, FrameFx.sparkle, FrameFx.orbit],
       glow: Color(0xFFB388FF),
       accent: Color(0xFFFFFFFF),
+      sig: 'galaxy',
     ),
+    desc: 'مجرة تدور ورا صورتك وكواكب تلف حولها. لحظتها الخاصة: انفجار نجمي لما تقعد أو تصير رئيس أو تفوز',
   ),
   ShopItem(
     id: 'frame_lv10',
@@ -755,7 +759,8 @@ const catalog = <ShopItem>[
     rarity: Rarity.epic,
     coins: 12000,
     avatar: 'falconer',
-    avatarArt: AvatarArt([Color(0xFF8C6D46), Color(0xFF3A2A16)], AvatarFx.rays),
+    avatarArt: AvatarArt([Color(0xFF8C6D46), Color(0xFF3A2A16)], AvatarFx.rays, anim: 'falconer'),
+    desc: 'يرمش ويتنفس، وصقره يلف راسه ويفرد جناحه',
   ),
   ShopItem(
     id: 'avatar_lady_gold',

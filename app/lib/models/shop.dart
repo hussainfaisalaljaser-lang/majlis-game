@@ -29,7 +29,7 @@ enum FrameFx {
 
 /// شكل إطار الصورة: ألوان الحلقة والتوهج والحركات.
 class FrameStyle {
-  const FrameStyle(this.colors, {this.glow, this.accent, this.fx = const []});
+  const FrameStyle(this.colors, {this.glow, this.accent, this.fx = const [], this.sig});
 
   final List<Color> colors;
   final Color? glow;
@@ -37,6 +37,9 @@ class FrameStyle {
   /// لون اللمعات والجزيئات.
   final Color? accent;
   final List<FrameFx> fx;
+
+  /// رسمة خاصة بالإطار (widgets/fx_sig.dart) بدال الحركات العامة.
+  final String? sig;
 }
 
 /// حركات فقاعة الكلام (widgets/fx.dart → BubblePainter).
@@ -72,10 +75,13 @@ class BubbleStyle {
 enum AvatarFx { aurora, rays, sparkle, embers, pulse, smoke, stars, bubbles }
 
 class AvatarArt {
-  const AvatarArt(this.colors, this.fx);
+  const AvatarArt(this.colors, this.fx, {this.anim});
 
   final List<Color> colors;
   final AvatarFx fx;
+
+  /// الشخصية نفسها تتحرك: طبقات في `assets/avatars/anim/<anim>/` (widgets/anim_avatar.dart).
+  final String? anim;
 }
 
 /// شكل الكروت: ألوان الختم وإطار الكرت، والرمز (صورة في assets/icons/card_*.png).
@@ -139,6 +145,7 @@ class ShopItem {
     this.avatarArt,
     this.stickers,
     this.phrases = false,
+    this.desc,
   });
 
   final String id;
@@ -171,6 +178,9 @@ class ShopItem {
 
   /// باقة كلام (سوالف المجلس).
   final bool phrases;
+
+  /// وش يسوي الغرض (تطلع في معاينة المتجر).
+  final String? desc;
 
   bool get isDefault => coins == null && diamonds == null && level == null && champion == null && season == null;
 
