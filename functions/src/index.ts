@@ -59,7 +59,8 @@ import {
   type TableTier,
 } from './economy.js';
 import { MISSIONS, bumpMissions, gulfWeek, todaysMissions, type MissionId } from './missions.js';
-import { isDev } from './dev.js';
+import { isDev, isOwner } from './dev.js';
+import { validPid } from './ids.js';
 import { applyStats, statsFromGame } from './achievements.js';
 import { offensiveName } from './moderation.js';
 import { applyRank, rankDelta, rankOf } from './rank.js';
@@ -295,16 +296,21 @@ function splitGame(data: StoredGame): { state: GameState; deadline: number | nul
 /** يسوي ملف اللاعب لو أول مرة يدخل. التطبيق يتابع الملف مباشرة من Firestore. */
 export const ensureProfile = onCall(async (req) => {
   const uid = requireAuth(req);
-  const dev = isDev(req);
+  const owner = isOwner(req);
   await db.runTransaction(async (tx) => {
     const snap = await tx.get(userRef(uid));
-    if (!snap.exists) return tx.set(userRef(uid), { ...newProfile(), dev, pid: await reservePid(tx, uid), pidTier: 0 });
+    if (!snap.exists) {
+      return tx.set(userRef(uid), { ...newProfile(), dev: owner, owner, pid: await reservePid(tx, uid), pidTier: 0 });
+    }
     const p = snap.data() as Profile;
+    const dev = isDev(req, p);
     // لاعب من قبل الرموز: ياخذ رمز عادي.
     const withPid = p.pid ? p : { ...p, pid: await reservePid(tx, uid), pidTier: 0 };
     // هدايا مستويات ما أخذها (مثلاً وصل المستوى قبل ما تنضاف الهدايا).
     const rewarded = applyLevelRewards(withPid);
-    if (rewarded !== p || (p.dev ?? false) !== dev) tx.set(userRef(uid), { ...rewarded, dev });
+    if (rewarded !== p || (p.dev ?? false) !== dev || (p.owner ?? false) !== owner) {
+      tx.set(userRef(uid), { ...rewarded, dev, owner });
+    }
     if (withPid !== p && p.setupDone) tx.set(boardRef(uid), toLeaderboard(rewarded));
   });
   // أسبوع جديد؟ نتوّج أبطال اللي فات (مرة وحدة). أي خطأ هنا ما يمنع اللاعب يدخل.
@@ -316,11 +322,19 @@ export const ensureProfile = onCall(async (req) => {
  * أدوات المطور للتجربة. ما تشتغل إلا لحساب مطور (isDev).
  * grant: ذهب وجواهر · level: يحط مستواك · unlockAll: كل أغراض المتجر · resetDaily · unban
  * forceRole: في لعبة شغالة، يخليك الدور والدور الخاص اللي تختاره.
+ * لصاحب اللعبة بس: setDev (يخلي لاعب مطوّر برمزه أو يشيله) · devs (المطورين).
  */
 export const devTool = onCall(async (req) => {
   const uid = requireAuth(req);
-  if (!isDev(req)) throw new HttpsError('permission-denied', 'هذي للمطور بس');
+  const owner = isOwner(req);
+  if (!isDev(req, (await userRef(uid).get()).data() as Profile | undefined)) {
+    throw new HttpsError('permission-denied', 'هذي للمطور بس');
+  }
   const action = String(req.data?.action ?? '');
+  if (action === 'setDev' || action === 'devs') {
+    if (!owner) throw new HttpsError('permission-denied', 'بس صاحب اللعبة يقدر يخلي أحد مطوّر');
+    return action === 'devs' ? { devs: await listDevs() } : setDev(String(req.data?.pid ?? '').trim(), req.data?.on !== false);
+  }
   if (action === 'forceRole') return forceRole(uid, String(req.data?.code ?? ''), req.data?.role, req.data?.special);
   if (action === 'crown') return { champions: await crownChampions(gulfWeek(Date.now()), Date.now()) };
   if (action === 'reports') return { reports: await openReports() };
@@ -367,6 +381,24 @@ export const devTool = onCall(async (req) => {
     return {};
   });
 });
+
+/** يخلي لاعب مطوّر برمزه (أو يشيله). صاحب اللعبة نفسه يبقى مطوّر دايماً. */
+async function setDev(pid: string, on: boolean): Promise<{ name: string; pid: string }> {
+  if (!validPid(pid)) throw new HttpsError('invalid-argument', 'الرمز أرقام بس، من ٣ إلى ٨');
+  const target = (await db.doc(`ids/${pid}`).get()).data()?.uid as string | undefined;
+  if (!target) throw new HttpsError('not-found', 'ما لقينا لاعب بهالرمز');
+  return db.runTransaction(async (tx) => {
+    const p = await readProfile(db, tx, target);
+    tx.set(userRef(target), { ...p, devGranted: on, dev: on || (p.owner ?? false) });
+    return { name: p.name, pid };
+  });
+}
+
+/** اللاعبين اللي صاحب اللعبة خلاهم مطورين. */
+async function listDevs(): Promise<{ uid: string; name: string; pid: string }[]> {
+  const snap = await db.collection('users').where('devGranted', '==', true).limit(100).get();
+  return snap.docs.map((d) => ({ uid: d.id, name: String(d.get('name') ?? ''), pid: String(d.get('pid') ?? '') }));
+}
 
 function clampInt(raw: unknown, min: number, max: number): number {
   const n = Math.round(Number(raw));

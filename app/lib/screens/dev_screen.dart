@@ -17,6 +17,51 @@ class DevScreen extends StatefulWidget {
 
 class _DevScreenState extends State<DevScreen> {
   bool _busy = false;
+  final _pid = TextEditingController();
+
+  /// المطورين اللي خليتهم (لصاحب اللعبة بس).
+  List<({String name, String pid})>? _devs;
+
+  @override
+  void initState() {
+    super.initState();
+    if (Backend.instance.profile.value.owner) _loadDevs();
+  }
+
+  @override
+  void dispose() {
+    _pid.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadDevs() async {
+    try {
+      final data = await Backend.instance.devData('devs');
+      if (!mounted) return;
+      setState(
+        () => _devs = [
+          for (final d in (data['devs'] as List? ?? const []))
+            (name: (d as Map)['name'] as String? ?? '', pid: d['pid'] as String? ?? ''),
+        ],
+      );
+    } on BackendException catch (_) {}
+  }
+
+  /// يخلي لاعب مطوّر برمزه، أو يشيله.
+  Future<void> _setDev(String pid, bool on) async {
+    pid = pid.trim();
+    if (pid.isEmpty) return;
+    String? name;
+    await _run(on ? 'صار مطوّر' : 'انشال من المطورين', () async {
+      final r = await Backend.instance.devData('setDev', {'pid': pid, 'on': on});
+      name = r['name'] as String?;
+    });
+    if (name != null) {
+      _pid.clear();
+      await _loadDevs();
+    }
+  }
+
   double _level = 1;
   int _players = 5;
   String? _role;
@@ -51,6 +96,73 @@ class _DevScreenState extends State<DevScreen> {
     });
     if (code != null && mounted) navigator.push(MaterialPageRoute(builder: (_) => GameScreen(code: code!)));
   }
+
+  /// صاحب اللعبة: يخلي أي لاعب مطوّر برمزه، ويشوف المطورين ويشيلهم.
+  Widget _devsPanel() => Panel(
+    padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'المطورين',
+          style: TextStyle(fontFamily: kufi, fontSize: 17, fontWeight: FontWeight.w700),
+        ),
+        const Text(
+          'اكتب رمز اللاعب وخلّه مطوّر: تطلع له أدوات التجربة مثلك.',
+          style: TextStyle(color: AppColors.muted, fontSize: 12),
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Expanded(
+              child: TextField(
+                controller: _pid,
+                keyboardType: TextInputType.number,
+                textDirection: TextDirection.ltr,
+                textAlign: TextAlign.center,
+                decoration: const InputDecoration(hintText: 'رمز اللاعب', isDense: true),
+              ),
+            ),
+            const SizedBox(width: 8),
+            SizedBox(
+              width: 120,
+              child: GameButton(
+                label: 'خلّه مطوّر',
+                tone: ButtonTone.green,
+                height: 40,
+                fontSize: 14,
+                onPressed: _busy ? null : () => _setDev(_pid.text, true),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 6),
+        if (_devs == null)
+          const SizedBox.shrink()
+        else if (_devs!.isEmpty)
+          const Text('ما فيه مطورين غيرك.', style: TextStyle(color: AppColors.muted, fontSize: 12.5))
+        else
+          for (final d in _devs!)
+            Row(
+              children: [
+                const Gfx('tools', size: 20),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    '${d.name} · ${d.pid}',
+                    style: const TextStyle(fontWeight: FontWeight.w700),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                TextButton(
+                  onPressed: _busy ? null : () => _setDev(d.pid, false),
+                  child: const Text('شيله', style: TextStyle(color: AppColors.traitorLight)),
+                ),
+              ],
+            ),
+      ],
+    ),
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -151,6 +263,7 @@ class _DevScreenState extends State<DevScreen> {
                     onPressed: () =>
                         Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ModerationScreen())),
                   ),
+                  if (backend.profile.value.owner) ...[const SizedBox(height: 14), _devsPanel()],
                   const SizedBox(height: 8),
                   Row(
                     children: [

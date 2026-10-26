@@ -445,6 +445,25 @@ async function main(): Promise<void> {
   assert.equal(devAfter.level, 5);
   console.log('✓ وضع المطور: لإيميل المطور بس');
 
+  // صاحب اللعبة يخلي أي لاعب مطوّر برمزه ويشيله، والمطوّر ما يقدر يخلي غيره
+  const helperPid = (await linker.profile()).pid as string;
+  await expectError(dev.call('devTool', { action: 'setDev', pid: '12' }), 'invalid-argument');
+  const made = await dev.call<{ name: string; pid: string }>('devTool', { action: 'setDev', pid: helperPid, on: true });
+  assert.equal(made.pid, helperPid);
+  assert.equal((await linker.profile()).dev, true, 'صار مطوّر');
+  await linker.call('devTool', { action: 'grant', coins: 100 });
+  await expectError(linker.call('devTool', { action: 'setDev', pid: helperPid, on: false }), 'permission-denied');
+  const devList = await dev.call<{ devs: { pid: string }[] }>('devTool', { action: 'devs' });
+  assert.ok(devList.devs.some((d) => d.pid === helperPid), 'يطلع في قائمة المطورين');
+  await linker.call('ensureProfile');
+  assert.equal((await linker.profile()).dev, true, 'يبقى مطوّر لما يفتح اللعبة من جديد');
+  await dev.call('devTool', { action: 'setDev', pid: helperPid, on: false });
+  assert.equal((await linker.profile()).dev, false);
+  await expectError(linker.call('devTool', { action: 'grant', coins: 100 }), 'permission-denied');
+  await dev.call('ensureProfile');
+  assert.equal((await dev.profile()).owner, true, 'صاحب اللعبة');
+  console.log('✓ المطورين: صاحب اللعبة يخلي أي لاعب مطوّر برمزه ويشيله');
+
   // المتجر الجديد: الطاولة تنلبس، والشخصية المميزة تصير صورته، والباقة تفتح ردودها
   await dev.call('devTool', { action: 'grant', coins: 30000, diamonds: 100 });
   await expectError(dev.call('updateProfile', { name: 'المطور', avatar: 'emir' }), 'permission-denied');

@@ -8,6 +8,7 @@ class Profile {
     required this.avatar,
     required this.setupDone,
     this.dev = false,
+    this.owner = false,
     required this.coins,
     required this.diamonds,
     required this.xp,
@@ -46,6 +47,7 @@ class Profile {
     avatar: j['avatar'] as String,
     setupDone: j['setupDone'] as bool? ?? false,
     dev: j['dev'] as bool? ?? false,
+    owner: j['owner'] as bool? ?? false,
     coins: j['coins'] as int,
     diamonds: j['diamonds'] as int,
     xp: j['xp'] as int,
@@ -108,6 +110,9 @@ class Profile {
 
   /// حساب مطور: تطلع له أدوات التجربة.
   final bool dev;
+
+  /// صاحب اللعبة: يقدر يخلي أي لاعب مطوّر برمزه.
+  final bool owner;
   final int coins;
   final int diamonds;
   final int xp;

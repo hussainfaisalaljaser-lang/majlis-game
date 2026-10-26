@@ -12,6 +12,62 @@
       "strip_tags": false,
       "similarity": null,
       "style": null
+    },
+    "how_1": {
+      "model": "eleven_multilingual_v2",
+      "stability": 0.45,
+      "similarity": 0.8,
+      "style": 0.25,
+      "strip_tags": true
+    },
+    "how_2": {
+      "model": "eleven_multilingual_v2",
+      "stability": 0.45,
+      "similarity": 0.8,
+      "style": 0.25,
+      "strip_tags": true
+    },
+    "how_3": {
+      "model": "eleven_multilingual_v2",
+      "stability": 0.45,
+      "similarity": 0.8,
+      "style": 0.25,
+      "strip_tags": true
+    },
+    "how_4": {
+      "model": "eleven_multilingual_v2",
+      "stability": 0.45,
+      "similarity": 0.8,
+      "style": 0.25,
+      "strip_tags": true
+    },
+    "how_5": {
+      "model": "eleven_multilingual_v2",
+      "stability": 0.45,
+      "similarity": 0.8,
+      "style": 0.25,
+      "strip_tags": true
+    },
+    "how_6": {
+      "model": "eleven_multilingual_v2",
+      "stability": 0.45,
+      "similarity": 0.8,
+      "style": 0.25,
+      "strip_tags": true
+    },
+    "how_7": {
+      "model": "eleven_multilingual_v2",
+      "stability": 0.45,
+      "similarity": 0.8,
+      "style": 0.25,
+      "strip_tags": true
+    },
+    "how_8": {
+      "model": "eleven_multilingual_v2",
+      "stability": 0.45,
+      "similarity": 0.8,
+      "style": 0.25,
+      "strip_tags": true
     }
   },
   "lines": {
