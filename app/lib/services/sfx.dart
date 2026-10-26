@@ -12,6 +12,9 @@ import 'music.dart';
 abstract final class Sfx {
   static final muted = ValueNotifier<bool>(false);
   static const _key = 'sfx_muted';
+
+  /// مشغّل الجملة اللي تنقال الحين. كل جملة لها مشغّل جديد: لو نفس المشغّل يوقف جملة ويبدأ اللي بعدها
+  /// على طول، أمر الإيقاف ينضيع على أندرويد (تكمل الجملة القديمة لما تقلب صفحة في الشرح).
   static AudioPlayer? _player;
   static final _queue = Queue<String>();
   static bool _speaking = false;
@@ -32,10 +35,7 @@ abstract final class Sfx {
 
   static Future<void> toggle() async {
     muted.value = !muted.value;
-    if (muted.value) {
-      _queue.clear();
-      _player?.stop().catchError((_) {});
-    }
+    if (muted.value) hush();
     try {
       (await SharedPreferences.getInstance()).setBool(_key, muted.value);
     } catch (_) {}
@@ -76,18 +76,18 @@ abstract final class Sfx {
       debugPrint('narrator: $line ${DateTime.now().millisecondsSinceEpoch}');
     }
     final done = _done = Completer<void>();
+    // نعرف إن الجملة خلصت من onPlayerComplete، فما نحتاج متابعة مكانها كل فريم (تثقّل الرسم).
+    final player = _player = AudioPlayer()..positionUpdater = null;
     StreamSubscription<void>? sub;
     try {
-      // نعرف إن الجملة خلصت من onPlayerComplete، فما نحتاج متابعة مكانها كل فريم (تثقّل الرسم).
-      final player = _player ??= AudioPlayer()
-        ..positionUpdater = null
-        ..setReleaseMode(ReleaseMode.stop);
       sub = player.onPlayerComplete.listen((_) => _finish(done));
       await player.play(AssetSource('voice/$line.mp3'));
       // جمل الشرح أطول شوي (لين ١٠ ثواني).
       await done.future.timeout(const Duration(seconds: 12));
     } catch (_) {}
     await sub?.cancel();
+    if (identical(_player, player)) _player = null;
+    player.dispose().catchError((_) {});
     _next();
   }
 }
