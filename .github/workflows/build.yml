@@ -41,23 +41,33 @@ jobs:
       - name: Analyze
         working-directory: app
         run: flutter pub get && flutter analyze
+      - name: App tests
+        working-directory: app
+        run: flutter test
       - name: Build APK
         working-directory: app
         run: flutter build apk --release
+      # نسخة برقمها، ونسخة باسم ثابت (majlis.apk) عشان رابط التحميل في الموقع ما يتغير.
       - name: Rename
-        run: cp app/build/app/outputs/flutter-apk/app-release.apk majlis-${{ github.run_number }}.apk
+        run: |
+          cp app/build/app/outputs/flutter-apk/app-release.apk majlis-${{ github.run_number }}.apk
+          cp app/build/app/outputs/flutter-apk/app-release.apk majlis.apk
       - uses: actions/upload-artifact@v4
         with:
           name: majlis-apk
           path: majlis-${{ github.run_number }}.apk
-      # نسخة تجريبية في Releases، عشان تحمّلها من جوالك بسهولة.
+      # نسخة في Releases تحمّلها من جوالك. نسخ main هي "الأحدث"، فرابط
+      # releases/latest/download/majlis.apk (في صفحة الدعوة) يعطي دايم آخر نسخة منها.
       - uses: softprops/action-gh-release@v2
         with:
           tag_name: build-${{ github.run_number }}
           name: نسخة تجريبية ${{ github.run_number }}
-          prerelease: true
+          prerelease: ${{ github.ref_name != 'main' }}
+          make_latest: ${{ github.ref_name == 'main' }}
           target_commitish: ${{ github.sha }}
-          files: majlis-${{ github.run_number }}.apk
+          files: |
+            majlis-${{ github.run_number }}.apk
+            majlis.apk
           body: |
             نسخة تجريبية من فرع `${{ github.ref_name }}`.
             حمّل ملف الـ APK وافتحه على جوالك (يمكن يطلب منك تسمح بتثبيت التطبيقات من مصادر غير معروفة).

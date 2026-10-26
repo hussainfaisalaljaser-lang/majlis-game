@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- تسجيل الأعطال من غير إضافة Crashlytics في Gradle (أخطاء Dart ما تحتاج رموز البناء)،
+         فنقول للمكتبة ما توقف التطبيق لو ما لقت رقم البناء. -->
+    <bool name="com.crashlytics.RequireBuildId">false</bool>
+</resources>

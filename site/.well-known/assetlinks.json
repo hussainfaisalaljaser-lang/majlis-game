@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.majlis.majlis",
+      "sha256_cert_fingerprints": [
+        "C2:D3:82:C2:3A:E9:78:28:05:AB:75:74:8E:CF:2C:E5:7A:C9:1C:F6:6A:D5:4F:BE:92:0C:93:A9:E0:CE:B1:69"
+      ]
+    }
+  }
+]

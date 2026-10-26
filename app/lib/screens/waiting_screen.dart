@@ -6,6 +6,8 @@ import '../models/room.dart';
 import '../models/shop.dart';
 import '../models/table_tier.dart';
 import '../services/backend.dart';
+import '../services/links.dart';
+import '../services/telemetry.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
 import '../widgets/ui.dart';
@@ -187,6 +189,7 @@ class _WaitingScreenState extends State<WaitingScreen> {
                       ),
                       const SizedBox(height: 8),
                       _CodeBox(code: widget.code ?? 'K7Q2M'),
+                      if (isPrivate && widget.code != null) ...[const SizedBox(height: 8), _Invite(code: widget.code!)],
                       const SizedBox(height: 10),
                       LinearProgressIndicator(
                         value: players.length / max,
@@ -301,6 +304,66 @@ class _WaitingScreenState extends State<WaitingScreen> {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// دعوة الأصحاب: واتساب برسالة فيها الكود والرابط، أو نسخ الرسالة.
+class _Invite extends StatelessWidget {
+  const _Invite({required this.code});
+
+  final String code;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: GameButton(
+            label: 'ادعُ بالواتساب',
+            semantics: 'ادع أصحابك بالواتساب',
+            icon: const Gfx('invite', size: 26),
+            tone: ButtonTone.green,
+            height: 44,
+            fontSize: 14.5,
+            onPressed: () async {
+              final messenger = ScaffoldMessenger.of(context);
+              Telemetry.invite('whatsapp');
+              if (!await Links.whatsapp(code)) {
+                await Links.copy(code);
+                messenger.showSnackBar(
+                  const SnackBar(content: Text('ما انفتح الواتساب، نسخنا لك الدعوة. الصقها لأصحابك')),
+                );
+              }
+            },
+          ),
+        ),
+        const SizedBox(width: 8),
+        Semantics(
+          button: true,
+          label: 'انسخ رابط الدعوة',
+          excludeSemantics: true,
+          child: GestureDetector(
+            onTap: () async {
+              final messenger = ScaffoldMessenger.of(context);
+              Telemetry.invite('copy');
+              await Links.copy(code);
+              messenger.showSnackBar(const SnackBar(content: Text('نسخنا الدعوة، الصقها لأصحابك وين ما تبي')));
+            },
+            child: Container(
+              width: 50,
+              height: 44,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: AppColors.card,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: AppColors.gold.withValues(alpha: .6), width: 1.5),
+              ),
+              child: const Gfx('link', size: 30),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

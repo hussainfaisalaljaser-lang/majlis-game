@@ -233,7 +233,8 @@ function deadlineFor(state: GameState, now: number, waitMs = 0): number | null {
   const start = now + waitMs;
   const actors = currentActors(state);
   if (actors.length > 0 && actors.every(botPlays(state))) {
-    return start + botThink(randomInt(BOT_THINK_JITTER_MS)) + (state.tutorial ? tutorialBotExtra() : 0);
+    // لعبة الشرح: أول جولتين البوتات أبطأ عشان اللاعب يلحق يقرا النصايح.
+    return start + botThink(randomInt(BOT_THINK_JITTER_MS)) + (state.tutorial && state.round <= 2 ? tutorialBotExtra() : 0);
   }
   return start + PHASE_SECONDS[state.phase] * 1000 * (state.tutorial ? TUTORIAL_TIME_FACTOR : 1);
 }

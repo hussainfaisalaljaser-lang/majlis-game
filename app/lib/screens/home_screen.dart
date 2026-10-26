@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/shop.dart';
 import '../services/backend.dart';
+import '../services/links.dart';
 import '../services/music.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
@@ -9,6 +11,7 @@ import '../widgets/daily_reward.dart';
 import '../widgets/gifts.dart';
 import '../widgets/ui.dart';
 import 'game_screen.dart';
+import 'how_to_play_screen.dart';
 import 'leaderboard_screen.dart';
 import 'missions_screen.dart';
 import 'pass_screen.dart';
@@ -58,105 +61,148 @@ class HomeScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return NightScaffold(
       body: GiftWatcher(
-        child: SafeArea(
-          child: Row(
-            children: [
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsetsDirectional.fromSTEB(14, 8, 10, 12),
-                  child: Column(
-                    children: [
-                      const _Header(),
-                      const SizedBox(height: 10),
-                      Expanded(
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            Expanded(flex: 10, child: _Hero(onPlay: () => _push(context, const TablesScreen()))),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              flex: 11,
-                              child: Column(
-                                children: [
-                                  Expanded(
-                                    flex: 3,
-                                    child: Row(
-                                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                                      children: [
-                                        Expanded(
-                                          child: _Tile(
-                                            icon: 'friends',
-                                            title: 'مع أصحابك',
-                                            colors: const [Color(0xFF2FBF71), Color(0xFF145C38)],
-                                            shadow: const Color(0xFF0B3A22),
-                                            onTap: () => _push(context, const TablesScreen()),
-                                          ),
-                                        ),
-                                        const SizedBox(width: 10),
-                                        Expanded(
-                                          child: _Tile(
-                                            icon: 'bot',
-                                            title: 'تدريب',
-                                            subtitle: 'أنت و٤ بوتات',
-                                            colors: const [Color(0xFF7C5CFF), Color(0xFF3A1F9C)],
-                                            shadow: const Color(0xFF23125E),
-                                            onTap: () => _startPractice(context),
-                                          ),
-                                        ),
-                                        const SizedBox(width: 10),
-                                        Expanded(
-                                          child: ValueListenableBuilder(
-                                            valueListenable: Backend.instance.profile,
-                                            builder: (context, p, _) => _Tile(
-                                              icon: 'pass',
-                                              title: 'الموسم',
-                                              subtitle: 'الدرجة ${arabicNumber(p.pass.tier)}',
-                                              badge: p.pass.claimable,
-                                              colors: const [Color(0xFF14B8A6), Color(0xFF134E4A)],
-                                              shadow: const Color(0xFF062F2C),
-                                              onTap: () => _push(context, const PassScreen()),
+        child: LinkWatcher(
+          child: _TutorialOffer(
+            child: SafeArea(
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsetsDirectional.fromSTEB(14, 8, 10, 12),
+                      child: Column(
+                        children: [
+                          const _Header(),
+                          const SizedBox(height: 10),
+                          Expanded(
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                Expanded(flex: 10, child: _Hero(onPlay: () => _push(context, const TablesScreen()))),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  flex: 11,
+                                  child: Column(
+                                    children: [
+                                      Expanded(
+                                        flex: 3,
+                                        child: Row(
+                                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                                          children: [
+                                            Expanded(
+                                              child: _Tile(
+                                                icon: 'friends',
+                                                title: 'مع أصحابك',
+                                                colors: const [Color(0xFF2FBF71), Color(0xFF145C38)],
+                                                shadow: const Color(0xFF0B3A22),
+                                                onTap: () => _push(context, const TablesScreen()),
+                                              ),
                                             ),
-                                          ),
+                                            const SizedBox(width: 10),
+                                            Expanded(
+                                              child: _Tile(
+                                                icon: 'bot',
+                                                title: 'تدريب',
+                                                subtitle: 'أنت و٤ بوتات',
+                                                colors: const [Color(0xFF7C5CFF), Color(0xFF3A1F9C)],
+                                                shadow: const Color(0xFF23125E),
+                                                onTap: () => _startPractice(context),
+                                              ),
+                                            ),
+                                            const SizedBox(width: 10),
+                                            Expanded(
+                                              child: ValueListenableBuilder(
+                                                valueListenable: Backend.instance.profile,
+                                                builder: (context, p, _) => _Tile(
+                                                  icon: 'pass',
+                                                  title: 'الموسم',
+                                                  subtitle: 'الدرجة ${arabicNumber(p.pass.tier)}',
+                                                  badge: p.pass.claimable,
+                                                  colors: const [Color(0xFF14B8A6), Color(0xFF134E4A)],
+                                                  shadow: const Color(0xFF062F2C),
+                                                  onTap: () => _push(context, const PassScreen()),
+                                                ),
+                                              ),
+                                            ),
+                                          ],
                                         ),
-                                      ],
-                                    ),
-                                  ),
-                                  const SizedBox(height: 12),
-                                  Expanded(
-                                    flex: 2,
-                                    child: Row(
-                                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                                      children: [
-                                        Expanded(child: _DailyCard(onTap: () => showDailyReward(context))),
-                                        const SizedBox(width: 10),
-                                        SizedBox(
-                                          width: 128,
-                                          child: _MissionsCard(onTap: () => _push(context, const MissionsScreen())),
+                                      ),
+                                      const SizedBox(height: 12),
+                                      Expanded(
+                                        flex: 2,
+                                        child: Row(
+                                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                                          children: [
+                                            Expanded(child: _DailyCard(onTap: () => showDailyReward(context))),
+                                            const SizedBox(width: 10),
+                                            SizedBox(
+                                              width: 128,
+                                              child: _MissionsCard(onTap: () => _push(context, const MissionsScreen())),
+                                            ),
+                                          ],
                                         ),
-                                      ],
-                                    ),
+                                      ),
+                                    ],
                                   ),
-                                ],
-                              ),
+                                ),
+                              ],
                             ),
-                          ],
-                        ),
+                          ),
+                        ],
                       ),
-                    ],
+                    ),
                   ),
-                ),
+                  _SideNav(
+                    onShop: () => _push(context, const ShopScreen()),
+                    onRank: () => _push(context, const LeaderboardScreen()),
+                    onProfile: () => _push(context, const ProfileScreen()),
+                    onGuide: () => _push(context, const HowToPlayScreen()),
+                  ),
+                ],
               ),
-              _SideNav(
-                onShop: () => _push(context, const ShopScreen()),
-                onRank: () => _push(context, const LeaderboardScreen()),
-                onProfile: () => _push(context, const ProfileScreen()),
-              ),
-            ],
+            ),
           ),
         ),
       ),
     );
   }
+}
+
+/// لاعب جديد (ما لعب ولا خلّص الشرح): نعرض عليه الشرح مرة وحدة أول ما يوصل الرئيسية.
+class _TutorialOffer extends StatefulWidget {
+  const _TutorialOffer({required this.child});
+
+  final Widget child;
+
+  @override
+  State<_TutorialOffer> createState() => _TutorialOfferState();
+}
+
+class _TutorialOfferState extends State<_TutorialOffer> {
+  static const _key = 'tutorial_offered';
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _check());
+  }
+
+  Future<void> _check() async {
+    final backend = Backend.instance;
+    final p = backend.profile.value;
+    // جاي من رابط دعوة: يدخل مع أصحابه أول، والشرح نعرضه المرة الجاية.
+    if (!backend.isReady || !p.setupDone || p.tutorialDone || p.gamesPlayed > 0 || Links.pending.value != null) return;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (prefs.getBool(_key) ?? false) return;
+      await prefs.setBool(_key, true);
+    } catch (_) {
+      return;
+    }
+    if (mounted) await offerTutorial(context);
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
 }
 
 class _Header extends StatelessWidget {
@@ -568,15 +614,16 @@ class _MissionsCard extends StatelessWidget {
 
 /// شريط التنقل على الجنب (بالعرض)، بدال الشريط اللي تحت.
 class _SideNav extends StatelessWidget {
-  const _SideNav({required this.onShop, required this.onRank, required this.onProfile});
+  const _SideNav({required this.onShop, required this.onRank, required this.onProfile, required this.onGuide});
 
   final VoidCallback onShop;
   final VoidCallback onRank;
   final VoidCallback onProfile;
+  final VoidCallback onGuide;
 
   @override
   Widget build(BuildContext context) {
-    Widget item(String icon, String label, VoidCallback? onTap, {bool on = false}) => Expanded(
+    Widget item(String icon, String label, VoidCallback? onTap, {bool on = false, bool badge = false}) => Expanded(
       child: Semantics(
         button: true,
         label: label,
@@ -593,7 +640,18 @@ class _SideNav extends StatelessWidget {
                   color: on ? AppColors.gold.withValues(alpha: .16) : null,
                   borderRadius: BorderRadius.circular(14),
                 ),
-                child: Opacity(opacity: on ? 1 : .75, child: Gfx(icon, size: 34)),
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    Opacity(opacity: on ? 1 : .75, child: Gfx(icon, size: 34)),
+                    if (badge)
+                      const PositionedDirectional(
+                        top: -2,
+                        end: -4,
+                        child: CircleAvatar(radius: 6, backgroundColor: AppColors.traitor),
+                      ),
+                  ],
+                ),
               ),
               const SizedBox(height: 2),
               Text(
@@ -622,6 +680,10 @@ class _SideNav extends StatelessWidget {
           item('shop', 'المتجر', onShop),
           item('rank', 'الترتيب', onRank),
           item('profile', 'ملفي', onProfile),
+          ValueListenableBuilder(
+            valueListenable: Backend.instance.profile,
+            builder: (context, p, _) => item('guide', 'كيف ألعب', onGuide, badge: !p.tutorialDone),
+          ),
         ],
       ),
     );

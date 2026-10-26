@@ -11,6 +11,7 @@ import '../services/notes.dart';
 import '../services/push.dart';
 import '../services/music.dart';
 import '../services/sfx.dart';
+import '../services/telemetry.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
 import '../widgets/game/game_log.dart';
@@ -37,6 +38,20 @@ const _phaseSeconds = {
   Phase.vetoResponse: 15,
   Phase.power: 30,
 };
+
+/// لعبة الشرح: نصايح الراوي (نفس جمل tools/voice/lines.json).
+const _tips = {
+  'tut_nominate': 'أنت الرئيس هالجولة! اختر لك وزير من الطاولة… واحد تثق فيه.',
+  'tut_vote': 'صوّت على الحكومة: موافق يعني تبيهم، ورافض يعني ما تثق فيهم.',
+  'tut_discard': 'وصلتك ٣ كروت. ارمِ واحد بالسر، والباقي يروح للوزير يختار منه.',
+  'tut_enacted': 'شف اللوحة فوق: هنا تنعد القرارات. الأزرق للأوفياء، والأحمر للخونة.',
+  'tut_claim': 'الحين قول للكل وش وصلك. تقدر تقول الصدق… أو تكذب عليهم!',
+  'tut_chat': 'تبي تتهم أحد أو تدافع عن نفسك؟ اضغط زر التفاعل، واختار ملصق أو كلام.',
+  'tut_power': 'القرار الأحمر عطى الرئيس قدرة! انتبه وش بيسوي فيها.',
+};
+
+/// نصايح الخطوات تبقى لين تسويها، ونصايح المعلومات تختفي بعد شوي.
+const _actionTips = {'tut_nominate', 'tut_vote', 'tut_discard', 'tut_claim'};
 
 /// شاشة الطاولة: كل اللعب يصير هنا.
 class GameScreen extends StatefulWidget {
@@ -65,6 +80,9 @@ class _GameScreenState extends State<GameScreen> {
   bool _wasMyTurn = false;
   bool _endSoundPlayed = false;
 
+  /// شفنا اللعبة وهي شغالة (مو بس نتيجتها).
+  bool _live = false;
+
   /// مشاهد تنتظر دورها فوق الطاولة (كشف التصويت، الختم، الطرد…)، ومعها جملة الراوي.
   final List<(Widget, String, Duration)> _scenes = [];
 
@@ -77,6 +95,11 @@ class _GameScreenState extends State<GameScreen> {
   /// العرّاف ضغط "اكشف" وينتظر يختار لاعب.
   bool _seerPicking = false;
   String? _seerSeen;
+
+  /// لعبة الشرح: نصيحة الراوي الظاهرة الحين، واللي انقالت (كل وحدة مرة).
+  String? _tip;
+  final _tipsSaid = <String>{};
+  Timer? _tipTimer;
 
   @override
   void initState() {
@@ -98,6 +121,7 @@ class _GameScreenState extends State<GameScreen> {
       setState(() {});
       _checkTimeout();
       _tick();
+      if (_view case final v?) _coach(v);
     });
   }
 
@@ -136,6 +160,9 @@ class _GameScreenState extends State<GameScreen> {
   void _announce(GameView v, bool myTurnStarted) {
     final changed = v.phase != _lastPhase;
     _lastPhase = v.phase;
+    // لعبة الشرح: أول مرة بكل خطوة، نصيحة الراوي تغني عن جملته العادية.
+    final tip = _tipFor(v);
+    if (tip != null && tip != 'tut_power' && !_tipsSaid.contains(tip)) return;
     if (changed && v.phase == Phase.election) return Sfx.say('vote');
     if (changed && v.phase == Phase.power) {
       return Sfx.say(switch (v.pendingPower) {
@@ -165,8 +192,50 @@ class _GameScreenState extends State<GameScreen> {
     };
   }
 
+  /// وش نصيحة الراوي اللي تناسب الحين في لعبة الشرح.
+  String? _tipFor(GameView v) {
+    if (!v.tutorial || !_introDone || v.phase == Phase.gameOver) return null;
+    if (v.phase == Phase.power) return 'tut_power';
+    if (_isMyTurn(v)) {
+      return switch (v.phase) {
+        Phase.nomination => 'tut_nominate',
+        Phase.election => 'tut_vote',
+        Phase.presidentDiscard => 'tut_discard',
+        _ => null,
+      };
+    }
+    final enacted = v.loyalPolicies + v.traitorPolicies > 0;
+    if (enacted && !_tipsSaid.contains('tut_enacted')) return 'tut_enacted';
+    if (_claimPending(v)) return 'tut_claim';
+    return enacted ? 'tut_chat' : null;
+  }
+
+  /// يطلع نصيحة جديدة (مع صوتها) لما يجي وقتها، ويشيل نصيحة الخطوة لما تسويها.
+  void _coach(GameView v) {
+    final tip = _tipFor(v);
+    final shown = _tip;
+    if (shown != null && _actionTips.contains(shown) && tip != shown) {
+      setState(() => _tip = null);
+    } else if (shown != null) {
+      return;
+    }
+    // ننتظر المشاهد (كشف التصويت والختم) تخلص، عشان النصيحة تنشاف.
+    if (tip == null || _tipsSaid.contains(tip) || _scenes.isNotEmpty) return;
+    _tipsSaid.add(tip);
+    setState(() => _tip = tip);
+    Sfx.say(tip);
+    _tipTimer?.cancel();
+    if (!_actionTips.contains(tip)) _tipTimer = Timer(const Duration(seconds: 10), _closeTip);
+  }
+
+  void _closeTip() {
+    _tipTimer?.cancel();
+    if (mounted) setState(() => _tip = null);
+  }
+
   @override
   void dispose() {
+    _tipTimer?.cancel();
     Push.setCurrentGame(null);
     Music.play('menu');
     _viewSub.cancel();
@@ -198,10 +267,18 @@ class _GameScreenState extends State<GameScreen> {
       _dangerShown = true;
       WidgetsBinding.instance.addPostFrameCallback((_) => _showLeaderDanger(view.yourRole));
     }
+    if (view.phase != Phase.gameOver) _live = true;
     if (!_roleShown) {
       _roleShown = true;
       _seenInvestigations = view.investigations.length;
       _seenLog = view.log.length;
+      if (view.round == 1 && view.log.isEmpty) {
+        Telemetry.gameStart(
+          players: view.players.length,
+          tutorial: view.tutorial,
+          bots: view.players.any((p) => p.id.startsWith('bot_')),
+        );
+      }
       // الترحيب بس في بداية اللعبة (مو لو رجعت لها في النص)، وبعده جملة دورك لما تنقلب البطاقة.
       if (view.round == 1 && view.log.isEmpty) Sfx.say('intro');
       WidgetsBinding.instance.addPostFrameCallback((_) => _showRole());
@@ -228,9 +305,19 @@ class _GameScreenState extends State<GameScreen> {
     _wasMyTurn = myTurn;
     if (view.phase == Phase.gameOver && !_endSoundPlayed) {
       _endSoundPlayed = true;
+      // نسجّل نهاية اللعبة بس لو حضرناها (مو لو فتحنا لعبة خلصت من قبل).
+      if (_live) {
+        final won = (view.yourRole == Role.loyal) == view.winnerLoyal && !view.autopilot.contains(view.you);
+        Telemetry.gameEnd(won: won, reason: view.winReason ?? '', rounds: view.round, tutorial: view.tutorial);
+        if (view.tutorial) Telemetry.tutorialComplete();
+      }
       final line = (view.winnerLoyal ?? false) ? 'win_loyal' : 'win_traitor';
-      Future.delayed(Duration(milliseconds: 400 + 2600 * _scenes.length), () => Sfx.say(line));
+      Future.delayed(Duration(milliseconds: 400 + 2600 * _scenes.length), () {
+        Sfx.say(line);
+        if (view.tutorial) Sfx.say('tut_done');
+      });
     }
+    _coach(view);
   }
 
   /// أحداث جديدة في السجل تطلع كمشاهد قصيرة فوق الطاولة.
@@ -725,7 +812,11 @@ class _GameScreenState extends State<GameScreen> {
               PositionedDirectional(
                 top: 8,
                 end: 10,
-                child: MiniTracks(view: v, onTap: () => showTracksBoard(context, v)),
+                child: _tip == 'tut_enacted'
+                    ? _Pulse(
+                        child: MiniTracks(view: v, onTap: () => showTracksBoard(context, v)),
+                      )
+                    : MiniTracks(view: v, onTap: () => showTracksBoard(context, v)),
               ),
               // تحت يمين: التفاعل والعرّاف
               if (!over)
@@ -748,7 +839,21 @@ class _GameScreenState extends State<GameScreen> {
                         ),
                         const SizedBox(height: 10),
                       ],
-                      _RoundButton(gfx: 'chat', label: 'تفاعل', color: AppColors.gold, onTap: _openReactions),
+                      if (_tip == 'tut_chat')
+                        _Pulse(
+                          child: _RoundButton(
+                            gfx: 'chat',
+                            label: 'تفاعل',
+                            color: AppColors.gold,
+                            active: true,
+                            onTap: () {
+                              _closeTip();
+                              _openReactions();
+                            },
+                          ),
+                        )
+                      else
+                        _RoundButton(gfx: 'chat', label: 'تفاعل', color: AppColors.gold, onTap: _openReactions),
                     ],
                   ),
                 ),
@@ -796,6 +901,15 @@ class _GameScreenState extends State<GameScreen> {
                       'policies': [for (final p in policies) p.code],
                     }),
                     onLater: () => setState(() => _claimDismissedRound = v.round),
+                  ),
+                ),
+              if (_tip case final tip? when !over)
+                Positioned(
+                  bottom: 8,
+                  left: 0,
+                  right: 0,
+                  child: Center(
+                    child: _CoachCard(key: ValueKey(tip), text: _tips[tip]!, onClose: _closeTip),
                   ),
                 ),
               if (over && _scenes.isEmpty) _GameOver(view: v, room: _room),
@@ -854,6 +968,7 @@ class _GameScreenState extends State<GameScreen> {
     );
     if (ok != true || !mounted) return;
     setState(() => _leaving = true);
+    if (_view case final v?) Telemetry.gameLeft(round: v.round, tutorial: v.tutorial);
     try {
       await _backend.leaveGame(widget.code);
     } on BackendException catch (e) {
@@ -1127,7 +1242,7 @@ class _RoundHud extends StatelessWidget {
     final deadline = view.deadline;
     final left = deadline == null || view.phase == Phase.gameOver
         ? null
-        : deadline.difference(DateTime.now()).inSeconds.clamp(0, 99);
+        : deadline.difference(DateTime.now()).inSeconds.clamp(0, 999);
     final hud = Container(
       padding: const EdgeInsets.fromLTRB(10, 4, 10, 6),
       decoration: BoxDecoration(
@@ -1284,7 +1399,7 @@ class _TopTimer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final total = _phaseSeconds[view.phase] ?? 30;
+    final total = (_phaseSeconds[view.phase] ?? 30) * (view.tutorial ? 4 : 1);
     final left = view.deadline!.difference(DateTime.now()).inMilliseconds.clamp(0, total * 1000) / 1000;
     final urgent = left <= 5;
     return LinearProgressIndicator(
@@ -1468,6 +1583,69 @@ class _PhaseIcon extends StatelessWidget {
   }
 }
 
+/// لعبة الشرح: الراوي (الشيبة) ينزل بنصيحة قصيرة تحت، بعيد عن المقاعد اللي تختار منها.
+class _CoachCard extends StatelessWidget {
+  const _CoachCard({super.key, required this.text, required this.onClose});
+
+  final String text;
+  final VoidCallback onClose;
+
+  @override
+  Widget build(BuildContext context) {
+    // ما نغطي أزرار الزوايا تحت (التفاعل يمين، والصوت والسجل يسار).
+    final maxW = (MediaQuery.sizeOf(context).width - 330).clamp(260.0, 470.0);
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0, end: 1),
+      duration: const Duration(milliseconds: 450),
+      curve: Curves.easeOutBack,
+      builder: (context, t, child) => Transform.translate(
+        offset: Offset(0, 40 * (1 - t)),
+        child: Opacity(opacity: t.clamp(0, 1), child: child),
+      ),
+      child: Semantics(
+        liveRegion: true,
+        label: 'الراوي: $text',
+        child: Container(
+          constraints: BoxConstraints(maxWidth: maxW),
+          padding: const EdgeInsetsDirectional.fromSTEB(8, 7, 4, 7),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(colors: [Color(0xF22B1F5C), Color(0xF21A1240)]),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: AppColors.gold, width: 1.8),
+            boxShadow: [BoxShadow(color: AppColors.gold.withValues(alpha: .3), blurRadius: 18)],
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const PlayerAvatar(avatar: 'sheikh', frame: AppColors.gold, size: 40),
+              const SizedBox(width: 8),
+              Flexible(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'الراوي',
+                      style: TextStyle(color: AppColors.gold, fontSize: 11, fontWeight: FontWeight.w800, height: 1.1),
+                    ),
+                    Text(text, style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, height: 1.4)),
+                  ],
+                ),
+              ),
+              IconButton(
+                tooltip: 'إخفاء النصيحة',
+                visualDensity: VisualDensity.compact,
+                onPressed: onClose,
+                icon: const Gfx('cross', size: 22),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 /// نبض خفيف يلفت النظر بدون كلام.
 class _Pulse extends StatefulWidget {
   const _Pulse({required this.child});
@@ -1636,6 +1814,40 @@ class _Reward extends StatelessWidget {
   );
 }
 
+/// آخر لعبة الشرح: كفو! والهدية (لو هذي أول مرة) تنتظره في الرئيسية.
+class _TutorialDone extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder(
+      valueListenable: Backend.instance.profile,
+      builder: (context, p, _) {
+        final gift = p.gifts.any((g) => g.tutorial);
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          decoration: BoxDecoration(
+            color: AppColors.gold.withValues(alpha: .14),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: AppColors.gold.withValues(alpha: .7)),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Gfx(gift ? 'gift' : 'check', size: 26),
+              const SizedBox(width: 6),
+              Flexible(
+                child: Text(
+                  gift ? 'خلّصت الشرح! هديتك تنتظرك في الرئيسية' : 'خلّصت الشرح! الحين أنت جاهز تلعب مع الناس',
+                  style: const TextStyle(color: AppColors.gold, fontWeight: FontWeight.w800, fontSize: 13.5),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
 class _GameOver extends StatelessWidget {
   const _GameOver({required this.view, required this.room});
 
@@ -1717,6 +1929,7 @@ class _GameOver extends StatelessWidget {
                           textAlign: TextAlign.center,
                           style: const TextStyle(fontSize: 14, color: Color(0xFFD9CFFF)),
                         ),
+                        if (view.tutorial) ...[const SizedBox(height: 8), _TutorialDone()],
                         if (room?.results[view.you] case final r?) ...[
                           const SizedBox(height: 10),
                           Row(

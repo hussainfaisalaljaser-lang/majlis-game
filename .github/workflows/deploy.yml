@@ -1,11 +1,11 @@
-# رفع السيرفر (Cloud Functions) وقواعد الأمان والفهارس إلى Firebase.
+# رفع السيرفر (Cloud Functions) وقواعد الأمان والفهارس وصفحة روابط الدعوة إلى Firebase.
 # يحتاج خطة Blaze، وسر في GitHub اسمه FIREBASE_SERVICE_ACCOUNT (محتوى ملف مفتاح حساب الخدمة).
 name: Deploy server
 
 on:
   push:
     branches: [main]
-    paths: ['engine/**', 'functions/**', 'firestore.rules', 'firestore.indexes.json', 'firebase.json']
+    paths: ['engine/**', 'functions/**', 'firestore.rules', 'firestore.indexes.json', 'firebase.json', 'site/**']
   workflow_dispatch:
 
 jobs:
@@ -48,5 +48,23 @@ jobs:
             # GitHub يعرض ١٠ ملاحظات بس، فنجمع آخر السطور في ملاحظة وحدة.
             tail_log=$(sed 's/\x1b\[[0-9;]*m//g' "$RUNNER_TEMP/deploy.log" | grep -v '^\s*$' | tail -30 | sed ':a;N;$!ba;s/%/%25/g;s/\n/%0A/g')
             echo "::error::${tail_log}"
+          fi
+          exit "$code"
+      - name: Deploy website
+        # صفحة روابط الدعوة (Firebase Hosting): majlis-game-1d739.web.app/r/CODE. لو فشلت ما توقف السيرفر.
+        continue-on-error: true
+        working-directory: functions
+        env:
+          SA: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: |
+          echo "$SA" > "$RUNNER_TEMP/sa.json"
+          export GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/sa.json"
+          set +e
+          npx firebase deploy --only hosting --project majlis-game-1d739 --non-interactive 2>&1 | tee "$RUNNER_TEMP/hosting.log"
+          code=${PIPESTATUS[0]}
+          rm "$RUNNER_TEMP/sa.json"
+          if [ "$code" -ne 0 ]; then
+            tail_log=$(sed 's/\x1b\[[0-9;]*m//g' "$RUNNER_TEMP/hosting.log" | grep -v '^\s*$' | tail -30 | sed ':a;N;$!ba;s/%/%25/g;s/\n/%0A/g')
+            echo "::warning::${tail_log}"
           fi
           exit "$code"

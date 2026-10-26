@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../models/profile.dart';
 import '../models/shop.dart';
 import '../services/backend.dart';
+import '../services/telemetry.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
 import '../widgets/item_preview.dart';
@@ -202,7 +203,14 @@ class _ItemsGridState extends State<_ItemsGrid> {
         if (item.equippable) return _run(item.id, () => b.equipItem(item.id), 'لبست "${item.name}"');
       case _State.buy:
         final ok = await showItemPreview(context, item, buy: true);
-        if (ok == true) await _run(item.id, () => b.buyItem(item.id), 'صار عندك "${item.name}"');
+        if (ok == true) {
+          await _run(item.id, () async {
+            await b.buyItem(item.id);
+            if (!p.dev) {
+              Telemetry.spend(item.id, item.coins != null ? 'coins' : 'diamonds', item.coins ?? item.diamonds ?? 0);
+            }
+          }, 'صار عندك "${item.name}"');
+        }
     }
   }
 

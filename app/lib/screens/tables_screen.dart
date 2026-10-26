@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../models/profile.dart';
 import '../models/table_tier.dart';
 import '../services/backend.dart';
+import '../services/telemetry.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
 import '../widgets/ui.dart';
@@ -70,7 +71,11 @@ class _TablesScreenState extends State<TablesScreen> {
       ),
     );
     if (code == null || code.isEmpty) return;
-    await _enter(() => Backend.instance.joinRoom(code));
+    await _enter(() async {
+      final joined = await Backend.instance.joinRoom(code);
+      Telemetry.joinRoom('code');
+      return joined;
+    });
   }
 
   @override

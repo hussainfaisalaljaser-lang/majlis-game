@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import '../models/profile.dart';
 import '../models/shop.dart';
 import '../services/backend.dart';
+import '../services/push.dart';
 import '../services/sfx.dart';
 import '../theme.dart';
 import 'common.dart';
@@ -161,7 +162,7 @@ class GiftWatcher extends StatefulWidget {
   State<GiftWatcher> createState() => _GiftWatcherState();
 }
 
-class _GiftWatcherState extends State<GiftWatcher> {
+class _GiftWatcherState extends State<GiftWatcher> with RouteAware {
   bool _showing = false;
 
   @override
@@ -172,7 +173,18 @@ class _GiftWatcherState extends State<GiftWatcher> {
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (ModalRoute.of(context) case final route?) routeObserver.subscribe(this, route);
+  }
+
+  /// رجع للرئيسية (مثلاً بعد اللعبة): الهدية اللي وصلت وهو يلعب تطلع الحين.
+  @override
+  void didPopNext() => WidgetsBinding.instance.addPostFrameCallback((_) => _check());
+
+  @override
   void dispose() {
+    routeObserver.unsubscribe(this);
     Backend.instance.profile.removeListener(_check);
     super.dispose();
   }

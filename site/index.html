@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>مجلس الخونة</title>
+<meta name="description" content="لعبة خيانة وذكاء مع أصحابك: بينكم أوفياء… وبينكم خونة متخبّين. من ٥ إلى ١٠ لاعبين.">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="مجلس الخونة">
+<meta property="og:title" content="مجلس الخونة: مين الخاين فينا؟">
+<meta property="og:description" content="لعبة خيانة وذكاء مع أصحابك، من ٥ إلى ١٠ لاعبين.">
+<meta property="og:image" content="https://majlis-game-1d739.web.app/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:locale" content="ar_SA">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="theme-color" content="#120E24">
+<link rel="icon" href="/icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Marhey:wght@700&family=Tajawal:wght@500;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<main>
+  <img class="hero" src="/og.png" alt="مجلس الخونة">
+  <p class="sub">لعبة خيانة وذكاء مع أصحابك: بينكم أوفياء… وبينكم خونة متخبّين. من ٥ إلى ١٠ لاعبين.</p>
+  <div class="code hidden" id="codeBox"><span>بعد ما تحمّلها، ادخل الروم بهالكود</span><b id="code"></b></div>
+  <a class="btn green" id="apk" href="https://github.com/hussainfaisalaljaser-lang/majlis-game/releases/latest/download/majlis.apk">حمّل اللعبة (أندرويد)</a>
+  <a class="btn gold hidden" id="open" href="#">ادخل الروم</a>
+  <ol>
+    <li>حمّل الملف وافتحه من الإشعارات أو من التنزيلات.</li>
+    <li>لو طلب منك، اسمح بتثبيت التطبيقات من هذا المصدر.</li>
+    <li>افتح «مجلس الخونة» وادخل كضيف أو بحساب قوقل.</li>
+  </ol>
+  <footer>قريباً على Google Play</footer>
+</main>
+<script>
+  // جاي من رابط دعوة واللعبة مو محمّلة: نعرض الكود عشان يدخل الروم بعد التثبيت.
+  var code = (new URLSearchParams(location.search).get('room') || '').toUpperCase();
+  if (/^[A-Z0-9]{5}$/.test(code)) {
+    document.getElementById('codeBox').classList.remove('hidden');
+    document.getElementById('code').textContent = code;
+    var open = document.getElementById('open');
+    open.classList.remove('hidden');
+    open.href = 'majlis://room/' + code;
+  }
+</script>
+</body>
+</html>

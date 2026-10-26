@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../models/profile.dart';
 import '../models/shop.dart';
 import '../services/backend.dart';
+import '../services/telemetry.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
 import '../widgets/gifts.dart';
@@ -79,6 +80,7 @@ class _PassScreenState extends State<PassScreen> {
     setState(() => _busy = true);
     try {
       await Backend.instance.buyPass();
+      Telemetry.spend('pass_${season.id}', 'diamonds', season.price);
       if (mounted) await _claim();
     } on BackendException catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));

@@ -9,6 +9,9 @@ import 'backend.dart';
 final navigatorKey = GlobalKey<NavigatorState>();
 final messengerKey = GlobalKey<ScaffoldMessengerState>();
 
+/// يعلم الشاشات لما ترجع لها من صفحة فوقها (مثل الرئيسية بعد اللعبة).
+final routeObserver = RouteObserver<ModalRoute<void>>();
+
 /// الإشعارات: لما يجي دورك أو تبدأ اللعبة والتطبيق مقفول أو بالخلفية.
 abstract final class Push {
   static Future<void> init() async {
@@ -53,6 +56,9 @@ abstract final class Push {
   static void setCurrentGame(String? code) => _currentGame = code;
 
   static bool _isOnGame(Object? code) => code != null && code == _currentGame;
+
+  /// اللاعب في طاولة الحين (ما نطلعه منها لرابط دعوة مثلاً).
+  static bool get inGame => _currentGame != null;
 
   static Future<void> _open(Object? code) async {
     if (code is! String || _isOnGame(code)) return;

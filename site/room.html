@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>تعال العب معي «مجلس الخونة»!</title>
+<meta name="description" content="أصحابك يبونك في المجلس… مين الخاين فيكم؟ اضغط وادخل الروم.">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="مجلس الخونة">
+<meta property="og:title" content="تعال العب معي «مجلس الخونة»!">
+<meta property="og:description" content="أصحابك يبونك في المجلس… مين الخاين فيكم؟ اضغط وادخل الروم.">
+<meta property="og:image" content="https://majlis-game-1d739.web.app/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:locale" content="ar_SA">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="theme-color" content="#120E24">
+<link rel="icon" href="/icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Marhey:wght@700&family=Tajawal:wght@500;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<main>
+  <img class="icon" src="/icon.png" alt="مجلس الخونة">
+  <h1>أصحابك يبونك في المجلس!</h1>
+  <p class="sub">بينكم أوفياء… وبينكم خونة متخبّين. مين الخاين فيكم؟</p>
+  <div class="code" id="codeBox"><span>كود الروم</span><b id="code"></b></div>
+  <a id="open" class="btn gold" href="#">ادخل الروم</a>
+  <a id="get" class="btn ghost" href="/">ما عندك اللعبة؟ حمّلها</a>
+  <p class="hint" id="hint">بعد ما تحمّلها: ارجع هنا واضغط «ادخل الروم»، أو افتح اللعبة ← مع أصحابك ← ادخل بالكود.</p>
+  <footer>مجلس الخونة · لعبة خيانة وذكاء مع أصحابك</footer>
+</main>
+<script>
+  // الرابط: /r/CODE. لو اللعبة محمّلة، الرابط يفتحها مباشرة وما يوصل هنا أصلاً.
+  var m = location.pathname.match(/\/r\/([A-Za-z0-9]{5})(?:\/|$)/);
+  var code = m ? m[1].toUpperCase() : null;
+  var open = document.getElementById('open');
+  var get = document.getElementById('get');
+  if (!code) {
+    document.getElementById('codeBox').classList.add('hidden');
+    document.getElementById('hint').classList.add('hidden');
+    open.classList.add('hidden');
+    get.className = 'btn gold';
+    get.textContent = 'حمّل اللعبة';
+  } else {
+    document.getElementById('code').textContent = code;
+    var download = location.origin + '/?room=' + code;
+    get.href = download;
+    // أندرويد: نفتح اللعبة على الروم، ولو مو محمّلة يروح لصفحة التحميل ومعه الكود.
+    open.href = /android/i.test(navigator.userAgent)
+      ? 'intent://room/' + code + '#Intent;scheme=majlis;package=com.majlis.majlis;S.browser_fallback_url=' + encodeURIComponent(download) + ';end'
+      : 'majlis://room/' + code;
+  }
+</script>
+</body>
+</html>

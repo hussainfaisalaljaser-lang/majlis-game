@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- المكتبة تقرا هذا الإعداد بالاسم، فنمنع تقليص الموارد من حذفه. -->
+<resources xmlns:tools="http://schemas.android.com/tools"
+    tools:keep="@bool/com.crashlytics.RequireBuildId" />
