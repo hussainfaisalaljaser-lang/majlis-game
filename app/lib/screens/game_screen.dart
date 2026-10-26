@@ -997,9 +997,6 @@ class _GameScreenState extends State<GameScreen> {
                   start: 74,
                   child: _Pulse(child: _ClaimChip(onTap: () => setState(() => _claimOpen = _claimKey(v)))),
                 ),
-              // بعد اللعبة: الطاولة تبقى، واللي يبي يطلع يضغط خروج.
-              if (over && _scenes.isEmpty)
-                PositionedDirectional(bottom: 17, start: 74, child: _ExitChip(onTap: _leaveTable)),
               // تحت يسار: السجل والصوت
               PositionedDirectional(
                 bottom: 10,
@@ -1658,48 +1655,56 @@ class _ResultCenter extends StatelessWidget {
         onTap: onTap,
         child: FittedBox(
           fit: BoxFit.scaleDown,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  iWon ? const Gfx('trophy', size: 40) : Seal(loyal: loyalWon, size: 40),
-                  const SizedBox(width: 6),
-                  GoldText(iWon ? 'فزت!' : 'خسرت', size: 30),
-                ],
-              ),
-              Text(
-                '${loyalWon ? 'فاز الأوفياء' : 'فاز الخونة'} · ${_winReasons[view.winReason] ?? ''}',
-                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Color(0xFFD9CFFF)),
-              ),
-              if (r != null) ...[
-                const SizedBox(height: 6),
+          child: Container(
+            padding: const EdgeInsets.fromLTRB(18, 8, 18, 10),
+            decoration: BoxDecoration(
+              color: const Color(0xE60B0818),
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: AppColors.gold.withValues(alpha: .55), width: 1.5),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
                 Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    if (r.coins > 0) ...[
-                      Amount('coin', '+${arabicNumber(r.coins)}', size: 18, style: _rewardStyle(AppColors.gold)),
-                      const SizedBox(width: 12),
-                    ],
-                    Amount('xp', '+${arabicNumber(r.xp)}', size: 18, style: _rewardStyle(AppColors.diamond)),
+                    iWon ? const Gfx('trophy', size: 40) : Seal(loyal: loyalWon, size: 40),
+                    const SizedBox(width: 6),
+                    GoldText(iWon ? 'فزت!' : 'خسرت', size: 30),
                   ],
                 ),
+                Text(
+                  '${loyalWon ? 'فاز الأوفياء' : 'فاز الخونة'} · ${_winReasons[view.winReason] ?? ''}',
+                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Color(0xFFD9CFFF)),
+                ),
+                if (r != null) ...[
+                  const SizedBox(height: 6),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (r.coins > 0) ...[
+                        Amount('coin', '+${arabicNumber(r.coins)}', size: 18, style: _rewardStyle(AppColors.gold)),
+                        const SizedBox(width: 12),
+                      ],
+                      Amount('xp', '+${arabicNumber(r.xp)}', size: 18, style: _rewardStyle(AppColors.diamond)),
+                    ],
+                  ),
+                ],
+                const SizedBox(height: 6),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: .35),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: AppColors.gold.withValues(alpha: .6)),
+                  ),
+                  child: const Text(
+                    'النتيجة كاملة',
+                    style: TextStyle(color: AppColors.gold, fontWeight: FontWeight.w800, fontSize: 12.5),
+                  ),
+                ),
               ],
-              const SizedBox(height: 6),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
-                decoration: BoxDecoration(
-                  color: Colors.black.withValues(alpha: .35),
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: AppColors.gold.withValues(alpha: .6)),
-                ),
-                child: const Text(
-                  'النتيجة كاملة',
-                  style: TextStyle(color: AppColors.gold, fontWeight: FontWeight.w800, fontSize: 12.5),
-                ),
-              ),
-            ],
+            ),
           ),
         ),
       ),
@@ -2126,42 +2131,6 @@ class _ClaimChip extends StatelessWidget {
             SizedBox(width: 6),
             Text(
               'وش وصلك؟',
-              style: TextStyle(fontFamily: kufi, fontSize: 14, fontWeight: FontWeight.w700),
-            ),
-          ],
-        ),
-      ),
-    ),
-  );
-}
-
-/// بعد اللعبة: تطلع من الطاولة (الباقين يشوفون إنك طلعت).
-class _ExitChip extends StatelessWidget {
-  const _ExitChip({required this.onTap});
-
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) => Semantics(
-    button: true,
-    label: 'خروج',
-    excludeSemantics: true,
-    child: GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsetsDirectional.fromSTEB(8, 4, 14, 4),
-        decoration: BoxDecoration(
-          color: AppColors.panel.withValues(alpha: .92),
-          borderRadius: BorderRadius.circular(22),
-          border: Border.all(color: AppColors.traitorLight.withValues(alpha: .8), width: 2),
-        ),
-        child: const Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Gfx('exit', size: 28),
-            SizedBox(width: 6),
-            Text(
-              'خروج',
               style: TextStyle(fontFamily: kufi, fontSize: 14, fontWeight: FontWeight.w700),
             ),
           ],
