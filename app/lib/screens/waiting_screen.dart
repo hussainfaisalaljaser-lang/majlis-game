@@ -10,6 +10,7 @@ import '../services/links.dart';
 import '../services/telemetry.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
+import '../widgets/player_card.dart';
 import '../widgets/ui.dart';
 import 'game_screen.dart';
 
@@ -67,7 +68,7 @@ class _WaitingScreenState extends State<WaitingScreen> {
         return;
       }
       setState(() => _room = room);
-    });
+    }, onError: (Object e) => debugPrint('room listener: $e'));
     // الطاولة العامة: لو ما اكتملت بعد شوي، نكملها بالبوتات.
     _timer = Timer.periodic(const Duration(seconds: 1), (_) {
       if (!mounted) return;
@@ -289,7 +290,17 @@ class _WaitingScreenState extends State<WaitingScreen> {
                                 avatar: players[i].avatar,
                                 name: players[i].uid == myUid ? 'أنت' : players[i].name,
                                 bot: players[i].bot,
-                                onTap: isPrivate && isHost && players[i].bot ? () => _removeBot(players[i]) : null,
+                                onTap: isPrivate && isHost && players[i].bot
+                                    ? () => _removeBot(players[i])
+                                    : () => showPlayerCard(
+                                        context,
+                                        uid: players[i].uid,
+                                        name: players[i].name,
+                                        avatar: players[i].avatar,
+                                        frame: players[i].frame,
+                                        bot: players[i].uid.startsWith('bot_'),
+                                        code: widget.code,
+                                      ),
                                 style: frameStyle(players[i].frame),
                                 frame: players[i].uid == myUid && frameStyle(players[i].frame) == null
                                     ? AppColors.gold

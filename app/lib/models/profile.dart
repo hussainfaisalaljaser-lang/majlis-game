@@ -27,6 +27,10 @@ class Profile {
     this.gifts = const [],
     this.pass = const PassState(),
     this.tutorialDone = false,
+    this.stats = const {},
+    this.badges = const {},
+    this.blocked = const {},
+    this.renamed = false,
   });
 
   factory Profile.fromJson(Map<String, dynamic> j) => Profile(
@@ -56,7 +60,15 @@ class Profile {
     gifts: [for (final g in (j['gifts'] as List?) ?? const []) Gift.fromJson(Map<String, dynamic>.from(g as Map))],
     pass: PassState.fromJson((j['pass'] as Map?)?.cast<String, dynamic>()),
     tutorialDone: j['tutorialDone'] as bool? ?? false,
+    stats: _ints(j['stats']),
+    badges: _ints(j['badges']),
+    blocked: {for (final b in (j['blocked'] as List?) ?? const []) b as String},
+    renamed: j['renamed'] as bool? ?? false,
   );
+
+  static Map<String, int> _ints(Object? m) => {
+    for (final MapEntry(:key, :value) in ((m as Map?) ?? const {}).entries) key as String: (value as num).toInt(),
+  };
 
   /// للعرض التجريبي بدون سيرفر (نسخة الويب).
   static const demo = Profile(
@@ -103,6 +115,16 @@ class Profile {
 
   /// خلّص لعبة الشرح (وأخذ مكافأتها).
   final bool tutorialDone;
+
+  /// إحصائيات الإنجازات (games، caught…) ودرجة كل إنجاز وصله.
+  final Map<String, int> stats;
+  final Map<String, int> badges;
+
+  /// لاعبين حظرهم: ما يشوف ردودهم ولا رأيهم.
+  final Set<String> blocked;
+
+  /// اسمه انغيّر لأنه انبلغ عنه: نطلب منه يختار اسم جديد.
+  final bool renamed;
 
   /// هدايا وصلت وما شافها (مستويات أو بطولة).
   final List<Gift> gifts;
@@ -170,6 +192,7 @@ class Gift {
   Gift.fromJson(Map<String, dynamic> j)
     : champion = j['kind'] == 'champion',
       tutorial = j['kind'] == 'tutorial',
+      achievement = j['kind'] == 'achievement' ? j['ach'] as String? : null,
       n = (j['n'] as num).toInt(),
       coins = (j['coins'] as num?)?.toInt() ?? 0,
       diamonds = (j['diamonds'] as num?)?.toInt() ?? 0,
@@ -180,6 +203,9 @@ class Gift {
 
   /// مكافأة أول لعبة شرح.
   final bool tutorial;
+
+  /// معرف الإنجاز لو الهدية درجة إنجاز (و[n] الدرجة).
+  final String? achievement;
 
   /// المستوى، أو المركز للبطولة.
   final int n;

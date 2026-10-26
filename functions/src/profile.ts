@@ -3,17 +3,20 @@ import { HttpsError } from 'firebase-functions/v2/https';
 import { DAILY_REWARDS, STARTING_COINS, gulfDay, levelFor, previousDay } from './economy.js';
 import type { MissionState } from './missions.js';
 import { CATALOG, FREE_AVATARS } from './catalog.js';
+import type { Stats } from './achievements.js';
 import type { PassState } from './rewards.js';
 import { DEFAULT_EQUIPPED, avatarOfItem, isDefault, type EquipSlot } from './shop.js';
 
 /** الشخصيات المجانية (app/assets/avatars). */
 export const AVATARS = FREE_AVATARS;
 
-/** هدية وصلت اللاعب (مستوى أو بطولة الأسبوع). التطبيق يعرضها ويشيلها بـ ackGifts. */
+/** هدية وصلت اللاعب (مستوى، بطولة الأسبوع، الشرح، إنجاز). التطبيق يعرضها ويشيلها بـ ackGifts. */
 export interface Gift {
-  kind: 'level' | 'champion' | 'tutorial';
-  /** المستوى (للمستويات) أو المركز (للأبطال). */
+  kind: 'level' | 'champion' | 'tutorial' | 'achievement';
+  /** المستوى (للمستويات) أو المركز (للأبطال) أو الدرجة (للإنجازات). */
   n: number;
+  /** معرف الإنجاز (للإنجازات). */
+  ach?: string;
   coins: number;
   diamonds: number;
   items: string[];
@@ -52,6 +55,20 @@ export interface Profile {
   pass?: PassState;
   /** خلّص لعبة الشرح وأخذ مكافأتها. */
   tutorialDone?: boolean;
+  /** إحصائيات الإنجازات (achievements.ts)، ودرجة كل إنجاز وصلها (١ برونزي، ٢ فضي، ٣ ذهبي). */
+  stats?: Stats;
+  badges?: Record<string, number>;
+  /** لاعبين حظرهم: ما يشوف ردودهم ولا رأيهم، وما تجمعه المطابقة معهم. */
+  blocked?: string[];
+  /** حد البلاغات والرسائل في اليوم. */
+  reportDay?: string;
+  reportCount?: number;
+  feedbackDay?: string;
+  feedbackCount?: number;
+  /** اللي بلّغوا عن اسمه الحالي. لو وصلوا ٣ ينغيّر اسمه تلقائياً. */
+  nameReporters?: string[];
+  /** اسمه انغيّر لأنه انبلغ عنه: التطبيق يطلب منه يختار اسم جديد. */
+  renamed?: boolean;
   /** أجهزة اللاعب للإشعارات. */
   fcmTokens?: string[];
   /** انطرد من لعبة لأنه ما لعب: ممنوع يدخل ألعاب لين هالوقت (ملي ثانية). */
@@ -77,6 +94,8 @@ export interface LeaderboardEntry {
   gamesPlayed: number;
   week: string | null;
   weeklyWins: number;
+  /** درجات الإنجازات اللي يعرضها ملفه للناس. */
+  badges: Record<string, number>;
 }
 
 export function toLeaderboard(p: Profile): LeaderboardEntry {
@@ -90,6 +109,7 @@ export function toLeaderboard(p: Profile): LeaderboardEntry {
     gamesPlayed: p.gamesPlayed,
     week: p.week ?? null,
     weeklyWins: p.weeklyWins ?? 0,
+    badges: p.badges ?? {},
   };
 }
 
@@ -176,7 +196,7 @@ export function cleanAvatar(raw: unknown, p?: Profile): string {
 /** نتيجة الهدية اليومية: كم ذهب وجواهر، ورقم اليوم في السلسلة. */
 export function dailyClaim(p: Profile, now: number): { coins: number; diamonds: number; streak: number; today: string } {
   const today = gulfDay(now);
-  if (p.lastDaily === today) throw new HttpsError('failed-precondition', 'أخذت هدية اليوم، تعال بكرة 😉');
+  if (p.lastDaily === today) throw new HttpsError('failed-precondition', 'أخذت هدية اليوم، تعال بكرة');
   const continued = p.lastDaily === previousDay(today);
   const streak = continued ? (p.dailyStreak % DAILY_REWARDS.length) + 1 : 1;
   return { ...DAILY_REWARDS[streak - 1], streak, today };

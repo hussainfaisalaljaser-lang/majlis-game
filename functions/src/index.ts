@@ -1,5 +1,6 @@
 import { randomInt } from 'node:crypto';
 import { initializeApp } from 'firebase-admin/app';
+import { getAuth } from 'firebase-admin/auth';
 import { FieldValue, getFirestore, type Transaction } from 'firebase-admin/firestore';
 import { getMessaging } from 'firebase-admin/messaging';
 import { logger, setGlobalOptions } from 'firebase-functions/v2';
@@ -25,6 +26,7 @@ import {
 import { BOT_THINK_JITTER_MS, TUTORIAL_TIME_FACTOR, botThink, scenesDelay, startGrace, tutorialBotExtra } from './pacing.js';
 import {
   xpForLevel,
+  gulfDay,
   LINK_REWARD,
   MISSION_PASS_POINTS,
   TUTORIAL_REWARD,
@@ -36,6 +38,8 @@ import {
 } from './economy.js';
 import { MISSIONS, bumpMissions, gulfWeek, todaysMissions, type MissionId } from './missions.js';
 import { isDev } from './dev.js';
+import { applyStats, statsFromGame } from './achievements.js';
+import { offensiveName } from './moderation.js';
 import { whoToNotify, type Note } from './notify.js';
 import {
   avatarOf,
@@ -199,7 +203,7 @@ function checkTier(p: Profile, tier: TableTier): void {
 /** يخصم رسوم الدخول ويحفظ الملف (يسويه لو جديد). المطور ذهبه ما يخلص. */
 function chargeEntry(tx: Transaction, uid: string, p: Profile, fee: number): void {
   if (p.dev) return void tx.set(userRef(uid), p);
-  if (p.coins < fee) throw new HttpsError('failed-precondition', 'ما عندك ذهب كافي 🪙');
+  if (p.coins < fee) throw new HttpsError('failed-precondition', 'ما عندك ذهب كافي');
   tx.set(userRef(uid), { ...p, coins: p.coins - fee });
 }
 
@@ -322,6 +326,13 @@ export const devTool = onCall(async (req) => {
   const action = String(req.data?.action ?? '');
   if (action === 'forceRole') return forceRole(uid, String(req.data?.code ?? ''), req.data?.role, req.data?.special);
   if (action === 'crown') return { champions: await crownChampions(gulfWeek(Date.now()), Date.now()) };
+  if (action === 'reports') return { reports: await openReports() };
+  if (action === 'feedback') return { feedback: await recentFeedback() };
+  if (action === 'deletionRequests') return { requests: await openDeletionRequests() };
+  if (action === 'deleteUser') return deleteFromRequest(String(req.data?.request ?? ''), req.data?.confirm === true);
+  if (action === 'resolveReport') {
+    return resolveReports(String(req.data?.target ?? ''), String(req.data?.decision ?? ''), clampInt(req.data?.days, 1, 365));
+  }
   return db.runTransaction(async (tx) => {
     const p = await readProfile(db, tx, uid);
     let next: Profile = p;
@@ -394,6 +405,7 @@ export const updateProfile = onCall(async (req) => {
   const name = cleanName(req.data?.name);
   const key = nameKey(name);
   if (BOTS.some((b) => nameKey(b.name) === key)) throw new HttpsError('already-exists', 'هذا الاسم محجوز، اختر اسم ثاني');
+  if (offensiveName(name)) throw new HttpsError('invalid-argument', 'الاسم فيه كلمة مو لائقة، اختر اسم ثاني');
   await db.runTransaction(async (tx) => {
     // كل اسم لواحد بس: نحجزه في names/ ونفك الاسم القديم.
     const nameRef = db.doc(`names/${key}`);
@@ -403,7 +415,16 @@ export const updateProfile = onCall(async (req) => {
     if (taken.exists && taken.data()!.uid !== uid) throw new HttpsError('already-exists', 'هذا الاسم مأخوذ، اختر اسم ثاني');
     if (old.nameKey && old.nameKey !== key) tx.delete(db.doc(`names/${old.nameKey}`));
     tx.set(nameRef, { uid });
-    const p = { ...old, name, nameKey: key, avatar, setupDone: true };
+    // اسم جديد: البلاغات على الاسم القديم ما عاد تنحسب.
+    const changed = old.nameKey !== key;
+    const p: Profile = {
+      ...old,
+      name,
+      nameKey: key,
+      avatar,
+      setupDone: true,
+      ...(changed ? { nameReporters: [], renamed: false } : {}),
+    };
     tx.set(userRef(uid), p);
     tx.set(boardRef(uid), toLeaderboard(p));
   });
@@ -511,6 +532,8 @@ export const quickMatch = onCall(async (req) => {
       requireNotBanned(p);
       if (!room || room.status !== 'waiting' || room.players.length >= room.maxPlayers) return null;
       if (room.players.some((x) => x.uid === uid)) return { started: null };
+      // ما نحطه مع أحد حظره.
+      if (room.players.some((x) => (p.blocked ?? []).includes(x.uid))) return null;
       checkTier(p, tier);
       chargeEntry(tx, uid, p, room.entryFee);
       room.players.push(asPlayer(uid, p));
@@ -738,7 +761,10 @@ async function finishTurn(
   const uids = over ? humans.map((p) => p.id) : [...bumps.keys()];
   const roomRef = db.doc(`rooms/${code}`);
   const room = over ? ((await tx.get(roomRef)).data() as Room) : null;
-  const profiles = await Promise.all(uids.map((uid) => readProfile(db, tx, uid)));
+  // اللي حذف حسابه وسط اللعبة ما نرجّع له ملف.
+  const profiles = (await Promise.all(uids.map((uid) => tx.get(userRef(uid))))).map((s) =>
+    s.exists ? (s.data() as Profile) : null,
+  );
 
   const deadline = turnKey(next) === prev.key ? prev.deadline : deadlineFor(next, now, scenesDelay(prev.state, next));
   writeGame(tx, code, next, deadline);
@@ -746,7 +772,7 @@ async function finishTurn(
   if (!room) {
     uids.forEach((uid, i) => {
       const p = profiles[i];
-      tx.set(userRef(uid), { ...p, missions: bumpMissions(p.missions, now, bumps.get(uid)!) });
+      if (p) tx.set(userRef(uid), { ...p, missions: bumpMissions(p.missions, now, bumps.get(uid)!) });
     });
     return whoToNotify(prev.state, next);
   }
@@ -764,6 +790,7 @@ async function finishTurn(
     const xp = XP_PER_GAME + (won ? XP_PER_WIN : 0);
     const coins = won ? share : 0;
     results[player.id] = { won, coins, xp };
+    if (!p) return;
     const base: Profile = {
       ...p,
       coins: p.coins + coins,
@@ -780,6 +807,8 @@ async function finishTurn(
     if (next.tutorial && !updated.tutorialDone && !(next.autopilot ?? []).includes(player.id)) {
       updated = grant({ ...updated, tutorialDone: true }, { coins: TUTORIAL_REWARD, diamonds: 0, items: [] }, { kind: 'tutorial', n: 0 });
     }
+    // الإنجازات: إحصائيات هاللعبة، ودرجات جديدة لو وصلها.
+    updated = applyStats(updated, statsFromGame(next, player.id, won), won);
     tx.set(userRef(player.id), updated);
     tx.set(boardRef(player.id), toLeaderboard(updated));
   });
@@ -788,7 +817,7 @@ async function finishTurn(
 }
 
 /**
- * يسلّم مقاعد لاعبين للبوت: يطلع جنبهم 🤖 للكل. [banUntil] عقاب اللي انطرد لأنه ما لعب.
+ * يسلّم مقاعد لاعبين للبوت: يطلع جنبهم علامة البوت للكل. [banUntil] عقاب اللي انطرد لأنه ما لعب.
  * كتابة بس (الروم مقروء من بداية العملية)، لأن Firestore يبي كل القراءات قبل الكتابات.
  */
 function handOver(tx: Transaction, room: Room, uids: string[], banUntil?: number): void {
@@ -886,7 +915,7 @@ export const buyItem = onCall(async (req) => {
     // المطور يشتري ببلاش عشان يجرب كل شي.
     const price = p.dev ? 0 : item.price;
     if (balance < price) {
-      throw new HttpsError('failed-precondition', item.currency === 'coins' ? 'ما عندك ذهب كافي 🪙' : 'ما عندك جواهر كافية 💎');
+      throw new HttpsError('failed-precondition', item.currency === 'coins' ? 'ما عندك ذهب كافي' : 'ما عندك جواهر كافية');
     }
     // الإطار والكروت والطاولة تنلبس على طول، والشخصية تصير صورته.
     const slot = slotOf(item.id);
@@ -1109,7 +1138,7 @@ export const react = onCall(async (req) => {
     }
     const now = Date.now();
     const recent = (room.reactions ?? []).filter((r) => r.from === uid && now - r.at < 1500);
-    if (recent.length > 0) throw new HttpsError('resource-exhausted', 'شوي شوي 😅');
+    if (recent.length > 0) throw new HttpsError('resource-exhausted', 'شوي شوي، انتظر ثانية');
     const reactions = [...(room.reactions ?? []), { from: uid, kind, target, at: now }].slice(-MAX_REACTIONS);
     const update: Record<string, unknown> = { reactions };
     if (kind === 'suspect' || kind === 'trust') update[`opinions.${uid}.${target}`] = kind;
@@ -1118,3 +1147,229 @@ export const react = onCall(async (req) => {
   });
   return {};
 });
+
+// ───────────── البلاغ والحظر وحذف الحساب والرسائل ─────────────
+
+const REPORT_REASONS = ['name', 'behavior', 'cheat'] as const;
+const MAX_REPORTS_PER_DAY = 10;
+/** كم لاعب مختلف لازم يبلّغون عن اسم عشان ينغيّر تلقائياً. */
+const NAME_REPORTS_TO_RENAME = 3;
+
+/** اسم مؤقت محايد لما ينغيّر الاسم بسبب البلاغات (واللاعب يختار اسم جديد). */
+function placeholderName(): string {
+  return `لاعب${randomInt(1000, 9999)}`;
+}
+
+/** يغيّر اسم لاعب لاسم محايد (داخل عملية) ويفك حجز اسمه القديم. */
+function renameTx(tx: Transaction, uid: string, p: Profile): Profile {
+  const name = placeholderName();
+  const key = nameKey(name);
+  if (p.nameKey) tx.delete(db.doc(`names/${p.nameKey}`));
+  tx.set(db.doc(`names/${key}`), { uid });
+  const next: Profile = { ...p, name, nameKey: key, nameReporters: [], renamed: true };
+  tx.set(userRef(uid), next);
+  tx.set(boardRef(uid), toLeaderboard(next));
+  return next;
+}
+
+/** بلاغ عن لاعب: اسم مسيء، أو يخرّب اللعب، أو غش. لو ٣ بلّغوا عن نفس الاسم، ينغيّر تلقائياً. */
+export const reportPlayer = onCall(async (req) => {
+  const uid = requireAuth(req);
+  const target = String(req.data?.uid ?? '');
+  const reason = String(req.data?.reason ?? '') as (typeof REPORT_REASONS)[number];
+  const code = req.data?.code ? String(req.data.code).slice(0, 8) : null;
+  if (!REPORT_REASONS.includes(reason)) throw new HttpsError('invalid-argument', 'اختار سبب البلاغ');
+  if (!target || target === uid || target.startsWith('bot_')) throw new HttpsError('invalid-argument', 'ما تقدر تبلّغ عن هذا اللاعب');
+  const now = Date.now();
+  const day = gulfDay(now);
+  // بلاغ واحد في اليوم لكل لاعب وسبب (لو كرره ما ينحسب مرتين).
+  const ref = db.doc(`reports/${day}_${uid}_${target}_${reason}`);
+  return db.runTransaction(async (tx) => {
+    const existing = await tx.get(ref);
+    const targetSnap = await tx.get(userRef(target));
+    const me = await readProfile(db, tx, uid);
+    if (!targetSnap.exists) throw new HttpsError('not-found', 'اللاعب مو موجود');
+    if (existing.exists) return { already: true };
+    const count = me.reportDay === day ? (me.reportCount ?? 0) : 0;
+    if (count >= MAX_REPORTS_PER_DAY) throw new HttpsError('resource-exhausted', 'وصلت حد البلاغات اليوم، شكراً لك');
+    const t = targetSnap.data() as Profile;
+    tx.set(ref, { reporter: uid, target, reason, code, name: t.name, at: now, status: 'open' });
+    tx.set(userRef(uid), { ...me, reportDay: day, reportCount: count + 1 });
+    if (reason === 'name') {
+      const reporters = [...new Set([...(t.nameReporters ?? []), uid])];
+      if (reporters.length >= NAME_REPORTS_TO_RENAME) {
+        renameTx(tx, target, t);
+        logger.info('اسم انغيّر بسبب البلاغات', { target, name: t.name });
+      } else {
+        tx.set(userRef(target), { ...t, nameReporters: reporters });
+      }
+    }
+    return { already: false };
+  });
+});
+
+/** يحظر لاعب أو يفك حظره: ما يشوف ردوده ولا رأيه، وما تجمعه المطابقة معه. */
+export const setBlocked = onCall(async (req) => {
+  const uid = requireAuth(req);
+  const target = String(req.data?.uid ?? '');
+  const blocked = req.data?.blocked === true;
+  if (!target || target === uid) throw new HttpsError('invalid-argument', 'اختار لاعب ثاني');
+  await db.runTransaction(async (tx) => {
+    const p = await readProfile(db, tx, uid);
+    const list = new Set(p.blocked ?? []);
+    if (blocked) list.add(target);
+    else list.delete(target);
+    if (list.size > 300) throw new HttpsError('resource-exhausted', 'قائمة الحظر مليانة');
+    tx.set(userRef(uid), { ...p, blocked: [...list] });
+  });
+  return {};
+});
+
+/** رسالة للمطور من داخل اللعبة (مشكلة، اقتراح، أو أي شي). */
+export const sendFeedback = onCall(async (req) => {
+  const uid = requireAuth(req);
+  const text = String(req.data?.text ?? '').trim().slice(0, 1000);
+  const kind = ['bug', 'idea', 'other'].includes(req.data?.kind) ? String(req.data.kind) : 'other';
+  if (text.length < 3) throw new HttpsError('invalid-argument', 'اكتب رسالتك');
+  const now = Date.now();
+  const day = gulfDay(now);
+  await db.runTransaction(async (tx) => {
+    const p = await readProfile(db, tx, uid);
+    const count = p.feedbackDay === day ? (p.feedbackCount ?? 0) : 0;
+    if (count >= 5) throw new HttpsError('resource-exhausted', 'وصلت حد الرسائل اليوم، نرد عليك قريب');
+    tx.set(db.collection('feedback').doc(), {
+      uid,
+      name: p.name,
+      kind,
+      text,
+      version: String(req.data?.version ?? '').slice(0, 20),
+      at: now,
+    });
+    tx.set(userRef(uid), { ...p, feedbackDay: day, feedbackCount: count + 1 });
+  });
+  return {};
+});
+
+/**
+ * حذف الحساب نهائياً: الملف، والاسم المحجوز، ومكانه في الترتيب، ورسائله، والحساب نفسه.
+ * البلاغات اللي سواها تبقى بدون هويته (عشان ما ينمسح بلاغ صحيح عن لاعب ثاني).
+ */
+export const deleteAccount = onCall(async (req) => {
+  await deleteUserData(requireAuth(req));
+  return {};
+});
+
+/** يحذف كل بيانات اللاعب وحساب الدخول (من التطبيق نفسه، أو المطور لطلب حذف من الموقع). */
+async function deleteUserData(uid: string): Promise<void> {
+  const snap = await userRef(uid).get();
+  const p = snap.data() as Profile | undefined;
+  const batch = db.batch();
+  batch.delete(userRef(uid));
+  batch.delete(boardRef(uid));
+  if (p?.nameKey) batch.delete(db.doc(`names/${p.nameKey}`));
+  const [mine, feedback] = await Promise.all([
+    db.collection('reports').where('reporter', '==', uid).get(),
+    db.collection('feedback').where('uid', '==', uid).get(),
+  ]);
+  for (const d of mine.docs) batch.update(d.ref, { reporter: 'deleted' });
+  for (const d of feedback.docs) batch.delete(d.ref);
+  await batch.commit();
+  await getAuth()
+    .deleteUser(uid)
+    .catch((e) => logger.warn('حذف حساب الدخول', e));
+  logger.info('حساب انحذف', { uid });
+}
+
+const MAX_DELETION_REQUESTS_PER_DAY = 200;
+
+/**
+ * طلب حذف حساب من صفحة الموقع (site/delete.html) لمن ما يقدر يدخل اللعبة. بدون تسجيل دخول،
+ * فالمطور يراجعه ويحذف بنفسه (devTool → deleteUser). فيه حد يومي عشان ما ينضرب بالطلبات.
+ */
+export const requestDeletion = onCall(async (req) => {
+  const name = String(req.data?.name ?? '').trim().slice(0, 40);
+  const details = String(req.data?.details ?? '').trim().slice(0, 500);
+  const contact = String(req.data?.contact ?? '').trim().slice(0, 100);
+  if (name.length < 2) throw new HttpsError('invalid-argument', 'اكتب اسمك في اللعبة');
+  const day = gulfDay(Date.now());
+  await db.runTransaction(async (tx) => {
+    // كل القراءات قبل الكتابات (شرط Firestore في العمليات).
+    const counter = db.doc('meta/deletionRequests');
+    const c = (await tx.get(counter)).data() as { day?: string; count?: number } | undefined;
+    const owner = (await tx.get(db.doc(`names/${nameKey(name)}`))).data()?.uid ?? null;
+    const count = c?.day === day ? (c.count ?? 0) : 0;
+    if (count >= MAX_DELETION_REQUESTS_PER_DAY) throw new HttpsError('resource-exhausted', 'جرّب بكرة');
+    tx.set(counter, { day, count: count + 1 });
+    tx.set(db.collection('deletionRequests').doc(), { name, details, contact, uid: owner, at: Date.now(), status: 'open' });
+  });
+  return {};
+});
+
+interface ReportDoc {
+  reporter: string;
+  target: string;
+  reason: string;
+  code: string | null;
+  name: string;
+  at: number;
+  status: string;
+}
+
+/** البلاغات المفتوحة، مجمّعة حسب اللاعب (الأكثر بلاغات أول). للمطور. */
+async function openReports(): Promise<object[]> {
+  const snap = await db.collection('reports').where('status', '==', 'open').limit(300).get();
+  const byTarget = new Map<string, { target: string; name: string; count: number; reasons: Record<string, number>; last: number }>();
+  for (const d of snap.docs) {
+    const r = d.data() as ReportDoc;
+    const g = byTarget.get(r.target) ?? { target: r.target, name: r.name, count: 0, reasons: {}, last: 0 };
+    g.count++;
+    g.reasons[r.reason] = (g.reasons[r.reason] ?? 0) + 1;
+    if (r.at > g.last) {
+      g.last = r.at;
+      g.name = r.name;
+    }
+    byTarget.set(r.target, g);
+  }
+  return [...byTarget.values()].sort((a, b) => b.count - a.count || b.last - a.last);
+}
+
+async function recentFeedback(): Promise<object[]> {
+  const snap = await db.collection('feedback').orderBy('at', 'desc').limit(50).get();
+  return snap.docs.map((d) => {
+    const f = d.data();
+    return { name: f.name, kind: f.kind, text: f.text, at: f.at, version: f.version };
+  });
+}
+
+/** المطور يقرر في بلاغات لاعب: rename (اسم محايد)، ban (منع لعدد أيام)، أو dismiss (ما فيه شي). */
+async function resolveReports(target: string, decision: string, days: number): Promise<object> {
+  if (!['rename', 'ban', 'dismiss'].includes(decision)) throw new HttpsError('invalid-argument', 'قرار مو معروف');
+  const open = await db.collection('reports').where('target', '==', target).where('status', '==', 'open').get();
+  await db.runTransaction(async (tx) => {
+    const snap = await tx.get(userRef(target));
+    if (snap.exists) {
+      const p = snap.data() as Profile;
+      if (decision === 'rename') renameTx(tx, target, p);
+      if (decision === 'ban') tx.set(userRef(target), { ...p, bannedUntil: Date.now() + days * 86_400_000 });
+    }
+    for (const d of open.docs) tx.update(d.ref, { status: decision });
+  });
+  return { resolved: open.size };
+}
+
+async function openDeletionRequests(): Promise<object[]> {
+  const snap = await db.collection('deletionRequests').where('status', '==', 'open').limit(100).get();
+  return snap.docs
+    .map((d) => ({ id: d.id, ...(d.data() as { name: string; details: string; contact: string; uid: string | null; at: number }) }))
+    .sort((a, b) => b.at - a.at);
+}
+
+/** المطور يقرر في طلب حذف: confirm = يحذف الحساب (لو لقينا صاحب الاسم)، وإلا يقفل الطلب بدون حذف. */
+async function deleteFromRequest(id: string, confirm: boolean): Promise<object> {
+  const ref = db.doc(`deletionRequests/${id}`);
+  const r = (await ref.get()).data() as { uid: string | null } | undefined;
+  if (!r) throw new HttpsError('not-found', 'الطلب مو موجود');
+  if (confirm && r.uid) await deleteUserData(r.uid);
+  await ref.update({ status: confirm && r.uid ? 'deleted' : 'closed' });
+  return { deleted: confirm && !!r.uid };
+}

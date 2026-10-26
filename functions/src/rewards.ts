@@ -8,7 +8,7 @@ import type { Gift, Profile } from './profile.js';
 const MAX_GIFTS = 10;
 
 /** يعطي اللاعب [r]. [gift] لو انعطت يطلع له تنبيه. */
-export function grant(p: Profile, r: Reward, gift?: Pick<Gift, 'kind' | 'n'>): Profile {
+export function grant(p: Profile, r: Reward, gift?: Pick<Gift, 'kind' | 'n' | 'ach'>): Profile {
   const owned = [...(p.owned ?? [])];
   for (const id of r.items) if (!owned.includes(id)) owned.push(id);
   const next: Profile = { ...p, coins: p.coins + r.coins, diamonds: p.diamonds + r.diamonds, owned };

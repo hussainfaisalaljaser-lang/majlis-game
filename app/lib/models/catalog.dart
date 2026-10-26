@@ -3,6 +3,7 @@
 
 import 'package:flutter/material.dart';
 
+import 'achievements.dart';
 import 'shop.dart';
 
 const catalog = <ShopItem>[
@@ -1354,6 +1355,84 @@ const championRewards = <int, LevelReward>{
   2: LevelReward(0, coins: 3000, items: ['frame_champ2', 'avatar_champ2']),
   3: LevelReward(0, coins: 1500, items: ['frame_champ3', 'avatar_champ3']),
 };
+
+/// الإنجازات (نفس functions/src/catalog.ts → ACHIEVEMENTS).
+const achievements = <Achievement>[
+  Achievement('games', stat: 'games', tiers: [10, 50, 200], name: 'ابن المجلس', desc: 'العب {n} لعبة', icon: 'games'),
+  Achievement(
+    'loyal',
+    stat: 'winsLoyal',
+    tiers: [5, 25, 100],
+    name: 'الوفي',
+    desc: 'افز {n} مرة وأنت من الأوفياء',
+    icon: 'innocent',
+  ),
+  Achievement(
+    'traitor',
+    stat: 'winsTraitor',
+    tiers: [5, 25, 100],
+    name: 'خاين محترف',
+    desc: 'افز {n} مرة وأنت خاين',
+    icon: 'liar',
+  ),
+  Achievement(
+    'leader',
+    stat: 'winsLeader',
+    tiers: [1, 10, 30],
+    name: 'الزعيم',
+    desc: 'افز {n} مرة وأنت زعيم الخونة',
+    icon: 'crown',
+  ),
+  Achievement(
+    'hunter',
+    stat: 'caught',
+    tiers: [1, 10, 30],
+    name: 'صياد الخونة',
+    desc: 'اطرد {n} خاين وأنت الرئيس',
+    icon: 'skull',
+  ),
+  Achievement(
+    'detective',
+    stat: 'found',
+    tiers: [1, 10, 30],
+    name: 'المحقق',
+    desc: 'اكشف {n} خاين بالتحقيق',
+    icon: 'search',
+  ),
+  Achievement(
+    'minister',
+    stat: 'loyalLaws',
+    tiers: [5, 25, 100],
+    name: 'وزير نزيه',
+    desc: 'مرّر {n} قرار أزرق وأنت الوزير',
+    icon: 'scales',
+  ),
+  Achievement(
+    'streak',
+    stat: 'bestStreak',
+    tiers: [3, 5, 10],
+    name: 'ما ينغلب',
+    desc: 'افز {n} ألعاب ورا بعض',
+    icon: 'fire',
+  ),
+  Achievement(
+    'seer',
+    stat: 'seerWins',
+    tiers: [1, 5, 20],
+    name: 'العرّاف',
+    desc: 'افز {n} مرة وأنت العرّاف',
+    icon: 'seer',
+  ),
+  Achievement(
+    'guardian',
+    stat: 'saved',
+    tiers: [1, 5, 15],
+    name: 'الحارس',
+    desc: 'انجُ من الطرد {n} مرة وأنت الحارس',
+    icon: 'shield',
+  ),
+];
+const achievementRewards = [150, 400, 1000];
 
 /// الموسم الحالي (الباتل باس). نفس functions/src/catalog.ts → SEASON.
 final season = Season(

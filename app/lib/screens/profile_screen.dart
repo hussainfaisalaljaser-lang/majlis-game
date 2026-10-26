@@ -6,8 +6,10 @@ import '../theme.dart';
 import '../widgets/account.dart';
 import 'dev_screen.dart';
 import 'shop_screen.dart';
+import '../widgets/achievements_list.dart';
 import '../widgets/common.dart';
 import '../widgets/item_preview.dart';
+import '../widgets/settings.dart';
 import '../widgets/ui.dart';
 
 /// اختيار الاسم والشخصية. يطلع أول مرة يفتح اللاعب اللعبة، ومن الملف الشخصي للتعديل.
@@ -195,6 +197,7 @@ class ProfileScreen extends StatelessWidget {
                       ),
                     ),
                   if (Backend.instance.isReady) const AccountCard(),
+                  if (Backend.instance.isReady) ...[const SizedBox(height: 10), SettingsCard(profile: p)],
                   if (p.dev) ...[
                     const SizedBox(height: 10),
                     GameButton(
@@ -278,6 +281,8 @@ class ProfileScreen extends StatelessWidget {
                       ),
                     ],
                   ),
+                  const SizedBox(height: 10),
+                  AchievementsPanel(profile: p),
                 ],
               ),
             ),

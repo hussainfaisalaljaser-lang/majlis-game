@@ -203,6 +203,24 @@ CHAMPIONS = {1: dict(coins=5000, items=['frame_champ1', 'avatar_champ1']),
              3: dict(coins=1500, items=['frame_champ3', 'avatar_champ3'])}
 
 
+# ───────────── الإنجازات ─────────────
+# stat: الإحصائية اللي تنعد بعد كل لعبة (functions/src/achievements.ts). الدرجات: برونزي، فضي، ذهبي،
+# وكل درجة لها ذهب. {n} في الوصف = الرقم المطلوب للدرجة.
+ACHIEVEMENT_REWARDS = [150, 400, 1000]
+ACHIEVEMENTS = [
+    dict(id='games', stat='games', tiers=[10, 50, 200], name='ابن المجلس', desc='العب {n} لعبة', icon='games'),
+    dict(id='loyal', stat='winsLoyal', tiers=[5, 25, 100], name='الوفي', desc='افز {n} مرة وأنت من الأوفياء', icon='innocent'),
+    dict(id='traitor', stat='winsTraitor', tiers=[5, 25, 100], name='خاين محترف', desc='افز {n} مرة وأنت خاين', icon='liar'),
+    dict(id='leader', stat='winsLeader', tiers=[1, 10, 30], name='الزعيم', desc='افز {n} مرة وأنت زعيم الخونة', icon='crown'),
+    dict(id='hunter', stat='caught', tiers=[1, 10, 30], name='صياد الخونة', desc='اطرد {n} خاين وأنت الرئيس', icon='skull'),
+    dict(id='detective', stat='found', tiers=[1, 10, 30], name='المحقق', desc='اكشف {n} خاين بالتحقيق', icon='search'),
+    dict(id='minister', stat='loyalLaws', tiers=[5, 25, 100], name='وزير نزيه', desc='مرّر {n} قرار أزرق وأنت الوزير', icon='scales'),
+    dict(id='streak', stat='bestStreak', tiers=[3, 5, 10], name='ما ينغلب', desc='افز {n} ألعاب ورا بعض', icon='fire'),
+    dict(id='seer', stat='seerWins', tiers=[1, 5, 20], name='العرّاف', desc='افز {n} مرة وأنت العرّاف', icon='seer'),
+    dict(id='guardian', stat='saved', tiers=[1, 5, 15], name='الحارس', desc='انجُ من الطرد {n} مرة وأنت الحارس', icon='shield'),
+]
+
+
 # ───────────── الموسم (الباتل باس) ─────────────
 def R(coins=0, diamonds=0, items=()):
     return dict(coins=coins, diamonds=diamonds, items=list(items))
@@ -251,6 +269,10 @@ def check():
         for it in r['items']: assert it in known, it
     for c in CHAMPIONS.values():
         for it in c['items']: assert it in known, it
+    ach = [a['id'] for a in ACHIEVEMENTS]
+    assert len(ach) == len(set(ach)), 'إنجاز مكرر'
+    for a in ACHIEVEMENTS:
+        assert len(a['tiers']) == len(ACHIEVEMENT_REWARDS) and a['tiers'] == sorted(a['tiers']), a['id']
     for track in ('free', 'premium'):
         for t, r in SEASON[track].items():
             assert 1 <= t <= SEASON['tiers']
@@ -306,6 +328,12 @@ def ts():
     for k, v in CHAMPIONS.items(): L.append(f"  {k}: {json.dumps(dict(coins=v['coins'], diamonds=0, items=v['items']))},")
     L.append('};')
     L.append('')
+    L.append('/** الإنجازات: الإحصائية اللي تنعد، والأرقام المطلوبة لكل درجة (برونزي، فضي، ذهبي). */')
+    L.append('export const ACHIEVEMENTS: { id: string; stat: string; tiers: number[] }[] = [')
+    for a in ACHIEVEMENTS: L.append('  ' + json.dumps({k: a[k] for k in ('id', 'stat', 'tiers')}) + ',')
+    L.append('];')
+    L.append(f'/** ذهب كل درجة. */\nexport const ACHIEVEMENT_REWARDS = {json.dumps(ACHIEVEMENT_REWARDS)};')
+    L.append('')
     L.append('/** الموسم الحالي (الباتل باس). start/end بتوقيت الخليج، والمكافآت حسب الدرجة. */')
     season = {k: SEASON[k] for k in ('id', 'start', 'end', 'price', 'tier_points', 'tiers')}
     season['free'] = {str(k): v for k, v in SEASON['free'].items()}
@@ -339,7 +367,7 @@ def price(d):
 
 def dart():
     L = ['// مولّد من tools/catalog/catalog.py — لا تعدله باليد.', '// ignore_for_file: lines_longer_than_80_chars', '',
-         "import 'package:flutter/material.dart';", '', "import 'shop.dart';", '']
+         "import 'package:flutter/material.dart';", '', "import 'achievements.dart';", "import 'shop.dart';", '']
     L.append('const catalog = <ShopItem>[')
     for slot, i, d in items():
         args = [f'id: {dstr(i)}', f'slot: ShopSlot.{slot}', f'name: {dstr(d["name"])}', f'rarity: Rarity.{d["rarity"]}'] + price(d)
@@ -398,6 +426,13 @@ def dart():
     L.append('')
     def rw(t, r):
         return f"LevelReward({t}, coins: {r['coins']}, diamonds: {r['diamonds']}, items: [" + ', '.join(dstr(x) for x in r['items']) + '])'
+    L.append('/// الإنجازات (نفس functions/src/catalog.ts → ACHIEVEMENTS).')
+    L.append('const achievements = <Achievement>[')
+    for a in ACHIEVEMENTS:
+        L.append(f"  Achievement({dstr(a['id'])}, stat: {dstr(a['stat'])}, tiers: {a['tiers']}, name: {dstr(a['name'])}, desc: {dstr(a['desc'])}, icon: {dstr(a['icon'])}),")
+    L.append('];')
+    L.append(f"const achievementRewards = {ACHIEVEMENT_REWARDS};")
+    L.append('')
     L.append('/// الموسم الحالي (الباتل باس). نفس functions/src/catalog.ts → SEASON.')
     L.append('final season = Season(')
     L.append(f"  id: {dstr(SEASON['id'])},")

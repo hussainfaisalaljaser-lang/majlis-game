@@ -128,8 +128,9 @@ class GameTable extends StatelessWidget {
                               : (p.id != view.you && (p.knownRole == Role.traitor || p.knownRole == Role.leader)
                                     ? .85
                                     : .3),
-                          onTap: selectable.contains(p.id) ? () => onSelect?.call(p.id) : null,
-                          onLongPress: p.id == view.you ? null : () => onNote?.call(p.id),
+                          // تختاره (وقت الترشيح أو القدرة)، وإلا تفتح بطاقته.
+                          onTap: selectable.contains(p.id) ? () => onSelect?.call(p.id) : () => onNote?.call(p.id),
+                          onLongPress: () => onNote?.call(p.id),
                         ),
                       ),
                     ),
@@ -325,8 +326,12 @@ class _SeatView extends StatelessWidget {
     final isMe = p.id == view.you;
     final rp = room?.player(p.id);
     final role = p.knownRole;
-    final opinion = room?.opinionOf(p.id);
-    final reaction = room?.reactions.where((r) => r.from == p.id && now.difference(r.at).inSeconds < 5).lastOrNull;
+    // اللي حظرتهم: ما تشوف ردودهم ولا رأيهم.
+    final blocked = Backend.instance.profile.value.blocked;
+    final opinion = room?.opinionOf(p.id, ignore: blocked);
+    final reaction = blocked.contains(p.id)
+        ? null
+        : room?.reactions.where((r) => r.from == p.id && now.difference(r.at).inSeconds < 5).lastOrNull;
 
     Color? frame;
     if (selectable) {
@@ -343,7 +348,7 @@ class _SeatView extends StatelessWidget {
 
     return Semantics(
       button: onTap != null,
-      label: 'اختيار ${p.name}',
+      label: selectable ? 'اختيار ${p.name}' : 'ملف ${p.name}',
       excludeSemantics: true,
       child: GestureDetector(
         onTap: onTap,

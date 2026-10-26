@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>حذف الحساب · مجلس الخونة</title>
+<meta name="description" content="كيف تحذف حسابك في مجلس الخونة وكل بياناتك.">
+<meta name="theme-color" content="#120E24">
+<link rel="icon" href="/icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Marhey:wght@700&family=Tajawal:wght@500;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<main class="doc">
+  <h1>حذف الحساب</h1>
+  <h2>من داخل اللعبة (على طول)</h2>
+  <p>افتح «مجلس الخونة» ← <b>ملفي</b> ← <b>حذف الحساب</b> ← أكّد. ينحذف مباشرة: اسمك، ومستواك، وذهبك وجواهرك وأغراضك، وإنجازاتك، ومكانك في الترتيب، ورسائلك لنا، وحساب الدخول (ولو مربوط بقوقل ينفك الربط).</p>
+  <h2>ما تقدر تدخل اللعبة؟</h2>
+  <p>أرسل لنا طلب حذف، ونتحقق منه ونحذف الحساب خلال ٧ أيام. البلاغات اللي سويتها عن غيرك تبقى بدون هويتك.</p>
+  <form id="req">
+    <label for="name">اسمك في اللعبة</label>
+    <input id="name" required minlength="2" maxlength="40" autocomplete="off">
+    <label for="details">وش تبي (اختياري)</label>
+    <textarea id="details" rows="3" maxlength="500" placeholder="مثلاً: أبي أحذف حسابي وكل بياناتي"></textarea>
+    <label for="contact">طريقة نتواصل معك للتأكيد (اختياري)</label>
+    <input id="contact" maxlength="100" autocomplete="off">
+    <button class="btn gold" type="submit" id="send">أرسل طلب الحذف</button>
+    <p id="msg"></p>
+  </form>
+  <section class="en">
+    <h2>Delete your account</h2>
+    <p>In the app: Profile → Delete account → confirm. This immediately deletes your name, level, coins, gems, items, achievements, leaderboard entry, messages to us and your sign-in account. If you cannot open the app, submit the form above with your in-game name and we will verify and delete the account within 7 days. Reports you made about other players are kept without your identity.</p>
+  </section>
+  <nav class="links"><a href="/">الرئيسية</a><a href="/privacy">سياسة الخصوصية</a><a href="/terms">شروط الاستخدام</a></nav>
+</main>
+<script>
+  var form = document.getElementById('req');
+  var msg = document.getElementById('msg');
+  var send = document.getElementById('send');
+  form.addEventListener('submit', function (e) {
+    e.preventDefault();
+    send.disabled = true;
+    msg.className = '';
+    msg.textContent = 'نرسل…';
+    fetch('https://europe-west1-majlis-game-1d739.cloudfunctions.net/requestDeletion', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ data: {
+        name: document.getElementById('name').value,
+        details: document.getElementById('details').value,
+        contact: document.getElementById('contact').value,
+      } }),
+    }).then(function (r) { return r.json(); }).then(function (j) {
+      if (j.error) throw new Error(j.error.message || 'صار خطأ');
+      msg.className = 'ok';
+      msg.textContent = 'وصل طلبك. نتحقق منه ونحذف الحساب خلال ٧ أيام.';
+      form.reset();
+    }).catch(function (err) {
+      msg.className = 'err';
+      msg.textContent = err.message || 'صار خطأ، جرّب مرة ثانية';
+      send.disabled = false;
+    });
+  });
+</script>
+</body>
+</html>

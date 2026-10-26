@@ -13,7 +13,11 @@ class LeaderboardEntry {
       xp = (j['xp'] as num?)?.toInt() ?? 0,
       gamesWon = j['gamesWon'] as int,
       gamesPlayed = j['gamesPlayed'] as int,
-      weeklyWins = j['weeklyWins'] as int? ?? 0;
+      weeklyWins = j['weeklyWins'] as int? ?? 0,
+      badges = {
+        for (final MapEntry(:key, :value) in ((j['badges'] as Map?) ?? const {}).entries)
+          key as String: (value as num).toInt(),
+      };
 
   final String uid;
   final String name;
@@ -24,6 +28,11 @@ class LeaderboardEntry {
   final int gamesWon;
   final int gamesPlayed;
   final int weeklyWins;
+
+  /// درجة كل إنجاز وصله (١ برونزي، ٢ فضي، ٣ ذهبي).
+  final Map<String, int> badges;
+
+  int get winRate => gamesPlayed == 0 ? 0 : (gamesWon * 100 / gamesPlayed).round();
 }
 
 /// رقم الأسبوع بتوقيت الخليج، الأسبوع يبدأ الأحد (نفس functions/src/missions.ts).

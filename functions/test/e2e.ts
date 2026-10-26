@@ -262,13 +262,20 @@ async function main(): Promise<void> {
   console.log('✓ الطاولات: المقفلة ترفض، والرسوم تنخصم وترجع لما تطلع');
 
   // ٧. المطابقة على طاولة المدينة: ٥ لاعبين يدفعون ١٠٠٠، والفريق الفايز يتقاسم ٥٠٠٠
-  const startCoins = await Promise.all(players.map(async (p) => (await p.profile()).coins));
+  // ذهب الإنجازات (لو أحد وصل درجة جديدة في هاللعبة) ينحسب لحاله.
+  const achCoins = (prof: Record<string, any>) =>
+    ((prof.gifts ?? []) as { kind: string; coins: number }[]).filter((g) => g.kind === 'achievement').reduce((a, g) => a + g.coins, 0);
+  const startProfiles = await Promise.all(players.map((p) => p.profile()));
+  const startCoins = startProfiles.map((p) => p.coins - achCoins(p));
   const codes = new Set<string>();
   for (const p of players) codes.add((await p.call<{ code: string }>('quickMatch', { maxPlayers: 5, tierId: 'city' })).code);
   assert.equal(codes.size, 1, 'كلهم لازم يدخلون نفس الروم');
   const [qm] = codes;
   assert.equal((await players[2].view(qm)).phase, 'nomination');
-  for (const [i, p] of players.entries()) assert.equal((await p.profile()).coins, startCoins[i] - 1000);
+  for (const [i, p] of players.entries()) {
+    const prof = await p.profile();
+    assert.equal(prof.coins - achCoins(prof), startCoins[i] - 1000);
+  }
   console.log(`✓ المطابقة: ٥ لاعبين دخلوا روم ${qm} ودفعوا الرسوم وبدأت تلقائياً`);
   await playToEnd(players, qm);
   const qmResults = (await getDoc(doc(getFirestore(host.app), `rooms/${qm}`))).data()!.results;
@@ -276,7 +283,8 @@ async function main(): Promise<void> {
   for (const [i, p] of players.entries()) {
     const expected = qmResults[p.uid].won ? Math.floor(5000 / winnerCount) : 0;
     assert.equal(qmResults[p.uid].coins, expected);
-    assert.equal((await p.profile()).coins, startCoins[i] - 1000 + expected);
+    const prof = await p.profile();
+    assert.equal(prof.coins - achCoins(prof), startCoins[i] - 1000 + expected);
   }
   console.log(`✓ الجائزة: ${winnerCount} فايزين، كل واحد أخذ ${Math.floor(5000 / winnerCount)} ذهب`);
 
@@ -518,6 +526,87 @@ async function main(): Promise<void> {
   assert.equal(tutProfile.gifts.filter((g: { kind: string }) => g.kind === 'tutorial').length, 1);
   console.log(`✓ لعبة الشرح: وفي وأول رئيس، الحكومة الأولى تمر، و+٥٠٠ لمن يكملها (${tutSteps} خطوة)`);
   await deleteApp(newbie.app);
+
+  // الأسماء المسيئة تنرفض
+  await expectError(players[0].call('updateProfile', { name: 'شرموط', avatar: 'falcon' }), 'invalid-argument');
+  // البلاغ: ٣ بلّغوا عن نفس الاسم = ينغيّر تلقائياً، والبلاغ المكرر ما ينحسب
+  const reported = players[4];
+  const reportArgs = { uid: reported.uid, reason: 'name' };
+  await expectError(reported.call('reportPlayer', { ...reportArgs }), 'invalid-argument');
+  await expectError(players[0].call('reportPlayer', { uid: 'bot_1', reason: 'name' }), 'invalid-argument');
+  await expectError(players[0].call('reportPlayer', { uid: reported.uid, reason: 'rude' }), 'invalid-argument');
+  const oldName = (await reported.profile()).name;
+  await players[0].call('reportPlayer', reportArgs);
+  const again = await players[0].call<{ already: boolean }>('reportPlayer', reportArgs);
+  assert.equal(again.already, true);
+  await players[1].call('reportPlayer', reportArgs);
+  assert.equal((await reported.profile()).name, oldName, 'بلاغين ما يكفون');
+  await players[2].call('reportPlayer', { ...reportArgs, code: 'ABCDE' });
+  const renamedP = await reported.profile();
+  assert.notEqual(renamedP.name, oldName);
+  assert.ok(renamedP.name.startsWith('لاعب'));
+  assert.equal(renamedP.renamed, true);
+  assert.equal((await getDoc(doc(getFirestore(reported.app), `leaderboard/${reported.uid}`))).data()!.name, renamedP.name);
+  // يختار اسم جديد: تنشال علامة التغيير
+  await reported.call('updateProfile', { name: 'اسم نظيف', avatar: 'falcon' });
+  assert.equal((await reported.profile()).renamed, false);
+  // المطور يشوف البلاغات ويقفلها
+  const { reports } = await dev.call<{ reports: { target: string; count: number }[] }>('devTool', { action: 'reports' });
+  assert.ok(reports.find((r) => r.target === reported.uid)!.count >= 3);
+  await expectError(players[0].call('devTool', { action: 'reports' }), 'permission-denied');
+  const { resolved } = await dev.call<{ resolved: number }>('devTool', { action: 'resolveReport', target: reported.uid, decision: 'dismiss' });
+  assert.ok(resolved >= 3);
+  const after = await dev.call<{ reports: { target: string }[] }>('devTool', { action: 'reports' });
+  assert.ok(!after.reports.some((r) => r.target === reported.uid));
+  console.log('✓ البلاغ: الأسماء المسيئة تنرفض، و٣ بلاغات تغيّر الاسم، والمطور يقفلها');
+
+  // الحظر
+  await players[0].call('setBlocked', { uid: players[1].uid, blocked: true });
+  assert.deepEqual((await players[0].profile()).blocked, [players[1].uid]);
+  await players[0].call('setBlocked', { uid: players[1].uid, blocked: false });
+  assert.deepEqual((await players[0].profile()).blocked, []);
+  await expectError(players[0].call('setBlocked', { uid: players[0].uid, blocked: true }), 'invalid-argument');
+  // رسالة للمطور
+  await players[0].call('sendFeedback', { kind: 'idea', text: 'ابي وضع سريع', version: '92' });
+  const { feedback } = await dev.call<{ feedback: { text: string }[] }>('devTool', { action: 'feedback' });
+  assert.equal(feedback[0].text, 'ابي وضع سريع');
+  console.log('✓ الحظر ورسائل التواصل');
+
+  // الإنجازات: بعد الألعاب اللي فاتت، الإحصائيات تنحسب وتطلع في الترتيب
+  const hostStats = await host.profile();
+  assert.ok((hostStats.stats?.games ?? 0) >= 2, 'الألعاب تنعد');
+  const board = (await getDoc(doc(getFirestore(host.app), `leaderboard/${host.uid}`))).data()!;
+  assert.equal(typeof board.badges, 'object');
+  console.log(`✓ الإنجازات: ${hostStats.stats.games} ألعاب انعدت، والدرجات: ${JSON.stringify(hostStats.badges ?? {})}`);
+
+  // حذف الحساب: الملف والترتيب والاسم ينحذفون
+  const leaver = await client(55);
+  await leaver.call('ensureProfile');
+  await leaver.call('updateProfile', { name: 'حذفني', avatar: 'falcon' });
+  await leaver.call('sendFeedback', { kind: 'bug', text: 'رسالة قبل الحذف' });
+  await leaver.call('deleteAccount');
+  assert.equal((await getDoc(doc(getFirestore(players[0].app), `leaderboard/${leaver.uid}`))).exists(), false);
+  await players[0].call('updateProfile', { name: 'حذفني', avatar: 'falcon' });
+  assert.equal((await players[0].profile()).name, 'حذفني', 'الاسم انفك بعد الحذف');
+  const fb = await dev.call<{ feedback: { text: string }[] }>('devTool', { action: 'feedback' });
+  assert.ok(!fb.feedback.some((f) => f.text === 'رسالة قبل الحذف'), 'رسائله انحذفت');
+  await deleteApp(leaver.app);
+  console.log('✓ حذف الحساب: الملف والترتيب والاسم والرسائل');
+
+  // طلب حذف من الموقع (بدون دخول): المطور يشوفه ويحذف الحساب
+  const asker = await client(56);
+  await asker.call('ensureProfile');
+  await asker.call('updateProfile', { name: 'نسيت جوالي', avatar: 'falcon' });
+  await expectError(asker.call('requestDeletion', { name: 'x' }), 'invalid-argument');
+  await asker.call('requestDeletion', { name: 'نسيت جوالي', details: 'احذفوا حسابي', contact: '' });
+  const { requests } = await dev.call<{ requests: { id: string; uid: string | null; name: string }[] }>('devTool', { action: 'deletionRequests' });
+  const reqDoc = requests.find((r) => r.name === 'نسيت جوالي')!;
+  assert.equal(reqDoc.uid, asker.uid, 'لقينا صاحب الاسم');
+  const del = await dev.call<{ deleted: boolean }>('devTool', { action: 'deleteUser', request: reqDoc.id, confirm: true });
+  assert.equal(del.deleted, true);
+  assert.equal((await getDoc(doc(getFirestore(players[1].app), `leaderboard/${asker.uid}`))).exists(), false);
+  await deleteApp(asker.app);
+  console.log('✓ طلب الحذف من الموقع: المطور يراجعه ويحذف');
 
   // أبطال الأسبوع: أول ٣ ياخذون إطار وشخصية مؤقتة
   const { champions } = await dev.call<{ champions: string[] }>('devTool', { action: 'crown' });

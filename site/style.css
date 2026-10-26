@@ -12,6 +12,7 @@
 }
 * { box-sizing: border-box; }
 html, body { margin: 0; min-height: 100%; }
+html { background: var(--bg); }
 body {
   font-family: 'Tajawal', system-ui, sans-serif;
   color: var(--text);
@@ -86,3 +87,23 @@ p { margin: 0 0 12px; line-height: 1.7; font-weight: 500; }
 ol { text-align: right; color: #d9cfff; line-height: 1.8; padding-inline-start: 22px; margin: 16px 0 0; font-size: 15px; }
 .hidden { display: none !important; }
 footer { color: var(--muted); font-size: 12px; margin-top: 18px; }
+
+/* صفحات النصوص الطويلة (الخصوصية، الشروط، الحذف) */
+main.doc { max-width: 760px; text-align: right; }
+main.doc h1 { text-align: center; }
+main.doc h2 { font-family: 'Marhey', 'Tajawal', sans-serif; color: var(--gold); font-size: 20px; margin: 24px 0 8px; }
+main.doc p, main.doc li { line-height: 1.9; font-size: 16px; }
+main.doc ul { padding-inline-start: 22px; margin: 0 0 12px; }
+main.doc .date { color: var(--muted); text-align: center; font-size: 14px; }
+main.doc .en { direction: ltr; text-align: left; border-top: 1px solid var(--line); margin-top: 28px; padding-top: 12px; }
+main.doc .en h2 { font-family: system-ui, sans-serif; }
+nav.links { text-align: center; margin-top: 18px; font-size: 14px; }
+nav.links a { color: var(--gold); margin: 0 8px; text-decoration: none; }
+form label { display: block; margin: 14px 0 6px; font-weight: 800; }
+form input, form textarea {
+  width: 100%; padding: 12px; border-radius: 14px; border: 1.5px solid var(--line);
+  background: #241c46; color: var(--text); font: inherit; font-size: 16px;
+}
+form button { width: 100%; cursor: pointer; margin-top: 16px; }
+.ok { color: var(--green); font-weight: 800; text-align: center; }
+.err { color: #ff9aa8; font-weight: 800; text-align: center; }

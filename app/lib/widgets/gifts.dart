@@ -4,12 +4,14 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../models/achievements.dart';
 import '../models/profile.dart';
 import '../models/shop.dart';
 import '../services/backend.dart';
 import '../services/push.dart';
 import '../services/sfx.dart';
 import '../theme.dart';
+import 'badges.dart';
 import 'common.dart';
 import 'fx.dart';
 import 'item_preview.dart';
@@ -70,13 +72,18 @@ class RewardView extends StatelessWidget {
 /// نافذة هدية (مستوى أو بطولة) مع احتفال.
 Future<void> showGiftDialog(BuildContext context, Gift g) {
   HapticFeedback.heavyImpact();
-  if (!g.tutorial) Sfx.say(g.champion ? 'win_loyal' : 'enact_loyal');
-  final title = g.tutorial
+  final ach = g.achievement == null ? null : achievementById(g.achievement!);
+  if (!g.tutorial && ach == null) Sfx.say(g.champion ? 'win_loyal' : 'enact_loyal');
+  final title = ach != null
+      ? 'إنجاز جديد: ${ach.name}'
+      : g.tutorial
       ? 'خلّصت الشرح!'
       : g.champion
       ? (g.n == 1 ? 'بطل الأسبوع!' : (g.n == 2 ? 'وصيف الأسبوع!' : 'ثالث الأسبوع!'))
       : 'هدية المستوى ${arabicNumber(g.n)}!';
-  final note = g.tutorial
+  final note = ach != null
+      ? 'وصلت الدرجة ${tierNames[g.n.clamp(0, 3)]}: ${ach.descFor(g.n - 1)}. تطلع في ملفك للكل.'
+      : g.tutorial
       ? 'هذي هديتك على أول لعبة. الحين أنت جاهز تلعب مع الناس!'
       : g.champion
       ? 'الإطار والشخصية لك لين التتويج الجاي (أسبوع). لابسها الحين!'
@@ -118,7 +125,10 @@ Future<void> showGiftDialog(BuildContext context, Gift g) {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Gfx(g.tutorial ? 'trophy' : (g.champion ? 'medal${g.n}' : 'gift'), size: 46),
+                        if (ach != null)
+                          BadgeMedal(achievement: ach, tier: g.n, size: 50)
+                        else
+                          Gfx(g.tutorial ? 'trophy' : (g.champion ? 'medal${g.n}' : 'gift'), size: 46),
                         const SizedBox(width: 10),
                         GoldText(title, size: 28),
                       ],

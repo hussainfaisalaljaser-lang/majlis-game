@@ -186,8 +186,46 @@ class _TutorialOfferState extends State<_TutorialOffer> {
     WidgetsBinding.instance.addPostFrameCallback((_) => _check());
   }
 
+  @override
+  void dispose() {
+    Backend.instance.profile.removeListener(_renamed);
+    super.dispose();
+  }
+
+  bool _renameShown = false;
+
+  /// اسمه انغيّر لأن أكثر من لاعب بلّغوا عنه: نطلب منه يختار اسم جديد.
+  Future<void> _renamed() async {
+    final p = Backend.instance.profile.value;
+    if (!p.renamed || _renameShown || !mounted) return;
+    _renameShown = true;
+    await showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Row(children: [Gfx('warning', size: 30), SizedBox(width: 8), Text('غيّرنا اسمك')]),
+        content: Text(
+          'أكثر من لاعب بلّغوا إن اسمك السابق مسيء، فصار اسمك "${p.name}". اختر لك اسم جديد يناسب المجلس.',
+          style: const TextStyle(height: 1.6),
+        ),
+        actions: [
+          GameButton(
+            label: 'اختر اسم',
+            height: 44,
+            fontSize: 15,
+            onPressed: () {
+              Navigator.pop(context);
+              Navigator.of(context).push(MaterialPageRoute(builder: (_) => const EditProfileScreen()));
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _check() async {
     final backend = Backend.instance;
+    Backend.instance.profile.addListener(_renamed);
+    _renamed();
     final p = backend.profile.value;
     // جاي من رابط دعوة: يدخل مع أصحابه أول، والشرح نعرضه المرة الجاية.
     if (!backend.isReady || !p.setupDone || p.tutorialDone || p.gamesPlayed > 0 || Links.pending.value != null) return;

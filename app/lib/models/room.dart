@@ -111,10 +111,11 @@ class Room {
 
   RoomPlayer? player(String uid) => players.where((p) => p.uid == uid).firstOrNull;
 
-  /// كم واحد يشك في هذا اللاعب، وكم واحد يثق فيه.
-  ({int suspect, int trust}) opinionOf(String uid) {
+  /// كم واحد يشك في هذا اللاعب، وكم واحد يثق فيه. رأي اللي حظرتهم ما ينحسب عندك.
+  ({int suspect, int trust}) opinionOf(String uid, {Set<String> ignore = const {}}) {
     var suspect = 0, trust = 0;
-    for (final o in opinions.values) {
+    for (final MapEntry(key: from, value: o) in opinions.entries) {
+      if (ignore.contains(from)) continue;
       final v = o[uid];
       if (v == true) suspect++;
       if (v == false) trust++;

@@ -5,6 +5,7 @@ import '../theme.dart';
 import '../widgets/common.dart';
 import '../widgets/ui.dart';
 import 'game_screen.dart';
+import 'moderation_screen.dart';
 
 /// أدوات المطور: يجرّب فيها كل شي بسرعة. تطلع بس لحساب مطور، والسيرفر يتأكد بنفسه.
 class DevScreen extends StatefulWidget {
@@ -139,6 +140,16 @@ class _DevScreenState extends State<DevScreen> {
                         ),
                       ),
                     ],
+                  ),
+                  const SizedBox(height: 8),
+                  GameButton(
+                    label: 'البلاغات والرسائل',
+                    icon: const Gfx('warning', size: 24),
+                    tone: ButtonTone.red,
+                    height: 44,
+                    fontSize: 15,
+                    onPressed: () =>
+                        Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ModerationScreen())),
                   ),
                   const SizedBox(height: 8),
                   Row(

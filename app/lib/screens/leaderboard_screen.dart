@@ -5,6 +5,7 @@ import '../models/shop.dart';
 import '../services/backend.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
+import '../widgets/player_card.dart';
 import '../widgets/ui.dart';
 
 /// جدول الترتيب: منصة للثلاثة الأوائل، وجوائز أبطال الأسبوع، والباقي في قائمة.
@@ -262,54 +263,58 @@ class _Podium extends StatelessWidget {
       children: [
         for (final i in order)
           Expanded(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                if (i == 0) const Gfx('crown', size: 34),
-                PlayerAvatar(
-                  avatar: entries[i].avatar,
-                  style: frameStyle(entries[i].frame),
-                  frame: frameStyle(entries[i].frame) != null ? null : _colors[i][0],
-                  size: i == 0 ? 78 : 60,
-                ),
-                const SizedBox(height: 6),
-                Container(
-                  constraints: const BoxConstraints(maxWidth: 110),
-                  padding: const EdgeInsets.symmetric(horizontal: 6),
-                  decoration: BoxDecoration(
-                    color: entries[i].uid == me
-                        ? AppColors.green.withValues(alpha: .25)
-                        : Colors.black.withValues(alpha: .35),
-                    borderRadius: BorderRadius.circular(8),
+            child: _Tap(
+              label: 'ملف ${entries[i].name}',
+              onTap: () => _openCard(context, entries[i]),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  if (i == 0) const Gfx('crown', size: 34),
+                  PlayerAvatar(
+                    avatar: entries[i].avatar,
+                    style: frameStyle(entries[i].frame),
+                    frame: frameStyle(entries[i].frame) != null ? null : _colors[i][0],
+                    size: i == 0 ? 78 : 60,
                   ),
-                  child: Text(
-                    entries[i].uid == me ? 'أنت' : entries[i].name,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontWeight: FontWeight.w800),
-                  ),
-                ),
-                const SizedBox(height: 2),
-                score(entries[i], size: 16),
-                const SizedBox(height: 6),
-                Container(
-                  height: _heights[i],
-                  margin: const EdgeInsets.symmetric(horizontal: 5),
-                  alignment: Alignment.topCenter,
-                  padding: const EdgeInsets.only(top: 6),
-                  decoration: BoxDecoration(
-                    borderRadius: const BorderRadius.vertical(top: Radius.circular(14)),
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [_colors[i][0].withValues(alpha: .9), _colors[i][1].withValues(alpha: .55)],
+                  const SizedBox(height: 6),
+                  Container(
+                    constraints: const BoxConstraints(maxWidth: 110),
+                    padding: const EdgeInsets.symmetric(horizontal: 6),
+                    decoration: BoxDecoration(
+                      color: entries[i].uid == me
+                          ? AppColors.green.withValues(alpha: .25)
+                          : Colors.black.withValues(alpha: .35),
+                      borderRadius: BorderRadius.circular(8),
                     ),
-                    border: Border.all(color: _colors[i][0], width: 1.5),
-                    boxShadow: [BoxShadow(color: _colors[i][0].withValues(alpha: .35), blurRadius: 16)],
+                    child: Text(
+                      entries[i].uid == me ? 'أنت' : entries[i].name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontWeight: FontWeight.w800),
+                    ),
                   ),
-                  child: Gfx('medal${i + 1}', size: i == 0 ? 46 : 38),
-                ),
-              ],
+                  const SizedBox(height: 2),
+                  score(entries[i], size: 16),
+                  const SizedBox(height: 6),
+                  Container(
+                    height: _heights[i],
+                    margin: const EdgeInsets.symmetric(horizontal: 5),
+                    alignment: Alignment.topCenter,
+                    padding: const EdgeInsets.only(top: 6),
+                    decoration: BoxDecoration(
+                      borderRadius: const BorderRadius.vertical(top: Radius.circular(14)),
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [_colors[i][0].withValues(alpha: .9), _colors[i][1].withValues(alpha: .55)],
+                      ),
+                      border: Border.all(color: _colors[i][0], width: 1.5),
+                      boxShadow: [BoxShadow(color: _colors[i][0].withValues(alpha: .35), blurRadius: 16)],
+                    ),
+                    child: Gfx('medal${i + 1}', size: i == 0 ? 46 : 38),
+                  ),
+                ],
+              ),
             ),
           ),
       ],
@@ -411,56 +416,81 @@ class _Row extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: isMe ? [const Color(0xFF173A26), const Color(0xFF14261B)] : [AppColors.card, AppColors.panel],
+    return _Tap(
+      label: 'ملف ${entry.name}',
+      onTap: () => _openCard(context, entry),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: isMe ? [const Color(0xFF173A26), const Color(0xFF14261B)] : [AppColors.card, AppColors.panel],
+          ),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: isMe ? AppColors.green : AppColors.line),
         ),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: isMe ? AppColors.green : AppColors.line),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 34,
-            height: 34,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: Colors.black.withValues(alpha: .3),
-              border: Border.all(color: AppColors.gold.withValues(alpha: .4)),
+        child: Row(
+          children: [
+            Container(
+              width: 34,
+              height: 34,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.black.withValues(alpha: .3),
+                border: Border.all(color: AppColors.gold.withValues(alpha: .4)),
+              ),
+              child: Text(
+                arabicNumber(rank),
+                style: const TextStyle(fontFamily: kufi, fontWeight: FontWeight.w700, color: AppColors.gold),
+              ),
             ),
-            child: Text(
-              arabicNumber(rank),
-              style: const TextStyle(fontFamily: kufi, fontWeight: FontWeight.w700, color: AppColors.gold),
+            const SizedBox(width: 10),
+            PlayerAvatar(avatar: entry.avatar, style: frameStyle(entry.frame), size: 42, animate: false),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(isMe ? 'أنت' : entry.name, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
+                  Row(
+                    children: [
+                      const Gfx('xp', size: 14),
+                      const SizedBox(width: 3),
+                      Text(
+                        'مستوى ${arabicNumber(entry.level)}',
+                        style: const TextStyle(color: AppColors.muted, fontSize: 12),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
-          ),
-          const SizedBox(width: 10),
-          PlayerAvatar(avatar: entry.avatar, style: frameStyle(entry.frame), size: 42, animate: false),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(isMe ? 'أنت' : entry.name, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
-                Row(
-                  children: [
-                    const Gfx('xp', size: 14),
-                    const SizedBox(width: 3),
-                    Text(
-                      'مستوى ${arabicNumber(entry.level)}',
-                      style: const TextStyle(color: AppColors.muted, fontSize: 12),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-          score,
-        ],
+            score,
+          ],
+        ),
       ),
     );
   }
 }
+
+/// بطاقة اللاعب من الترتيب: ملفه وإنجازاته، ومنها الحظر والبلاغ.
+/// ضغطة تفتح بطاقة لاعب (وتنقرا كزر لقارئ الشاشة).
+class _Tap extends StatelessWidget {
+  const _Tap({required this.label, required this.onTap, required this.child});
+
+  final String label;
+  final VoidCallback onTap;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+    button: true,
+    label: label,
+    excludeSemantics: true,
+    child: GestureDetector(behavior: HitTestBehavior.opaque, onTap: onTap, child: child),
+  );
+}
+
+void _openCard(BuildContext context, LeaderboardEntry e) =>
+    showPlayerCard(context, uid: e.uid, name: e.name, avatar: e.avatar, frame: e.frame);

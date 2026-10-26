@@ -73,7 +73,7 @@ class Backend {
       if (!s.exists) return;
       profile.value = Profile.fromJson(s.data()!);
       profileLoaded.value = true;
-    });
+    }, onError: (Object e) => debugPrint('profile listener: $e'));
     await _call('ensureProfile', {});
   }
 
@@ -168,6 +168,9 @@ class Backend {
 
   /// يطلع من حساب قوقل ويبدأ كضيف جديد. الحساب يبقى محفوظ ويرجع له متى ما دخل بقوقل.
   Future<void> signOut() async {
+    // نوقف متابعة الملف القديم قبل الخروج، وإلا يطلع خطأ صلاحيات من Firestore.
+    await _profileSub?.cancel();
+    _profileSub = null;
     if (!kIsWeb && _googleReady) await GoogleSignIn.instance.signOut();
     await FirebaseAuth.instance.signOut();
     await FirebaseAuth.instance.signInAnonymously();
@@ -179,7 +182,8 @@ class Backend {
       final result = await _functions.httpsCallable(name).call<Map<String, dynamic>>(data);
       return Map<String, dynamic>.from(result.data);
     } on FirebaseFunctionsException catch (e) {
-      throw BackendException(e.message ?? 'صار خطأ، جرّب مرة ثانية');
+      // نسخة الويب تضيف رقم الحالة آخر الرسالة (مثل [400])، ما نحتاجه.
+      throw BackendException((e.message ?? 'صار خطأ، جرّب مرة ثانية').replaceAll(RegExp(r'\s*\[\d{3}\]$'), ''));
     }
   }
 
@@ -248,6 +252,10 @@ class Backend {
   Future<void> devTool(String action, [Map<String, dynamic> data = const {}]) =>
       _call('devTool', {'action': action, ...data});
 
+  /// أدوات المطور اللي ترجع بيانات (البلاغات والرسائل).
+  Future<Map<String, dynamic>> devData(String action, [Map<String, dynamic> data = const {}]) =>
+      _call('devTool', {'action': action, ...data});
+
   /// يطلع من لعبة شغالة، ويكمل عنه بوت.
   Future<void> leaveGame(String code) => _call('leaveGame', {'code': code});
 
@@ -256,6 +264,27 @@ class Backend {
   /// رد في الطاولة: كلام (textReactions) أو ملصق (stickers).
   Future<void> react(String code, String kind, {String? target}) =>
       _call('react', {'code': code, 'kind': kind, 'target': ?target});
+
+  /// الملف العام لأي لاعب (نفس سطره في الترتيب). null لو ما له ملف (مثل البوت).
+  Future<LeaderboardEntry?> fetchPlayer(String uid) async {
+    final d = await _db.doc('leaderboard/$uid').get();
+    return d.exists ? LeaderboardEntry.fromJson(d.id, d.data()!) : null;
+  }
+
+  /// بلاغ عن لاعب: name (اسم مسيء)، behavior (يخرّب اللعب)، cheat (غش). يرجع true لو بلّغت عنه قبل اليوم.
+  Future<bool> reportPlayer(String uid, String reason, {String? code}) async =>
+      (await _call('reportPlayer', {'uid': uid, 'reason': reason, 'code': ?code}))['already'] == true;
+
+  Future<void> setBlocked(String uid, bool blocked) => _call('setBlocked', {'uid': uid, 'blocked': blocked});
+
+  Future<void> sendFeedback(String kind, String text, {String? version}) =>
+      _call('sendFeedback', {'kind': kind, 'text': text, 'version': ?version});
+
+  /// يحذف الحساب نهائياً من السيرفر، ثم يبدأ حساب ضيف جديد.
+  Future<void> deleteAccount() async {
+    await _call('deleteAccount', const {});
+    await signOut();
+  }
 
   /// يشيل الهدايا اللي شافها.
   Future<void> ackGifts() => _call('ackGifts', const {});

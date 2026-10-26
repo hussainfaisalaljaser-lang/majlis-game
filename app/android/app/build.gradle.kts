@@ -31,13 +31,22 @@ android {
     }
 
     // مفتاح ثابت للنسخ التجريبية، عشان بصمته (SHA-1) تبقى نفسها في كل بناء ويشتغل دخول قوقل.
-    // ⚠️ للتجربة بس. قبل النشر في Google Play نسوي مفتاح رفع خاص ونحطه في GitHub Secrets.
+    // للتجربة بس. ملف المتجر (AAB) يتوقّع بمفتاح الرفع من GitHub Secrets لو موجود (UPLOAD_KEYSTORE_PATH).
+    val uploadKeystore = System.getenv("UPLOAD_KEYSTORE_PATH")
     signingConfigs {
         create("test") {
             storeFile = file("majlis-test.keystore")
             storePassword = "majlistest"
             keyAlias = "majlis"
             keyPassword = "majlistest"
+        }
+        if (uploadKeystore != null) {
+            create("upload") {
+                storeFile = file(uploadKeystore)
+                storePassword = System.getenv("UPLOAD_KEYSTORE_PASSWORD")
+                keyAlias = System.getenv("UPLOAD_KEY_ALIAS")
+                keyPassword = System.getenv("UPLOAD_KEY_PASSWORD")
+            }
         }
     }
 
@@ -46,7 +55,7 @@ android {
             signingConfig = signingConfigs.getByName("test")
         }
         release {
-            signingConfig = signingConfigs.getByName("test")
+            signingConfig = signingConfigs.getByName(if (uploadKeystore != null) "upload" else "test")
         }
     }
 }

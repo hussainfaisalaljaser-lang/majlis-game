@@ -20,6 +20,7 @@ import '../widgets/game/overlays.dart';
 import '../widgets/game/policy_card.dart';
 import '../widgets/game/reactions_sheet.dart';
 import '../widgets/game/tracks.dart';
+import '../widgets/player_card.dart';
 import '../widgets/ui.dart';
 
 const _winReasons = {
@@ -111,10 +112,10 @@ class _GameScreenState extends State<GameScreen> {
       final view = GameView.fromJson(data);
       setState(() => _view = view);
       _afterUpdate(view);
-    });
+    }, onError: (Object e) => debugPrint('view listener: $e'));
     _roomSub = _backend.watchRoom(widget.code).listen((room) {
       if (mounted) setState(() => _room = room);
-    });
+    }, onError: (Object e) => debugPrint('room listener: $e'));
     // كل ثانية: نحدّث العداد وفقاعات الردود، ونطلب من السيرفر يكمّل لو خلص الوقت.
     _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
       if (!mounted) return;
@@ -538,69 +539,22 @@ class _GameScreenState extends State<GameScreen> {
     });
   }
 
-  /// ملاحظتك الخاصة على لاعب (ضغطة طويلة على صورته).
+  /// بطاقة اللاعب (ضغطة على صورته): ملفه، وملاحظتك الخاصة عليه، والحظر والبلاغ.
   void _editNote(String playerId) {
     final v = _view;
     if (v == null) return;
-    HapticFeedback.selectionClick();
-    showModalBottomSheet<void>(
-      context: context,
-      backgroundColor: AppColors.panel,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
-      builder: (context) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              PlayerAvatar(avatar: _room?.player(playerId)?.avatar ?? 'masked', size: 56),
-              const SizedBox(height: 6),
-              Text(
-                v.player(playerId).name,
-                style: const TextStyle(fontFamily: kufi, fontSize: 20, fontWeight: FontWeight.w700),
-              ),
-              const Text('ملاحظتك الخاصة. محد يشوفها غيرك', style: TextStyle(color: AppColors.muted, fontSize: 13)),
-              const SizedBox(height: 14),
-              Row(
-                children: [
-                  for (final (mark, label) in const [
-                    (NoteMark.trust, 'أثق فيه'),
-                    (NoteMark.unsure, 'مو متأكد'),
-                    (NoteMark.suspect, 'أشك فيه'),
-                  ])
-                    Expanded(
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 4),
-                        child: GameButton(
-                          label: label,
-                          height: 46,
-                          fontSize: 14,
-                          tone: switch (mark) {
-                            NoteMark.trust => ButtonTone.green,
-                            NoteMark.suspect => ButtonTone.red,
-                            NoteMark.unsure => ButtonTone.gold,
-                          },
-                          onPressed: () {
-                            _notes.set(playerId, mark);
-                            Navigator.pop(context);
-                          },
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-              if (_notes.of(playerId) != null)
-                TextButton(
-                  onPressed: () {
-                    _notes.set(playerId, null);
-                    Navigator.pop(context);
-                  },
-                  child: const Text('امسح الملاحظة'),
-                ),
-            ],
-          ),
-        ),
-      ),
+    final rp = _room?.player(playerId);
+    showPlayerCard(
+      context,
+      uid: playerId,
+      name: v.player(playerId).name,
+      avatar: rp?.avatar ?? 'masked',
+      frame: rp?.frame,
+      // اللي طلع ويلعب عنه بوت يبقى لاعب حقيقي (تقدر تشوف ملفه وتبلّغ عنه).
+      bot: playerId.startsWith('bot_'),
+      code: widget.code,
+      note: _notes.of(playerId),
+      onNote: playerId == v.you ? null : (m) => _notes.set(playerId, m),
     );
   }
 
@@ -912,7 +866,7 @@ class _GameScreenState extends State<GameScreen> {
                     child: _CoachCard(key: ValueKey(tip), text: _tips[tip]!, onClose: _closeTip),
                   ),
                 ),
-              if (over && _scenes.isEmpty) _GameOver(view: v, room: _room),
+              if (over && _scenes.isEmpty) _GameOver(view: v, room: _room, onPlayer: _editNote),
               if (_scenes.isNotEmpty)
                 Positioned.fill(
                   child: EventOverlay(
@@ -1849,10 +1803,13 @@ class _TutorialDone extends StatelessWidget {
 }
 
 class _GameOver extends StatelessWidget {
-  const _GameOver({required this.view, required this.room});
+  const _GameOver({required this.view, required this.room, required this.onPlayer});
 
   final GameView view;
   final Room? room;
+
+  /// ضغطة على لاعب: بطاقته (تقدر تبلّغ عنه بعد اللعبة).
+  final ValueChanged<String> onPlayer;
 
   @override
   Widget build(BuildContext context) {
@@ -1861,33 +1818,37 @@ class _GameOver extends StatelessWidget {
     final teamColor = loyalWon ? AppColors.loyal : AppColors.traitor;
     final roles = [
       for (final p in view.players)
-        Padding(
-          padding: const EdgeInsets.symmetric(vertical: 3),
-          child: Row(
-            children: [
-              PlayerAvatar(avatar: room?.player(p.id)?.avatar ?? 'masked', size: 32, dead: !p.alive),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  p.id == view.you ? 'أنت' : p.name,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontWeight: FontWeight.w700),
+        InkWell(
+          borderRadius: BorderRadius.circular(10),
+          onTap: () => onPlayer(p.id),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 3),
+            child: Row(
+              children: [
+                PlayerAvatar(avatar: room?.player(p.id)?.avatar ?? 'masked', size: 32, dead: !p.alive),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    p.id == view.you ? 'أنت' : p.name,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontWeight: FontWeight.w700),
+                  ),
                 ),
-              ),
-              if (p.knownSpecial != null)
-                Padding(
-                  padding: const EdgeInsetsDirectional.only(end: 6),
-                  child: Gfx(specialInfo[p.knownSpecial]!.$3, size: 18),
+                if (p.knownSpecial != null)
+                  Padding(
+                    padding: const EdgeInsetsDirectional.only(end: 6),
+                    child: Gfx(specialInfo[p.knownSpecial]!.$3, size: 18),
+                  ),
+                Text(
+                  roleInfo[p.knownRole]!.$1,
+                  style: TextStyle(
+                    fontFamily: kufi,
+                    color: p.knownRole == Role.loyal ? AppColors.loyalLight : AppColors.traitorLight,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
-              Text(
-                roleInfo[p.knownRole]!.$1,
-                style: TextStyle(
-                  fontFamily: kufi,
-                  color: p.knownRole == Role.loyal ? AppColors.loyalLight : AppColors.traitorLight,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
     ];
