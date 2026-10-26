@@ -35,6 +35,29 @@ flutter:
     - assets/logo.png
     - assets/avatars/
     - assets/avatars/anim/falconer/
+    - assets/avatars/anim/assassin/
+    - assets/avatars/anim/astronaut/
+    - assets/avatars/anim/champ1/
+    - assets/avatars/anim/champ2/
+    - assets/avatars/anim/champ3/
+    - assets/avatars/anim/emir/
+    - assets/avatars/anim/falcon_bird/
+    - assets/avatars/anim/ghost/
+    - assets/avatars/anim/knight/
+    - assets/avatars/anim/lady_gold/
+    - assets/avatars/anim/lv20/
+    - assets/avatars/anim/lv30/
+    - assets/avatars/anim/lv40/
+    - assets/avatars/anim/lv50/
+    - assets/avatars/anim/pilot/
+    - assets/avatars/anim/queen/
+    - assets/avatars/anim/s1a/
+    - assets/avatars/anim/s1b/
+    - assets/avatars/anim/s1c/
+    - assets/avatars/anim/seer/
+    - assets/avatars/anim/sultana/
+    - assets/avatars/anim/tycoon/
+    - assets/avatars/anim/wolf/
     - assets/images/
     - assets/icons/
     - assets/voice/

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import '../models/shop.dart';
 import 'fx.dart';
+import 'sticker_motion.dart';
 
 /// فقاعة كلام بشكل من المتجر (بحركاتها). يشوفها كل اللي بالطاولة.
 class ChatBubble extends StatelessWidget {
@@ -48,7 +49,10 @@ class StickerView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final img = Image.asset(sticker.asset, width: size, height: size, filterQuality: FilterQuality.medium);
+    // الملصقات الملحمية والأسطورية تتحرك حسب تعبيرها.
+    final img = StickerMotion.has(sticker)
+        ? StickerMotion.build(sticker, size)
+        : Image.asset(sticker.asset, width: size, height: size, filterQuality: FilterQuality.medium);
     if (!pop) return Semantics(label: sticker.caption, child: img);
     return Semantics(
       label: sticker.caption,

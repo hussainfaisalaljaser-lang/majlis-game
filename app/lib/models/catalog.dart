@@ -647,7 +647,8 @@ const catalog = <ShopItem>[
     rarity: Rarity.epic,
     coins: 12000,
     avatar: 'lady_gold',
-    avatarArt: AvatarArt([Color(0xFFE64980), Color(0xFF5C0F2E)], AvatarFx.sparkle),
+    avatarArt: AvatarArt([Color(0xFFE64980), Color(0xFF5C0F2E)], AvatarFx.sparkle, anim: 'lady_gold'),
+    desc: 'ترمش وتغمز، وتاجها يلمع',
   ),
   ShopItem(
     id: 'avatar_pilot',
@@ -656,7 +657,8 @@ const catalog = <ShopItem>[
     rarity: Rarity.epic,
     coins: 12000,
     avatar: 'pilot',
-    avatarArt: AvatarArt([Color(0xFF38BDF8), Color(0xFF1E3A8A)], AvatarFx.rays),
+    avatarArt: AvatarArt([Color(0xFF38BDF8), Color(0xFF1E3A8A)], AvatarFx.rays, anim: 'pilot'),
+    desc: 'ينزّل نظارته ويتجهز للطيران',
   ),
   ShopItem(
     id: 'avatar_seer',
@@ -665,7 +667,8 @@ const catalog = <ShopItem>[
     rarity: Rarity.epic,
     coins: 14000,
     avatar: 'seer',
-    avatarArt: AvatarArt([Color(0xFFA855F7), Color(0xFF2E1065)], AvatarFx.aurora),
+    avatarArt: AvatarArt([Color(0xFFA855F7), Color(0xFF2E1065)], AvatarFx.aurora, anim: 'seer'),
+    desc: 'كرته البلورية تضوي، وعيونه تشع لما يشوف شي',
   ),
   ShopItem(
     id: 'avatar_knight',
@@ -674,7 +677,8 @@ const catalog = <ShopItem>[
     rarity: Rarity.epic,
     coins: 15000,
     avatar: 'knight',
-    avatarArt: AvatarArt([Color(0xFFDC2626), Color(0xFF450A0A)], AvatarFx.rays),
+    avatarArt: AvatarArt([Color(0xFFDC2626), Color(0xFF450A0A)], AvatarFx.rays, anim: 'knight'),
+    desc: 'ريشة خوذته تتمايل، ويحييك بخوذته',
   ),
   ShopItem(
     id: 'avatar_ghost',
@@ -683,7 +687,8 @@ const catalog = <ShopItem>[
     rarity: Rarity.epic,
     diamonds: 18,
     avatar: 'ghost',
-    avatarArt: AvatarArt([Color(0xFF4C1D95), Color(0xFF05010D)], AvatarFx.smoke),
+    avatarArt: AvatarArt([Color(0xFF4C1D95), Color(0xFF05010D)], AvatarFx.smoke, anim: 'ghost'),
+    desc: 'يطفو ويختفي ويرجع… وأحياناً يخرّعك',
   ),
   ShopItem(
     id: 'avatar_assassin',
@@ -692,7 +697,8 @@ const catalog = <ShopItem>[
     rarity: Rarity.epic,
     diamonds: 20,
     avatar: 'assassin',
-    avatarArt: AvatarArt([Color(0xFF7F0A0A), Color(0xFF120202)], AvatarFx.smoke),
+    avatarArt: AvatarArt([Color(0xFF7F0A0A), Color(0xFF120202)], AvatarFx.smoke, anim: 'assassin'),
+    desc: 'عيونه الحمرا تضيق، ويقلّب خنجره',
   ),
   ShopItem(
     id: 'avatar_wolf',
@@ -701,7 +707,8 @@ const catalog = <ShopItem>[
     rarity: Rarity.epic,
     diamonds: 20,
     avatar: 'wolf',
-    avatarArt: AvatarArt([Color(0xFF1E3A8A), Color(0xFF020617)], AvatarFx.stars),
+    avatarArt: AvatarArt([Color(0xFF1E3A8A), Color(0xFF020617)], AvatarFx.stars, anim: 'wolf'),
+    desc: 'يحرك أذونه، وكل شوي يعوي',
   ),
   ShopItem(
     id: 'avatar_falcon_bird',
@@ -710,7 +717,8 @@ const catalog = <ShopItem>[
     rarity: Rarity.epic,
     diamonds: 22,
     avatar: 'falcon_bird',
-    avatarArt: AvatarArt([Color(0xFFD97706), Color(0xFF451A03)], AvatarFx.rays),
+    avatarArt: AvatarArt([Color(0xFFD97706), Color(0xFF451A03)], AvatarFx.rays, anim: 'falcon_bird'),
+    desc: 'يلف راسه مثل الصقور ويصرخ',
   ),
   ShopItem(
     id: 'avatar_tycoon',
@@ -719,7 +727,8 @@ const catalog = <ShopItem>[
     rarity: Rarity.legendary,
     diamonds: 30,
     avatar: 'tycoon',
-    avatarArt: AvatarArt([Color(0xFFFBBF24), Color(0xFF78350F)], AvatarFx.sparkle),
+    avatarArt: AvatarArt([Color(0xFFFBBF24), Color(0xFF78350F)], AvatarFx.sparkle, anim: 'tycoon'),
+    desc: 'سلسلته تتمرجح وتطيح حوله عملات ذهب',
   ),
   ShopItem(
     id: 'avatar_emir',
@@ -728,7 +737,8 @@ const catalog = <ShopItem>[
     rarity: Rarity.legendary,
     diamonds: 35,
     avatar: 'emir',
-    avatarArt: AvatarArt([Color(0xFFF2C14E), Color(0xFF7A4E00)], AvatarFx.rays),
+    avatarArt: AvatarArt([Color(0xFFF2C14E), Color(0xFF7A4E00)], AvatarFx.rays, anim: 'emir'),
+    desc: 'يهز راسه بهيبة، وبشته يلمع',
   ),
   ShopItem(
     id: 'avatar_sultana',
@@ -737,7 +747,8 @@ const catalog = <ShopItem>[
     rarity: Rarity.legendary,
     diamonds: 35,
     avatar: 'sultana',
-    avatarArt: AvatarArt([Color(0xFFC026D3), Color(0xFF3B0764)], AvatarFx.aurora),
+    avatarArt: AvatarArt([Color(0xFFC026D3), Color(0xFF3B0764)], AvatarFx.aurora, anim: 'sultana'),
+    desc: 'ترمش، وطرحتها تتمايل وجوهرتها تلمع',
   ),
   ShopItem(
     id: 'avatar_queen',
@@ -746,7 +757,8 @@ const catalog = <ShopItem>[
     rarity: Rarity.legendary,
     diamonds: 40,
     avatar: 'queen',
-    avatarArt: AvatarArt([Color(0xFF8B5CF6), Color(0xFF2E1065)], AvatarFx.sparkle),
+    avatarArt: AvatarArt([Color(0xFF8B5CF6), Color(0xFF2E1065)], AvatarFx.sparkle, anim: 'queen'),
+    desc: 'ترمش، وجواهر تاجها تلمع',
   ),
   ShopItem(
     id: 'avatar_astronaut',
@@ -755,7 +767,8 @@ const catalog = <ShopItem>[
     rarity: Rarity.legendary,
     diamonds: 45,
     avatar: 'astronaut',
-    avatarArt: AvatarArt([Color(0xFF312E81), Color(0xFF020617)], AvatarFx.stars),
+    avatarArt: AvatarArt([Color(0xFF312E81), Color(0xFF020617)], AvatarFx.stars, anim: 'astronaut'),
+    desc: 'يسبح في الفضاء، وخوذته يمر عليها ضو',
   ),
   ShopItem(
     id: 'avatar_lv10',
@@ -773,7 +786,8 @@ const catalog = <ShopItem>[
     rarity: Rarity.epic,
     level: 20,
     avatar: 'lv20',
-    avatarArt: AvatarArt([Color(0xFF64748B), Color(0xFF0F172A)], AvatarFx.stars),
+    avatarArt: AvatarArt([Color(0xFF64748B), Color(0xFF0F172A)], AvatarFx.stars, anim: 'lv20'),
+    desc: 'يقرأ في كتابه ويقلّب الصفحات',
   ),
   ShopItem(
     id: 'avatar_lv30',
@@ -782,7 +796,8 @@ const catalog = <ShopItem>[
     rarity: Rarity.epic,
     level: 30,
     avatar: 'lv30',
-    avatarArt: AvatarArt([Color(0xFFF59E0B), Color(0xFF78350F)], AvatarFx.rays),
+    avatarArt: AvatarArt([Color(0xFFF59E0B), Color(0xFF78350F)], AvatarFx.rays, anim: 'lv30'),
+    desc: 'سلسلته الذهب تتمرجح وغترته تلمع',
   ),
   ShopItem(
     id: 'avatar_lv40',
@@ -791,7 +806,8 @@ const catalog = <ShopItem>[
     rarity: Rarity.legendary,
     level: 40,
     avatar: 'lv40',
-    avatarArt: AvatarArt([Color(0xFFE11D48), Color(0xFF4C0519)], AvatarFx.embers),
+    avatarArt: AvatarArt([Color(0xFFE11D48), Color(0xFF4C0519)], AvatarFx.embers, anim: 'lv40'),
+    desc: 'ريشته تتمايل وياقوتته تتوهج، ويصرخ صرخة حرب',
   ),
   ShopItem(
     id: 'avatar_lv50',
@@ -800,7 +816,8 @@ const catalog = <ShopItem>[
     rarity: Rarity.legendary,
     level: 50,
     avatar: 'lv50',
-    avatarArt: AvatarArt([Color(0xFFF472B6), Color(0xFF312E81)], AvatarFx.aurora),
+    avatarArt: AvatarArt([Color(0xFFF472B6), Color(0xFF312E81)], AvatarFx.aurora, anim: 'lv50'),
+    desc: 'عيونه تشع، وتاجه يلمع',
   ),
   ShopItem(
     id: 'avatar_s1a',
@@ -809,7 +826,8 @@ const catalog = <ShopItem>[
     rarity: Rarity.epic,
     season: 's1',
     avatar: 's1a',
-    avatarArt: AvatarArt([Color(0xFF0F766E), Color(0xFF042F2E)], AvatarFx.stars),
+    avatarArt: AvatarArt([Color(0xFF0F766E), Color(0xFF042F2E)], AvatarFx.stars, anim: 's1a'),
+    desc: 'يتلفت يمين ويسار، وهلاله يلمع',
   ),
   ShopItem(
     id: 'avatar_s1b',
@@ -818,7 +836,8 @@ const catalog = <ShopItem>[
     rarity: Rarity.legendary,
     season: 's1',
     avatar: 's1b',
-    avatarArt: AvatarArt([Color(0xFF6366F1), Color(0xFF1E1B4B)], AvatarFx.aurora),
+    avatarArt: AvatarArt([Color(0xFF6366F1), Color(0xFF1E1B4B)], AvatarFx.aurora, anim: 's1b'),
+    desc: 'هلالها يضوي، وترمش',
   ),
   ShopItem(
     id: 'avatar_s1c',
@@ -827,7 +846,8 @@ const catalog = <ShopItem>[
     rarity: Rarity.legendary,
     season: 's1',
     avatar: 's1c',
-    avatarArt: AvatarArt([Color(0xFFFCD34D), Color(0xFF134E4A)], AvatarFx.rays),
+    avatarArt: AvatarArt([Color(0xFFFCD34D), Color(0xFF134E4A)], AvatarFx.rays, anim: 's1c'),
+    desc: 'يهز راسه، وعمامته وهلاله يلمعون',
   ),
   ShopItem(
     id: 'avatar_champ1',
@@ -836,7 +856,8 @@ const catalog = <ShopItem>[
     rarity: Rarity.legendary,
     champion: 1,
     avatar: 'champ1',
-    avatarArt: AvatarArt([Color(0xFFFFD700), Color(0xFF7A5200)], AvatarFx.rays),
+    avatarArt: AvatarArt([Color(0xFFFFD700), Color(0xFF7A5200)], AvatarFx.rays, anim: 'champ1'),
+    desc: 'ميداليته تتمرجح، ويضحك فرحان بالفوز',
   ),
   ShopItem(
     id: 'avatar_champ2',
@@ -845,7 +866,8 @@ const catalog = <ShopItem>[
     rarity: Rarity.legendary,
     champion: 2,
     avatar: 'champ2',
-    avatarArt: AvatarArt([Color(0xFFE2E8F0), Color(0xFF334155)], AvatarFx.rays),
+    avatarArt: AvatarArt([Color(0xFFE2E8F0), Color(0xFF334155)], AvatarFx.rays, anim: 'champ2'),
+    desc: 'ميداليته تتمرجح، ويضحك فرحان بالفوز',
   ),
   ShopItem(
     id: 'avatar_champ3',
@@ -854,7 +876,8 @@ const catalog = <ShopItem>[
     rarity: Rarity.legendary,
     champion: 3,
     avatar: 'champ3',
-    avatarArt: AvatarArt([Color(0xFFE0A060), Color(0xFF5A2E0E)], AvatarFx.rays),
+    avatarArt: AvatarArt([Color(0xFFE0A060), Color(0xFF5A2E0E)], AvatarFx.rays, anim: 'champ3'),
+    desc: 'ميداليته تتمرجح، ويضحك فرحان بالفوز',
   ),
   ShopItem(id: 'table_majlis', slot: ShopSlot.table, name: 'المجلس', rarity: Rarity.common, table: TableSkin.majlis),
   ShopItem(

@@ -3,11 +3,13 @@ import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
+import 'anim_rigs.dart';
 import 'fx.dart';
 
 /// الشخصيات اللي تتحرك (الملحمية والأسطورية): طبقات من نفس الرسمة في `assets/avatars/anim/<id>/`
 /// (tools/art/anim_avatars.py). اللوحة أكبر من الصورة بـ ٢٠٪، و٢٠٠ وحدة في الرسمة = قطر الصورة.
 /// [pop] الطبقة اللي فوق الإطار (جناح يطلع برا الدائرة مثلاً)، والثانية داخل الدائرة.
+/// الصقّار هنا، والباقين في anim_rigs.dart.
 class AnimAvatar extends StatelessWidget {
   const AnimAvatar({super.key, required this.id, required this.size, required this.time, this.pop = false});
 
@@ -21,7 +23,9 @@ class AnimAvatar extends StatelessWidget {
     animation: time,
     builder: (context, _) => switch (id) {
       'falconer' => _falconer(time.value),
-      _ => const SizedBox.shrink(),
+      // الباقين ما لهم شي يطلع برا الدائرة
+      _ when pop || !AvatarRig.ids.contains(id) => const SizedBox.shrink(),
+      _ => AvatarRig(id, size, time.value).build(),
     },
   );
 

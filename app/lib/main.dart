@@ -26,7 +26,7 @@ Future<void> main() async {
   if (kIsWeb && const bool.fromEnvironment('USE_EMULATOR')) {
     SemanticsBinding.instance.ensureSemantics();
     installCaptureHook();
-    if (Uri.base.queryParameters['gallery'] == 'frames') return runApp(const FrameGalleryApp());
+    if (Uri.base.queryParameters.containsKey('gallery')) return runApp(const FrameGalleryApp());
   }
   // اللعبة بالعرض، مثل ألعاب الطاولة. ونخفي أشرطة النظام عشان الشاشة كلها للعبة.
   await SystemChrome.setPreferredOrientations([DeviceOrientation.landscapeLeft, DeviceOrientation.landscapeRight]);
