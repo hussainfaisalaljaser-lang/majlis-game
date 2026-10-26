@@ -9,6 +9,7 @@ import 'shop_screen.dart';
 import '../widgets/achievements_list.dart';
 import '../widgets/common.dart';
 import '../widgets/item_preview.dart';
+import '../widgets/pid.dart';
 import '../widgets/settings.dart';
 import '../widgets/ui.dart';
 
@@ -185,6 +186,49 @@ class ProfileScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 4),
                   GoldText(p.name, size: 24),
+                  // رمزه (ينسخ بالضغط) ورمز مميز ينشرى
+                  if (p.pid.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          PidBadge(pid: p.pid, tier: p.pidTier, size: 14),
+                          const SizedBox(width: 6),
+                          Semantics(
+                            button: true,
+                            label: 'رمز مميز',
+                            excludeSemantics: true,
+                            child: InkWell(
+                              borderRadius: BorderRadius.circular(12),
+                              onTap: () => showPremiumIds(context),
+                              child: Container(
+                                padding: const EdgeInsets.fromLTRB(8, 3, 8, 3),
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(color: AppColors.gold.withValues(alpha: .6)),
+                                ),
+                                child: const Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Gfx('gem', size: 16),
+                                    SizedBox(width: 3),
+                                    Text(
+                                      'رمز مميز',
+                                      style: TextStyle(
+                                        color: AppColors.gold,
+                                        fontWeight: FontWeight.w800,
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   if (Backend.instance.isReady)
                     Center(
                       child: TextButton(

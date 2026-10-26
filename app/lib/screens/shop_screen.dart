@@ -7,6 +7,7 @@ import '../services/telemetry.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
 import '../widgets/item_preview.dart';
+import '../widgets/pid.dart';
 import '../widgets/ui.dart';
 
 /// أقسام المتجر: الأيقونة والاسم ونوع الأغراض.
@@ -17,6 +18,7 @@ const _sections = [
   (icon: 'cat_sticker', name: 'الملصقات', slot: ShopSlot.reactions),
   (icon: 'cat_table', name: 'الطاولات', slot: ShopSlot.table),
   (icon: 'cat_cards', name: 'الكروت', slot: ShopSlot.cards),
+  (icon: 'idcard', name: 'الرموز', slot: null),
   (icon: 'gem', name: 'الجواهر', slot: null),
 ];
 
@@ -28,7 +30,8 @@ class ShopScreen extends StatefulWidget {
 
   static const avatarsTab = 1;
   static const stickersTab = 3;
-  static const diamondsTab = 6;
+  static const idsTab = 6;
+  static const diamondsTab = 7;
 
   @override
   State<ShopScreen> createState() => _ShopScreenState();
@@ -68,7 +71,9 @@ class _ShopScreenState extends State<ShopScreen> {
             Expanded(
               child: AnimatedSwitcher(
                 duration: const Duration(milliseconds: 220),
-                child: section.slot == null
+                child: _tab == ShopScreen.idsTab
+                    ? const _PremiumIdsSection(key: ValueKey('ids'))
+                    : section.slot == null
                     ? const _DiamondPacks(key: ValueKey('gems'))
                     : _ItemsGrid(key: ValueKey(section.slot), slot: section.slot!),
               ),
@@ -528,6 +533,85 @@ class _Pill extends StatelessWidget {
       child: child,
     ),
   );
+}
+
+/// الرموز المميزة: أمثلة من كل درجة، والزر يفتح نافذة الاختيار والشراء.
+class _PremiumIdsSection extends StatelessWidget {
+  const _PremiumIdsSection({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(8, 6, 14, 16),
+      children: [
+        Panel(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const Row(
+                children: [
+                  Gfx('idcard', size: 40),
+                  SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'رمز مميز',
+                          style: TextStyle(fontFamily: kufi, fontSize: 20, fontWeight: FontWeight.w700),
+                        ),
+                        Text(
+                          'رمزك يطلع في ملفك وبطاقتك للكل، والناس يضيفونك فيه. الأقصر والمكرر أندر، والملحمي والأسطوري يلمعون.',
+                          style: TextStyle(color: AppColors.muted, fontSize: 12.5, height: 1.5),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 14),
+              Wrap(
+                alignment: WrapAlignment.center,
+                spacing: 12,
+                runSpacing: 10,
+                children: [
+                  for (final (pid, tier, price) in const [
+                    ('4829173', 1, 60),
+                    ('482917', 2, 120),
+                    ('4829', 3, 500),
+                    ('777', 4, 3000),
+                  ])
+                    Column(
+                      children: [
+                        PidBadge(pid: pid, tier: tier, size: 16, copy: false),
+                        const SizedBox(height: 4),
+                        Text(
+                          '${pidTierNames[tier]} · ${arabicNumber(price)}',
+                          style: TextStyle(color: pidTierColor(tier), fontWeight: FontWeight.w800, fontSize: 12.5),
+                        ),
+                      ],
+                    ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Center(
+                child: SizedBox(
+                  width: 260,
+                  child: GameButton(
+                    label: 'اختار رمزك',
+                    icon: const Gfx('gem', size: 24),
+                    height: 50,
+                    onPressed: () => showPremiumIds(context),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
 }
 
 class _DiamondPacks extends StatelessWidget {

@@ -8,6 +8,8 @@ import '../services/notes.dart';
 import '../theme.dart';
 import 'badges.dart';
 import 'common.dart';
+import 'friend_button.dart';
+import 'pid.dart';
 import 'ui.dart';
 
 /// بطاقة لاعب: صورته ومستواه وإحصائياته وإنجازاته (من ملفه العام)، ومنها تحظره أو تبلّغ عنه.
@@ -228,6 +230,10 @@ class _PlayerCardState extends State<_PlayerCard> {
                         _Chip(icon: 'xp', text: 'مستوى ${arabicNumber(e.level)}'),
                         const SizedBox(height: 6),
                         RankChip(points: e.rankPoints, size: 22),
+                        if (e.pid.isNotEmpty) ...[
+                          const SizedBox(height: 8),
+                          PidBadge(pid: e.pid, tier: e.pidTier, size: 12.5),
+                        ],
                       ],
                     ],
                   ),
@@ -281,8 +287,12 @@ class _PlayerCardState extends State<_PlayerCard> {
                           },
                         ),
                       ],
-                      if (!_me && !widget.bot && _backend.isReady) ...[
+                      if (!_me && !widget.bot && _backend.isReady && e != null) ...[
                         const SizedBox(height: 12),
+                        FriendButton(uid: widget.uid, name: e.name, width: double.infinity),
+                      ],
+                      if (!_me && !widget.bot && _backend.isReady) ...[
+                        const SizedBox(height: 8),
                         ValueListenableBuilder(
                           valueListenable: _backend.profile,
                           builder: (context, p, _) {

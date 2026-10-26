@@ -1,10 +1,11 @@
 import { randomInt } from 'node:crypto';
-import { initializeApp } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
-import { FieldValue, getFirestore, type Transaction } from 'firebase-admin/firestore';
-import { getMessaging } from 'firebase-admin/messaging';
-import { logger, setGlobalOptions } from 'firebase-functions/v2';
-import { HttpsError, onCall, type CallableRequest } from 'firebase-functions/v2/https';
+import { FieldValue, type Transaction } from 'firebase-admin/firestore';
+import { logger } from 'firebase-functions/v2';
+import { HttpsError, onCall } from 'firebase-functions/v2/https';
+import { boardRef, db, requireAuth, userRef } from './base.js';
+import { sendPush } from './push.js';
+import { forgetUser, reservePid } from './social.js';
 import {
   MAX_PLAYERS,
   MIN_PLAYERS,
@@ -69,10 +70,6 @@ import {
 import { CATALOG, CHAMPION_REWARDS, REACTIONS, SEASON } from './catalog.js';
 import { addPassPoints, applyLevelRewards, claimPass, grant, passOf, seasonActive } from './rewards.js';
 import { avatarOfItem, itemById, slotOf } from './shop.js';
-
-initializeApp();
-setGlobalOptions({ region: 'europe-west1', maxInstances: 10 });
-const db = getFirestore();
 
 export interface RoomPlayer {
   uid: string;
@@ -148,11 +145,6 @@ const MAX_REACTIONS = 40;
 // بدون الحروف اللي تتلخبط مثل O و 0 و I و 1.
 const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 
-function requireAuth(req: CallableRequest): string {
-  if (!req.auth) throw new HttpsError('unauthenticated', 'لازم تسجل دخول');
-  return req.auth.uid;
-}
-
 function cleanMaxPlayers(n: unknown): number {
   return typeof n === 'number' && Number.isInteger(n) && n >= MIN_PLAYERS && n <= MAX_PLAYERS ? n : 7;
 }
@@ -165,47 +157,10 @@ async function newRoomCode(): Promise<string> {
   throw new HttpsError('resource-exhausted', 'ما قدرنا نسوي كود، جرّب مرة ثانية');
 }
 
-const userRef = (uid: string) => db.doc(`users/${uid}`);
-const boardRef = (uid: string) => db.doc(`leaderboard/${uid}`);
 const asPlayer = (uid: string, p: Profile): RoomPlayer => {
   const eq = equippedOf(p);
   return { uid, name: p.name, avatar: avatarOf(p), frame: eq.frame, bubble: eq.bubble };
 };
-
-/**
- * يرسل الإشعارات بعد ما تنحفظ الحركة. أي خطأ هنا ما يأثر على اللعبة.
- * الأجهزة اللي ما عادت موجودة تنشال من ملف اللاعب.
- */
-async function sendPush(code: string, notes: Note[]): Promise<void> {
-  if (notes.length === 0) return;
-  try {
-    const uids = [...new Set(notes.map((n) => n.uid))];
-    const snaps = await db.getAll(...uids.map(userRef));
-    const tokens = new Map(snaps.map((s) => [s.id, ((s.data() as Profile | undefined)?.fcmTokens ?? []) as string[]]));
-    const messages = notes.flatMap((n) =>
-      (tokens.get(n.uid) ?? []).map((token) => ({
-        token,
-        notification: { title: n.title, body: n.body },
-        data: { code },
-        // الـ tag يخلي إشعار الطاولة الجديد يحل محل القديم بدل ما تتكوم.
-        android: { priority: 'high' as const, notification: { tag: code, icon: 'ic_stat_notify', color: '#F5B942' } },
-      })),
-    );
-    if (messages.length === 0) return;
-    const res = await getMessaging().sendEach(messages);
-    const dead = res.responses
-      .map((r, i) => (r.error?.code === 'messaging/registration-token-not-registered' ? messages[i].token : null))
-      .filter((t): t is string => t !== null);
-    await Promise.all(
-      [...tokens.entries()].map(([uid, list]) => {
-        const gone = list.filter((t) => dead.includes(t));
-        return gone.length ? userRef(uid).update({ fcmTokens: FieldValue.arrayRemove(...gone) }) : null;
-      }),
-    );
-  } catch (e) {
-    logger.warn('push failed', e);
-  }
-}
 
 /** يتأكد إن اللاعب يقدر يدخل الطاولة (المستوى والذهب والـ VIP). */
 function checkTier(p: Profile, tier: TableTier): void {
@@ -326,11 +281,14 @@ export const ensureProfile = onCall(async (req) => {
   const dev = isDev(req);
   await db.runTransaction(async (tx) => {
     const snap = await tx.get(userRef(uid));
-    if (!snap.exists) return tx.set(userRef(uid), { ...newProfile(), dev });
+    if (!snap.exists) return tx.set(userRef(uid), { ...newProfile(), dev, pid: await reservePid(tx, uid), pidTier: 0 });
     const p = snap.data() as Profile;
+    // لاعب من قبل الرموز: ياخذ رمز عادي.
+    const withPid = p.pid ? p : { ...p, pid: await reservePid(tx, uid), pidTier: 0 };
     // هدايا مستويات ما أخذها (مثلاً وصل المستوى قبل ما تنضاف الهدايا).
-    const rewarded = applyLevelRewards(p);
+    const rewarded = applyLevelRewards(withPid);
     if (rewarded !== p || (p.dev ?? false) !== dev) tx.set(userRef(uid), { ...rewarded, dev });
+    if (withPid !== p && p.setupDone) tx.set(boardRef(uid), toLeaderboard(rewarded));
   });
   // أسبوع جديد؟ نتوّج أبطال اللي فات (مرة وحدة). أي خطأ هنا ما يمنع اللاعب يدخل.
   await maybeCrown(Date.now()).catch((e) => logger.warn('التتويج', e));
@@ -1322,6 +1280,7 @@ async function deleteUserData(uid: string): Promise<void> {
   for (const d of mine.docs) batch.update(d.ref, { reporter: 'deleted' });
   for (const d of feedback.docs) batch.delete(d.ref);
   await batch.commit();
+  if (p) await forgetUser(uid, p);
   await getAuth()
     .deleteUser(uid)
     .catch((e) => logger.warn('حذف حساب الدخول', e));
@@ -1421,3 +1380,5 @@ async function deleteFromRequest(id: string, confirm: boolean): Promise<object> 
   await ref.update({ status: confirm && r.uid ? 'deleted' : 'closed' });
   return { deleted: confirm && !!r.uid };
 }
+
+export { buyPid, findPlayer, friendRequest, friendRespond, inviteFriend, quotePid, removeFriend, suggestIds } from './social.js';

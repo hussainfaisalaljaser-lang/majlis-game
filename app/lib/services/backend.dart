@@ -279,6 +279,33 @@ class Backend {
 
   Future<void> setBlocked(String uid, bool blocked) => _call('setBlocked', {'uid': uid, 'blocked': blocked});
 
+  /// يدور لاعب برمزه.
+  Future<LeaderboardEntry> findPlayer(String pid) async {
+    final r = await _call('findPlayer', {'pid': pid});
+    return LeaderboardEntry.fromJson(r['uid'] as String, r);
+  }
+
+  /// طلب صداقة. يرجع 'sent' (انرسل)، أو 'accepted' (كان مرسل لك، فصرتوا أصدقاء)، أو 'friends'.
+  Future<String> friendRequest(String uid) async => (await _call('friendRequest', {'uid': uid}))['status'] as String;
+
+  Future<void> friendRespond(String uid, bool accept) => _call('friendRespond', {'uid': uid, 'accept': accept});
+
+  Future<void> removeFriend(String uid) => _call('removeFriend', {'uid': uid});
+
+  /// يدعو صديق لرومك (الدعوة تطلع له في اللعبة وبإشعار).
+  Future<void> inviteFriend(String uid, String code) => _call('inviteFriend', {'uid': uid, 'code': code});
+
+  /// سعر رمز مميز ودرجته، وهل هو متاح.
+  Future<PidQuote> quotePid(String pid) async => PidQuote.fromJson(await _call('quotePid', {'pid': pid}));
+
+  /// اقتراحات رموز مميزة متاحة.
+  Future<List<PidQuote>> suggestIds() async => [
+    for (final q in (await _call('suggestIds', const {}))['list'] as List)
+      PidQuote.fromJson({...Map<String, dynamic>.from(q as Map), 'available': true}),
+  ];
+
+  Future<void> buyPid(String pid) => _call('buyPid', {'pid': pid});
+
   Future<void> sendFeedback(String kind, String text, {String? version}) =>
       _call('sendFeedback', {'kind': kind, 'text': text, 'version': ?version});
 
@@ -344,4 +371,20 @@ class GoogleTaken extends GoogleLink {
 
 class GoogleCancelled extends GoogleLink {
   const GoogleCancelled();
+}
+
+/// سعر رمز مميز (من السيرفر).
+class PidQuote {
+  PidQuote.fromJson(Map<String, dynamic> j)
+    : pid = j['pid'] as String,
+      price = (j['price'] as num).toInt(),
+      tier = (j['tier'] as num).toInt(),
+      available = j['available'] as bool? ?? false,
+      mine = j['mine'] as bool? ?? false;
+
+  final String pid;
+  final int price;
+  final int tier;
+  final bool available;
+  final bool mine;
 }

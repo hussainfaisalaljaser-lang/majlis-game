@@ -612,6 +612,101 @@ async function main(): Promise<void> {
   assert.equal(typeof board.badges, 'object');
   console.log(`✓ الإنجازات: ${hostStats.stats.games} ألعاب انعدت، والدرجات: ${JSON.stringify(hostStats.badges ?? {})}`);
 
+  // الرموز والأصدقاء: كل لاعب له رمز يبحثون فيه، وطلبات صداقة، ودعوة للروم
+  const pals = await Promise.all([60, 61, 62, 63, 64].map(client));
+  const palNames = ['رفيق', 'نديم', 'سمير', 'جليس', 'ونيس'];
+  for (const [i, pal] of pals.entries()) {
+    await pal.call('ensureProfile');
+    await pal.call('updateProfile', { name: palNames[i], avatar: 'falcon' });
+  }
+  const [pa, pb, pc, pd, pe] = pals;
+  const aProfile = await pa.profile();
+  assert.match(aProfile.pid, /^[1-9]\d{7}$/, 'كل لاعب له رمز ٨ أرقام');
+  assert.equal(aProfile.pidTier, 0);
+  assert.notEqual(aProfile.pid, (await pb.profile()).pid);
+  const aBoard = (await getDoc(doc(getFirestore(pb.app), `leaderboard/${pa.uid}`))).data()!;
+  assert.equal(aBoard.pid, aProfile.pid, 'الرمز يطلع في بطاقته');
+  const found = await pb.call<{ uid: string; name: string; pid: string }>('findPlayer', { pid: aProfile.pid });
+  assert.equal(found.uid, pa.uid);
+  assert.equal(found.name, 'رفيق');
+  await expectError(pb.call('findPlayer', { pid: '12' }), 'invalid-argument');
+  await expectError(pb.call('findPlayer', { pid: '99999998' }), 'not-found');
+  // طلب وقبول
+  assert.equal((await pb.call<{ status: string }>('friendRequest', { uid: pa.uid })).status, 'sent');
+  assert.equal((await pb.call<{ status: string }>('friendRequest', { uid: pa.uid })).status, 'sent', 'الطلب ما يتكرر');
+  assert.ok((await pa.profile()).friendReqs[pb.uid] > 0);
+  assert.deepEqual((await pb.profile()).sentReqs, [pa.uid]);
+  await pa.call('friendRespond', { uid: pb.uid, accept: true });
+  assert.deepEqual((await pa.profile()).friends, [pb.uid]);
+  assert.deepEqual((await pb.profile()).friends, [pa.uid]);
+  assert.deepEqual((await pb.profile()).sentReqs, []);
+  assert.deepEqual((await pa.profile()).friendReqs, {});
+  // طلب من الطرفين: أصدقاء على طول
+  await pc.call('friendRequest', { uid: pa.uid });
+  assert.equal((await pa.call<{ status: string }>('friendRequest', { uid: pc.uid })).status, 'accepted');
+  assert.ok((await pc.profile()).friends.includes(pa.uid));
+  // رفض
+  await pd.call('friendRequest', { uid: pa.uid });
+  await pa.call('friendRespond', { uid: pd.uid, accept: false });
+  assert.equal((await pa.profile()).friendReqs[pd.uid], undefined);
+  assert.deepEqual((await pd.profile()).sentReqs, []);
+  await expectError(pa.call('friendRespond', { uid: pd.uid, accept: true }), 'not-found');
+  await expectError(pa.call('friendRequest', { uid: pa.uid }), 'invalid-argument');
+  await expectError(pa.call('friendRequest', { uid: 'bot_1' }), 'invalid-argument');
+  // اللي حاظرك ما يوصله طلبك
+  await pd.call('setBlocked', { uid: pe.uid, blocked: true });
+  assert.equal((await pe.call<{ status: string }>('friendRequest', { uid: pd.uid })).status, 'sent');
+  assert.equal((await pd.profile()).friendReqs?.[pe.uid], undefined, 'طلب المحظور ما يوصل');
+  await pd.call('setBlocked', { uid: pe.uid, blocked: false });
+  // دعوة صديق للروم
+  const { code: palRoom } = await pa.call<{ code: string }>('createRoom', { maxPlayers: 5 });
+  await expectError(pa.call('inviteFriend', { uid: pd.uid, code: palRoom }), 'failed-precondition');
+  await pa.call('inviteFriend', { uid: pb.uid, code: palRoom });
+  const invite = (await pb.profile()).invite;
+  assert.equal(invite.code, palRoom);
+  assert.equal(invite.from, pa.uid);
+  assert.equal(invite.name, 'رفيق');
+  await expectError(pa.call('inviteFriend', { uid: pb.uid, code: palRoom }), 'resource-exhausted');
+  await pb.call('joinRoom', { code: palRoom });
+  await expectError(pa.call('inviteFriend', { uid: pc.uid, code: 'ZZZZZ' }), 'failed-precondition');
+  await pb.call('leaveRoom', { code: palRoom });
+  await pa.call('leaveRoom', { code: palRoom });
+  // شيل صديق
+  await pa.call('removeFriend', { uid: pc.uid });
+  assert.ok(!(await pa.profile()).friends.includes(pc.uid));
+  assert.ok(!(await pc.profile()).friends.includes(pa.uid));
+  console.log('✓ الأصدقاء: الرمز والبحث، والطلب والقبول والرفض، والحظر، ودعوة الروم، والإزالة');
+
+  // الرمز المميز: السعر من الطول والنمط، وينشرى بالجواهر، والقديم ينفك
+  const quote = await pa.call<{ price: number; available: boolean; tier: number }>('quotePid', { pid: '7777' });
+  assert.deepEqual([quote.price, quote.available, quote.tier], [1500, true, 4]);
+  await expectError(pa.call('quotePid', { pid: '0777' }), 'invalid-argument');
+  await expectError(pa.call('buyPid', { pid: '7777' }), 'failed-precondition');
+  const { list: ideas } = await pa.call<{ list: { pid: string; price: number; tier: number }[] }>('suggestIds');
+  assert.ok(ideas.length >= 6 && ideas.every((x) => x.price > 30 && x.tier >= 1), 'اقتراحات مميزة');
+  await dev.call('devTool', { action: 'grant', diamonds: 2000 });
+  const devBefore = await dev.profile();
+  await dev.call('buyPid', { pid: '7777' });
+  const devPid = await dev.profile();
+  assert.equal(devPid.pid, '7777');
+  assert.equal(devPid.pidTier, 4);
+  assert.equal(devPid.diamonds, devBefore.diamonds - 1500);
+  assert.equal((await pa.call<{ uid: string }>('findPlayer', { pid: '7777' })).uid, dev.uid);
+  await expectError(pa.call('findPlayer', { pid: devBefore.pid }), 'not-found');
+  assert.equal((await getDoc(doc(getFirestore(pa.app), `leaderboard/${dev.uid}`))).data()!.pid, '7777');
+  await expectError(pb.call('buyPid', { pid: '7777' }), 'already-exists');
+  assert.equal((await pb.call<{ available: boolean }>('quotePid', { pid: '7777' })).available, false);
+  console.log('✓ الرمز المميز: ٧٧٧٧ بـ ١٥٠٠ جوهرة، والقديم انفك، وما ينشرى مرتين');
+
+  // حذف حساب صديق: ينشال من الأصدقاء ورمزه ينفك
+  const fbPid = (await pb.profile()).pid;
+  await pb.call('deleteAccount');
+  assert.ok(!((await pa.profile()).friends ?? []).includes(pb.uid), 'انشال من أصدقائه');
+  await expectError(pa.call('findPlayer', { pid: fbPid }), 'not-found');
+  await Promise.all(pals.filter((x) => x !== pb).map((x) => deleteApp(x.app)));
+  await deleteApp(pb.app);
+  console.log('✓ حذف الحساب: ينشال من الأصدقاء ورمزه ينفك');
+
   // حذف الحساب: الملف والترتيب والاسم ينحذفون
   const leaver = await client(55);
   await leaver.call('ensureProfile');

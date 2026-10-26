@@ -83,6 +83,17 @@ export interface Profile {
   nameKey?: string;
   /** ربط حسابه بقوقل وأخذ المكافأة. */
   linked?: boolean;
+  /** رمزه اللي يبحثون فيه عنه (محجوز في ids/)، ودرجته: ٠ عادي … ٤ أسطوري (ids.ts). */
+  pid?: string;
+  pidTier?: number;
+  /** أصدقاؤه، وطلبات الصداقة اللي وصلته (مين ← متى)، واللي أرسلها وما انردت. */
+  friends?: string[];
+  friendReqs?: Record<string, number>;
+  sentReqs?: string[];
+  /** آخر مرة دعا كل صديق لرومه (عشان ما يزعجه). */
+  invitedAt?: Record<string, number>;
+  /** آخر دعوة وصلته من صديق: التطبيق يعرضها لو كانت جديدة والروم للحين ينتظر. */
+  invite?: { from: string; name: string; code: string; at: number };
   createdAt?: FieldValue;
 }
 
@@ -103,6 +114,9 @@ export interface LeaderboardEntry {
   /** نقاط التصنيف وموسمها (جدول التصنيف يقرا الموسم الحالي بس). */
   rankSeason: string;
   rankPoints: number;
+  /** رمزه ودرجته (للبحث والبطاقة). */
+  pid: string;
+  pidTier: number;
 }
 
 export function toLeaderboard(p: Profile): LeaderboardEntry {
@@ -119,6 +133,8 @@ export function toLeaderboard(p: Profile): LeaderboardEntry {
     badges: p.badges ?? {},
     rankSeason: rankOf(p).season,
     rankPoints: rankOf(p).points,
+    pid: p.pid ?? '',
+    pidTier: p.pidTier ?? 0,
   };
 }
 

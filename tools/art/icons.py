@@ -733,6 +733,27 @@ def _(ic):
             + shine(60, 36, 6, 14, 35, .55))
 
 
+@icon('idcard')
+def _(ic):
+    # بطاقة الرمز: صورة ورقم
+    return (shape(ic, 'M10 32 Q10 22 20 22 H108 Q118 22 118 32 V96 Q118 106 108 106 H20 Q10 106 10 96 Z', TEAL)
+            + f'<rect x="22" y="38" width="36" height="46" rx="8" fill="#0B3A35" stroke="{TEAL[3]}" stroke-width="3"/>'
+            + f'<circle cx="40" cy="54" r="9" fill="{ic.g(SKIN)}" stroke="{SKIN[3]}" stroke-width="2"/>'
+            + '<path d="M27 80 Q40 62 53 80 Z" fill="#F4F1EA"/>'
+            + text(88, 72, '#', 46, '#fff', TEAL[3], 4)
+            + line('M66 92 H106', '#0B3A35', 6) + shine(40, 32, 18, 5))
+
+
+@icon('addfriend')
+def _(ic):
+    # شخص وعلامة زائد: أضف صديق
+    body = shape(ic, 'M12 122 Q14 86 54 80 Q94 86 96 122 Z', WHITE)
+    face = f'<ellipse cx="54" cy="54" rx="23" ry="26" fill="{ic.g(SKIN)}" stroke="{SKIN[3]}" stroke-width="4"/>'
+    ghutra = shape(ic, 'M27 58 Q25 18 54 16 Q83 18 81 58 L89 98 Q77 86 75 64 Q73 38 54 38 Q35 38 33 64 Q31 86 19 98 Z', WHITE, 4)
+    plus = circle(ic, 98, 94, 25, GREEN, radial=True) + line('M98 80 V108 M84 94 H112', '#0A4227', 11) + line('M98 80 V108 M84 94 H112', '#fff', 6)
+    return body + face + ghutra + plus
+
+
 # ═════════════ رتب التصنيف ═════════════
 BRONZE = ('#F6C49A', '#CD7F32', '#7A4512', '#3A1E06')
 DIAMOND = ('#E0F7FF', '#7DD8FF', '#2B8FD6', '#0B3A6B')

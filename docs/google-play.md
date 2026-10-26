@@ -38,6 +38,7 @@
 ليش بتحبها:
 • شرح تفاعلي بصوت راوي سعودي يعلمك اللعبة خطوة خطوة.
 • ادعُ أصحابك برابط واتساب، يدخلون الروم بضغطة.
+• أضف أصدقاءك برمزهم، وادعهم لرومك بإشعار. وفيه رموز مميزة تلمع للكل.
 • تدريب مع بوتات ذكية تشك وتكذب وتعلّق على اللعب، لو تبي تلعب لحالك.
 • وضع سريع (حوالي ٥ دقايق) لو وقتك قصير.
 • التصنيف: العب في الطاولات العامة واطلع من البرونزي للأسطوري، وكل رتبة لها جائزة.
@@ -75,6 +76,7 @@
 | Personal info → User IDs (رقم الحساب) | نعم | App functionality, Account management | لا |
 | App activity → In-app actions (اللعب) | نعم | App functionality, Analytics | لا |
 | App activity → Other user-generated content (البلاغات والرسائل) | نعم | App functionality | نعم |
+| App activity → Other actions (الأصدقاء وطلبات الصداقة والدعوات) | نعم | App functionality | نعم |
 | App info and performance → Crash logs | نعم | Analytics | لا |
 | App info and performance → Diagnostics | نعم | Analytics | لا |
 | Device or other IDs (رمز الإشعارات) | نعم | App functionality | نعم |

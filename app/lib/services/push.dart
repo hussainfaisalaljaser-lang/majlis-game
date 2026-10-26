@@ -3,8 +3,10 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../models/room.dart';
+import '../screens/friends_screen.dart';
 import '../screens/game_screen.dart';
 import 'backend.dart';
+import 'links.dart';
 
 final navigatorKey = GlobalKey<NavigatorState>();
 final messengerKey = GlobalKey<ScaffoldMessengerState>();
@@ -33,22 +35,44 @@ abstract final class Push {
     }
 
     // والتطبيق مفتوح: نعرض الإشعار كشريط تحت بدل إشعار النظام.
+    // (دعوات الأصدقاء تطلع نافذة من ملفه في LinkWatcher، فما نكررها هنا.)
     FirebaseMessaging.onMessage.listen((m) {
       final n = m.notification;
-      if (n == null || _isOnGame(m.data['code'])) return;
+      final kind = m.data['kind'];
+      if (n == null || kind == 'invite' || _isOnGame(m.data['code'])) return;
       messengerKey.currentState?.showSnackBar(
         SnackBar(
           content: Text('${n.title ?? ''}\n${n.body ?? ''}'),
-          action: m.data['code'] == null ? null : SnackBarAction(label: 'افتح', onPressed: () => _open(m.data['code'])),
+          action: kind == 'friend'
+              ? SnackBarAction(label: 'شوف', onPressed: _openFriends)
+              : m.data['code'] == null
+              ? null
+              : SnackBarAction(label: 'افتح', onPressed: () => _open(m.data['code'])),
         ),
       );
     });
 
-    // ضغط على الإشعار: نفتح الطاولة.
-    FirebaseMessaging.onMessageOpenedApp.listen((m) => _open(m.data['code']));
+    // ضغط على الإشعار: نفتح الطاولة، أو ندخل روم الدعوة، أو صفحة الأصدقاء.
+    FirebaseMessaging.onMessageOpenedApp.listen(_tapped);
     final initial = await messaging.getInitialMessage();
-    if (initial != null) _open(initial.data['code']);
+    if (initial != null) _tapped(initial);
   }
+
+  static void _tapped(RemoteMessage m) {
+    final code = m.data['code'];
+    switch (m.data['kind']) {
+      case 'invite' when code is String:
+        Links.joinInvite(code);
+      case 'friend':
+        _openFriends();
+      default:
+        _open(code);
+    }
+  }
+
+  static void _openFriends() => navigatorKey.currentState?.push(
+    MaterialPageRoute(builder: (_) => FriendsScreen(tab: Backend.instance.profile.value.friendReqs.isNotEmpty ? 1 : 0)),
+  );
 
   static String? _currentGame;
 

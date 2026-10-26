@@ -19,7 +19,9 @@ class LeaderboardEntry {
         for (final MapEntry(:key, :value) in ((j['badges'] as Map?) ?? const {}).entries)
           key as String: (value as num).toInt(),
       },
-      rankPoints = j['rankSeason'] == season.id ? (j['rankPoints'] as num?)?.toInt() ?? 0 : 0;
+      rankPoints = j['rankSeason'] == season.id ? (j['rankPoints'] as num?)?.toInt() ?? 0 : 0,
+      pid = j['pid'] as String? ?? '',
+      pidTier = (j['pidTier'] as num?)?.toInt() ?? 0;
 
   final String uid;
   final String name;
@@ -36,6 +38,10 @@ class LeaderboardEntry {
 
   /// نقاط التصنيف في الموسم الحالي.
   final int rankPoints;
+
+  /// رمزه اللي يبحثون فيه عنه، ودرجته.
+  final String pid;
+  final int pidTier;
 
   int get winRate => gamesPlayed == 0 ? 0 : (gamesWon * 100 / gamesPlayed).round();
 }

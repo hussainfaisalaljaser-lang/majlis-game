@@ -11,6 +11,7 @@ import '../widgets/daily_reward.dart';
 import '../widgets/gifts.dart';
 import '../widgets/ui.dart';
 import 'game_screen.dart';
+import 'friends_screen.dart';
 import 'how_to_play_screen.dart';
 import 'leaderboard_screen.dart';
 import 'missions_screen.dart';
@@ -154,6 +155,10 @@ class HomeScreen extends StatelessWidget {
                   _SideNav(
                     onShop: () => _push(context, const ShopScreen()),
                     onRank: () => _push(context, const LeaderboardScreen()),
+                    onFriends: () => _push(
+                      context,
+                      FriendsScreen(tab: Backend.instance.profile.value.friendReqs.isNotEmpty ? 1 : 0),
+                    ),
                     onProfile: () => _push(context, const ProfileScreen()),
                     onGuide: () => _push(context, const HowToPlayScreen()),
                   ),
@@ -652,10 +657,17 @@ class _MissionsCard extends StatelessWidget {
 
 /// شريط التنقل على الجنب (بالعرض)، بدال الشريط اللي تحت.
 class _SideNav extends StatelessWidget {
-  const _SideNav({required this.onShop, required this.onRank, required this.onProfile, required this.onGuide});
+  const _SideNav({
+    required this.onShop,
+    required this.onRank,
+    required this.onFriends,
+    required this.onProfile,
+    required this.onGuide,
+  });
 
   final VoidCallback onShop;
   final VoidCallback onRank;
+  final VoidCallback onFriends;
   final VoidCallback onProfile;
   final VoidCallback onGuide;
 
@@ -717,6 +729,11 @@ class _SideNav extends StatelessWidget {
           item('home', 'الرئيسية', null, on: true),
           item('shop', 'المتجر', onShop),
           item('rank', 'الترتيب', onRank),
+          // نقطة حمرا لو فيه طلبات صداقة
+          ValueListenableBuilder(
+            valueListenable: Backend.instance.profile,
+            builder: (context, p, _) => item('friends', 'الأصدقاء', onFriends, badge: p.friendReqs.isNotEmpty),
+          ),
           item('profile', 'ملفي', onProfile),
           ValueListenableBuilder(
             valueListenable: Backend.instance.profile,

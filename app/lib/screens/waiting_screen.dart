@@ -12,6 +12,7 @@ import '../theme.dart';
 import '../widgets/common.dart';
 import '../widgets/player_card.dart';
 import '../widgets/ui.dart';
+import 'friends_screen.dart';
 import 'game_screen.dart';
 
 /// غرفة الانتظار: المقاعد تتعبى لين تكتمل الطاولة.
@@ -195,7 +196,10 @@ class _WaitingScreenState extends State<WaitingScreen> {
                       ),
                       const SizedBox(height: 8),
                       _CodeBox(code: widget.code ?? 'K7Q2M'),
-                      if (isPrivate && widget.code != null) ...[const SizedBox(height: 8), _Invite(code: widget.code!)],
+                      if (widget.code != null) ...[
+                        const SizedBox(height: 8),
+                        _Invite(code: widget.code!, private: isPrivate),
+                      ],
                       const SizedBox(height: 10),
                       LinearProgressIndicator(
                         value: players.length / max,
@@ -324,19 +328,33 @@ class _WaitingScreenState extends State<WaitingScreen> {
   }
 }
 
-/// دعوة الأصحاب: واتساب برسالة فيها الكود والرابط، أو نسخ الرسالة.
+/// دعوة الأصحاب: أصدقاؤك في اللعبة (دعوة وإشعار)، أو واتساب برسالة فيها الكود والرابط، أو نسخ الرسالة.
+/// الطاولة العامة: الأصدقاء بس.
 class _Invite extends StatelessWidget {
-  const _Invite({required this.code});
+  const _Invite({required this.code, required this.private});
 
   final String code;
+  final bool private;
 
   @override
   Widget build(BuildContext context) {
+    final friends = GameButton(
+      label: 'أصدقائي',
+      semantics: 'ادع أصدقاءك',
+      icon: const Gfx('friends', size: 26),
+      tone: ButtonTone.purple,
+      height: 44,
+      fontSize: 14.5,
+      onPressed: () => showInviteFriends(context, code),
+    );
+    if (!private) return friends;
     return Row(
       children: [
+        Expanded(child: friends),
+        const SizedBox(width: 8),
         Expanded(
           child: GameButton(
-            label: 'ادعُ بالواتساب',
+            label: 'واتساب',
             semantics: 'ادع أصحابك بالواتساب',
             icon: const Gfx('invite', size: 26),
             tone: ButtonTone.green,

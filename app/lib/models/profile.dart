@@ -33,6 +33,12 @@ class Profile {
     this.renamed = false,
     this.rankPoints = 0,
     this.rankBest = 0,
+    this.pid = '',
+    this.pidTier = 0,
+    this.friends = const [],
+    this.friendReqs = const {},
+    this.sentReqs = const {},
+    this.invite,
   });
 
   factory Profile.fromJson(Map<String, dynamic> j) => Profile(
@@ -68,6 +74,12 @@ class Profile {
     renamed: j['renamed'] as bool? ?? false,
     rankPoints: (j['rank'] as Map?)?['season'] == season.id ? ((j['rank'] as Map)['points'] as num).toInt() : 0,
     rankBest: (j['rank'] as Map?)?['season'] == season.id ? ((j['rank'] as Map)['best'] as num).toInt() : 0,
+    pid: j['pid'] as String? ?? '',
+    pidTier: (j['pidTier'] as num?)?.toInt() ?? 0,
+    friends: [for (final f in (j['friends'] as List?) ?? const []) f as String],
+    friendReqs: _ints(j['friendReqs']),
+    sentReqs: {for (final s in (j['sentReqs'] as List?) ?? const []) s as String},
+    invite: j['invite'] == null ? null : Invite.fromJson(Map<String, dynamic>.from(j['invite'] as Map)),
   );
 
   static Map<String, int> _ints(Object? m) => {
@@ -133,6 +145,18 @@ class Profile {
   /// نقاط التصنيف في الموسم الحالي، وأعلى نقاط وصلها فيه.
   final int rankPoints;
   final int rankBest;
+
+  /// رمزه اللي يبحثون فيه عنه، ودرجته (٠ عادي … ٤ أسطوري).
+  final String pid;
+  final int pidTier;
+
+  /// أصدقاؤه، وطلبات الصداقة اللي وصلته (مين ← متى)، واللي أرسلها وما انردت.
+  final List<String> friends;
+  final Map<String, int> friendReqs;
+  final Set<String> sentReqs;
+
+  /// آخر دعوة وصلته من صديق لروم.
+  final Invite? invite;
 
   /// هدايا وصلت وما شافها (مستويات أو بطولة).
   final List<Gift> gifts;
@@ -264,4 +288,20 @@ class PassState {
     }
     return false;
   }
+}
+
+/// دعوة من صديق لرومه.
+class Invite {
+  const Invite({required this.from, required this.name, required this.code, required this.at});
+
+  Invite.fromJson(Map<String, dynamic> j)
+    : from = j['from'] as String,
+      name = j['name'] as String,
+      code = j['code'] as String,
+      at = DateTime.fromMillisecondsSinceEpoch((j['at'] as num).toInt());
+
+  final String from;
+  final String name;
+  final String code;
+  final DateTime at;
 }
