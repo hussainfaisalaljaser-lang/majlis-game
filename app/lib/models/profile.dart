@@ -32,6 +32,7 @@ class Profile {
     this.pass = const PassState(),
     this.passMissionsRaw = const PassMissionState(),
     this.tutorialDone = false,
+    this.tutorialSkipped = false,
     this.stats = const {},
     this.badges = const {},
     this.blocked = const {},
@@ -78,6 +79,7 @@ class Profile {
     pass: PassState.fromJson((j['pass'] as Map?)?.cast<String, dynamic>()),
     passMissionsRaw: PassMissionState.fromJson((j['passMissions'] as Map?)?.cast<String, dynamic>(), season.id),
     tutorialDone: j['tutorialDone'] as bool? ?? false,
+    tutorialSkipped: j['tutorialSkipped'] as bool? ?? false,
     stats: _ints(j['stats']),
     badges: _ints(j['badges']),
     blocked: {for (final b in (j['blocked'] as List?) ?? const []) b as String},
@@ -147,6 +149,9 @@ class Profile {
 
   /// خلّص لعبة الشرح (وأخذ مكافأتها).
   final bool tutorialDone;
+
+  /// تخطّى الشرح بنفسه (يعرف يلعب): ما نجبره عليه.
+  final bool tutorialSkipped;
 
   /// إحصائيات الإنجازات (games، caught…) ودرجة كل إنجاز وصله.
   final Map<String, int> stats;

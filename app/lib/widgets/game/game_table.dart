@@ -559,7 +559,10 @@ class _SeatView extends StatelessWidget {
             if (reaction != null)
               Positioned(
                 top: sticker == null ? -30 : (stickerBelow ? 56 : -62),
-                child: _Bubble(reaction: reaction, view: view, bubble: rp?.bubble),
+                // فوق كل شي (لوحة القرارات ولوحة الجولة اللي في الزوايا)، عشان كلام اللاعب ما يتغطى.
+                child: _AboveAll(
+                  child: _Bubble(reaction: reaction, view: view, bubble: rp?.bubble),
+                ),
               ),
           ],
         ),
@@ -1008,6 +1011,47 @@ class _Badge extends StatelessWidget {
   @override
   Widget build(BuildContext context) =>
       Positioned(left: left, right: right, top: top, bottom: bottom, child: Gfx(icon, size: 24));
+}
+
+/// يرسم [child] فوق كل شي في الصفحة (طبقة الـOverlay)، ومكانه يلحق مكانه هني (وسطه على هالنقطة).
+class _AboveAll extends StatefulWidget {
+  const _AboveAll({required this.child});
+
+  final Widget child;
+
+  @override
+  State<_AboveAll> createState() => _AboveAllState();
+}
+
+class _AboveAllState extends State<_AboveAll> {
+  final _link = LayerLink();
+  final _portal = OverlayPortalController();
+
+  @override
+  void initState() {
+    super.initState();
+    _portal.show();
+  }
+
+  @override
+  Widget build(BuildContext context) => CompositedTransformTarget(
+    link: _link,
+    child: OverlayPortal(
+      controller: _portal,
+      overlayChildBuilder: (context) => Positioned(
+        left: 0,
+        top: 0,
+        child: CompositedTransformFollower(
+          link: _link,
+          showWhenUnlinked: false,
+          targetAnchor: Alignment.topCenter,
+          followerAnchor: Alignment.topCenter,
+          child: IgnorePointer(child: widget.child),
+        ),
+      ),
+      child: const SizedBox(width: 1, height: 1),
+    ),
+  );
 }
 
 /// اللي قاله اللاعب: ملصق، أو كلام بفقاعته من المتجر.

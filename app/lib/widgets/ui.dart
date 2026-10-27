@@ -43,6 +43,7 @@ class NightScaffold extends StatelessWidget {
     this.bottomNavigationBar,
     this.glow,
     this.background,
+    this.shade = .65,
   });
 
   final PreferredSizeWidget? appBar;
@@ -53,13 +54,16 @@ class NightScaffold extends StatelessWidget {
   /// رسمة ورا الشاشة بدال الليل (مثل مكان الطاولة)، ومعها ظل يخلي الكلام يبان.
   final Widget? background;
 
+  /// قوة الظل اللي فوق [background] (٠ بدون ظل).
+  final double shade;
+
   @override
   Widget build(BuildContext context) {
     if (background case final bg?) {
       return Stack(
         children: [
           Positioned.fill(child: bg),
-          const Positioned.fill(child: ColoredBox(color: Color(0xA6000000))),
+          if (shade > 0) Positioned.fill(child: ColoredBox(color: Colors.black.withValues(alpha: shade))),
           Scaffold(
             backgroundColor: Colors.transparent,
             appBar: appBar,

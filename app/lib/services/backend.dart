@@ -238,7 +238,7 @@ class Backend {
     return q.limit(50).snapshots().map((s) => [for (final d in s.docs) LeaderboardEntry.fromJson(d.id, d.data())]);
   }
 
-  /// [roles]: طور الشخصيات (العرّاف والحارس والقاضي والشيخ والجاسوس). بدونه الطور العادي.
+  /// [roles]: الطور المطوّر (العرّاف والحارس والقاضي والشيخ والجاسوس). بدونه الطور الكلاسيكي.
   Future<String> createRoom({required int maxPlayers, bool quick = false, bool roles = false}) async {
     final r = await _call('createRoom', {'maxPlayers': maxPlayers, 'quick': quick, 'roles': roles});
     return r['code'] as String;
@@ -261,6 +261,9 @@ class Backend {
 
   /// لعبة الشرح: أنت و٤ بوتات، تبدأ على طول، ويرجع رمزها.
   Future<String> startTutorial() async => (await _call('startTutorial', const {}))['code'] as String;
+
+  /// يتخطى الشرح الإجباري (يعرف يلعب).
+  Future<void> skipTutorial() => _call('skipTutorial', const {});
 
   /// تدريب: روم خاص فيه أنت و٤ بوتات، يبدأ على طول بطلب واحد، ويرجع رمزه.
   Future<String> startTraining({bool roles = false}) async =>

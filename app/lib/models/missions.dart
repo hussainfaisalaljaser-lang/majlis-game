@@ -81,7 +81,7 @@ const seasonMissions = [
   PassMissionDef('s_ten5', 'win10', 'friends', 'فز ٥ مرات في طاولة ١٠ لاعبين', 5, 400),
   PassMissionDef('s_win30', 'win', 'trophy', 'فز ٣٠ لعبة', 30, 500),
   PassMissionDef('s_found5', 'found', 'search', 'اكشف ٥ خونة بالتحقيق', 5, 300),
-  PassMissionDef('s_roles10', 'rolesGame', 'seer', 'العب ١٠ ألعاب في طور الشخصيات', 10, 300),
+  PassMissionDef('s_roles10', 'rolesGame', 'seer', 'العب ١٠ ألعاب في الطور المطوّر', 10, 300),
   PassMissionDef('s_play50', 'play', 'games', 'العب ٥٠ لعبة', 50, 300),
 ];
 

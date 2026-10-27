@@ -1556,6 +1556,16 @@ export const setFavorites = onCall(async (req) => {
   return {};
 });
 
+/** اللاعب الجديد لازم يقرا القوانين ويلعب الشرح، إلا إذا تخطّاه بنفسه (يعرف يلعب). */
+export const skipTutorial = onCall(async (req) => {
+  const uid = requireAuth(req);
+  await db.runTransaction(async (tx) => {
+    const p = await readProfile(db, tx, uid);
+    if (!p.tutorialDone && !p.tutorialSkipped) tx.set(userRef(uid), { ...p, tutorialSkipped: true });
+  });
+  return {};
+});
+
 /** يشيل رأيك (أشك أو أثق) في لاعب، لو غيّرت رأيك. */
 export const clearOpinion = onCall(async (req) => {
   const uid = requireAuth(req);
@@ -1853,7 +1863,7 @@ const ROUTES: Record<string, CallableFunction<unknown, unknown>> = {
   ensureProfile, devTool, updateProfile, claimLinkReward, claimDaily, createRoom, joinRoom, quickMatch, addBots,
   removeBot, leaveRoom, startGame, startTraining, startTutorial, act, leaveGame, timeout, buyItem, equipItem, rematch,
   registerPushToken, ackGifts, buyPass, giftPass, claimPassRewards, claimPassMission, claimMission, clearOpinion, react,
-  setFavorites, reportPlayer,
+  setFavorites, reportPlayer, skipTutorial,
   spectate, stopWatching, createClan, joinClan, leaveClan, clanKick, clanRole, claimClanChest, tourJoin, tourPlay,
   setBlocked, sendFeedback, deleteAccount, findPlayer, friendRequest, friendRespond, removeFriend, inviteFriend,
   quotePid, suggestIds, buyPid,

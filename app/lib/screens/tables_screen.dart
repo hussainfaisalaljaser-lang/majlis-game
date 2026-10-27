@@ -6,16 +6,18 @@ import '../models/table_tier.dart';
 import '../services/backend.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
-import '../widgets/mode_picker.dart';
+import '../widgets/mode_theme.dart';
 import '../widgets/ui.dart';
 import '../widgets/venues.dart';
 import '../widgets/weekend.dart';
 import 'waiting_screen.dart';
 
 /// اللعب العشوائي: تختار عدد اللاعبين ومستوى الطاولة، وندخلك مع لاعبين من كل مكان (مثل يلا لودو).
-/// اللعب مع الأصحاب في «خاص» (private_screen.dart).
+/// الطور اختاره قبل (mode_screen.dart)، والصفحة كلها بثيمه. اللعب مع الأصحاب في «خاص» (private_screen.dart).
 class TablesScreen extends StatefulWidget {
-  const TablesScreen({super.key});
+  const TablesScreen({super.key, required this.mode});
+
+  final ModeTheme mode;
 
   @override
   State<TablesScreen> createState() => _TablesScreenState();
@@ -28,9 +30,6 @@ class _TablesScreenState extends State<TablesScreen> {
 
   /// الوضع السريع: نفس اللعبة بنص الوقت (حوالي ٥ دقايق).
   bool _quick = false;
-
-  /// طور الشخصيات (بدونه الطور العادي بدون أدوار خاصة).
-  bool _roles = false;
 
   bool _locked(Profile p, TableTier t) => t.requiredLevel > p.level || (t.vipOnly && !p.vip);
 
@@ -61,14 +60,19 @@ class _TablesScreenState extends State<TablesScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final mode = widget.mode;
     return NightScaffold(
+      background: ModeBackdrop(mode: mode),
+      shade: .25,
       appBar: AppBar(
-        title: const Row(
+        title: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Gfx('games', size: 30),
-            SizedBox(width: 8),
-            Text('عشوائي · مع لاعبين من كل مكان', style: TextStyle(fontWeight: FontWeight.w800)),
+            const Gfx('games', size: 30),
+            const SizedBox(width: 8),
+            const Text('عشوائي · مع لاعبين من كل مكان', style: TextStyle(fontWeight: FontWeight.w800)),
+            const SizedBox(width: 12),
+            ModeChip(mode: mode, onTap: () => Navigator.of(context).maybePop()),
           ],
         ),
       ),
@@ -81,11 +85,12 @@ class _TablesScreenState extends State<TablesScreen> {
               width: 290,
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-                child: Column(
+                child: Theme(
+                  data: mode.segmented(context),
+                  child: Column(
                   children: [
                     SegmentedButton<int>(
                       showSelectedIcon: false,
-                      style: const ButtonStyle(visualDensity: VisualDensity.compact),
                       segments: [
                         for (final n in playerCounts) ButtonSegment(value: n, label: Text('${arabicNumber(n)} لاعبين')),
                       ],
@@ -93,11 +98,8 @@ class _TablesScreenState extends State<TablesScreen> {
                       onSelectionChanged: (s) => setState(() => _playerCount = s.first),
                     ),
                     const SizedBox(height: 8),
-                    ModePicker(roles: _roles, onChanged: (v) => setState(() => _roles = v)),
-                    const SizedBox(height: 6),
                     SegmentedButton<bool>(
                       showSelectedIcon: false,
-                      style: const ButtonStyle(visualDensity: VisualDensity.compact),
                       segments: const [
                         ButtonSegment(value: false, label: Text('عادي'), icon: Gfx('hourglass', size: 18)),
                         ButtonSegment(value: true, label: Text('سريع'), icon: Gfx('bolt', size: 18)),
@@ -110,6 +112,8 @@ class _TablesScreenState extends State<TablesScreen> {
                       _quick ? 'نص الوقت لكل دور، واللعبة حوالي ٥ دقايق' : 'الوقت العادي، واللعبة حوالي ١٠ دقايق',
                       style: const TextStyle(color: AppColors.muted, fontSize: 11.5),
                     ),
+                    const SizedBox(height: 10),
+                    ModeSummary(mode: mode),
                     const Spacer(),
                     const WeekendChip(),
                     const SizedBox(height: 6),
@@ -122,6 +126,7 @@ class _TablesScreenState extends State<TablesScreen> {
                       label: _busy ? 'لحظة…' : 'العب الحين',
                       icon: const Gfx('games', size: 28),
                       semantics: 'العب الحين',
+                      tone: mode.button,
                       onPressed: _busy
                           ? null
                           : () => _enter(
@@ -129,12 +134,13 @@ class _TablesScreenState extends State<TablesScreen> {
                                 maxPlayers: _playerCount,
                                 tierId: _tier.id,
                                 quick: _quick,
-                                roles: _roles,
+                                roles: mode.roles,
                               ),
                               tier: _tier,
                             ),
                     ),
                   ],
+                  ),
                 ),
               ),
             ),
@@ -157,6 +163,7 @@ class _TablesScreenState extends State<TablesScreen> {
                     final poor = !profile.dev && profile.coins < t.entryFee;
                     return _TierTile(
                       tier: t,
+                      mode: mode,
                       players: _playerCount,
                       locked: locked,
                       poor: poor,
@@ -177,6 +184,7 @@ class _TablesScreenState extends State<TablesScreen> {
 class _TierTile extends StatelessWidget {
   const _TierTile({
     required this.tier,
+    required this.mode,
     required this.players,
     required this.locked,
     required this.poor,
@@ -185,6 +193,9 @@ class _TierTile extends StatelessWidget {
   });
 
   final TableTier tier;
+
+  /// الطاولة المختارة بلون الطور.
+  final ModeTheme mode;
   final int players;
   final bool locked;
   final bool poor;
@@ -206,9 +217,10 @@ class _TierTile extends StatelessWidget {
         child: Ink(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
           decoration: BoxDecoration(
-            color: selected ? const Color(0xFF2B2A22) : AppColors.card,
+            color: selected ? mode.selectBg : AppColors.card,
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: selected ? AppColors.gold : AppColors.line, width: 1.5),
+            border: Border.all(color: selected ? mode.select : AppColors.line, width: selected ? 2 : 1.5),
+            boxShadow: selected ? [BoxShadow(color: mode.select.withValues(alpha: .3), blurRadius: 14)] : null,
           ),
           child: Stack(
             clipBehavior: Clip.none,
@@ -219,7 +231,7 @@ class _TierTile extends StatelessWidget {
                 right: -14,
                 top: -12,
                 bottom: -12,
-                child: _VenuePeek(tier: tier, selected: selected),
+                child: _VenuePeek(tier: tier, tint: selected ? mode.selectBg : AppColors.card),
               ),
               _tileRow(hint),
             ],
@@ -266,10 +278,12 @@ class _TierTile extends StatelessWidget {
 
 /// رسمة مكان الطاولة (ثابتة) مقصوصة على البطاقة، ومغطاة بظل من جهة الكلام.
 class _VenuePeek extends StatelessWidget {
-  const _VenuePeek({required this.tier, required this.selected});
+  const _VenuePeek({required this.tier, required this.tint});
 
   final TableTier tier;
-  final bool selected;
+
+  /// لون البطاقة اللي يغطي الرسمة من جهة الكلام.
+  final Color tint;
 
   @override
   Widget build(BuildContext context) => ClipRRect(
@@ -290,11 +304,7 @@ class _VenuePeek extends StatelessWidget {
             gradient: LinearGradient(
               begin: AlignmentDirectional.centerStart,
               end: AlignmentDirectional.centerEnd,
-              colors: [
-                (selected ? const Color(0xFF2B2A22) : AppColors.card).withValues(alpha: .97),
-                (selected ? const Color(0xFF2B2A22) : AppColors.card).withValues(alpha: .62),
-                (selected ? const Color(0xFF2B2A22) : AppColors.card).withValues(alpha: .9),
-              ],
+              colors: [tint.withValues(alpha: .97), tint.withValues(alpha: .62), tint.withValues(alpha: .9)],
               stops: const [.28, .62, 1],
             ),
           ),

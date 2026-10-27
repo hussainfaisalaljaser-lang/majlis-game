@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../models/game_view.dart';
+import '../models/profile.dart';
 import '../models/shop.dart';
 import '../services/backend.dart';
 import '../services/sfx.dart';
@@ -16,8 +17,9 @@ import 'game_screen.dart';
 /// مكافأة أول لعبة شرح (نفس functions/src/economy.ts → TUTORIAL_REWARD).
 const tutorialReward = 500;
 
-/// يبدأ لعبة الشرح (أنت و٤ بوتات) ويفتح الطاولة.
-Future<void> startTutorialGame(BuildContext context) async {
+/// يبدأ لعبة الشرح (أنت و٤ بوتات) ويفتح الطاولة. [replace]: الطاولة تاخذ مكان صفحة الشرح
+/// (الشرح الإجباري، عشان بعد اللعبة يرجع للرئيسية).
+Future<void> startTutorialGame(BuildContext context, {bool replace = false}) async {
   final backend = Backend.instance;
   if (!backend.isReady) return;
   final navigator = Navigator.of(context);
@@ -39,76 +41,24 @@ Future<void> startTutorialGame(BuildContext context) async {
     final code = await backend.startTutorial();
     Telemetry.tutorialBegin();
     navigator.pop();
-    navigator.push(MaterialPageRoute(builder: (_) => GameScreen(code: code)));
+    final route = MaterialPageRoute<void>(builder: (_) => GameScreen(code: code));
+    replace ? navigator.pushReplacement(route) : navigator.push(route);
   } on BackendException catch (e) {
     navigator.pop();
     messenger.showSnackBar(SnackBar(content: Text(e.message)));
   }
 }
 
-/// أول مرة يفتح اللعبة: نعرض عليه الشرح (مرة وحدة، ويقدر يرجع له من "كيف ألعب").
-Future<void> offerTutorial(BuildContext context) async {
-  final go = await showDialog<bool>(
-    context: context,
-    builder: (context) => AlertDialog(
-      contentPadding: const EdgeInsets.fromLTRB(22, 20, 22, 6),
-      content: Row(
-        children: [
-          const PlayerAvatar(avatar: 'sheikh', frame: AppColors.gold, size: 84),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const GoldText('أول مرة في المجلس؟', size: 22, align: TextAlign.start),
-                const SizedBox(height: 6),
-                const Text(
-                  'خلني أعلمك اللعبة في دقيقتين، وبعدها نلعب جولة تجريبية مع البوتات.',
-                  style: TextStyle(fontSize: 14, height: 1.5),
-                ),
-                const SizedBox(height: 8),
-                Amount(
-                  'coin',
-                  'هديتك لما تخلص: ${arabicNumber(tutorialReward)} ذهب',
-                  size: 20,
-                  style: const TextStyle(color: AppColors.gold, fontWeight: FontWeight.w800, fontSize: 14),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-      actions: [
-        Row(
-          children: [
-            Expanded(
-              child: GameButton(
-                label: 'أعرف ألعب',
-                tone: ButtonTone.ghost,
-                height: 46,
-                fontSize: 15,
-                onPressed: () => Navigator.pop(context, false),
-              ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: GameButton(
-                label: 'علّمني',
-                icon: const Gfx('guide', size: 26),
-                height: 46,
-                fontSize: 16,
-                onPressed: () => Navigator.pop(context, true),
-              ),
-            ),
-          ],
-        ),
-      ],
-    ),
-  );
-  if (go == true && context.mounted) {
-    Navigator.of(context).push(MaterialPageRoute(builder: (_) => const HowToPlayScreen()));
-  }
+/// لاعب جديد (ما خلّص الشرح ولا لعب): لازم يقرا القوانين ويلعب لعبة الشرح قبل ما يلعب، إلا إذا تخطّاه بنفسه.
+bool needsOnboarding(Profile p) =>
+    Backend.instance.isReady && p.setupDone && !p.tutorialDone && !p.tutorialSkipped && p.gamesPlayed == 0;
+
+/// يفتح الشرح الإجباري لو لازم. يرجع true لو يقدر يكمل للعب (خلّصه من قبل، أو تخطّاه الحين).
+Future<bool> ensureOnboarded(BuildContext context) async {
+  if (!needsOnboarding(Backend.instance.profile.value)) return true;
+  final skipped = await Navigator.of(context)
+      .push<bool>(MaterialPageRoute(builder: (_) => const HowToPlayScreen(onboarding: true)));
+  return skipped == true || !needsOnboarding(Backend.instance.profile.value);
 }
 
 /// صفحة شرح: نص (وفيه نقاط لها عنوان ملوّن) وملاحظة مهمة، ورسمة، وجملة الراوي اللي تقراها.
@@ -123,7 +73,10 @@ typedef _Slide = ({
 
 /// كيف ألعب: فكرة اللعبة وقوانينها في ٧ صفحات قصيرة، والراوي يقرا كل صفحة، وآخرها تبدأ لعبة الشرح.
 class HowToPlayScreen extends StatefulWidget {
-  const HowToPlayScreen({super.key});
+  const HowToPlayScreen({super.key, this.onboarding = false});
+
+  /// الشرح الإجباري للاعب الجديد: ما يطلع منه إلا بلعبة الشرح أو «تخطّي» بتأكيد.
+  final bool onboarding;
 
   @override
   State<HowToPlayScreen> createState() => _HowToPlayScreenState();
@@ -157,8 +110,8 @@ class _HowToPlayScreenState extends State<HowToPlayScreen> {
           AppColors.traitorLight,
         ),
         (
-          'طور الشخصيات',
-          'الطور العادي فيه الزعيم والخونة والأوفياء بس. وفي طور الشخصيات: بعض الأوفياء لهم دور خاص (العرّاف أو الحارس)، '
+          'الطور المطوّر',
+          'الطور الكلاسيكي فيه الزعيم والخونة والأوفياء بس. وفي الطور المطوّر: بعض الأوفياء لهم دور خاص (العرّاف أو الحارس)، '
               'وفيه أدوار لأي لاعب إلا الزعيم: القاضي يلغي تصويت مرة، والشيخ صوته بصوتين، والجاسوس يشوف أول كرت '
               'بالكومة مرة. شرح دورك يظهر في بطاقتك.',
           AppColors.gold,
@@ -260,110 +213,194 @@ class _HowToPlayScreenState extends State<HowToPlayScreen> {
 
   void _go(int i) => _pages.animateToPage(i, duration: const Duration(milliseconds: 380), curve: Curves.easeOutCubic);
 
-  @override
-  Widget build(BuildContext context) {
-    final last = _page == _slides.length - 1;
-    return NightScaffold(
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 10),
-          child: Column(
+  /// يتخطى الشرح الإجباري بعد ما يأكد (يعرف يلعب، أو حساب جديد على جوال جديد).
+  Future<void> _skip() async {
+    final sure = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('تتخطى الشرح؟'),
+        content: Text(
+          'الشرح يعلّمك اللعبة في كم دقيقة، ولما تخلص لعبة الشرح تاخذ ${arabicNumber(tutorialReward)} ذهب.\n'
+          'تخطّه بس إذا تعرف تلعب (مثلاً نقلت لجوال جديد أو سوّيت حساب جديد).',
+          style: const TextStyle(height: 1.6),
+        ),
+        actions: [
+          Row(
             children: [
-              Row(
-                children: [
-                  const Gfx('guide', size: 34),
-                  const SizedBox(width: 8),
-                  const GoldText('كيف ألعب؟', size: 24),
-                  const Spacer(),
-                  TextButton.icon(
-                    onPressed: () => Navigator.of(context).maybePop(),
-                    icon: const Gfx('cross', size: 22),
-                    label: const Text(
-                      'إغلاق',
-                      style: TextStyle(color: AppColors.muted, fontWeight: FontWeight.w700),
-                    ),
-                  ),
-                ],
-              ),
               Expanded(
-                child: PageView(
-                  controller: _pages,
-                  onPageChanged: (i) {
-                    setState(() => _page = i);
-                    _say(i);
-                  },
-                  children: [for (final s in _slides) _SlideView(slide: s)],
+                child: GameButton(
+                  label: 'تخطّي',
+                  tone: ButtonTone.ghost,
+                  height: 44,
+                  fontSize: 15,
+                  onPressed: () => Navigator.pop(context, true),
                 ),
               ),
-              Row(
-                children: [
-                  SizedBox(
-                    width: 130,
-                    child: _page == 0
-                        ? null
-                        : GameButton(
-                            label: 'السابق',
-                            tone: ButtonTone.ghost,
-                            height: 44,
-                            fontSize: 15,
-                            onPressed: () => _go(_page - 1),
-                          ),
-                  ),
-                  Expanded(
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        for (var i = 0; i < _slides.length; i++)
-                          AnimatedContainer(
-                            duration: const Duration(milliseconds: 250),
-                            margin: const EdgeInsets.symmetric(horizontal: 3),
-                            width: i == _page ? 22 : 8,
-                            height: 8,
-                            decoration: BoxDecoration(
-                              color: i == _page ? AppColors.gold : AppColors.line,
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
-                  SizedBox(
-                    width: last ? 230 : 130,
-                    child: last
-                        ? GameButton(
-                            label: 'يالله نجرّب!',
-                            semantics: 'ابدأ لعبة الشرح',
-                            icon: const Gfx('games', size: 26),
-                            tone: ButtonTone.green,
-                            height: 44,
-                            fontSize: 16,
-                            onPressed: () {
-                              Sfx.hush();
-                              startTutorialGame(context);
-                            },
-                          )
-                        : GameButton(label: 'التالي', height: 44, fontSize: 15, onPressed: () => _go(_page + 1)),
-                  ),
-                ],
-              ),
-              ValueListenableBuilder(
-                valueListenable: Backend.instance.profile,
-                builder: (context, p, _) => AnimatedSize(
-                  duration: const Duration(milliseconds: 200),
-                  child: last && !p.tutorialDone
-                      ? Padding(
-                          padding: const EdgeInsets.only(top: 6),
-                          child: Amount(
-                            'coin',
-                            'خلّص لعبة الشرح وخذ ${arabicNumber(tutorialReward)} ذهب',
-                            size: 18,
-                            style: const TextStyle(color: AppColors.gold, fontWeight: FontWeight.w800, fontSize: 13),
-                          ),
-                        )
-                      : const SizedBox(width: double.infinity),
+              const SizedBox(width: 10),
+              Expanded(
+                child: GameButton(
+                  label: 'أكمل الشرح',
+                  height: 44,
+                  fontSize: 15,
+                  onPressed: () => Navigator.pop(context, false),
                 ),
               ),
             ],
+          ),
+        ],
+      ),
+    );
+    if (sure != true || !mounted) return;
+    final navigator = Navigator.of(context);
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      await Backend.instance.skipTutorial();
+      Sfx.hush();
+      navigator.pop(true);
+    } on BackendException catch (e) {
+      messenger.showSnackBar(SnackBar(content: Text(e.message)));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final last = _page == _slides.length - 1;
+    final onboarding = widget.onboarding;
+    return PopScope(
+      canPop: !onboarding,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _skip();
+      },
+      child: NightScaffold(
+        body: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 10),
+            child: Column(
+              children: [
+                Row(
+                  children: [
+                    const Gfx('guide', size: 34),
+                    const SizedBox(width: 8),
+                    GoldText(onboarding ? 'أهلاً في المجلس!' : 'كيف ألعب؟', size: 24),
+                    if (onboarding) ...[
+                      const SizedBox(width: 12),
+                      Flexible(
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(12),
+                            color: Colors.black.withValues(alpha: .3),
+                            border: Border.all(color: AppColors.gold.withValues(alpha: .4)),
+                          ),
+                          child: Text(
+                            last ? 'الخطوة ٢ من ٢: لعبة تجريبية مع البوتات' : 'الخطوة ١ من ٢: تعلّم القوانين',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(color: AppColors.gold, fontSize: 12.5, fontWeight: FontWeight.w800),
+                          ),
+                        ),
+                      ),
+                    ],
+                    const Spacer(),
+                    if (onboarding)
+                      TextButton(
+                        onPressed: _skip,
+                        child: const Text(
+                          'تخطّي الشرح',
+                          style: TextStyle(color: AppColors.muted, fontWeight: FontWeight.w700),
+                        ),
+                      )
+                    else
+                      TextButton.icon(
+                        onPressed: () => Navigator.of(context).maybePop(),
+                        icon: const Gfx('cross', size: 22),
+                        label: const Text(
+                          'إغلاق',
+                          style: TextStyle(color: AppColors.muted, fontWeight: FontWeight.w700),
+                        ),
+                      ),
+                  ],
+                ),
+                Expanded(
+                  child: PageView(
+                    controller: _pages,
+                    onPageChanged: (i) {
+                      setState(() => _page = i);
+                      _say(i);
+                    },
+                    children: [for (final s in _slides) _SlideView(slide: s)],
+                  ),
+                ),
+                Row(
+                  children: [
+                    SizedBox(
+                      width: 130,
+                      child: _page == 0
+                          ? null
+                          : GameButton(
+                              label: 'السابق',
+                              tone: ButtonTone.ghost,
+                              height: 44,
+                              fontSize: 15,
+                              onPressed: () => _go(_page - 1),
+                            ),
+                    ),
+                    Expanded(
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          for (var i = 0; i < _slides.length; i++)
+                            AnimatedContainer(
+                              duration: const Duration(milliseconds: 250),
+                              margin: const EdgeInsets.symmetric(horizontal: 3),
+                              width: i == _page ? 22 : 8,
+                              height: 8,
+                              decoration: BoxDecoration(
+                                color: i == _page ? AppColors.gold : AppColors.line,
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                    SizedBox(
+                      width: last ? 230 : 130,
+                      child: last
+                          ? GameButton(
+                              label: 'يالله نجرّب!',
+                              semantics: 'ابدأ لعبة الشرح',
+                              icon: const Gfx('games', size: 26),
+                              tone: ButtonTone.green,
+                              height: 44,
+                              fontSize: 16,
+                              onPressed: () {
+                                Sfx.hush();
+                                startTutorialGame(context, replace: onboarding);
+                              },
+                            )
+                          : GameButton(label: 'التالي', height: 44, fontSize: 15, onPressed: () => _go(_page + 1)),
+                    ),
+                  ],
+                ),
+                ValueListenableBuilder(
+                  valueListenable: Backend.instance.profile,
+                  builder: (context, p, _) => AnimatedSize(
+                    duration: const Duration(milliseconds: 200),
+                    child: last && !p.tutorialDone
+                        ? Padding(
+                            padding: const EdgeInsets.only(top: 6),
+                            child: Amount(
+                              'coin',
+                              'خلّص لعبة الشرح وخذ ${arabicNumber(tutorialReward)} ذهب',
+                              size: 18,
+                              style: const TextStyle(color: AppColors.gold, fontWeight: FontWeight.w800, fontSize: 13),
+                            ),
+                          )
+                        : const SizedBox(width: double.infinity),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),

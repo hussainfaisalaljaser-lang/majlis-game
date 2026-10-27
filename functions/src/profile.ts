@@ -64,6 +64,8 @@ export interface Profile {
   passMissions?: PassMissionState;
   /** خلّص لعبة الشرح وأخذ مكافأتها. */
   tutorialDone?: boolean;
+  /** تخطّى الشرح (يعرف يلعب، أو حساب جديد على جوال جديد): ما نجبره عليه بعدها. */
+  tutorialSkipped?: boolean;
   /** إحصائيات الإنجازات (achievements.ts)، ودرجة كل إنجاز وصلها (١ برونزي، ٢ فضي، ٣ ذهبي). */
   stats?: Stats;
   badges?: Record<string, number>;

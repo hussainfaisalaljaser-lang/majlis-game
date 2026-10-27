@@ -13,6 +13,7 @@ import '../services/telemetry.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
 import '../widgets/majlis.dart';
+import '../widgets/mode_theme.dart';
 import '../widgets/player_card.dart';
 import '../widgets/ui.dart';
 import '../widgets/venues.dart';
@@ -186,11 +187,10 @@ class _WaitingScreenState extends State<WaitingScreen> {
                 const Gfx('bolt', size: 22),
                 const Text(' سريع', style: TextStyle(color: AppColors.gold, fontSize: 15)),
               ],
-              // طور الشخصيات (الطور العادي ما يحتاج علامة).
-              if (_room?.roles ?? false) ...[
+              // الطور (الكلاسيكي أو المطوّر) بثيمه.
+              if (_room case final room?) ...[
                 const SizedBox(width: 10),
-                const Gfx('seer', size: 22),
-                const Text(' الشخصيات', style: TextStyle(color: Color(0xFFB9A4FF), fontSize: 15)),
+                ModeChip(mode: ModeTheme.of(room.roles)),
               ],
             ],
           ),

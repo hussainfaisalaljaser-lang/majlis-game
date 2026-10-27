@@ -376,7 +376,17 @@ async function main(): Promise<void> {
   await expectError(dev.call('giftPass', { uid: watcher.uid }), 'already-exists');
   console.log('✓ الإهداء: لأصحابك بس، ويوصل صاحبك الباتل باس وهدية باسمك');
 
-  await Promise.all([dev, plain, old, friend, watcher].map((c) => deleteApp(c.app)));
+  // ١٣. الشرح الإجباري: اللاعب الجديد يقدر يتخطاه بنفسه، ومرة وحدة تكفي.
+  const newbie = await client(9);
+  await newbie.call('ensureProfile', { proto: 2 });
+  assert.equal((await newbie.profile()).tutorialSkipped, undefined);
+  await newbie.call('skipTutorial');
+  assert.equal((await newbie.profile()).tutorialSkipped, true);
+  await newbie.call('skipTutorial');
+  assert.equal((await newbie.profile()).tutorialDone, undefined, 'التخطي ما يعطي مكافأة الشرح');
+  console.log('✓ الشرح الإجباري: يتخطاه بنفسه، وبدون مكافأة');
+
+  await Promise.all([dev, plain, old, friend, watcher, newbie].map((c) => deleteApp(c.app)));
   console.log('\nكل اختبارات المزايا الجديدة نجحت ✅');
   process.exit(0);
 }

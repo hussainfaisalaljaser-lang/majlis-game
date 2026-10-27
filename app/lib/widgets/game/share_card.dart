@@ -16,7 +16,7 @@ import '../ui.dart';
 import '../venues.dart';
 import 'overlays.dart';
 
-/// صورة تنشرها بعد اللعبة: دورك ونتيجتك وكم مرة كذبت، ورمزك عشان أصحابك يلقونك.
+/// صورة تنشرها بعد اللعبة: دورك ونتيجتك وكم مرة كذبت، ومين فزت عليهم، ورمزك عشان أصحابك يلقونك.
 /// تطلع معاينة، وزر «شارك» يفتح قائمة المشاركة في الجوال (واتساب، سناب، انستقرام…).
 Future<void> showShareCard(BuildContext context, GameView view, Room? room) => showDialog<void>(
   context: context,
@@ -157,6 +157,12 @@ class ShareCard extends StatelessWidget {
     ].whereType<bool>();
     final lied = lies.where((l) => l).length;
     final rounds = v.governments.length;
+    // الفريق الثاني (الأدوار تنكشف بعد اللعبة): فزت عليهم، أو غلبوك.
+    final loyal = v.yourRole == Role.loyal;
+    final rivals = [
+      for (final pl in v.players)
+        if (pl.id != v.you && pl.knownRole != null && (pl.knownRole == Role.loyal) != loyal) pl,
+    ].take(6).toList();
     return SizedBox(
       width: 360,
       height: 360,
@@ -216,7 +222,7 @@ class ShareCard extends StatelessWidget {
                     clipBehavior: Clip.none,
                     alignment: Alignment.center,
                     children: [
-                      PlayerAvatar(avatar: p.avatar, style: frameStyle(p.frame), size: 104, animate: false),
+                      PlayerAvatar(avatar: p.avatar, style: frameStyle(p.frame), size: 88, animate: false),
                       Positioned(
                         bottom: -6,
                         right: -8,
@@ -248,6 +254,44 @@ class ShareCard extends StatelessWidget {
                         ),
                     ],
                   ),
+                  if (rivals.isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      iWon ? 'فزت على' : 'غلبوني',
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w800,
+                        color: iWon ? AppColors.green : AppColors.traitorLight,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        for (final r in rivals)
+                          SizedBox(
+                            width: 50,
+                            child: Column(
+                              children: [
+                                PlayerAvatar(
+                                  avatar: room?.player(r.id)?.avatar ?? 'masked',
+                                  frame: r.knownRole == Role.loyal ? AppColors.loyal : AppColors.traitor,
+                                  size: 30,
+                                  animate: false,
+                                ),
+                                const SizedBox(height: 1),
+                                Text(
+                                  room?.player(r.id)?.name ?? r.name,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(fontSize: 9.5, fontWeight: FontWeight.w800),
+                                ),
+                              ],
+                            ),
+                          ),
+                      ],
+                    ),
+                  ],
                   const Spacer(),
                   Text(
                     p.pid.isEmpty ? 'حمّل اللعبة وتحداني' : 'حمّل اللعبة وتحداني · رمزي ${p.pid}',

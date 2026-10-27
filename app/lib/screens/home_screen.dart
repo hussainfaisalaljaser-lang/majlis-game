@@ -1,7 +1,6 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/missions.dart';
 import '../models/leaderboard.dart';
@@ -10,25 +9,23 @@ import '../services/backend.dart';
 import '../services/links.dart';
 import '../services/music.dart';
 import '../theme.dart';
-import '../widgets/mode_picker.dart';
 import '../widgets/common.dart';
 import '../widgets/daily_reward.dart';
+import '../widgets/fx.dart';
 import '../widgets/gifts.dart';
 import '../widgets/majlis.dart';
 import '../widgets/ui.dart';
 import '../widgets/weekend.dart';
 import '../models/events.dart';
-import 'game_screen.dart';
 import 'clans_screen.dart';
 import 'friends_screen.dart';
 import 'how_to_play_screen.dart';
 import 'leaderboard_screen.dart';
 import 'missions_screen.dart';
+import 'mode_screen.dart';
 import 'pass_screen.dart';
-import 'private_screen.dart';
 import 'profile_screen.dart';
 import 'shop_screen.dart';
-import 'tables_screen.dart';
 import 'tournament_screen.dart';
 import 'wardrobe_screen.dart';
 
@@ -37,67 +34,23 @@ class HomeScreen extends StatelessWidget {
 
   void _push(BuildContext context, Widget page) => Navigator.of(context).push(MaterialPageRoute(builder: (_) => page));
 
-  /// تدريب: روم خاص فيه أنت و٤ بوتات، تختار الطور ويبدأ على طول.
-  Future<void> _startPractice(BuildContext context) async {
-    final backend = Backend.instance;
-    if (!backend.isReady) return;
-    final navigator = Navigator.of(context);
-    final messenger = ScaffoldMessenger.of(context);
-    final roles = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: AppColors.panel,
-        title: const Text('تدريب مع البوتات · اختر الطور', textAlign: TextAlign.center),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            for (final (roles, title, icon, tone) in [
-              (false, 'عادي', 'dagger', ButtonTone.gold),
-              (true, 'الشخصيات', 'seer', ButtonTone.purple),
-            ]) ...[
-              GameButton(
-                label: title,
-                icon: Gfx(icon, size: 24),
-                tone: tone,
-                height: 46,
-                fontSize: 16,
-                onPressed: () => Navigator.pop(context, roles),
-              ),
-              Padding(
-                padding: const EdgeInsets.only(top: 3, bottom: 8),
-                child: Text(
-                  modeHint(roles),
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(color: AppColors.muted, fontSize: 12),
-                ),
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
-    if (roles == null || !context.mounted) return;
-    showDialog<void>(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => const AlertDialog(
-        content: Row(
-          children: [
-            CircularProgressIndicator(color: AppColors.gold),
-            SizedBox(width: 16),
-            Text('نجهّز المجلس…'),
-          ],
-        ),
-      ),
-    );
-    try {
-      final code = await backend.startTraining(roles: roles);
-      navigator.pop();
-      navigator.push(MaterialPageRoute(builder: (_) => GameScreen(code: code)));
-    } on BackendException catch (e) {
-      navigator.pop();
-      messenger.showSnackBar(SnackBar(content: Text(e.message)));
-    }
+  /// اللعب (عشوائي، خاص، تدريب): اللاعب الجديد يتعلم أول (الشرح الإجباري)، وبعدها يختار الطور.
+  Future<void> _play(BuildContext context, ModePurpose purpose) async {
+    if (!await ensureOnboarded(context) || !context.mounted) return;
+    _push(context, ModeScreen(purpose: purpose));
+  }
+
+  /// المهام: تفتح على أول تبويب فيه شي جاهز للاستلام.
+  void _openMissions(BuildContext context) {
+    final p = Backend.instance.profile.value;
+    final tab = p.claimableMissions > 0
+        ? 0
+        : weeklyMissions.any(p.passMissions.isClaimable)
+        ? 1
+        : seasonMissions.any(p.passMissions.isClaimable)
+        ? 2
+        : 0;
+    _push(context, MissionsScreen(tab: tab));
   }
 
   @override
@@ -114,88 +67,53 @@ class HomeScreen extends StatelessWidget {
                       padding: const EdgeInsetsDirectional.fromSTEB(14, 8, 10, 12),
                       child: Column(
                         children: [
-                          const _Header(),
+                          _Header(onGift: () => showDailyReward(context), onMissions: () => _openMissions(context)),
                           const SizedBox(height: 10),
                           Expanded(
                             child: Row(
                               crossAxisAlignment: CrossAxisAlignment.stretch,
                               children: [
-                                Expanded(flex: 10, child: _Hero(onPlay: () => _push(context, const TablesScreen()))),
+                                Expanded(flex: 10, child: _Hero(onPlay: () => _play(context, ModePurpose.random))),
                                 const SizedBox(width: 12),
                                 Expanded(
                                   flex: 11,
-                                  child: Column(
+                                  child: Row(
+                                    crossAxisAlignment: CrossAxisAlignment.stretch,
                                     children: [
                                       Expanded(
-                                        flex: 3,
-                                        child: Row(
-                                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                                          children: [
-                                            Expanded(
-                                              child: _Tile(
-                                                icon: 'friends',
-                                                title: 'خاص',
-                                                subtitle: 'روم مع أصحابك',
-                                                colors: const [Color(0xFF2FBF71), Color(0xFF145C38)],
-                                                shadow: const Color(0xFF0B3A22),
-                                                onTap: () => _push(context, const PrivateScreen()),
-                                              ),
-                                            ),
-                                            const SizedBox(width: 10),
-                                            Expanded(
-                                              child: _Tile(
-                                                icon: 'bot',
-                                                title: 'تدريب',
-                                                subtitle: 'أنت و٤ بوتات',
-                                                colors: const [Color(0xFF7C5CFF), Color(0xFF3A1F9C)],
-                                                shadow: const Color(0xFF23125E),
-                                                onTap: () => _startPractice(context),
-                                              ),
-                                            ),
-                                            const SizedBox(width: 10),
-                                            Expanded(
-                                              child: ValueListenableBuilder(
-                                                valueListenable: Backend.instance.profile,
-                                                builder: (context, p, _) => _Tile(
-                                                  icon: 'pass',
-                                                  title: 'الموسم',
-                                                  subtitle: 'الدرجة ${arabicNumber(p.pass.tier)}',
-                                                  badge: p.pass.claimable,
-                                                  colors: const [Color(0xFF14B8A6), Color(0xFF134E4A)],
-                                                  shadow: const Color(0xFF062F2C),
-                                                  onTap: () => _push(context, const PassScreen()),
-                                                ),
-                                              ),
-                                            ),
-                                          ],
+                                        child: _Tile(
+                                          icon: 'friends',
+                                          title: 'خاص',
+                                          subtitle: 'روم مع أصحابك',
+                                          colors: const [Color(0xFF2FBF71), Color(0xFF145C38)],
+                                          shadow: const Color(0xFF0B3A22),
+                                          onTap: () => _play(context, ModePurpose.private),
                                         ),
                                       ),
-                                      const SizedBox(height: 12),
+                                      const SizedBox(width: 10),
                                       Expanded(
-                                        flex: 2,
-                                        child: Row(
-                                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                                          children: [
-                                            Expanded(child: _DailyCard(onTap: () => showDailyReward(context))),
-                                            const SizedBox(width: 10),
-                                            SizedBox(
-                                              width: 128,
-                                              child: _MissionsCard(
-                                                onTap: () {
-                                                  final p = Backend.instance.profile.value;
-                                                  // يفتح على أول تبويب فيه شي جاهز للاستلام.
-                                                  final tab = p.claimableMissions > 0
-                                                      ? 0
-                                                      : weeklyMissions.any(p.passMissions.isClaimable)
-                                                      ? 1
-                                                      : seasonMissions.any(p.passMissions.isClaimable)
-                                                      ? 2
-                                                      : 0;
-                                                  _push(context, MissionsScreen(tab: tab));
-                                                },
-                                              ),
-                                            ),
-                                          ],
+                                        child: _Tile(
+                                          icon: 'bot',
+                                          title: 'تدريب',
+                                          subtitle: 'أنت و٤ بوتات',
+                                          colors: const [Color(0xFF7C5CFF), Color(0xFF3A1F9C)],
+                                          shadow: const Color(0xFF23125E),
+                                          onTap: () => _play(context, ModePurpose.training),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 10),
+                                      Expanded(
+                                        child: ValueListenableBuilder(
+                                          valueListenable: Backend.instance.profile,
+                                          builder: (context, p, _) => _Tile(
+                                            icon: 'pass',
+                                            title: 'الموسم',
+                                            subtitle: 'الدرجة ${arabicNumber(p.pass.tier)}',
+                                            badge: p.pass.claimable,
+                                            colors: const [Color(0xFF14B8A6), Color(0xFF134E4A)],
+                                            shadow: const Color(0xFF062F2C),
+                                            onTap: () => _push(context, const PassScreen()),
+                                          ),
                                         ),
                                       ),
                                     ],
@@ -210,7 +128,9 @@ class HomeScreen extends StatelessWidget {
                   ),
                   _SideNav(
                     onClans: () => _push(context, const ClansScreen()),
-                    onTour: () => _push(context, const TournamentScreen()),
+                    onTour: () async {
+                      if (await ensureOnboarded(context) && context.mounted) _push(context, const TournamentScreen());
+                    },
                     onShop: () => _push(context, const ShopScreen()),
                     onRank: () => _push(context, const LeaderboardScreen()),
                     onFriends: () => _push(
@@ -241,8 +161,6 @@ class _TutorialOffer extends StatefulWidget {
 }
 
 class _TutorialOfferState extends State<_TutorialOffer> {
-  static const _key = 'tutorial_offered';
-
   @override
   void initState() {
     super.initState();
@@ -286,20 +204,11 @@ class _TutorialOfferState extends State<_TutorialOffer> {
   }
 
   Future<void> _check() async {
-    final backend = Backend.instance;
     Backend.instance.profile.addListener(_renamed);
     _renamed();
-    final p = backend.profile.value;
-    // جاي من رابط دعوة: يدخل مع أصحابه أول، والشرح نعرضه المرة الجاية.
-    if (!backend.isReady || !p.setupDone || p.tutorialDone || p.gamesPlayed > 0 || Links.pending.value != null) return;
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      if (prefs.getBool(_key) ?? false) return;
-      await prefs.setBool(_key, true);
-    } catch (_) {
-      return;
-    }
-    if (mounted) await offerTutorial(context);
+    // جاي من رابط دعوة: يدخل مع أصحابه أول، والشرح الإجباري يطلع له المرة الجاية (أو لما يضغط «العب»).
+    if (Links.pending.value != null) return;
+    if (mounted) await ensureOnboarded(context);
   }
 
   @override
@@ -307,7 +216,10 @@ class _TutorialOfferState extends State<_TutorialOffer> {
 }
 
 class _Header extends StatelessWidget {
-  const _Header();
+  const _Header({required this.onGift, required this.onMissions});
+
+  final VoidCallback onGift;
+  final VoidCallback onMissions;
 
   @override
   Widget build(BuildContext context) {
@@ -382,6 +294,21 @@ class _Header extends StatelessWidget {
               ),
             ),
           ),
+          _TopIcon(
+            icon: 'gift',
+            label: p.dailyAvailable ? 'هديتك اليومية جاهزة' : 'الهدية اليومية: تعال بكرة',
+            ready: p.dailyAvailable && Backend.instance.isReady,
+            onTap: onGift,
+          ),
+          const SizedBox(width: 6),
+          _TopIcon(
+            icon: 'missions',
+            // اليومية والأسبوعية والموسم كلها تنحسب في الرقم.
+            label: 'المهام',
+            count: p.claimableMissions + p.claimablePassMissions,
+            onTap: onMissions,
+          ),
+          const SizedBox(width: 8),
           CurrencyPill(icon: 'coin', amount: p.coins, infinite: p.dev),
           const SizedBox(width: 6),
           CurrencyPill(
@@ -604,28 +531,51 @@ class _Tile extends StatelessWidget {
             border: Border.all(color: Colors.white.withValues(alpha: .25), width: 2),
             boxShadow: [BoxShadow(color: shadow, offset: const Offset(0, 4))],
           ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Stack(
-                clipBehavior: Clip.none,
+          // البطاقة طويلة (بالعرض فيه مكان)، فالأيقونة تكبر على قد طولها ووراها هالة خفيفة.
+          child: LayoutBuilder(
+            builder: (context, box) {
+              final icon = (box.maxHeight * .34).clamp(46.0, 96.0);
+              final big = box.maxHeight > 200;
+              return Column(
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Gfx(icon, size: 46),
-                  if (badge)
-                    const PositionedDirectional(
-                      top: -2,
-                      end: -4,
-                      child: CircleAvatar(radius: 7, backgroundColor: AppColors.traitor),
+                  Stack(
+                    clipBehavior: Clip.none,
+                    alignment: Alignment.center,
+                    children: [
+                      Container(
+                        width: icon * 1.55,
+                        height: icon * 1.55,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          gradient: RadialGradient(
+                            colors: [Colors.white.withValues(alpha: .22), Colors.white.withValues(alpha: 0)],
+                          ),
+                        ),
+                      ),
+                      Gfx(this.icon, size: icon),
+                      if (badge)
+                        PositionedDirectional(
+                          top: icon * .2,
+                          end: icon * .2,
+                          child: const CircleAvatar(radius: 7, backgroundColor: AppColors.traitor),
+                        ),
+                    ],
+                  ),
+                  SizedBox(height: big ? 4 : 0),
+                  Text(
+                    title,
+                    style: TextStyle(fontFamily: kufi, fontWeight: FontWeight.w700, fontSize: big ? 19 : 15),
+                  ),
+                  if (subtitle != null)
+                    Text(
+                      subtitle!,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(fontSize: big ? 12.5 : 10.5, color: Colors.white70),
                     ),
                 ],
-              ),
-              const SizedBox(height: 6),
-              Text(
-                title,
-                style: const TextStyle(fontFamily: kufi, fontWeight: FontWeight.w700, fontSize: 15),
-              ),
-              if (subtitle != null) Text(subtitle!, style: const TextStyle(fontSize: 10.5, color: Colors.white70)),
-            ],
+              );
+            },
           ),
         ),
       ),
@@ -633,134 +583,111 @@ class _Tile extends StatelessWidget {
   }
 }
 
-class _DailyCard extends StatelessWidget {
-  const _DailyCard({required this.onTap});
+/// أيقونة صغيرة فوق جنب الفلوس (الهدية اليومية والمهام). [ready]: تتوهج وتهتز شوي (فيه شي جاهز)،
+/// و[count]: رقم أحمر (كم شي جاهز للاستلام).
+class _TopIcon extends StatelessWidget {
+  const _TopIcon({required this.icon, required this.label, required this.onTap, this.ready = false, this.count = 0});
 
+  final String icon;
+  final String label;
   final VoidCallback onTap;
+  final bool ready;
+  final int count;
 
   @override
   Widget build(BuildContext context) {
-    return ValueListenableBuilder(
-      valueListenable: Backend.instance.profile,
-      builder: (context, p, _) {
-        final available = p.dailyAvailable && Backend.instance.isReady;
-        return Semantics(
-          button: true,
-          label: available ? 'هديتك اليومية جاهزة' : 'الهدية اليومية',
-          excludeSemantics: true,
-          child: GestureDetector(
-            onTap: onTap,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(18),
-                gradient: const LinearGradient(colors: [Color(0xFFC2255C), Color(0xFF5A0E33)]),
-                border: Border.all(color: const Color(0x55FF9FC2), width: 2),
-              ),
-              child: Row(
-                children: [
-                  Stack(
-                    clipBehavior: Clip.none,
-                    children: [
-                      const Gfx('gift', size: 46),
-                      if (available)
-                        const Positioned(
-                          top: -2,
-                          left: -2,
-                          child: CircleAvatar(radius: 6, backgroundColor: AppColors.traitor),
-                        ),
-                    ],
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'الهدية اليومية',
-                          style: TextStyle(fontFamily: kufi, fontWeight: FontWeight.w700, fontSize: 15),
-                        ),
-                        Text(
-                          available ? 'يوم ${arabicNumber(p.nextDailyDay)} من ٧ · جاهزة!' : 'تعال بكرة',
-                          style: const TextStyle(fontSize: 12, color: Color(0xFFFFD3E3)),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        );
-      },
+    final lit = ready || count > 0;
+    final circle = Container(
+      width: 40,
+      height: 40,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: Colors.black.withValues(alpha: .35),
+        border: Border.all(
+          color: lit ? AppColors.gold.withValues(alpha: .85) : Colors.white.withValues(alpha: .12),
+          width: 1.5,
+        ),
+      ),
+      child: Opacity(opacity: lit ? 1 : .6, child: Gfx(icon, size: 27)),
     );
-  }
-}
-
-class _MissionsCard extends StatelessWidget {
-  const _MissionsCard({required this.onTap});
-
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return ValueListenableBuilder(
-      valueListenable: Backend.instance.profile,
-      builder: (context, p, _) {
-        // اليومية والأسبوعية والموسم كلها تنحسب في «جاهزة للاستلام».
-        final claimable = p.claimableMissions + p.claimablePassMissions;
-        final claimed = p.missions.claimed.length;
-        return Semantics(
-          button: true,
-          label: 'المهام',
-          excludeSemantics: true,
-          child: GestureDetector(
-            onTap: onTap,
-            child: Container(
-              padding: const EdgeInsets.all(10),
+    Widget body = circle;
+    if (ready) {
+      // توهج ذهبي ينبض، وكل ثلاث ثواني الهدية تهتز.
+      body = FxClock(
+        builder: (context, time) => AnimatedBuilder(
+          animation: time,
+          child: circle,
+          builder: (context, child) {
+            final t = time.value;
+            final wiggle = t % 3 < .5 ? math.sin(t % 3 * math.pi * 6) * .14 * (1 - t % 3 * 2) : 0.0;
+            return DecoratedBox(
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(18),
-                color: Colors.white.withValues(alpha: .06),
-                border: Border.all(
-                  color: claimable > 0 ? AppColors.gold : Colors.white.withValues(alpha: .12),
-                  width: 2,
-                ),
-              ),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Gfx('missions', size: 24),
-                      SizedBox(width: 4),
-                      Text(
-                        'المهام',
-                        style: TextStyle(fontFamily: kufi, fontWeight: FontWeight.w700, fontSize: 15),
-                      ),
-                    ],
-                  ),
-                  Text(
-                    claimable > 0 ? '${arabicNumber(claimable)} جاهزة للاستلام' : '${arabicNumber(claimed)} من ٥',
-                    style: const TextStyle(fontSize: 12, color: AppColors.gold, fontWeight: FontWeight.w700),
-                  ),
-                  const SizedBox(height: 5),
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(4),
-                    child: LinearProgressIndicator(
-                      value: claimed / 5,
-                      minHeight: 6,
-                      backgroundColor: Colors.black.withValues(alpha: .4),
-                      color: AppColors.gold,
-                    ),
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: AppColors.gold.withValues(alpha: .25 + .25 * (.5 + .5 * math.sin(t * 3))),
+                    blurRadius: 12,
+                    spreadRadius: 1,
                   ),
                 ],
               ),
-            ),
+              child: Transform.rotate(angle: wiggle, child: child),
+            );
+          },
+        ),
+      );
+    }
+    return Semantics(
+      button: true,
+      label: count > 0 ? '$label: ${arabicNumber(count)} جاهزة' : label,
+      excludeSemantics: true,
+      child: Tooltip(
+        message: label,
+        child: GestureDetector(
+          onTap: onTap,
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              body,
+              if (count > 0)
+                PositionedDirectional(
+                  top: -4,
+                  end: -4,
+                  child: Container(
+                    constraints: const BoxConstraints(minWidth: 18),
+                    height: 18,
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: AppColors.traitor,
+                      borderRadius: BorderRadius.circular(9),
+                      border: Border.all(color: AppColors.bg, width: 1.5),
+                    ),
+                    child: Text(
+                      arabicNumber(count),
+                      style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w900, height: 1.1),
+                    ),
+                  ),
+                )
+              else if (ready)
+                PositionedDirectional(
+                  top: -1,
+                  end: -1,
+                  child: Container(
+                    width: 11,
+                    height: 11,
+                    decoration: BoxDecoration(
+                      color: AppColors.traitor,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: AppColors.bg, width: 1.5),
+                    ),
+                  ),
+                ),
+            ],
           ),
-        );
-      },
+        ),
+      ),
     );
   }
 }

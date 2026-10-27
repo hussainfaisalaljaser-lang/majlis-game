@@ -214,8 +214,8 @@ def mouth(kind):
 
 
 # ───────────── الإضافات والأغراض ─────────────
-def hand(x, y, rot=0, s=1, kind='palm', skin='tan'):
-    """كف بسيطة. kind: palm (مفتوحة)، fist، point، thumb."""
+def hand(x, y, rot=0, s=1, kind='palm', skin='tan', flip=False):
+    """كف بسيطة (الأصابع لفوق والرسغ تحت قبل اللف). kind: palm (مفتوحة)، fist، point، thumb. flip: اليد الثانية."""
     c, sh = SKIN[skin]
     if kind == 'palm':
         body = (f'<path d="M-14 22 Q-22 4 -18 -10 L-16 -26 Q-15 -32 -10 -31 Q-6 -30 -6 -24 L-5 -12 L-4 -34 Q-3 -40 2 -40 Q7 -40 7 -34 L7 -12 L9 -32 Q10 -37 15 -36 Q19 -35 19 -30 L18 -8 L22 -22 Q24 -27 28 -25 Q31 -23 30 -18 L24 10 Q20 26 6 28 Q-6 30 -14 22 Z" '
@@ -232,7 +232,14 @@ def hand(x, y, rot=0, s=1, kind='palm', skin='tan'):
         body = (f'<path d="M-18 -10 H14 Q24 -10 24 0 V14 Q24 24 12 24 H-12 Q-18 24 -18 18 Z" fill="{c}" stroke="{INK}" stroke-width="4" stroke-linejoin="round"/>'
                 f'<path d="M-14 -10 Q-16 -30 -6 -40 Q2 -44 2 -34 Q0 -22 6 -10" fill="{c}" stroke="{INK}" stroke-width="4" stroke-linejoin="round"/>'
                 f'<path d="M-18 2 H22 M-18 12 H22" stroke="{INK}" stroke-width="2.5"/>')
-    return f'<g transform="translate({x} {y}) rotate({rot}) scale({s})">{body}</g>'
+    return f'<g transform="translate({x} {y}) rotate({rot}) scale({-s if flip else s} {s})">{body}</g>'
+
+
+def arm(x1, y1, x2, y2, ch):
+    """ذراع بكمّ الثوب أو العباية: من تحت (الصدر) لين الرسغ (x2، y2) عشان اليد تطلع منها طبيعية."""
+    sleeve = '#1E1B26' if ch['head'] == 'hijab' else ('#2B2B35' if ch.get('masked') else '#F4F1EA')
+    return (f'<path d="M{x1} {y1} L{x2} {y2}" stroke="{INK}" stroke-width="27" stroke-linecap="round"/>'
+            f'<path d="M{x1} {y1} L{x2} {y2}" stroke="{sleeve}" stroke-width="19" stroke-linecap="round"/>')
 
 
 def sweat(x=138, y=78):
@@ -568,8 +575,11 @@ def extra(name, ch):
         'palms_up': lambda: hand(36, 168, -60, .9, 'palm', sk) + hand(164, 168, 60, .9, 'palm', sk),
         'hand_stop': lambda: hand(152, 150, 10, 1.05, 'palm', sk),
         'hand_forehead': lambda: hand(120, 62, 100, .95, 'palm', sk),
-        'facepalm': lambda: hand(104, 98, 170, 1.15, 'palm', sk),
-        'cover_eyes': lambda: hand(80, 98, 175, 1.0, 'palm', sk) + hand(120, 98, 185, 1.0, 'palm', sk),
+        # كف على الجبهة والعيون: الذراع من تحت والأصابع لفوق (مو مقلوبة).
+        'facepalm': lambda: arm(78, 206, 96, 136, ch) + hand(100, 98, -8, 1.12, 'palm', sk),
+        # يدين تغطي العيون من الفشلة: كل يد على عين، والأصابع لفوق.
+        'cover_eyes': lambda: (arm(58, 206, 80, 138, ch) + arm(142, 206, 120, 138, ch)
+                               + hand(82, 100, -6, 1.0, 'palm', sk) + hand(118, 100, 6, 1.0, 'palm', sk, flip=True)),
         'heart_beat': lambda: '<path d="M150 150 q-14 -16 -24 -4 q-10 14 24 34 q34 -20 24 -34 q-10 -12 -24 4 Z" fill="#FF6B6B" stroke="#2A1A14" stroke-width="4"/>' + motion(),
         'palms_out': lambda: hand(40, 160, -20, .9, 'palm', sk) + hand(160, 160, 20, .9, 'palm', sk),
         'paper': lambda: '<g transform="translate(150 146) rotate(10)"><rect x="-22" y="-28" width="44" height="56" rx="4" fill="#FFF8E7" stroke="#2A1A14" stroke-width="4"/><path d="M-12 -14 H12 M-12 -4 H8 M-12 6 H12" stroke="#ADB5BD" stroke-width="4"/><circle cx="8" cy="16" r="7" fill="none" stroke="#E03131" stroke-width="3"/></g>',

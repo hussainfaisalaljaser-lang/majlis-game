@@ -5,14 +5,51 @@ import '../services/backend.dart';
 import '../services/telemetry.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
-import '../widgets/mode_picker.dart';
+import '../widgets/mode_theme.dart';
 import '../widgets/ui.dart';
 import 'friends_screen.dart';
 import 'waiting_screen.dart';
 
-/// اللعب الخاص: روم لك ولأصحابك بس (بالكود أو بالدعوة)، مو مع لاعبين عشوائيين.
+/// يدخل روم صاحبه بالكود (من هني ومن صفحة اختيار الطور، لأن الطور يحدده اللي سوّى الروم).
+Future<void> joinRoomByCode(BuildContext context) async {
+  if (!Backend.instance.isReady) return;
+  final controller = TextEditingController();
+  final code = await showDialog<String>(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: const Row(children: [Gfx('key', size: 28), SizedBox(width: 8), Text('ادخل كود روم صاحبك')]),
+      content: TextField(
+        controller: controller,
+        autofocus: true,
+        maxLength: 5,
+        textCapitalization: TextCapitalization.characters,
+        textDirection: TextDirection.ltr,
+        textAlign: TextAlign.center,
+        style: const TextStyle(fontSize: 24, letterSpacing: 6, fontWeight: FontWeight.w800),
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context), child: const Text('إلغاء')),
+        FilledButton(onPressed: () => Navigator.pop(context, controller.text.trim()), child: const Text('دخول')),
+      ],
+    ),
+  );
+  if (code == null || code.isEmpty || !context.mounted) return;
+  final navigator = Navigator.of(context);
+  final messenger = ScaffoldMessenger.of(context);
+  try {
+    final joined = await Backend.instance.joinRoom(code);
+    Telemetry.joinRoom('code');
+    navigator.push(MaterialPageRoute(builder: (_) => WaitingScreen(tier: null, playerCount: 5, code: joined)));
+  } on BackendException catch (e) {
+    messenger.showSnackBar(SnackBar(content: Text(e.message)));
+  }
+}
+
+/// اللعب الخاص: روم لك ولأصحابك بس (بالكود أو بالدعوة)، مو مع لاعبين عشوائيين. الطور اختاره قبل (mode_screen.dart).
 class PrivateScreen extends StatefulWidget {
-  const PrivateScreen({super.key});
+  const PrivateScreen({super.key, required this.mode});
+
+  final ModeTheme mode;
 
   @override
   State<PrivateScreen> createState() => _PrivateScreenState();
@@ -21,16 +58,17 @@ class PrivateScreen extends StatefulWidget {
 class _PrivateScreenState extends State<PrivateScreen> {
   int _playerCount = 5;
   bool _quick = false;
-
-  /// طور الشخصيات (بدونه الطور العادي بدون أدوار خاصة).
-  bool _roles = false;
   bool _busy = false;
 
-  Future<void> _open(Future<String> Function() request) async {
+  Future<void> _create() async {
     if (!Backend.instance.isReady) return;
     setState(() => _busy = true);
     try {
-      final code = await request();
+      final code = await Backend.instance.createRoom(
+        maxPlayers: _playerCount,
+        quick: _quick,
+        roles: widget.mode.roles,
+      );
       if (!mounted) return;
       Navigator.of(context).push(
         MaterialPageRoute(
@@ -44,46 +82,22 @@ class _PrivateScreenState extends State<PrivateScreen> {
     }
   }
 
-  Future<void> _joinByCode() async {
-    final controller = TextEditingController();
-    final code = await showDialog<String>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Row(children: [Gfx('key', size: 28), SizedBox(width: 8), Text('ادخل كود روم صاحبك')]),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          maxLength: 5,
-          textCapitalization: TextCapitalization.characters,
-          textDirection: TextDirection.ltr,
-          textAlign: TextAlign.center,
-          style: const TextStyle(fontSize: 24, letterSpacing: 6, fontWeight: FontWeight.w800),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('إلغاء')),
-          FilledButton(onPressed: () => Navigator.pop(context, controller.text.trim()), child: const Text('دخول')),
-        ],
-      ),
-    );
-    if (code == null || code.isEmpty) return;
-    await _open(() async {
-      final joined = await Backend.instance.joinRoom(code);
-      Telemetry.joinRoom('code');
-      return joined;
-    });
-  }
-
   @override
   Widget build(BuildContext context) {
     final ready = Backend.instance.isReady && !_busy;
+    final mode = widget.mode;
     return NightScaffold(
+      background: ModeBackdrop(mode: mode),
+      shade: .25,
       appBar: AppBar(
-        title: const Row(
+        title: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Gfx('friends', size: 30),
-            SizedBox(width: 8),
-            Text('خاص · روم مع أصحابك', style: TextStyle(fontWeight: FontWeight.w800)),
+            const Gfx('friends', size: 30),
+            const SizedBox(width: 8),
+            const Text('خاص · روم مع أصحابك', style: TextStyle(fontWeight: FontWeight.w800)),
+            const SizedBox(width: 12),
+            ModeChip(mode: mode, onTap: () => Navigator.of(context).maybePop()),
           ],
         ),
       ),
@@ -95,11 +109,12 @@ class _PrivateScreenState extends State<PrivateScreen> {
               width: 290,
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-                child: Column(
+                child: Theme(
+                  data: mode.segmented(context),
+                  child: Column(
                   children: [
                     SegmentedButton<int>(
                       showSelectedIcon: false,
-                      style: const ButtonStyle(visualDensity: VisualDensity.compact),
                       segments: [
                         for (final n in playerCounts) ButtonSegment(value: n, label: Text('${arabicNumber(n)} لاعبين')),
                       ],
@@ -107,11 +122,8 @@ class _PrivateScreenState extends State<PrivateScreen> {
                       onSelectionChanged: (s) => setState(() => _playerCount = s.first),
                     ),
                     const SizedBox(height: 8),
-                    ModePicker(roles: _roles, onChanged: (v) => setState(() => _roles = v)),
-                    const SizedBox(height: 6),
                     SegmentedButton<bool>(
                       showSelectedIcon: false,
-                      style: const ButtonStyle(visualDensity: VisualDensity.compact),
                       segments: const [
                         ButtonSegment(value: false, label: Text('عادي'), icon: Gfx('hourglass', size: 18)),
                         ButtonSegment(value: true, label: Text('سريع'), icon: Gfx('bolt', size: 18)),
@@ -124,17 +136,15 @@ class _PrivateScreenState extends State<PrivateScreen> {
                       _quick ? 'نص الوقت لكل دور، واللعبة حوالي ٥ دقايق' : 'الوقت العادي، واللعبة حوالي ١٠ دقايق',
                       style: const TextStyle(color: AppColors.muted, fontSize: 11.5),
                     ),
+                    const SizedBox(height: 10),
+                    ModeSummary(mode: mode),
                     const Spacer(),
                     GameButton(
-                      label: _busy ? 'لحظة…' : 'أنشئ روم خاص',
+                      label: _busy ? 'لحظة…' : 'أنشئ روم ${mode.name}',
                       icon: const Gfx('plus', size: 26),
                       semantics: 'أنشئ روم خاص',
-                      tone: ButtonTone.purple,
-                      onPressed: ready
-                          ? () => _open(
-                              () => Backend.instance.createRoom(maxPlayers: _playerCount, quick: _quick, roles: _roles),
-                            )
-                          : null,
+                      tone: mode.button,
+                      onPressed: ready ? _create : null,
                     ),
                     const SizedBox(height: 10),
                     GameButton(
@@ -144,9 +154,10 @@ class _PrivateScreenState extends State<PrivateScreen> {
                       tone: ButtonTone.ghost,
                       height: 46,
                       fontSize: 16,
-                      onPressed: ready ? _joinByCode : null,
+                      onPressed: ready ? () => joinRoomByCode(context) : null,
                     ),
                   ],
+                  ),
                 ),
               ),
             ),
