@@ -6,10 +6,11 @@ import '../widgets/bubble.dart';
 import '../widgets/common.dart';
 import '../widgets/sticker_motion.dart';
 import '../widgets/ui.dart';
+import 'concepts/ideas.dart';
 
 /// معرض المتجر (نسخة المحاكي على الويب بس): ‎?gallery=frames‎ كل الإطارات، و‎?gallery=avatars‎ الشخصيات اللي
 /// تتحرك، و‎?gallery=stickers‎ الملصقات اللي تتحرك، بحجم المتجر وحجم الطاولة عشان نصورها ونراجعها. ‎&only=fire,sun‎ يعرض بعضها (وواحد بس يعرضه كبير بالنص
-/// للفيديو)، و‎&size=‎ يغير الحجم، و‎&cols=‎ عدد الأعمدة.
+/// للفيديو)، و‎&size=‎ يغير الحجم، و‎&cols=‎ عدد الأعمدة. و‎?gallery=ideas‎ نماذج الأفكار الجديدة (concepts/ideas.dart).
 class FrameGalleryApp extends StatelessWidget {
   const FrameGalleryApp({super.key});
 
@@ -17,6 +18,7 @@ class FrameGalleryApp extends StatelessWidget {
   Widget build(BuildContext context) {
     final q = Uri.base.queryParameters;
     if (q['gallery'] == 'stickers') return _StickerGallery(q);
+    if (q['gallery'] == 'ideas') return IdeasGalleryApp(q);
     final avatars = q['gallery'] == 'avatars';
     final only = q['only']?.split(',').toSet();
     final items = [

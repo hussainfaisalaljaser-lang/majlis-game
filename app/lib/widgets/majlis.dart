@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 
 import '../theme.dart';
 import 'fx.dart';
+import 'venues.dart';
 
 /// رسمات المجلس: الجدار بأقواسه، والفوانيس، والمبخرة، والدلة، والمساند. كلها ترسم بالكود
 /// وتتمدد على أي مقاس، والحركة (رمشة الفوانيس والدخان) على ساعة الحركات، فتوقف في الوضع الخفيف.
@@ -28,18 +29,25 @@ List<double> greyMatrix(double k) {
 }
 
 /// غرفة المجلس ورا الطاولة: جدار بأقواس وشباك فيه هلال، وأرضية، وفوانيس معلقة ترمش.
+/// [venue] يغيّر المكان كامل حسب مستوى الطاولة (بيت شعر، مدينة، قصر…).
 /// [tension] (٠–١) تحمّر الفوانيس وتخليها ترمش أكثر.
 class MajlisRoom extends StatelessWidget {
-  const MajlisRoom({super.key, this.tension = 0});
+  const MajlisRoom({super.key, this.tension = 0, this.venue = Venue.majlis});
 
   final double tension;
+  final Venue venue;
 
   @override
   Widget build(BuildContext context) => Stack(
     children: [
-      // الجدار ثابت: ينرسم مرة وينحفظ.
-      const Positioned.fill(
-        child: RepaintBoundary(child: CustomPaint(painter: _RoomPainter(), isComplex: true)),
+      // الرسمة الثابتة: تنرسم مرة وتنحفظ.
+      Positioned.fill(
+        child: RepaintBoundary(
+          child: CustomPaint(
+            painter: venue == Venue.majlis ? const _RoomPainter() : venueBackdrop(venue),
+            isComplex: true,
+          ),
+        ),
       ),
       // التوتر يحمّر الغرفة.
       if (tension > 0)
@@ -48,7 +56,11 @@ class MajlisRoom extends StatelessWidget {
         ),
       Positioned.fill(
         child: RepaintBoundary(
-          child: FxClock(builder: (context, time) => CustomPaint(painter: _RoomLights(time, tension))),
+          child: FxClock(
+            builder: (context, time) => CustomPaint(
+              painter: venue == Venue.majlis ? _RoomLights(time, tension) : venueLights(venue, time, tension),
+            ),
+          ),
         ),
       ),
     ],
