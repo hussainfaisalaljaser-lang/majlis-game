@@ -88,7 +88,10 @@ class TableSkin {
   const TableSkin.of(String id) : carpet = 'assets/tables/carpet_$id.webp', tray = 'assets/tables/tray_$id.webp';
 }
 
-enum ShopSlot { frame, avatar, table, cards, bubble, reactions }
+enum ShopSlot { frame, avatar, table, cards, bubble, reactions, death }
+
+/// افكتات الموت (widgets/death_fx.dart): تطلع على اللاعب لما ينطرد، والكل يشوفها. الافتراضي الغطا.
+enum DeathFx { cloth, smoke, sand, ice, fire, lightning, ghost, gold, petals, bats }
 
 enum Rarity {
   common('عادي', Color(0xFF9097B3)),
@@ -114,6 +117,7 @@ class ShopItem {
     this.season,
     this.frame,
     this.bubble,
+    this.death,
     this.cards,
     this.table,
     this.avatar,
@@ -141,6 +145,7 @@ class ShopItem {
 
   final FrameStyle? frame;
   final BubbleStyle? bubble;
+  final DeathFx? death;
   final CardSkin? cards;
   final TableSkin? table;
 
@@ -161,9 +166,13 @@ class ShopItem {
 
   bool get buyable => coins != null || diamonds != null;
 
-  /// ينلبس (إطار، كروت، طاولة، فقاعة)، مو شي تملكه وبس.
+  /// ينلبس (إطار، كروت، طاولة، فقاعة، افكت موت)، مو شي تملكه وبس.
   bool get equippable =>
-      slot == ShopSlot.frame || slot == ShopSlot.cards || slot == ShopSlot.table || slot == ShopSlot.bubble;
+      slot == ShopSlot.frame ||
+      slot == ShopSlot.cards ||
+      slot == ShopSlot.table ||
+      slot == ShopSlot.bubble ||
+      slot == ShopSlot.death;
 
   /// من وين ينكسب لو ما ينشرى.
   String get source => switch (this) {
@@ -264,6 +273,9 @@ final shopItems = [
 FrameStyle? frameStyle(String? id) => shopItem(id)?.frame;
 
 BubbleStyle bubbleStyle(String? id) => shopItem(id)?.bubble ?? shopItem('bubble_classic')!.bubble!;
+
+/// افكت موت اللاعب (null أو غرض مو معروف: الغطا).
+DeathFx deathFxOf(String? id) => shopItem(id)?.death ?? DeathFx.cloth;
 
 const _classicCards = CardSkin(
   loyal: [Color(0xFF5B9BFF), Color(0xFF1F4FB3)],

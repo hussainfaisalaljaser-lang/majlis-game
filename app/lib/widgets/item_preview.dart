@@ -5,6 +5,7 @@ import '../models/profile.dart';
 import '../models/shop.dart';
 import 'bubble.dart';
 import 'common.dart';
+import 'death_fx.dart';
 import 'game/policy_card.dart';
 
 /// معاينة الغرض حسب نوعه.
@@ -28,6 +29,7 @@ class ItemPreview extends StatelessWidget {
         maxWidth: 260,
       ),
       ShopSlot.table => TablePreview(skin: item.table!, width: big ? 420 : null),
+      ShopSlot.death => DeathPreview(fx: item.death!, avatar: profile.avatar, frame: profile.frame, size: 52 * k),
       ShopSlot.cards => Row(
         mainAxisSize: MainAxisSize.min,
         children: [

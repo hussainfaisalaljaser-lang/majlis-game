@@ -1,8 +1,8 @@
 // مولّد من tools/catalog/catalog.py — لا تعدله باليد.
 
-export type Slot = 'frame' | 'avatar' | 'table' | 'cards' | 'bubble' | 'reactions';
+export type Slot = 'frame' | 'avatar' | 'table' | 'cards' | 'bubble' | 'death' | 'reactions';
 /** الأغراض اللي تنلبس (واحد بس من كل نوع). */
-export type EquipSlot = 'frame' | 'cards' | 'table' | 'bubble';
+export type EquipSlot = 'frame' | 'cards' | 'table' | 'bubble' | 'death';
 
 export interface CatalogItem {
   id: string;
@@ -17,7 +17,7 @@ export interface CatalogItem {
   season?: string;
 }
 
-export const DEFAULT_EQUIPPED: Record<EquipSlot, string> = {"frame": "frame_none", "bubble": "bubble_classic", "table": "table_majlis", "cards": "cards_classic"};
+export const DEFAULT_EQUIPPED: Record<EquipSlot, string> = {"frame": "frame_none", "bubble": "bubble_classic", "death": "death_cloth", "table": "table_majlis", "cards": "cards_classic"};
 
 export const CATALOG: CatalogItem[] = [
   {"id": "frame_ice", "slot": "frame", "coins": 3000},
@@ -72,6 +72,15 @@ export const CATALOG: CatalogItem[] = [
   {"id": "bubble_lv5", "slot": "bubble", "level": 5},
   {"id": "bubble_lv25", "slot": "bubble", "level": 25},
   {"id": "bubble_lv45", "slot": "bubble", "level": 45},
+  {"id": "death_smoke", "slot": "death", "coins": 6000},
+  {"id": "death_sand", "slot": "death", "coins": 8000},
+  {"id": "death_petals", "slot": "death", "coins": 14000},
+  {"id": "death_ice", "slot": "death", "coins": 16000},
+  {"id": "death_fire", "slot": "death", "diamonds": 20},
+  {"id": "death_bats", "slot": "death", "diamonds": 22},
+  {"id": "death_lightning", "slot": "death", "diamonds": 25},
+  {"id": "death_ghost", "slot": "death", "diamonds": 35},
+  {"id": "death_gold", "slot": "death", "diamonds": 45},
   {"id": "avatar_detective", "slot": "avatar", "coins": 6000},
   {"id": "avatar_spy", "slot": "avatar", "coins": 6000},
   {"id": "avatar_doctor", "slot": "avatar", "coins": 6000},

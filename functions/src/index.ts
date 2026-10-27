@@ -141,6 +141,8 @@ export interface RoomPlayer {
   frame: string;
   /** شكل فقاعة الكلام من المتجر، يشوفها الكل. */
   bubble?: string;
+  /** افكت موته من المتجر: يطلع عليه لما ينطرد، والكل يشوفه. */
+  death?: string;
   /** لاعب آلي. يطلع للكل إنه بوت. */
   bot?: boolean;
   /** نسخة بروتوكول تطبيقه (Profile.proto). الأدوار الجديدة بس لو كل البشر عندهم ٢ أو أكثر. */
@@ -149,15 +151,15 @@ export interface RoomPlayer {
 
 // البوتات لابسة أغراض من المتجر، عشان اللاعب يشوفها في اللعب.
 const BOTS: Omit<RoomPlayer, 'uid'>[] = [
-  { name: 'سلمان', avatar: 'sheikh', frame: 'frame_king', bubble: 'bubble_gold' },
-  { name: 'مها', avatar: 'pearl', frame: 'frame_pearl', bubble: 'bubble_rose' },
-  { name: 'بدر', avatar: 'desert', frame: 'frame_sand', bubble: 'bubble_desert' },
+  { name: 'سلمان', avatar: 'sheikh', frame: 'frame_king', bubble: 'bubble_gold', death: 'death_gold' },
+  { name: 'مها', avatar: 'pearl', frame: 'frame_pearl', bubble: 'bubble_rose', death: 'death_petals' },
+  { name: 'بدر', avatar: 'desert', frame: 'frame_sand', bubble: 'bubble_desert', death: 'death_sand' },
   { name: 'لولوة', avatar: 'jasmine', frame: 'frame_oasis', bubble: 'bubble_emerald' },
-  { name: 'تركي', avatar: 'hawk', frame: 'frame_fire', bubble: 'bubble_fire' },
-  { name: 'جود', avatar: 'rose', frame: 'frame_rainbow', bubble: 'bubble_rainbow' },
-  { name: 'ماجد', avatar: 'merchant', frame: 'frame_ice', bubble: 'bubble_ice' },
-  { name: 'العنود', avatar: 'sky', frame: 'frame_night', bubble: 'bubble_night' },
-  { name: 'فيصل', avatar: 'youth', frame: 'frame_lightning', bubble: 'bubble_neon' },
+  { name: 'تركي', avatar: 'hawk', frame: 'frame_fire', bubble: 'bubble_fire', death: 'death_fire' },
+  { name: 'جود', avatar: 'rose', frame: 'frame_rainbow', bubble: 'bubble_rainbow', death: 'death_ghost' },
+  { name: 'ماجد', avatar: 'merchant', frame: 'frame_ice', bubble: 'bubble_ice', death: 'death_ice' },
+  { name: 'العنود', avatar: 'sky', frame: 'frame_night', bubble: 'bubble_night', death: 'death_bats' },
+  { name: 'فيصل', avatar: 'youth', frame: 'frame_lightning', bubble: 'bubble_neon', death: 'death_lightning' },
 ];
 
 /** الطاولة العامة تنتظر كذا قبل ما نسمح نكملها بالبوتات. */
@@ -245,7 +247,7 @@ async function newRoomCode(): Promise<string> {
 
 const asPlayer = (uid: string, p: Profile): RoomPlayer => {
   const eq = equippedOf(p);
-  return { uid, name: p.name, avatar: avatarOf(p), frame: eq.frame, bubble: eq.bubble, proto: p.proto ?? 1 };
+  return { uid, name: p.name, avatar: avatarOf(p), frame: eq.frame, bubble: eq.bubble, death: eq.death, proto: p.proto ?? 1 };
 };
 
 /** نسخة البروتوكول اللي فيها الأدوار الجديدة وإعادة اللعب والتفرج (Profile.proto). */

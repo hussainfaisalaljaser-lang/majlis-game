@@ -20,10 +20,11 @@ const _tabs = [
   (name: 'الطاولات', slot: ShopSlot.table, shop: 4),
   (name: 'الكروت', slot: ShopSlot.cards, shop: 5),
   (name: 'الفقاعات', slot: ShopSlot.bubble, shop: 2),
+  (name: 'افكت الموت', slot: ShopSlot.death, shop: ShopScreen.deathsTab),
   (name: 'الملصقات', slot: ShopSlot.reactions, shop: ShopScreen.stickersTab),
 ];
 
-/// غرفة التبديل: كل اللي تملكه بمكان واحد (الشخصيات، الإطارات، الطاولات، الكروت، الفقاعات، الملصقات)،
+/// غرفة التبديل: كل اللي تملكه بمكان واحد (الشخصيات، الإطارات، الطاولات، الكروت، الفقاعات، افكت الموت، الملصقات)،
 /// ومعاينة شكلك على اليسار تتغير على طول لما تلبس شي.
 class WardrobeScreen extends StatefulWidget {
   const WardrobeScreen({super.key});
@@ -153,6 +154,7 @@ class _WardrobeScreenState extends State<WardrobeScreen> {
           ShopSlot.frame => p.frame == item.id,
           ShopSlot.cards => p.cards == item.id,
           ShopSlot.table => p.table == item.id,
+          ShopSlot.death => p.death == item.id,
           _ => p.bubble == item.id,
         };
         cells.add(

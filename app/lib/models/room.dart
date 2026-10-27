@@ -5,6 +5,7 @@ class RoomPlayer {
     required this.avatar,
     this.frame,
     this.bubble,
+    this.death,
     this.bot = false,
   });
 
@@ -14,6 +15,7 @@ class RoomPlayer {
     avatar: j['avatar'] as String,
     frame: j['frame'] as String?,
     bubble: j['bubble'] as String?,
+    death: j['death'] as String?,
     bot: j['bot'] as bool? ?? false,
   );
 
@@ -23,6 +25,9 @@ class RoomPlayer {
   final String uid;
   final String name;
   final String avatar;
+
+  /// افكت موته من المتجر (يطلع عليه لما ينطرد، والكل يشوفه).
+  final String? death;
 
   /// إطار الصورة من المتجر.
   final String? frame;

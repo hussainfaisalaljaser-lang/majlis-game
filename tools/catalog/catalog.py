@@ -79,6 +79,21 @@ FRAMES = [
          desc='إكليل غار برونزي وميدالية المركز الثالث، وجمر يطير'),
 ]
 
+# ───────────── افكتات الموت ─────────────
+# تطلع على اللاعب لما ينطرد، والكل يشوفها (app/lib/widgets/death_fx.dart). الافتراضي: الغطا الرمادي.
+DEATHS = [
+    dict(id='death_cloth', name='الغطا', rarity='common', default=True, fx='cloth', desc='يطيح عليه غطا رمادي'),
+    dict(id='death_smoke', name='دخان', rarity='rare', coins=6000, fx='smoke', desc='يختفي وسط دخان بنفسجي'),
+    dict(id='death_sand', name='رمل', rarity='rare', coins=8000, fx='sand', desc='يتفتت رمل ويطير مع الهوا'),
+    dict(id='death_petals', name='ورد', rarity='epic', coins=14000, fx='petals', desc='يتطاير منه ورد أحمر'),
+    dict(id='death_ice', name='تجمّد', rarity='epic', coins=16000, fx='ice', desc='يتجمد داخل قالب ثلج'),
+    dict(id='death_fire', name='نار', rarity='epic', diamonds=20, fx='fire', desc='تاكله النار ويبقى رماد وجمر'),
+    dict(id='death_bats', name='خفافيش', rarity='epic', diamonds=22, fx='bats', desc='يطير منه سرب خفافيش'),
+    dict(id='death_lightning', name='صاعقة', rarity='epic', diamonds=25, fx='lightning', desc='تضربه صاعقة من السما'),
+    dict(id='death_ghost', name='شبح', rarity='legendary', diamonds=35, fx='ghost', desc='روحه تطلع وتطفو فوقه'),
+    dict(id='death_gold', name='تمثال ذهب', rarity='legendary', diamonds=45, fx='gold', desc='يتحول تمثال ذهب يلمع'),
+]
+
 # ───────────── فقاعات الكلام ─────────────
 # fx: shimmer glow sparkle flame snow stars rainbow neon electric sand bubbles steam leaves spin smoke
 BUBBLES = [
@@ -319,6 +334,7 @@ def items():
     out = []
     for f in FRAMES: out.append(('frame', f['id'], f))
     for b in BUBBLES: out.append(('bubble', b['id'], b))
+    for d in DEATHS: out.append(('death', d['id'], d))
     for a in AVATARS: out.append(('avatar', 'avatar_' + a['id'], a))
     for t in TABLES: out.append(('table', t['id'], t))
     for c in CARDS: out.append(('cards', c['id'], c))
@@ -354,14 +370,14 @@ def check():
 
 def ts():
     L = ['// مولّد من tools/catalog/catalog.py — لا تعدله باليد.', '',
-         "export type Slot = 'frame' | 'avatar' | 'table' | 'cards' | 'bubble' | 'reactions';",
+         "export type Slot = 'frame' | 'avatar' | 'table' | 'cards' | 'bubble' | 'death' | 'reactions';",
          "/** الأغراض اللي تنلبس (واحد بس من كل نوع). */",
-         "export type EquipSlot = 'frame' | 'cards' | 'table' | 'bubble';", '',
+         "export type EquipSlot = 'frame' | 'cards' | 'table' | 'bubble' | 'death';", '',
          'export interface CatalogItem {', '  id: string;', '  slot: Slot;', '  coins?: number;', '  diamonds?: number;',
          '  /** يجي هدية في هذا المستوى (ما ينشرى). */', '  level?: number;',
          '  /** لأبطال الأسبوع (المركز)، لمدة أسبوع. */', '  champion?: number;',
          '  /** من الباتل باس لهذا الموسم. */', '  season?: string;', '}', '']
-    defaults = {s: d['id'] for s, _, d in items() if d.get('default') and s in ('frame', 'cards', 'table', 'bubble')}
+    defaults = {s: d['id'] for s, _, d in items() if d.get('default') and s in ('frame', 'cards', 'table', 'bubble', 'death')}
     L.append('export const DEFAULT_EQUIPPED: Record<EquipSlot, string> = ' + json.dumps(defaults, ensure_ascii=False) + ';')
     L.append('')
     L.append('export const CATALOG: CatalogItem[] = [')
@@ -452,6 +468,8 @@ def dart():
         if slot == 'frame' and 'sig' in d:
             motion = 'glint' if d['rarity'] == 'rare' else 'live'
             args.append(f'frame: FrameStyle({dstr(d["sig"])}, motion: FrameMotion.{motion})')
+        if slot == 'death':
+            args.append(f'death: DeathFx.{d["fx"]}')
         if slot == 'bubble':
             fx = ', '.join('BubbleFx.' + f for f in d['fx'])
             args.append(f'bubble: BubbleStyle(bg: {cols(d["bg"])}, border: {col(d["border"])}, text: {col(d["text"])}, fx: [{fx}])')

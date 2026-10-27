@@ -27,6 +27,7 @@ class Profile {
     this.cards = 'cards_classic',
     this.table = 'table_majlis',
     this.bubble = 'bubble_classic',
+    this.death = 'death_cloth',
     this.temp = const {},
     this.gifts = const [],
     this.pass = const PassState(),
@@ -73,6 +74,7 @@ class Profile {
     cards: (j['equipped'] as Map?)?['cards'] as String? ?? 'cards_classic',
     table: (j['equipped'] as Map?)?['table'] as String? ?? 'table_majlis',
     bubble: (j['equipped'] as Map?)?['bubble'] as String? ?? 'bubble_classic',
+    death: (j['equipped'] as Map?)?['death'] as String? ?? 'death_cloth',
     temp: {
       for (final MapEntry(:key, :value) in ((j['temp'] as Map?) ?? const {}).entries)
         key as String: DateTime.fromMillisecondsSinceEpoch((value as num).toInt()),
@@ -150,6 +152,9 @@ class Profile {
   final String cards;
   final String table;
   final String bubble;
+
+  /// افكت موته (يطلع عليه لما ينطرد).
+  final String death;
 
   /// أغراض مؤقتة (أبطال الأسبوع) ولين متى.
   final Map<String, DateTime> temp;

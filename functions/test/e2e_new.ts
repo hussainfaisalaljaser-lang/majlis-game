@@ -471,8 +471,27 @@ async function main(): Promise<void> {
   await assert.rejects(getDoc(doc(sheikh.fs, `presence/${stranger.uid}`)), 'الغريب ما يشوف');
   console.log('✓ حالة الاتصال: لأصحابك وربعك في الديوان بس');
 
+  // ١٧. افكت الموت: الافتراضي الغطا، وينشرى ويتلبس، وينحفظ في الروم عشان الكل يشوفه (والبوتات لها افكتاتها).
+  const fx = await client(17);
+  await fx.call('ensureProfile', { proto: 2 });
+  await fx.call('updateProfile', { name: 'صاحب الافكت', avatar: 'falcon' });
+  type Seat = { uid: string; bot?: boolean; death?: string };
+  const deathIn = async (code: string) => ((await fx.room(code)).players as Seat[]).find((p) => p.uid === fx.uid)!.death;
+  assert.equal(await deathIn(await training(fx, undefined, false)), 'death_cloth', 'الافتراضي الغطا');
+  await expectError(fx.call('equipItem', { id: 'death_fire' }), 'permission-denied');
+  await admin.doc(`users/${fx.uid}`).update({ coins: 9000 });
+  await fx.call('buyItem', { id: 'death_sand' });
+  assert.equal((await fx.profile()).equipped.death, 'death_sand', 'ينلبس أول ما ينشرى');
+  await fx.call('equipItem', { id: 'death_cloth' });
+  await fx.call('equipItem', { id: 'death_sand' });
+  const fxRoom = await training(fx, undefined, false);
+  const seats = (await fx.room(fxRoom)).players as Seat[];
+  assert.equal(await deathIn(fxRoom), 'death_sand', 'افكته في الروم');
+  assert.ok(seats.filter((p) => p.bot).some((p) => p.death), 'البوتات لها افكتات');
+  console.log('✓ افكت الموت: ينشرى وينلبس، ويوصل للروم عشان الكل يشوفه');
+
   await Promise.all(
-    [dev, plain, old, friend, watcher, newbie, sheikh, joiner, outsider, stranger].map((c) => deleteApp(c.app)),
+    [dev, plain, old, friend, watcher, newbie, sheikh, joiner, outsider, stranger, fx].map((c) => deleteApp(c.app)),
   );
   console.log('\nكل اختبارات المزايا الجديدة نجحت ✅');
   process.exit(0);

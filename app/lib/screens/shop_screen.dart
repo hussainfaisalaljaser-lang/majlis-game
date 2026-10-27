@@ -23,6 +23,7 @@ const _sections = [
   (icon: 'cat_sticker', name: 'الملصقات', slot: ShopSlot.reactions),
   (icon: 'cat_table', name: 'الطاولات', slot: ShopSlot.table),
   (icon: 'cat_cards', name: 'الكروت', slot: ShopSlot.cards),
+  (icon: 'skull', name: 'افكت الموت', slot: ShopSlot.death),
   (icon: 'idcard', name: 'الرموز', slot: null),
   (icon: 'gem', name: 'الجواهر', slot: null),
 ];
@@ -35,8 +36,9 @@ class ShopScreen extends StatefulWidget {
 
   static const avatarsTab = 1;
   static const stickersTab = 3;
-  static const idsTab = 6;
-  static const diamondsTab = 7;
+  static const deathsTab = 6;
+  static const idsTab = 7;
+  static const diamondsTab = 8;
 
   @override
   State<ShopScreen> createState() => _ShopScreenState();
@@ -179,6 +181,7 @@ _State _stateOf(ShopItem item, Profile p) {
     ShopSlot.cards => p.cards == item.id,
     ShopSlot.table => p.table == item.id,
     ShopSlot.bubble => p.bubble == item.id,
+    ShopSlot.death => p.death == item.id,
     ShopSlot.avatar => p.avatar == item.avatar,
     ShopSlot.reactions => false,
   };

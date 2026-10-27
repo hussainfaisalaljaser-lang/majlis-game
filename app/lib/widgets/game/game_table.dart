@@ -11,6 +11,7 @@ import '../../services/backend.dart';
 import '../../services/notes.dart';
 import '../../theme.dart';
 import '../bubble.dart';
+import '../death_fx.dart';
 import '../common.dart';
 import '../fx.dart';
 import '../majlis.dart';
@@ -582,15 +583,39 @@ class _SeatView extends StatelessWidget {
     ({int suspect, int trust})? opinion,
   ) {
     final p = player;
-    final sad = dying ? seg(t, 0, .6) * (1 - seg(t, 2.8, 3.4)) : 0.0;
+    // افكت موته من المتجر (الكل يشوفه). الافتراضي: الغطا الرمادي.
+    final fx = deathFxOf(room?.player(p.id)?.death);
+    final custom = dying && fx != DeathFx.cloth;
+    final sad = dying ? seg(t, 0, .6) * (1 - (custom ? seg(t, 1.2, 1.7) : seg(t, 2.8, 3.4))) : 0.0;
     final grey = dying ? seg(t, 0, .9) * .8 : 0.0;
     final lamp = over ? (p.alive ? 1.0 : 0.0) : (dying ? 1 - seg(t, 2.0, 2.5) : 1.0);
-    final cloth = dying ? seg(t, 2.6, 3.8) : 0.0;
+    final cloth = dying && !custom ? seg(t, 2.6, 3.8) : 0.0;
     Widget figure = Transform.translate(
       offset: Offset(0, 5 * sad),
       child: Transform.rotate(angle: .2 * sad, child: avatar),
     );
-    if (dying) {
+    if (custom) {
+      final look = deathLook(fx, t);
+      figure = Stack(
+        clipBehavior: Clip.none,
+        children: [
+          if (!deathHidesAvatar(fx, t))
+            Opacity(
+              opacity: look.opacity.clamp(0.0, 1.0),
+              child: look.matrix == null
+                  ? figure
+                  : ColorFiltered(colorFilter: ColorFilter.matrix(look.matrix!), child: figure),
+            )
+          else
+            const SizedBox(width: 62, height: 62),
+          if (t < 1.6) Positioned.fill(child: CustomPaint(painter: _SadPainter(t))),
+          Positioned.fill(child: CustomPaint(painter: DeathPainter(fx, t))),
+          Positioned.fill(
+            child: DeathMark(fx: fx, t: t),
+          ),
+        ],
+      );
+    } else if (dying) {
       figure = Stack(
         clipBehavior: Clip.none,
         children: [
