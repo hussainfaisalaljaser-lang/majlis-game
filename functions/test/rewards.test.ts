@@ -43,3 +43,22 @@ test('الباتل باس: الدرجات والاستلام', () => {
   assert.ok(profile.owned!.includes('table_s1'));
   assert.equal(claimPass(profile).got.coins, 0);
 });
+
+test('الباتل باس العادي معه ١٠ درجات هدية، والكامل يفتح كل الدرجات (ولو عنده العادي يدفع الفرق)', async () => {
+  const { upgradePass, passPrice, passComplete } = await import('../src/rewards.js');
+  const { SEASON } = await import('../src/catalog.js');
+  const fresh = { season: SEASON.id, points: 300, premium: false, free: 0, prem: 0 };
+  const normal = upgradePass(fresh, false);
+  assert.equal(normal.premium, true);
+  assert.equal(passTier(normal.points), passTier(300) + SEASON.bonus_tiers);
+  assert.equal(passPrice(fresh, false), SEASON.price);
+  assert.equal(passPrice(fresh, true), SEASON.full_price);
+  assert.equal(passPrice(normal, true), SEASON.full_price - SEASON.price, 'الفرق بس');
+  assert.equal(passComplete(normal), false);
+  const full = upgradePass(normal, true);
+  assert.equal(passTier(full.points), SEASON.tiers);
+  assert.equal(passComplete(full), true);
+  // الهدية ما تعدّي آخر درجة.
+  const near = upgradePass({ ...fresh, points: SEASON.tiers * SEASON.tier_points - 10 }, false);
+  assert.equal(near.points, SEASON.tiers * SEASON.tier_points);
+});

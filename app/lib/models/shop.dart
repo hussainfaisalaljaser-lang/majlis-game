@@ -219,6 +219,8 @@ class Season {
     required this.start,
     required this.end,
     required this.price,
+    required this.fullPrice,
+    required this.bonusTiers,
     required this.tierPoints,
     required this.tiers,
     required this.free,
@@ -230,8 +232,12 @@ class Season {
   final DateTime start;
   final DateTime end;
 
-  /// سعر المسار المدفوع بالجواهر.
+  /// سعر المسار المدفوع بالجواهر (ومعه [bonusTiers] درجات هدية).
   final int price;
+
+  /// سعر الباتل باس كامل: المسار المدفوع وكل الدرجات مفتوحة على طول.
+  final int fullPrice;
+  final int bonusTiers;
   final int tierPoints;
   final int tiers;
   final Map<int, LevelReward> free;

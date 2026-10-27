@@ -186,6 +186,12 @@ class _WaitingScreenState extends State<WaitingScreen> {
                 const Gfx('bolt', size: 22),
                 const Text(' سريع', style: TextStyle(color: AppColors.gold, fontSize: 15)),
               ],
+              // طور الشخصيات (الطور العادي ما يحتاج علامة).
+              if (_room?.roles ?? false) ...[
+                const SizedBox(width: 10),
+                const Gfx('seer', size: 22),
+                const Text(' الشخصيات', style: TextStyle(color: Color(0xFFB9A4FF), fontSize: 15)),
+              ],
             ],
           ),
         ),

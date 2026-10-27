@@ -1,4 +1,5 @@
 import 'clan.dart';
+import 'leaderboard.dart' show gulfWeek;
 import 'missions.dart';
 import 'tour.dart';
 import 'shop.dart';
@@ -29,6 +30,7 @@ class Profile {
     this.temp = const {},
     this.gifts = const [],
     this.pass = const PassState(),
+    this.passMissionsRaw = const PassMissionState(),
     this.tutorialDone = false,
     this.stats = const {},
     this.badges = const {},
@@ -74,6 +76,7 @@ class Profile {
     },
     gifts: [for (final g in (j['gifts'] as List?) ?? const []) Gift.fromJson(Map<String, dynamic>.from(g as Map))],
     pass: PassState.fromJson((j['pass'] as Map?)?.cast<String, dynamic>()),
+    passMissionsRaw: PassMissionState.fromJson((j['passMissions'] as Map?)?.cast<String, dynamic>(), season.id),
     tutorialDone: j['tutorialDone'] as bool? ?? false,
     stats: _ints(j['stats']),
     badges: _ints(j['badges']),
@@ -189,6 +192,15 @@ class Profile {
   /// الباتل باس للموسم الحالي.
   final PassState pass;
 
+  /// مهام الباتل باس (الأسبوعية والموسم).
+  final PassMissionState passMissionsRaw;
+
+  /// مهام الباتل باس هالأسبوع (لو المحفوظ من أسبوع قبل، الأسبوعية من الصفر).
+  PassMissionState get passMissions => passMissionsRaw.forWeek(gulfWeek(DateTime.now()));
+
+  /// كم مهمة باتل باس خلصها وما استلمها.
+  int get claimablePassMissions => [...weeklyMissions, ...seasonMissions].where(passMissions.isClaimable).length;
+
   /// يملك الغرض؟ (الأساسي، أو اشتراه أو أخذه هدية، أو مؤقت وما خلص). نفس functions/src/profile.ts → owns.
   bool owns(String id) {
     if (shopItem(id)?.isDefault ?? false) return true;
@@ -252,6 +264,7 @@ class Gift {
       achievement = j['kind'] == 'achievement' ? j['ach'] as String? : null,
       rank = j['kind'] == 'rank',
       tour = j['kind'] == 'tour',
+      passFrom = j['kind'] == 'passGift' ? (j['from'] as String? ?? 'صاحبك') : null,
       n = (j['n'] as num).toInt(),
       coins = (j['coins'] as num?)?.toInt() ?? 0,
       diamonds = (j['diamonds'] as num?)?.toInt() ?? 0,
@@ -271,6 +284,9 @@ class Gift {
 
   /// بطل بطولة الأسبوع.
   final bool tour;
+
+  /// هدية باتل باس من صاحب: اسمه ([n] = ١ لو الباتل باس كامل).
+  final String? passFrom;
 
   /// المستوى، أو المركز للبطولة.
   final int n;

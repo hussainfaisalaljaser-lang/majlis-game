@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../models/game_view.dart';
 import '../../theme.dart';
 import '../common.dart';
+import '../fx.dart';
 import '../ui.dart';
 
 /// أيقونة كل قدرة (assets/icons/gfx_*.png).
@@ -285,6 +286,14 @@ class MiniTracks extends StatelessWidget {
               row(true, view.loyalPolicies, 5),
               const SizedBox(height: 4),
               row(false, view.traitorPolicies, 6),
+              // بعد ٣ قرارات للخونة: لو الزعيم صار وزير يفوزون. هنا بالزاوية (ما يغطي أحد)، وينبض وقت الترشيح والتصويت.
+              if (view.traitorPolicies >= 3 && view.phase != Phase.gameOver) ...[
+                const SizedBox(height: 4),
+                _LeaderDanger(
+                  mine: view.yourRole == Role.leader,
+                  active: view.phase == Phase.nomination || view.phase == Phase.election,
+                ),
+              ],
               if (view.electionTracker > 0) ...[
                 const SizedBox(height: 3),
                 Row(
@@ -312,6 +321,89 @@ class MiniTracks extends StatelessWidget {
       ),
     );
   }
+}
+
+/// سطر «الزعيم وزير = فوز الخونة» تحت المسار الأحمر. [active] وقت الترشيح والتصويت: ينبض عشان ينتبه له الكل.
+class _LeaderDanger extends StatefulWidget {
+  const _LeaderDanger({required this.mine, required this.active});
+
+  final bool mine;
+  final bool active;
+
+  @override
+  State<_LeaderDanger> createState() => _LeaderDangerState();
+}
+
+class _LeaderDangerState extends State<_LeaderDanger> with SingleTickerProviderStateMixin {
+  late final _c = AnimationController(vsync: this, duration: const Duration(milliseconds: 900));
+
+  @override
+  void initState() {
+    super.initState();
+    _sync();
+  }
+
+  @override
+  void didUpdateWidget(_LeaderDanger old) {
+    super.didUpdateWidget(old);
+    if (old.active != widget.active) _sync();
+  }
+
+  void _sync() {
+    if (widget.active && !FxClock.lite.value) {
+      _c.repeat(reverse: true);
+    } else {
+      _c
+        ..stop()
+        ..value = 0;
+    }
+  }
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => AnimatedBuilder(
+    animation: _c,
+    builder: (context, child) => Container(
+      padding: const EdgeInsetsDirectional.fromSTEB(2, 1, 7, 1),
+      decoration: BoxDecoration(
+        color: Color.lerp(const Color(0xFF3A0A12), const Color(0xFF6B111C), _c.value),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: AppColors.traitor.withValues(alpha: .6 + _c.value * .4)),
+        boxShadow: widget.active
+            ? [BoxShadow(color: AppColors.traitor.withValues(alpha: .2 + _c.value * .4), blurRadius: 8)]
+            : null,
+      ),
+      child: child,
+    ),
+    child: Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const LeaderSeal(size: 17),
+        const SizedBox(width: 3),
+        Text.rich(
+          TextSpan(
+            children: [
+              TextSpan(
+                text: widget.mine ? 'لو صرت وزير ' : 'الزعيم وزير ',
+                style: const TextStyle(color: AppColors.gold),
+              ),
+              const TextSpan(text: '= '),
+              const TextSpan(
+                text: 'فوز الخونة',
+                style: TextStyle(color: Color(0xFFFF8A8A)),
+              ),
+            ],
+          ),
+          style: const TextStyle(fontFamily: kufi, fontSize: 10.5, fontWeight: FontWeight.w700),
+        ),
+      ],
+    ),
+  );
 }
 
 /// اللوحة كاملة: المسارات والقدرات وعداد الفوضى.

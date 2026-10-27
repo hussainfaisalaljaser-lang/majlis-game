@@ -84,6 +84,24 @@ export function addPassPoints(p: Profile, points: number, now: number): Profile 
   return { ...p, pass: { ...s, points: s.points + points } };
 }
 
+/**
+ * يفتح المسار المدفوع. الباتل باس العادي معه درجات هدية (SEASON.bonus_tiers)، والكامل يفتح كل الدرجات على طول.
+ */
+export function upgradePass(s: PassState, full: boolean): PassState {
+  const max = SEASON.tiers * SEASON.tier_points;
+  const points = full ? Math.max(s.points, max) : Math.min(max, s.points + SEASON.bonus_tiers * SEASON.tier_points);
+  return { ...s, premium: true, points };
+}
+
+/** سعر الباتل باس بالجواهر: العادي، أو الكامل (لو عنده العادي يدفع الفرق بس). */
+export function passPrice(s: PassState, full: boolean): number {
+  if (!full) return SEASON.price;
+  return s.premium ? SEASON.full_price - SEASON.price : SEASON.full_price;
+}
+
+/** عنده الباتل باس كامل (كل الدرجات مفتوحة)؟ */
+export const passComplete = (s: PassState) => s.premium && s.points >= SEASON.tiers * SEASON.tier_points;
+
 /** كل مكافآت الباتل باس اللي وصلها وما استلمها (المجاني، والمدفوع لو شراه). */
 export function claimPass(p: Profile): { profile: Profile; got: Reward } {
   const s = passOf(p);

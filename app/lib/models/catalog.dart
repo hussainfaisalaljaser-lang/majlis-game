@@ -1358,6 +1358,8 @@ final season = Season(
   start: DateTime.utc(2026, 10, 25).subtract(const Duration(hours: 3)),
   end: DateTime.utc(2026, 12, 27).subtract(const Duration(hours: 3)),
   price: 150,
+  fullPrice: 750,
+  bonusTiers: 10,
   tierPoints: 150,
   tiers: 30,
   free: {

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../models/leaderboard.dart';
+import '../models/missions.dart';
 import '../models/profile.dart';
 import '../models/shop.dart';
 import '../services/backend.dart';
@@ -9,6 +11,7 @@ import '../widgets/common.dart';
 import '../widgets/gifts.dart';
 import '../widgets/item_preview.dart';
 import '../widgets/ui.dart';
+import 'missions_screen.dart';
 
 /// الباتل باس: مسار مجاني للكل، ومسار مدفوع فيه أغراض الموسم الخاصة.
 class PassScreen extends StatefulWidget {
@@ -58,30 +61,125 @@ class _PassScreenState extends State<PassScreen> {
     }
   }
 
+  /// خياري الشراء: الباتل باس (المسار المدفوع ومعه درجات هدية) أو الباتل باس كامل (كل الدرجات مفتوحة).
+  /// يرجّع وش اختار: false العادي، true الكامل، null ولا شي. [owned]: عنده العادي (الكامل بالفرق بس).
+  Future<bool?> _pickOption(Profile p, {required String title, bool owned = false}) => showDialog<bool>(
+    context: context,
+    builder: (context) => AlertDialog(
+      backgroundColor: AppColors.panel,
+      title: Text(title, textAlign: TextAlign.center),
+      content: SizedBox(
+        width: 520,
+        child: IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (!owned) ...[
+                Expanded(
+                  child: _Option(
+                    title: 'الباتل باس',
+                    lines: ['المسار المدفوع وكل مكافآته', 'هدية: ${arabicNumber(season.bonusTiers)} درجات على طول'],
+                    price: p.dev ? null : season.price,
+                    tone: ButtonTone.gold,
+                    onPick: () => Navigator.pop(context, false),
+                  ),
+                ),
+                const SizedBox(width: 10),
+              ],
+              Expanded(
+                child: _Option(
+                  title: 'الباتل باس كامل',
+                  lines: [
+                    'المسار المدفوع وكل مكافآته',
+                    'كل الدرجات الـ${arabicNumber(season.tiers)} مفتوحة على طول',
+                    if (owned) 'تدفع الفرق بس',
+                  ],
+                  price: p.dev ? null : (owned ? season.fullPrice - season.price : season.fullPrice),
+                  tone: ButtonTone.purple,
+                  onPick: () => Navigator.pop(context, true),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    ),
+  );
+
   Future<void> _buy(Profile p) async {
-    final ok = await showDialog<bool>(
+    final owned = p.pass.premium;
+    final full = await _pickOption(p, title: owned ? 'كمّل الباتل باس' : 'اشترِ الباتل باس', owned: owned);
+    if (full == null) return;
+    setState(() => _busy = true);
+    try {
+      await Backend.instance.buyPass(full: full);
+      final price = full ? (owned ? season.fullPrice - season.price : season.fullPrice) : season.price;
+      Telemetry.spend(full ? 'pass_full_${season.id}' : 'pass_${season.id}', 'diamonds', price);
+      if (mounted) await _claim();
+    } on BackendException catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  /// يهدي صاحب الباتل باس: يختار من أصحابه، وبعدين العادي أو الكامل.
+  Future<void> _gift(Profile p) async {
+    final friend = await showDialog<LeaderboardEntry>(
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: AppColors.panel,
-        title: const Text('تشتري الباتل باس؟', textAlign: TextAlign.center),
-        content: Text(
-          p.dev
-              ? 'ببلاش لأنك مطور. تفتح كل مكافآت المسار المدفوع، حتى اللي فاتت.'
-              : 'بـ ${arabicNumber(season.price)} جوهرة. تفتح كل مكافآت المسار المدفوع، حتى اللي فاتت.',
-          textAlign: TextAlign.center,
+        title: const Text('أهدِ الباتل باس لصاحبك', textAlign: TextAlign.center),
+        content: SizedBox(
+          width: 420,
+          height: 220,
+          child: p.friends.isEmpty
+              ? const Center(
+                  child: Text(
+                    'ما عندك أصحاب للحين. ضيفهم من «الأصدقاء» وبعدين أهدهم.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: AppColors.muted),
+                  ),
+                )
+              : FutureBuilder(
+                  future: Future.wait(p.friends.map(Backend.instance.fetchPlayer)),
+                  builder: (context, snap) {
+                    final list = [for (final e in snap.data ?? const <LeaderboardEntry?>[]) ?e];
+                    if (!snap.hasData) return const Center(child: CircularProgressIndicator(color: AppColors.gold));
+                    return ListView(
+                      children: [
+                        for (final e in list)
+                          ListTile(
+                            leading: PlayerAvatar(avatar: e.avatar, size: 40, animate: false),
+                            title: Text(e.name, style: const TextStyle(fontWeight: FontWeight.w800)),
+                            subtitle: Text('مستوى ${arabicNumber(e.level)}'),
+                            onTap: () => Navigator.pop(context, e),
+                          ),
+                      ],
+                    );
+                  },
+                ),
         ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('لا')),
-          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('اشترِ')),
-        ],
       ),
     );
-    if (ok != true) return;
+    if (friend == null || !mounted) return;
+    final full = await _pickOption(p, title: 'هدية لـ${friend.name}');
+    if (full == null) return;
     setState(() => _busy = true);
     try {
-      await Backend.instance.buyPass();
-      Telemetry.spend('pass_${season.id}', 'diamonds', season.price);
-      if (mounted) await _claim();
+      await Backend.instance.giftPass(friend.uid, full: full);
+      Telemetry.spend(
+        full ? 'gift_pass_full_${season.id}' : 'gift_pass_${season.id}',
+        'diamonds',
+        full ? season.fullPrice : season.price,
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('أهديت ${friend.name} ${full ? 'الباتل باس كامل' : 'الباتل باس'}! بتطلع له هدية باسمك'),
+          ),
+        );
+      }
     } on BackendException catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
     } finally {
@@ -104,6 +202,35 @@ class _PassScreenState extends State<PassScreen> {
           ],
         ),
         actions: [
+          ValueListenableBuilder(
+            valueListenable: Backend.instance.profile,
+            builder: (context, p, _) => TextButton.icon(
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => MissionsScreen(
+                    tab:
+                        !weeklyMissions.any(p.passMissions.isClaimable) &&
+                            seasonMissions.any(p.passMissions.isClaimable)
+                        ? 2
+                        : 1,
+                  ),
+                ),
+              ),
+              icon: const Gfx('missions', size: 22),
+              label: Text(
+                p.claimablePassMissions > 0 ? 'المهام (${arabicNumber(p.claimablePassMissions)})' : 'المهام',
+                style: const TextStyle(color: AppColors.gold, fontWeight: FontWeight.w800),
+              ),
+            ),
+          ),
+          TextButton.icon(
+            onPressed: _busy || !season.active ? null : () => _gift(Backend.instance.profile.value),
+            icon: const Gfx('gift', size: 22),
+            label: const Text(
+              'أهدِ صاحبك',
+              style: TextStyle(color: AppColors.gold, fontWeight: FontWeight.w800),
+            ),
+          ),
           Container(
             margin: const EdgeInsetsDirectional.only(end: 14),
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
@@ -235,7 +362,7 @@ class _Header extends StatelessWidget {
                 Text(
                   s.tier >= season.tiers
                       ? 'خلصت كل الدرجات!'
-                      : '${arabicNumber(s.pointsInTier)} / ${arabicNumber(season.tierPoints)} نقطة · كل لعبة +٢٠، والفوز +٣٠، وكل مهمة +٢٥',
+                      : '${arabicNumber(s.pointsInTier)} / ${arabicNumber(season.tierPoints)} نقطة · كل لعبة +٢٠، والفوز +٣٠، والمهام نقاط أكثر',
                   style: const TextStyle(color: AppColors.muted, fontSize: 12),
                 ),
               ],
@@ -249,8 +376,17 @@ class _Header extends StatelessWidget {
               children: [
                 if (!s.premium)
                   GameButton(
-                    label: p.dev ? 'افتح الباتل باس' : 'الباتل باس ${arabicNumber(season.price)}',
+                    label: 'اشترِ الباتل باس',
                     icon: const Gfx('gem', size: 24),
+                    height: 46,
+                    fontSize: 15,
+                    onPressed: busy || !season.active ? null : onBuy,
+                  )
+                else if (s.tier < season.tiers)
+                  GameButton(
+                    label: 'كمّل كل الدرجات',
+                    icon: const Gfx('gem', size: 24),
+                    tone: ButtonTone.purple,
                     height: 46,
                     fontSize: 15,
                     onPressed: busy || !season.active ? null : onBuy,
@@ -262,7 +398,7 @@ class _Header extends StatelessWidget {
                       Gfx('check', size: 22),
                       SizedBox(width: 6),
                       Text(
-                        'عندك الباتل باس',
+                        'عندك الباتل باس كامل',
                         style: TextStyle(color: AppColors.green, fontWeight: FontWeight.w800),
                       ),
                     ],
@@ -445,4 +581,63 @@ class _Cell extends StatelessWidget {
             ),
     );
   }
+}
+
+/// خيار شراء في نافذة الباتل باس: اسمه ووش فيه وسعره.
+class _Option extends StatelessWidget {
+  const _Option({
+    required this.title,
+    required this.lines,
+    required this.price,
+    required this.tone,
+    required this.onPick,
+  });
+
+  final String title;
+  final List<String> lines;
+
+  /// بالجواهر (null: ببلاش للمطور).
+  final int? price;
+  final ButtonTone tone;
+  final VoidCallback onPick;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.all(12),
+    decoration: BoxDecoration(
+      color: AppColors.card,
+      borderRadius: BorderRadius.circular(16),
+      border: Border.all(color: tone == ButtonTone.purple ? const Color(0xFFA48BFF) : AppColors.gold, width: 1.5),
+    ),
+    child: Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const Gfx('pass', size: 40),
+        const SizedBox(height: 4),
+        Text(
+          title,
+          style: const TextStyle(fontFamily: kufi, fontSize: 17, fontWeight: FontWeight.w700),
+        ),
+        const SizedBox(height: 6),
+        for (final l in lines)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 3),
+            child: Text(
+              l,
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: AppColors.muted, fontSize: 12.5),
+            ),
+          ),
+        const SizedBox(height: 8),
+        GameButton(
+          label: price == null ? 'ببلاش (مطور)' : arabicNumber(price!),
+          icon: const Gfx('gem', size: 22),
+          tone: tone,
+          height: 42,
+          fontSize: 15,
+          onPressed: onPick,
+        ),
+      ],
+    ),
+  );
 }

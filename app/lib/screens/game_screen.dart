@@ -1088,14 +1088,6 @@ class _GameScreenState extends State<GameScreen> {
                     ),
                   ),
                   Positioned.fill(child: TensionOverlay(tension: tension)),
-                  // بعد ٣ قرارات للخونة: لو الزعيم صار وزير يفوزون. نذكّر الكل وقت الترشيح والتصويت.
-                  if (v.traitorPolicies >= 3 && (v.phase == Phase.nomination || v.phase == Phase.election))
-                    Positioned(
-                      top: 10,
-                      left: 0,
-                      right: 0,
-                      child: Center(child: _LeaderDanger(role: v.yourRole)),
-                    ),
                   // فوق يمين: الجولة ودورك
                   PositionedDirectional(
                     top: 8,
@@ -2898,67 +2890,6 @@ class _GameOver extends StatelessWidget {
             ),
           ),
         ),
-      ),
-    );
-  }
-}
-
-/// شريط التنبيه فوق وقت الترشيح والتصويت (بعد ٣ قرارات للخونة). ينبض عشان ينتبه له الكل.
-class _LeaderDanger extends StatefulWidget {
-  const _LeaderDanger({required this.role});
-
-  final Role role;
-
-  @override
-  State<_LeaderDanger> createState() => _LeaderDangerState();
-}
-
-class _LeaderDangerState extends State<_LeaderDanger> with SingleTickerProviderStateMixin {
-  late final _c = AnimationController(vsync: this, duration: const Duration(milliseconds: 1100))..repeat(reverse: true);
-
-  @override
-  void dispose() {
-    _c.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final mine = widget.role == Role.leader;
-    return AnimatedBuilder(
-      animation: _c,
-      builder: (context, child) => Container(
-        padding: const EdgeInsetsDirectional.fromSTEB(6, 4, 14, 4),
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(colors: [Color(0xFF6B111C), Color(0xFF2A070C)]),
-          borderRadius: BorderRadius.circular(30),
-          border: Border.all(color: Color.lerp(AppColors.traitor, Colors.white, _c.value * .35)!, width: 1.6),
-          boxShadow: [BoxShadow(color: AppColors.traitor.withValues(alpha: .25 + _c.value * .4), blurRadius: 18)],
-        ),
-        child: child,
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const LeaderSeal(size: 38),
-          const SizedBox(width: 8),
-          Text.rich(
-            TextSpan(
-              children: [
-                TextSpan(
-                  text: mine ? 'لو صرت وزير ' : 'الزعيم وزير ',
-                  style: const TextStyle(color: AppColors.gold),
-                ),
-                const TextSpan(text: '= '),
-                const TextSpan(
-                  text: 'فوز الخونة',
-                  style: TextStyle(color: Color(0xFFFF8A8A)),
-                ),
-              ],
-            ),
-            style: const TextStyle(fontFamily: kufi, fontSize: 15, fontWeight: FontWeight.w700),
-          ),
-        ],
       ),
     );
   }

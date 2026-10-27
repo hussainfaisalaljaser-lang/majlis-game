@@ -5,6 +5,7 @@ import '../services/backend.dart';
 import '../services/telemetry.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
+import '../widgets/mode_picker.dart';
 import '../widgets/ui.dart';
 import 'friends_screen.dart';
 import 'waiting_screen.dart';
@@ -20,6 +21,9 @@ class PrivateScreen extends StatefulWidget {
 class _PrivateScreenState extends State<PrivateScreen> {
   int _playerCount = 5;
   bool _quick = false;
+
+  /// طور الشخصيات (بدونه الطور العادي بدون أدوار خاصة).
+  bool _roles = false;
   bool _busy = false;
 
   Future<void> _open(Future<String> Function() request) async {
@@ -103,6 +107,8 @@ class _PrivateScreenState extends State<PrivateScreen> {
                       onSelectionChanged: (s) => setState(() => _playerCount = s.first),
                     ),
                     const SizedBox(height: 8),
+                    ModePicker(roles: _roles, onChanged: (v) => setState(() => _roles = v)),
+                    const SizedBox(height: 6),
                     SegmentedButton<bool>(
                       showSelectedIcon: false,
                       style: const ButtonStyle(visualDensity: VisualDensity.compact),
@@ -125,7 +131,9 @@ class _PrivateScreenState extends State<PrivateScreen> {
                       semantics: 'أنشئ روم خاص',
                       tone: ButtonTone.purple,
                       onPressed: ready
-                          ? () => _open(() => Backend.instance.createRoom(maxPlayers: _playerCount, quick: _quick))
+                          ? () => _open(
+                              () => Backend.instance.createRoom(maxPlayers: _playerCount, quick: _quick, roles: _roles),
+                            )
                           : null,
                     ),
                     const SizedBox(height: 10),

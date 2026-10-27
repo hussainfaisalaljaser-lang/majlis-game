@@ -63,6 +63,7 @@ class Room {
     this.reactions = const [],
     this.opinions = const {},
     this.quick = false,
+    this.roles = false,
     this.gone = const {},
     this.next,
     this.watchers = const [],
@@ -104,6 +105,7 @@ class Room {
         key as String: {for (final o in (value as Map).entries) o.key as String: o.value == 'suspect'},
     },
     quick: j['quick'] as bool? ?? false,
+    roles: j['roles'] as bool? ?? false,
     gone: {for (final g in (j['gone'] as List?) ?? const []) g as String},
     next: j['next'] as String?,
     watchers: [for (final w in (j['watchers'] as List?) ?? const []) w as String],
@@ -121,6 +123,9 @@ class Room {
 
   /// الوضع السريع: الوقت نص، واللعبة حوالي ٥ دقايق.
   final bool quick;
+
+  /// طور الشخصيات (العرّاف والحارس والقاضي والشيخ والجاسوس). بدونه الطور العادي: الزعيم والخونة والأوفياء بس.
+  final bool roles;
 
   /// وقت إنشاء الروم. الطاولة العامة تتكمل بالبوتات بعد شوي انتظار.
   final DateTime? createdAt;

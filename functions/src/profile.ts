@@ -5,6 +5,7 @@ import type { MissionState } from './missions.js';
 import { CATALOG, FREE_AVATARS } from './catalog.js';
 import type { Stats } from './achievements.js';
 import type { RankState } from './rank.js';
+import type { PassMissionState } from './missions.js';
 import type { PassState } from './rewards.js';
 import { DEFAULT_EQUIPPED, avatarOfItem, isDefault, type EquipSlot } from './shop.js';
 import { rankOf } from './rank.js';
@@ -16,11 +17,13 @@ export const AVATARS = FREE_AVATARS;
 
 /** هدية وصلت اللاعب (مستوى، بطولة الأسبوع، الشرح، إنجاز). التطبيق يعرضها ويشيلها بـ ackGifts. */
 export interface Gift {
-  kind: 'level' | 'champion' | 'tutorial' | 'achievement' | 'rank' | 'tour';
+  kind: 'level' | 'champion' | 'tutorial' | 'achievement' | 'rank' | 'tour' | 'passGift';
   /** المستوى (للمستويات) أو المركز (للأبطال) أو الدرجة (للإنجازات). */
   n: number;
   /** معرف الإنجاز (للإنجازات). */
   ach?: string;
+  /** اسم اللي أهداه (هدية الباتل باس من صاحب). n: ١ لو الباتل باس كامل. */
+  from?: string;
   coins: number;
   diamonds: number;
   items: string[];
@@ -57,6 +60,8 @@ export interface Profile {
   rewardedLevel?: number;
   /** الباتل باس (rewards.ts → PassState). */
   pass?: PassState;
+  /** مهام الباتل باس الأسبوعية ومهام الموسم (missions.ts). */
+  passMissions?: PassMissionState;
   /** خلّص لعبة الشرح وأخذ مكافأتها. */
   tutorialDone?: boolean;
   /** إحصائيات الإنجازات (achievements.ts)، ودرجة كل إنجاز وصلها (١ برونزي، ٢ فضي، ٣ ذهبي). */

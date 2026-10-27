@@ -297,7 +297,9 @@ SEASON = dict(
     id='s1', name='الموسم الأول: ليالي المجلس',
     # بداية ونهاية الموسم بتوقيت الخليج
     start='2026-10-25', end='2026-12-27',
-    price=150,  # جواهر
+    price=150,  # جواهر: المسار المدفوع ومعه bonus_tiers درجات هدية
+    full_price=750,  # جواهر: الباتل باس كامل (كل الدرجات مفتوحة على طول)
+    bonus_tiers=10,
     tier_points=150, tiers=30,
     free={2: R(300), 4: R(500), 6: R(diamonds=5), 8: R(800), 10: R(items=['bubble_s1f']), 12: R(1000), 14: R(diamonds=5),
           16: R(1200), 18: R(items=['frame_s1f']), 20: R(1500), 22: R(diamonds=10), 24: R(1800), 26: R(diamonds=10), 28: R(2000),
@@ -410,11 +412,12 @@ def ts():
     L.append('];')
     L.append('')
     L.append('/** الموسم الحالي (الباتل باس). start/end بتوقيت الخليج، والمكافآت حسب الدرجة. */')
-    season = {k: SEASON[k] for k in ('id', 'start', 'end', 'price', 'tier_points', 'tiers')}
+    season = {k: SEASON[k] for k in ('id', 'start', 'end', 'price', 'full_price', 'bonus_tiers', 'tier_points', 'tiers')}
     season['free'] = {str(k): v for k, v in SEASON['free'].items()}
     season['premium'] = {str(k): v for k, v in SEASON['premium'].items()}
     L.append('export const SEASON = ' + json.dumps(season, ensure_ascii=False) + ' as {')
-    L.append('  id: string; start: string; end: string; price: number; tier_points: number; tiers: number;')
+    L.append('  id: string; start: string; end: string; price: number; full_price: number; bonus_tiers: number;')
+    L.append('  tier_points: number; tiers: number;')
     L.append('  free: Record<string, Reward>; premium: Record<string, Reward>;')
     L.append('};')
     return '\n'.join(L) + '\n'
@@ -523,6 +526,8 @@ def dart():
     L.append(f"  start: DateTime.utc({', '.join(str(int(x)) for x in SEASON['start'].split('-'))}).subtract(const Duration(hours: 3)),")
     L.append(f"  end: DateTime.utc({', '.join(str(int(x)) for x in SEASON['end'].split('-'))}).subtract(const Duration(hours: 3)),")
     L.append(f"  price: {SEASON['price']},")
+    L.append(f"  fullPrice: {SEASON['full_price']},")
+    L.append(f"  bonusTiers: {SEASON['bonus_tiers']},")
     L.append(f"  tierPoints: {SEASON['tier_points']},")
     L.append(f"  tiers: {SEASON['tiers']},")
     L.append('  free: {' + ', '.join(f'{t}: {rw(t, r)}' for t, r in SEASON['free'].items()) + '},')

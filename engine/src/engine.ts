@@ -37,7 +37,7 @@ export function teamOf(role: Role): Team {
 export function createGame(
   players: { id: PlayerId; name: string }[],
   seed: number,
-  { extraSpecials = true }: { extraSpecials?: boolean } = {},
+  { specials = true, extraSpecials = true }: { specials?: boolean; extraSpecials?: boolean } = {},
 ): GameState {
   if (players.length < MIN_PLAYERS || players.length > MAX_PLAYERS) {
     throw new RuleError('playerCount', `عدد اللاعبين لازم يكون بين ${MIN_PLAYERS} و ${MAX_PLAYERS}`);
@@ -74,16 +74,19 @@ export function createGame(
     alive: true,
   }));
 
-  // الأدوار الخاصة: عرّاف وحارس من الأوفياء. العرّاف ما يعرف أحد في البداية، ويختار متى يكشف.
-  let loyalSeats: number[];
-  [loyalSeats, rng] = shuffle(seated.filter((p) => p.role === 'loyal').map((p) => p.seat), rng);
-  const seer = seated[loyalSeats[0]];
-  const guardian = seated[loyalSeats[1]];
-  seer.special = 'seer';
-  guardian.special = 'guardian';
+  // الطور العادي بدون أدوار خاصة أبداً (الزعيم والخونة والأوفياء بس). طور الشخصيات فيه:
+  // عرّاف وحارس من الأوفياء. العرّاف ما يعرف أحد في البداية، ويختار متى يكشف.
+  if (specials) {
+    let loyalSeats: number[];
+    [loyalSeats, rng] = shuffle(seated.filter((p) => p.role === 'loyal').map((p) => p.seat), rng);
+    const seer = seated[loyalSeats[0]];
+    const guardian = seated[loyalSeats[1]];
+    seer.special = 'seer';
+    guardian.special = 'guardian';
+  }
 
   // الأدوار الجديدة: لأي لاعب ما عنده دور خاص (وفي أو خاين)، إلا الزعيم.
-  if (extraSpecials) {
+  if (specials && extraSpecials) {
     let kinds: (typeof EXTRA_SPECIALS)[number][];
     [kinds, rng] = shuffle(EXTRA_SPECIALS, rng);
     let free: number[];

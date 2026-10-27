@@ -36,6 +36,18 @@ class _GameLog extends StatelessWidget {
     }
     final claims = view.claims;
     final entries = rounds.entries.toList().reversed.toList();
+    // عداد الحكومات الفاشلة وقت كل حدث (تصويت رُفض أو انلغى، أو فيتو). أي قرار يتمرر يصفّره.
+    final failed = <GameEvent, int>{};
+    var tracker = 0;
+    for (final e in view.log) {
+      switch (e.type) {
+        case 'voteResult' when e.data['passed'] != true:
+        case 'vetoed':
+          failed[e] = ++tracker;
+        case 'enacted':
+          tracker = 0;
+      }
+    }
 
     return Column(
       children: [
@@ -72,6 +84,7 @@ class _GameLog extends StatelessWidget {
                   events: events,
                   claims: claims.where((c) => c.round == round).toList(),
                   name: _name,
+                  failed: failed,
                 ),
             ],
           ),
@@ -82,12 +95,28 @@ class _GameLog extends StatelessWidget {
 }
 
 class _RoundCard extends StatelessWidget {
-  const _RoundCard({required this.round, required this.events, required this.claims, required this.name});
+  const _RoundCard({
+    required this.round,
+    required this.events,
+    required this.claims,
+    required this.name,
+    required this.failed,
+  });
 
   final int round;
   final List<GameEvent> events;
   final List<Claim> claims;
   final String Function(String) name;
+
+  /// كم حكومة فاشلة ورا بعض صارت بعد هالحدث (من ٣).
+  final Map<GameEvent, int> failed;
+
+  /// «حكومة فاشلة ٢ من ٣»، والثالثة تمرر أول كرت تلقائياً.
+  String _failNote(GameEvent e) {
+    final n = failed[e];
+    if (n == null) return '';
+    return n >= 3 ? ' · ثالث حكومة فاشلة ورا بعض!' : ' · حكومة فاشلة ${arabicNumber(n)} من ٣';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -117,10 +146,10 @@ class _RoundCard extends StatelessWidget {
           final judge = d['cancelledBy'] as String?;
           lines.add(
             judge != null
-                ? line('scales', 'القاضي ${name(judge)} ألغى التصويت، والحكومة سقطت')
+                ? line('scales', 'القاضي ${name(judge)} ألغى التصويت، والحكومة سقطت${_failNote(e)}')
                 : d['passed'] == true
                 ? line('check', 'الحكومة انتخبت')
-                : line('cross', 'الحكومة رُفضت'),
+                : line('cross', 'الحكومة رُفضت${_failNote(e)}'),
           );
           lines.add(
             Wrap(
@@ -156,7 +185,11 @@ class _RoundCard extends StatelessWidget {
           enacted = Policy.parse(d['policy']);
           final chaos = d['chaos'] == true;
           lines.add(
-            line(chaos ? 'chaos' : 'scales', chaos ? 'فوضى! تمرر تلقائياً: ' : 'تمرر: ', MiniPolicies([enacted])),
+            line(
+              chaos ? 'chaos' : 'scales',
+              chaos ? 'فوضى! ٣ حكومات فاشلة ورا بعض، فتمرر أول كرت بالكومة تلقائياً: ' : 'تمرر: ',
+              MiniPolicies([enacted]),
+            ),
           );
         case 'claim':
           final c = d['claim'] as Map;
@@ -168,9 +201,13 @@ class _RoundCard extends StatelessWidget {
             ),
           );
         case 'vetoed':
-          lines.add(line('hand', 'الحكومة استخدمت الفيتو'));
+          final gov = (d['government'] as Map?) ?? const {};
+          final who = gov['chancellor'] is String && gov['president'] is String
+              ? 'الوزير ${name(gov['chancellor'] as String)} طلب فيتو ووافق الرئيس ${name(gov['president'] as String)}'
+              : 'الوزير طلب فيتو ووافق الرئيس';
+          lines.add(line('hand', '$who: انرمت الكروت كلها بدون قرار${_failNote(e)}'));
         case 'vetoRejected':
-          lines.add(line('cross', 'الرئيس رفض الفيتو'));
+          lines.add(line('cross', 'الرئيس رفض الفيتو، والوزير لازم يمرر قرار'));
         case 'investigated':
           lines.add(line('search', '${name(d['by'] as String)} حقق مع ${name(d['target'] as String)}'));
         case 'peeked':
@@ -184,7 +221,14 @@ class _RoundCard extends StatelessWidget {
             line('shield', '${name(d['by'] as String)} حاول يطرد ${name(d['target'] as String)}، ونجا لأنه حارس'),
           );
         case 'gameOver':
-          lines.add(line('trophy', d['winner'] == 'loyal' ? 'فاز الأوفياء' : 'فاز الخونة'));
+          final why = switch (d['reason']) {
+            'loyalPolicies' => ': تمررت ٥ قرارات زرقاء',
+            'traitorPolicies' => ': تمررت ٦ قرارات حمراء',
+            'leaderElected' => ': انتخبوا الزعيم وزير بعد ٣ قرارات حمراء',
+            'leaderExecuted' => ': انطرد الزعيم',
+            _ => '',
+          };
+          lines.add(line('trophy', '${d['winner'] == 'loyal' ? 'فاز الأوفياء' : 'فاز الخونة'}$why'));
       }
     }
 

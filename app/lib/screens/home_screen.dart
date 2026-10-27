@@ -3,12 +3,14 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../models/missions.dart';
 import '../models/leaderboard.dart';
 import '../models/shop.dart';
 import '../services/backend.dart';
 import '../services/links.dart';
 import '../services/music.dart';
 import '../theme.dart';
+import '../widgets/mode_picker.dart';
 import '../widgets/common.dart';
 import '../widgets/daily_reward.dart';
 import '../widgets/gifts.dart';
@@ -35,12 +37,46 @@ class HomeScreen extends StatelessWidget {
 
   void _push(BuildContext context, Widget page) => Navigator.of(context).push(MaterialPageRoute(builder: (_) => page));
 
-  /// تدريب: روم خاص فيه أنت و٤ بوتات، ويبدأ على طول.
+  /// تدريب: روم خاص فيه أنت و٤ بوتات، تختار الطور ويبدأ على طول.
   Future<void> _startPractice(BuildContext context) async {
     final backend = Backend.instance;
     if (!backend.isReady) return;
     final navigator = Navigator.of(context);
     final messenger = ScaffoldMessenger.of(context);
+    final roles = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: AppColors.panel,
+        title: const Text('تدريب مع البوتات · اختر الطور', textAlign: TextAlign.center),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            for (final (roles, title, icon, tone) in [
+              (false, 'عادي', 'dagger', ButtonTone.gold),
+              (true, 'الشخصيات', 'seer', ButtonTone.purple),
+            ]) ...[
+              GameButton(
+                label: title,
+                icon: Gfx(icon, size: 24),
+                tone: tone,
+                height: 46,
+                fontSize: 16,
+                onPressed: () => Navigator.pop(context, roles),
+              ),
+              Padding(
+                padding: const EdgeInsets.only(top: 3, bottom: 8),
+                child: Text(
+                  modeHint(roles),
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(color: AppColors.muted, fontSize: 12),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+    if (roles == null || !context.mounted) return;
     showDialog<void>(
       context: context,
       barrierDismissible: false,
@@ -55,7 +91,7 @@ class HomeScreen extends StatelessWidget {
       ),
     );
     try {
-      final code = await backend.startTraining();
+      final code = await backend.startTraining(roles: roles);
       navigator.pop();
       navigator.push(MaterialPageRoute(builder: (_) => GameScreen(code: code)));
     } on BackendException catch (e) {
@@ -144,7 +180,20 @@ class HomeScreen extends StatelessWidget {
                                             const SizedBox(width: 10),
                                             SizedBox(
                                               width: 128,
-                                              child: _MissionsCard(onTap: () => _push(context, const MissionsScreen())),
+                                              child: _MissionsCard(
+                                                onTap: () {
+                                                  final p = Backend.instance.profile.value;
+                                                  // يفتح على أول تبويب فيه شي جاهز للاستلام.
+                                                  final tab = p.claimableMissions > 0
+                                                      ? 0
+                                                      : weeklyMissions.any(p.passMissions.isClaimable)
+                                                      ? 1
+                                                      : seasonMissions.any(p.passMissions.isClaimable)
+                                                      ? 2
+                                                      : 0;
+                                                  _push(context, MissionsScreen(tab: tab));
+                                                },
+                                              ),
                                             ),
                                           ],
                                         ),
@@ -659,11 +708,12 @@ class _MissionsCard extends StatelessWidget {
     return ValueListenableBuilder(
       valueListenable: Backend.instance.profile,
       builder: (context, p, _) {
-        final claimable = p.claimableMissions;
+        // اليومية والأسبوعية والموسم كلها تنحسب في «جاهزة للاستلام».
+        final claimable = p.claimableMissions + p.claimablePassMissions;
         final claimed = p.missions.claimed.length;
         return Semantics(
           button: true,
-          label: 'المهام اليومية',
+          label: 'المهام',
           excludeSemantics: true,
           child: GestureDetector(
             onTap: onTap,

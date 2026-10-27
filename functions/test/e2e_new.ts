@@ -120,8 +120,8 @@ async function drive(
   throw new Error('اللعبة ما وصلت للي ننتظره');
 }
 
-async function training(dev: Client, special?: string): Promise<string> {
-  const { code } = await dev.call<{ code: string }>('startTraining');
+async function training(dev: Client, special?: string, roles = true): Promise<string> {
+  const { code } = await dev.call<{ code: string }>('startTraining', { roles });
   if (special) await dev.call('devTool', { action: 'forceRole', code, special });
   return code;
 }
@@ -147,11 +147,20 @@ async function main(): Promise<void> {
   assert.deepEqual((await dev.profile()).favorites, ['b_laugh', 'b_think'], 'بدون تكرار وبالترتيب');
   console.log('✓ المفضلة: بالكثير ٥، من الباقات اللي تملكها');
 
-  // ٢. نسخة التطبيق: لو فيه أحد بنسخة قديمة، ما تطلع الأدوار الجديدة
+  // ٢أ. الطور العادي (الافتراضي): الزعيم والخونة والأوفياء بس، بدون أي دور خاص
+  const classic = await training(dev, undefined, false);
+  assert.ok((await fullGame(classic)).players.every((p) => !p.special), 'العادي بدون أدوار خاصة');
+  const { code: classicRoom } = await dev.call<{ code: string }>('createRoom', { maxPlayers: 5 });
+  for (let i = 0; i < 4; i++) await dev.call('addBots', { code: classicRoom });
+  await dev.call('startGame', { code: classicRoom });
+  assert.ok((await fullGame(classicRoom)).players.every((p) => !p.special), 'الروم الخاص العادي بدون أدوار خاصة');
+  console.log('✓ الطور العادي: بدون عرّاف ولا حارس ولا أي دور خاص');
+
+  // ٢. نسخة التطبيق: لو فيه أحد بنسخة قديمة، ما تطلع الأدوار الجديدة (في طور الشخصيات)
   const old = await client(3);
   await old.call('ensureProfile');
   await old.call('updateProfile', { name: 'نسخة قديمة', avatar: 'falcon' });
-  const { code: mixed } = await dev.call<{ code: string }>('createRoom', { maxPlayers: 5 });
+  const { code: mixed } = await dev.call<{ code: string }>('createRoom', { maxPlayers: 5, roles: true });
   await old.call('joinRoom', { code: mixed });
   for (let i = 0; i < 3; i++) await dev.call('addBots', { code: mixed });
   await dev.call('startGame', { code: mixed });
@@ -330,6 +339,42 @@ async function main(): Promise<void> {
   assert.equal(board2.players[plain.uid].stage, tp.stage);
   await expectError(plain.call('rematch', { code: tcode }), 'failed-precondition');
   console.log(`✓ البطولة: ${tres.won ? 'فاز وتأهل لنص النهائي' : 'خسر وطلع'}، ولوحة البطولة تحدّثت`);
+
+  // ١٢. الباتل باس: مهام الأسبوع والموسم، وخياري الشراء، والإهداء لصاحب
+  const pm = (await plain.profile()).passMissions;
+  assert.ok((pm?.weekly?.play ?? 0) >= 1 && (pm?.total?.play ?? 0) >= 1, 'اللعبة انحسبت في مهام الباتل باس');
+  await expectError(plain.call('claimPassMission', { id: 'w_play10' }), 'failed-precondition');
+  await expectError(plain.call('claimPassMission', { id: 'nope' }), 'invalid-argument');
+  await admin.doc(`users/${plain.uid}`).update({ 'passMissions.weekly.play': 10 });
+  const passBefore = (await plain.profile()).pass?.points ?? 0;
+  assert.equal((await plain.call<{ points: number }>('claimPassMission', { id: 'w_play10' })).points, 120);
+  assert.equal((await plain.profile()).pass.points, passBefore + 120);
+  await expectError(plain.call('claimPassMission', { id: 'w_play10' }), 'failed-precondition');
+  console.log('✓ مهام الباتل باس: اللعب ينحسب، والاستلام مرة وحدة ويعطي نقاط');
+
+  await admin.doc(`users/${plain.uid}`).update({ diamonds: 2000 });
+  await plain.call('buyPass');
+  let pp = await plain.profile();
+  assert.equal(pp.pass.premium, true);
+  assert.equal(pp.pass.points, passBefore + 120 + 10 * 150, 'العادي معه ١٠ درجات هدية');
+  assert.equal(pp.diamonds, 2000 - 150);
+  await expectError(plain.call('buyPass'), 'already-exists');
+  await plain.call('buyPass', { full: true });
+  pp = await plain.profile();
+  assert.equal(pp.pass.points, 30 * 150, 'الكامل يفتح كل الدرجات');
+  assert.equal(pp.diamonds, 2000 - 750, 'الكامل بعد العادي بالفرق بس');
+  await expectError(plain.call('buyPass', { full: true }), 'already-exists');
+  console.log('✓ الباتل باس: العادي بـ١٥٠ ومعه ١٠ درجات، والكامل بالفرق يفتح كل الدرجات');
+
+  await expectError(dev.call('giftPass', { uid: plain.uid }), 'permission-denied');
+  await dev.call('giftPass', { uid: watcher.uid, full: true });
+  const wp = await watcher.profile();
+  assert.equal(wp.pass.premium, true);
+  assert.equal(wp.pass.points, 30 * 150);
+  const pg = wp.gifts.find((g: { kind: string }) => g.kind === 'passGift');
+  assert.deepEqual([pg.from, pg.n], ['المطور', 1]);
+  await expectError(dev.call('giftPass', { uid: watcher.uid }), 'already-exists');
+  console.log('✓ الإهداء: لأصحابك بس، ويوصل صاحبك الباتل باس وهدية باسمك');
 
   await Promise.all([dev, plain, old, friend, watcher].map((c) => deleteApp(c.app)));
   console.log('\nكل اختبارات المزايا الجديدة نجحت ✅');

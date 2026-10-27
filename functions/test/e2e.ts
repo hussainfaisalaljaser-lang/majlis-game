@@ -20,6 +20,7 @@ import {
 } from 'firebase/firestore';
 import { connectFunctionsEmulator, getFunctions, httpsCallable } from 'firebase/functions';
 import type { PlayerView } from '../../engine/src/index.js';
+import { SEASON } from '../src/catalog.js';
 import { seasonActive } from '../src/rewards.js';
 
 const PROJECT = 'majlis-game-1d739';
@@ -138,7 +139,8 @@ async function main(): Promise<void> {
   console.log('✓ الملف الشخصي: ٢٠٠٠ ذهب للبداية، والاسم يتحقق منه، والهدية اليومية مرة وحدة');
 
   // ١. روم خاص بكود
-  const { code } = await host.call<{ code: string }>('createRoom', { maxPlayers: 5 });
+  // طور الشخصيات (فيه العرّاف والحارس) عشان نجرب العرّاف تحت.
+  const { code } = await host.call<{ code: string }>('createRoom', { maxPlayers: 5, roles: true });
   assert.match(code, /^[A-Z0-9]{5}$/);
   await expectError(host.call('startGame', { code }), 'failed-precondition');
   await expectError(rest[0].call('joinRoom', { code: 'ZZZZZ' }), 'not-found');
@@ -521,9 +523,15 @@ async function main(): Promise<void> {
     assert.deepEqual(free.items, []);
     await dev.call('buyPass');
     await expectError(dev.call('buyPass'), 'already-exists');
+    // الباتل باس العادي معه ١٠ درجات هدية: من الدرجة ٣ لين ١٣، ويستلم المجاني ٤–١٣ والمدفوع ١–١٣.
+    assert.equal((await dev.profile()).pass.points, 450 + SEASON.bonus_tiers * SEASON.tier_points);
+    const track = (t: Record<string, { coins: number; items: string[] }>, from: number, to: number) =>
+      Object.entries(t).filter(([k]) => +k >= from && +k <= to).map(([, r]) => r);
+    const expected = [...track(SEASON.free, 4, 13), ...track(SEASON.premium, 1, 13)];
     const prem = await dev.call<{ coins: number; items: string[] }>('claimPassRewards');
-    assert.equal(prem.coins, 1500, 'المدفوع: درجة ٢ و٣');
-    assert.deepEqual(prem.items, ['avatar_s1a']);
+    assert.equal(prem.coins, expected.reduce((n, r) => n + r.coins, 0), 'المجاني والمدفوع لين درجة ١٣');
+    assert.deepEqual([...prem.items].sort(), expected.flatMap((r) => r.items).sort());
+    assert.ok(prem.items.includes('avatar_s1a'));
     const again = await dev.call<{ coins: number; items: string[] }>('claimPassRewards');
     assert.equal(again.coins, 0);
     assert.ok((await dev.profile()).owned.includes('avatar_s1a'));
@@ -591,8 +599,11 @@ async function main(): Promise<void> {
   assert.notEqual(normalTable, quickTable, 'السريع ما يدخل طاولة عادية');
   const { code: quickTable2 } = await players[4].call<{ code: string }>('quickMatch', { maxPlayers: 6, tierId: 'starter', quick: true });
   assert.equal(quickTable2, quickTable, 'السريع يدخل طاولة سريعة');
-  for (const [p, c] of [[players[1], normalTable], [players[2], quickTable], [players[4], quickTable]] as const) await p.call('leaveRoom', { code: c });
-  console.log('✓ الوضع السريع: الروم والطاولات العامة');
+  // طور الشخصيات ما يختلط بالطور العادي.
+  const { code: rolesTable } = await players[0].call<{ code: string }>('quickMatch', { maxPlayers: 6, tierId: 'starter', roles: true });
+  assert.notEqual(rolesTable, normalTable, 'طور الشخصيات ما يدخل طاولة عادية');
+  for (const [p, c] of [[players[1], normalTable], [players[2], quickTable], [players[4], quickTable], [players[0], rolesTable]] as const) await p.call('leaveRoom', { code: c });
+  console.log('✓ الوضع السريع والطور: الطاولات العامة ما تختلط');
 
   // الأسماء المسيئة تنرفض
   await expectError(players[0].call('updateProfile', { name: 'شرموط', avatar: 'falcon' }), 'invalid-argument');

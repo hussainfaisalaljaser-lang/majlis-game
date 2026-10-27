@@ -531,7 +531,21 @@ describe('البوتات الأذكى', () => {
 });
 
 describe('الأدوار الخاصة', () => {
-  it('كل لعبة فيها عرّاف وحارس من الأوفياء، والعرّاف ما يعرف أحد في البداية', () => {
+  it('الطور العادي: الزعيم والخونة والأوفياء بس، بدون أي دور خاص', () => {
+    for (let n = 5; n <= 10; n++) {
+      for (let seed = 1; seed <= 10; seed++) {
+        const s = createGame(ids(n), seed * 17 + n, { specials: false });
+        assert.ok(s.players.every((p) => p.special === null), 'ولا دور خاص');
+        assert.equal(s.players.filter((p) => p.role === 'leader').length, 1);
+        for (const p of s.players) {
+          const v = viewFor(s, p.id);
+          assert.equal(v.seerReady || v.judgeReady || v.spyReady, false);
+        }
+      }
+    }
+  });
+
+  it('طور الشخصيات: كل لعبة فيها عرّاف وحارس من الأوفياء، والعرّاف ما يعرف أحد في البداية', () => {
     for (let n = 5; n <= 10; n++) {
       const s = createGame(ids(n), n * 13);
       const seer = s.players.filter((p) => p.special === 'seer');

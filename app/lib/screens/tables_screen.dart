@@ -6,6 +6,7 @@ import '../models/table_tier.dart';
 import '../services/backend.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
+import '../widgets/mode_picker.dart';
 import '../widgets/ui.dart';
 import '../widgets/venues.dart';
 import '../widgets/weekend.dart';
@@ -27,6 +28,9 @@ class _TablesScreenState extends State<TablesScreen> {
 
   /// الوضع السريع: نفس اللعبة بنص الوقت (حوالي ٥ دقايق).
   bool _quick = false;
+
+  /// طور الشخصيات (بدونه الطور العادي بدون أدوار خاصة).
+  bool _roles = false;
 
   bool _locked(Profile p, TableTier t) => t.requiredLevel > p.level || (t.vipOnly && !p.vip);
 
@@ -89,6 +93,8 @@ class _TablesScreenState extends State<TablesScreen> {
                       onSelectionChanged: (s) => setState(() => _playerCount = s.first),
                     ),
                     const SizedBox(height: 8),
+                    ModePicker(roles: _roles, onChanged: (v) => setState(() => _roles = v)),
+                    const SizedBox(height: 6),
                     SegmentedButton<bool>(
                       showSelectedIcon: false,
                       style: const ButtonStyle(visualDensity: VisualDensity.compact),
@@ -123,6 +129,7 @@ class _TablesScreenState extends State<TablesScreen> {
                                 maxPlayers: _playerCount,
                                 tierId: _tier.id,
                                 quick: _quick,
+                                roles: _roles,
                               ),
                               tier: _tier,
                             ),

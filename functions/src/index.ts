@@ -62,7 +62,18 @@ import {
   weekendBoost,
   type TableTier,
 } from './economy.js';
-import { MISSIONS, bumpMissions, gulfWeek, todaysMissions, type MissionId } from './missions.js';
+import {
+  MISSIONS,
+  SEASON_MISSIONS,
+  WEEKLY_MISSIONS,
+  bumpMissions,
+  bumpPassMissions,
+  currentPassMissions,
+  gulfWeek,
+  passStatsFromGame,
+  todaysMissions,
+  type MissionId,
+} from './missions.js';
 import { isDev, isOwner } from './dev.js';
 import { validPid } from './ids.js';
 import { applyStats, statsFromGame } from './achievements.js';
@@ -84,7 +95,17 @@ import {
   type Profile,
 } from './profile.js';
 import { CATALOG, CHAMPION_REWARDS, REACTIONS, SEASON } from './catalog.js';
-import { addPassPoints, applyLevelRewards, claimPass, grant, passOf, seasonActive } from './rewards.js';
+import {
+  addPassPoints,
+  applyLevelRewards,
+  claimPass,
+  grant,
+  passComplete,
+  passOf,
+  passPrice,
+  seasonActive,
+  upgradePass,
+} from './rewards.js';
 import { avatarOfItem, itemById, slotOf } from './shop.js';
 import {
   addClanPoints,
@@ -171,6 +192,11 @@ export interface Room {
   tutorial?: boolean;
   /** الوضع السريع (الوقت نص). */
   quick?: boolean;
+  /**
+   * طور الشخصيات: فيه العرّاف والحارس (والقاضي والشيخ والجاسوس لو كل البشر عندهم نسخة ٢).
+   * الطور العادي (false أو ما فيه) بدون أي دور خاص: الزعيم والخونة والأوفياء بس.
+   */
+  roles?: boolean;
   results?: Record<string, GameResult>;
   /** متى خلصت اللعبة. بعدها الطاولة تبقى مفتوحة للسوالف لين يطلعون. */
   finishedAtMs?: number;
@@ -244,7 +270,7 @@ function startGameTx(tx: Transaction, room: Room): GameState {
     ...createGame(
       room.players.map((p) => ({ id: p.uid, name: p.name })),
       randomInt(2 ** 31),
-      { extraSpecials: modernRoom(room) },
+      { specials: room.roles === true, extraSpecials: modernRoom(room) },
     ),
     quick: room.quick ?? false,
   };
@@ -569,6 +595,7 @@ export const createRoom = onCall(async (req) => {
       createdAt: FieldValue.serverTimestamp(),
       createdAtMs: Date.now(),
       quick: req.data?.quick === true,
+      roles: req.data?.roles === true,
     };
     tx.set(db.doc(`rooms/${code}`), room);
   });
@@ -639,6 +666,7 @@ export const rematch = onCall(async (req) => {
       createdAt: FieldValue.serverTimestamp(),
       createdAtMs: Date.now(),
       quick: room.quick ?? false,
+      roles: room.roles ?? false,
     };
     if (room.entryFee > 0) chargeEntry(tx, uid, p, room.entryFee);
     tx.set(db.doc(`rooms/${fresh}`), next);
@@ -659,6 +687,8 @@ export const quickMatch = onCall(async (req) => {
   const tier = tierById(req.data?.tierId);
   if (!tier) throw new HttpsError('invalid-argument', 'اختار طاولة');
   const quick = req.data?.quick === true;
+  // الطور: عادي (بدون أدوار خاصة) أو الشخصيات. اللي يختار طور ما ينحط إلا مع نفس الطور.
+  const roles = req.data?.roles === true;
 
   const open = await db
     .collection('rooms')
@@ -667,6 +697,7 @@ export const quickMatch = onCall(async (req) => {
     .where('maxPlayers', '==', maxPlayers)
     .where('tierId', '==', tier.id)
     .where('quick', '==', quick)
+    .where('roles', '==', roles)
     .limit(10)
     .get();
 
@@ -707,6 +738,7 @@ export const quickMatch = onCall(async (req) => {
       createdAt: FieldValue.serverTimestamp(),
       createdAtMs: Date.now(),
       quick,
+      roles,
     };
     tx.set(db.doc(`rooms/${code}`), room);
   });
@@ -762,6 +794,8 @@ export const tourPlay = onCall(async (req) => {
       createdAt: FieldValue.serverTimestamp(),
       createdAtMs: Date.now(),
       quick: false,
+      // البطولة بالطور العادي.
+      roles: false,
       tour: stage,
       tourWeek: week,
     };
@@ -878,6 +912,7 @@ export const startTraining = onCall(async (req) => {
       createdAt: FieldValue.serverTimestamp(),
       createdAtMs: Date.now(),
       quick: false,
+      roles: req.data?.roles === true,
     };
     tx.set(db.doc(`rooms/${code}`), room);
     startGameTx(tx, room);
@@ -936,9 +971,9 @@ export const startTutorial = onCall(async (req) => {
       tutorial: true,
     };
     tx.set(db.doc(`rooms/${code}`), room);
-    // لعبة الشرح بدون الأدوار الجديدة (قاضي، شيخ، جاسوس): خلّها بسيطة للاعب الجديد.
+    // لعبة الشرح بالطور العادي (بدون أدوار خاصة): خلّها بسيطة للاعب الجديد.
     const players = room.players.map((pl) => ({ id: pl.uid, name: pl.name }));
-    const state = rigTutorial(createGame(players, randomInt(2 ** 31), { extraSpecials: false }), uid);
+    const state = rigTutorial(createGame(players, randomInt(2 ** 31), { specials: false }), uid);
     writeGame(tx, code, state, deadlineFor(state, Date.now(), startGrace(true)));
   });
   return { code };
@@ -1072,6 +1107,13 @@ async function finishTurn(
     }
     // الإنجازات: إحصائيات هاللعبة، ودرجات جديدة لو وصلها.
     updated = applyStats(updated, statsFromGame(next, player.id, won), won);
+    // مهام الباتل باس (الأسبوعية والموسم).
+    if (seasonActive(now)) {
+      const inc = passStatsFromGame(next, player.id, won, room.roles === true);
+      if (Object.keys(inc).length) {
+        updated = { ...updated, passMissions: bumpPassMissions(updated.passMissions, SEASON.id, now, inc) };
+      }
+    }
     // البطولة: الفايز يتأهل للدور اللي بعده، والخسران (أو اللي طلع) يطلع منها، واللي فاز النهائي بطل.
     if (tourWeek && room.tour != null) {
       const t = applyTour(updated, room.tour, tourWeek, won);
@@ -1310,19 +1352,72 @@ export const ackGifts = onCall(async (req) => {
   return {};
 });
 
-/** يشتري المسار المدفوع في الباتل باس (بالجواهر، والمطور ببلاش). */
+/**
+ * يشتري الباتل باس (بالجواهر، والمطور ببلاش): العادي = المسار المدفوع ومعه درجات هدية، و[full] = كل الدرجات
+ * مفتوحة على طول (لو عنده العادي يدفع الفرق بس). يرجّع السعر.
+ */
 export const buyPass = onCall(async (req) => {
   const uid = requireAuth(req);
-  await db.runTransaction(async (tx) => {
+  const full = req.data?.full === true;
+  return db.runTransaction(async (tx) => {
     const p = await readProfile(db, tx, uid);
     if (!seasonActive(Date.now())) throw new HttpsError('failed-precondition', 'الموسم مو شغال الحين');
     const s = passOf(p);
-    if (s.premium) throw new HttpsError('already-exists', 'عندك الباتل باس');
-    const price = p.dev ? 0 : SEASON.price;
+    if (full ? passComplete(s) : s.premium) {
+      throw new HttpsError('already-exists', full ? 'عندك الباتل باس كامل' : 'عندك الباتل باس');
+    }
+    const price = p.dev ? 0 : passPrice(s, full);
     if (p.diamonds < price) throw new HttpsError('failed-precondition', 'ما عندك جواهر كافية');
-    tx.set(userRef(uid), { ...p, diamonds: p.diamonds - price, pass: { ...s, premium: true } });
+    tx.set(userRef(uid), { ...p, diamonds: p.diamonds - price, pass: upgradePass(s, full) });
+    return { price };
   });
-  return {};
+});
+
+/** يهدي صاحبه الباتل باس (العادي أو الكامل) من جواهره. صاحبه تطلع له هدية باسمه. */
+export const giftPass = onCall(async (req) => {
+  const uid = requireAuth(req);
+  const target = String(req.data?.uid ?? '');
+  const full = req.data?.full === true;
+  if (!target || target === uid || target.includes('/')) throw new HttpsError('invalid-argument', 'اختار صاحب');
+  return db.runTransaction(async (tx) => {
+    const p = await readProfile(db, tx, uid);
+    if (!seasonActive(Date.now())) throw new HttpsError('failed-precondition', 'الموسم مو شغال الحين');
+    if (!(p.friends ?? []).includes(target)) throw new HttpsError('permission-denied', 'تقدر تهدي أصحابك بس');
+    const snap = await tx.get(userRef(target));
+    if (!snap.exists) throw new HttpsError('not-found', 'صاحبك مو موجود');
+    const them = snap.data() as Profile;
+    const s = passOf(them);
+    if (s.premium) throw new HttpsError('already-exists', 'صاحبك عنده الباتل باس');
+    const price = p.dev ? 0 : passPrice(s, full);
+    if (p.diamonds < price) throw new HttpsError('failed-precondition', 'ما عندك جواهر كافية');
+    const gift = { kind: 'passGift' as const, n: full ? 1 : 0, coins: 0, diamonds: 0, items: [], from: p.name };
+    tx.set(userRef(uid), { ...p, diamonds: p.diamonds - price });
+    tx.set(userRef(target), { ...them, pass: upgradePass(s, full), gifts: [...(them.gifts ?? []), gift].slice(-10) });
+    return { price };
+  });
+});
+
+/** يستلم نقاط مهمة باتل باس (أسبوعية أو للموسم) خلصها. */
+export const claimPassMission = onCall(async (req) => {
+  const uid = requireAuth(req);
+  const id = String(req.data?.id ?? '');
+  const weekly = WEEKLY_MISSIONS.find((m) => m.id === id);
+  const mission = weekly ?? SEASON_MISSIONS.find((m) => m.id === id);
+  if (!mission) throw new HttpsError('invalid-argument', 'مهمة مو معروفة');
+  return db.runTransaction(async (tx) => {
+    const p = await readProfile(db, tx, uid);
+    const now = Date.now();
+    if (!seasonActive(now)) throw new HttpsError('failed-precondition', 'الموسم مو شغال الحين');
+    const m = currentPassMissions(p.passMissions, SEASON.id, now);
+    const claimed = weekly ? m.weeklyClaimed : m.seasonClaimed;
+    if (claimed.includes(id)) throw new HttpsError('failed-precondition', 'استلمتها من قبل');
+    if (((weekly ? m.weekly : m.total)[mission.stat] ?? 0) < mission.target) {
+      throw new HttpsError('failed-precondition', 'ما خلصت المهمة للحين');
+    }
+    const next = weekly ? { ...m, weeklyClaimed: [...claimed, id] } : { ...m, seasonClaimed: [...claimed, id] };
+    tx.set(userRef(uid), addPassPoints({ ...p, passMissions: next }, mission.points, now));
+    return { points: mission.points };
+  });
 });
 
 /** يستلم كل مكافآت الباتل باس اللي وصلها (المجانية، والمدفوعة لو شراه). يرجّع اللي أخذه. */
@@ -1757,7 +1852,8 @@ export { claimClanChest, clanKick, clanRole, createClan, joinClan, leaveClan, to
 const ROUTES: Record<string, CallableFunction<unknown, unknown>> = {
   ensureProfile, devTool, updateProfile, claimLinkReward, claimDaily, createRoom, joinRoom, quickMatch, addBots,
   removeBot, leaveRoom, startGame, startTraining, startTutorial, act, leaveGame, timeout, buyItem, equipItem, rematch,
-  registerPushToken, ackGifts, buyPass, claimPassRewards, claimMission, clearOpinion, react, setFavorites, reportPlayer,
+  registerPushToken, ackGifts, buyPass, giftPass, claimPassRewards, claimPassMission, claimMission, clearOpinion, react,
+  setFavorites, reportPlayer,
   spectate, stopWatching, createClan, joinClan, leaveClan, clanKick, clanRole, claimClanChest, tourJoin, tourPlay,
   setBlocked, sendFeedback, deleteAccount, findPlayer, friendRequest, friendRespond, removeFriend, inviteFriend,
   quotePid, suggestIds, buyPid,

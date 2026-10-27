@@ -238,8 +238,9 @@ class Backend {
     return q.limit(50).snapshots().map((s) => [for (final d in s.docs) LeaderboardEntry.fromJson(d.id, d.data())]);
   }
 
-  Future<String> createRoom({required int maxPlayers, bool quick = false}) async {
-    final r = await _call('createRoom', {'maxPlayers': maxPlayers, 'quick': quick});
+  /// [roles]: طور الشخصيات (العرّاف والحارس والقاضي والشيخ والجاسوس). بدونه الطور العادي.
+  Future<String> createRoom({required int maxPlayers, bool quick = false, bool roles = false}) async {
+    final r = await _call('createRoom', {'maxPlayers': maxPlayers, 'quick': quick, 'roles': roles});
     return r['code'] as String;
   }
 
@@ -248,8 +249,13 @@ class Backend {
     return r['code'] as String;
   }
 
-  Future<String> quickMatch({required int maxPlayers, required String tierId, bool quick = false}) async {
-    final r = await _call('quickMatch', {'maxPlayers': maxPlayers, 'tierId': tierId, 'quick': quick});
+  Future<String> quickMatch({
+    required int maxPlayers,
+    required String tierId,
+    bool quick = false,
+    bool roles = false,
+  }) async {
+    final r = await _call('quickMatch', {'maxPlayers': maxPlayers, 'tierId': tierId, 'quick': quick, 'roles': roles});
     return r['code'] as String;
   }
 
@@ -257,7 +263,8 @@ class Backend {
   Future<String> startTutorial() async => (await _call('startTutorial', const {}))['code'] as String;
 
   /// تدريب: روم خاص فيه أنت و٤ بوتات، يبدأ على طول بطلب واحد، ويرجع رمزه.
-  Future<String> startTraining() async => (await _call('startTraining', const {}))['code'] as String;
+  Future<String> startTraining({bool roles = false}) async =>
+      (await _call('startTraining', {'roles': roles}))['code'] as String;
 
   Future<void> leaveRoom(String code) => _call('leaveRoom', {'code': code});
 
@@ -400,8 +407,15 @@ class Backend {
   /// يشيل الهدايا اللي شافها.
   Future<void> ackGifts() => _call('ackGifts', const {});
 
-  /// يشتري المسار المدفوع في الباتل باس.
-  Future<void> buyPass() => _call('buyPass', const {});
+  /// يشتري الباتل باس: العادي (المسار المدفوع ومعه درجات هدية)، أو [full] كامل (كل الدرجات مفتوحة).
+  Future<void> buyPass({bool full = false}) => _call('buyPass', {'full': full});
+
+  /// يهدي صاحبه الباتل باس (العادي أو الكامل) من جواهره.
+  Future<void> giftPass(String uid, {bool full = false}) => _call('giftPass', {'uid': uid, 'full': full});
+
+  /// يستلم نقاط مهمة باتل باس (أسبوعية أو للموسم). يرجّع النقاط.
+  Future<int> claimPassMission(String id) async =>
+      ((await _call('claimPassMission', {'id': id}))['points'] as num?)?.toInt() ?? 0;
 
   /// يستلم مكافآت الباتل باس. يرجّع اللي أخذه.
   Future<({int coins, int diamonds, List<String> items})> claimPassRewards() async {

@@ -75,7 +75,10 @@ Future<void> showGiftDialog(BuildContext context, Gift g) {
   final ach = g.achievement == null ? null : achievementById(g.achievement!);
   final rank = g.rank ? rankTiers[g.n.clamp(0, rankTiers.length - 1)] : null;
   if (!g.tutorial && ach == null) Sfx.say(g.champion ? 'win_loyal' : 'enact_loyal');
-  final title = rank != null
+  final from = g.passFrom;
+  final title = from != null
+      ? (g.n == 1 ? 'هدية من $from: الباتل باس كامل!' : 'هدية من $from: الباتل باس!')
+      : rank != null
       ? 'وصلت رتبة ${rank.name}!'
       : ach != null
       ? 'إنجاز جديد: ${ach.name}'
@@ -86,7 +89,11 @@ Future<void> showGiftDialog(BuildContext context, Gift g) {
       : g.champion
       ? (g.n == 1 ? 'بطل الأسبوع!' : (g.n == 2 ? 'وصيف الأسبوع!' : 'ثالث الأسبوع!'))
       : 'هدية المستوى ${arabicNumber(g.n)}!';
-  final note = rank != null
+  final note = from != null
+      ? (g.n == 1
+            ? 'كل درجات الموسم انفتحت لك. استلم مكافآتها من الباتل باس.'
+            : 'انفتح لك المسار المدفوع ومعه ${arabicNumber(season.bonusTiers)} درجات هدية. استلمها من الباتل باس.')
+      : rank != null
       ? 'هذي مكافأة أول وصول للرتبة هالموسم. كمّل في الطاولات العامة عشان تطلع أكثر.'
       : ach != null
       ? 'وصلت الدرجة ${tierNames[g.n.clamp(0, 3)]}: ${ach.descFor(g.n - 1)}. تطلع في ملفك للكل.'
@@ -139,7 +146,12 @@ Future<void> showGiftDialog(BuildContext context, Gift g) {
                         else if (ach != null)
                           BadgeMedal(achievement: ach, tier: g.n, size: 50)
                         else
-                          Gfx(g.tutorial || g.tour ? 'trophy' : (g.champion ? 'medal${g.n}' : 'gift'), size: 46),
+                          Gfx(
+                            from != null
+                                ? 'pass'
+                                : (g.tutorial || g.tour ? 'trophy' : (g.champion ? 'medal${g.n}' : 'gift')),
+                            size: 46,
+                          ),
                         const SizedBox(width: 10),
                         GoldText(title, size: 28),
                       ],
