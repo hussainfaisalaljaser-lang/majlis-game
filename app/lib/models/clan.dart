@@ -8,6 +8,27 @@ const clanPrice = 5000;
 const clanMax = 30;
 const clanGoal = 3000;
 const clanChest = (coins: 1000, diamonds: 5);
+const clanDeputies = 3;
+const clanElders = 8;
+const clanDescMax = 120;
+
+/// الطلبات والدعوات تنتهي بعد أسبوع.
+const clanInviteTtl = Duration(days: 7);
+
+/// شروط المستوى اللي يختار منها الشيخ.
+const clanLevelSteps = [0, 5, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100];
+
+/// طريقة الدخول: مفتوح لأي أحد تنطبق عليه الشروط، أو بطلب يقبله الوجهاء وفوق، أو بالدعوة بس.
+enum ClanJoin {
+  open('مفتوح', 'أي أحد تنطبق عليه الشروط يدخل على طول'),
+  request('بطلب', 'يرسل طلب، والوجهاء وفوق يقبلونه'),
+  invite('بالدعوة', 'محد يدخل إلا بدعوة من الوجهاء وفوق');
+
+  const ClanJoin(this.label, this.hint);
+
+  final String label;
+  final String hint;
+}
 
 /// ألوان الشعار بالترتيب (نفس العدد في السيرفر CLAN_COLORS).
 const clanColors = [
@@ -50,7 +71,55 @@ class ClanTag {
   Color get tint => clanColors[color.clamp(0, clanColors.length - 1)];
 }
 
-enum ClanRole { owner, deputy, member }
+/// الرتب من الأعلى: شيخ الديوان، والنواب (٣)، والوجهاء (٨)، والأعضاء.
+enum ClanRole { owner, deputy, elder, member }
+
+extension ClanRoleName on ClanRole {
+  String get label => switch (this) {
+    ClanRole.owner => 'شيخ الديوان',
+    ClanRole.deputy => 'نائب',
+    ClanRole.elder => 'وجيه',
+    ClanRole.member => 'عضو',
+  };
+
+  /// قوة الرتبة: الأعلى يقدر على اللي تحته.
+  int get power => 3 - index;
+}
+
+/// طلب دخول للديوان.
+class ClanRequest {
+  ClanRequest.fromJson(this.uid, Map<String, dynamic> j)
+    : name = j['name'] as String? ?? '',
+      avatar = j['avatar'] as String? ?? 'masked',
+      level = (j['level'] as num?)?.toInt() ?? 1,
+      at = DateTime.fromMillisecondsSinceEpoch((j['at'] as num?)?.toInt() ?? 0);
+
+  final String uid;
+  final String name;
+  final String avatar;
+  final int level;
+  final DateTime at;
+}
+
+/// دعوة وصلتني لديوان (في ملفي clanInvites).
+class ClanInvite {
+  ClanInvite.fromJson(this.id, Map<String, dynamic> j)
+    : tag = ClanTag(
+        id: id,
+        name: j['name'] as String? ?? '',
+        color: (j['color'] as num?)?.toInt() ?? 0,
+        emblem: j['emblem'] as String? ?? 'hawk',
+      ),
+      fromName = j['fromName'] as String? ?? '',
+      at = DateTime.fromMillisecondsSinceEpoch((j['at'] as num?)?.toInt() ?? 0);
+
+  final String id;
+  final ClanTag tag;
+  final String fromName;
+  final DateTime at;
+
+  bool get live => DateTime.now().difference(at) < clanInviteTtl;
+}
 
 class ClanMember {
   ClanMember.fromJson(this.uid, Map<String, dynamic> j, String week)
@@ -69,11 +138,7 @@ class ClanMember {
   /// نقاطه هالأسبوع للديوان.
   final int points;
 
-  String get roleName => switch (role) {
-    ClanRole.owner => 'شيخ الديوان',
-    ClanRole.deputy => 'نائب',
-    ClanRole.member => 'عضو',
-  };
+  String get roleName => role.label;
 }
 
 class Clan {
@@ -84,6 +149,14 @@ class Clan {
       total = (j['total'] as num?)?.toInt() ?? 0,
       points = ((j['weekly'] as Map?)?[week] as num?)?.toInt() ?? 0,
       claimed = {for (final u in (((j['chest'] as Map?)?[week] as List?) ?? const [])) u as String},
+      desc = (j['desc'] as String?) ?? '',
+      minLevel = (j['minLevel'] as num?)?.toInt() ?? 0,
+      join = ClanJoin.values.asNameMap()[j['join']] ?? ClanJoin.open,
+      chatAt = DateTime.fromMillisecondsSinceEpoch((j['chatAt'] as num?)?.toInt() ?? 0),
+      requests = [
+        for (final MapEntry(:key, :value) in ((j['requests'] as Map?) ?? const {}).entries)
+          if (value is Map) ClanRequest.fromJson(key as String, Map<String, dynamic>.from(value)),
+      ].where((r) => DateTime.now().difference(r.at) < clanInviteTtl).toList()..sort((a, b) => a.at.compareTo(b.at)),
       members =
           [
             for (final MapEntry(:key, :value) in ((j['members'] as Map?) ?? const {}).entries)
@@ -106,6 +179,17 @@ class Clan {
   /// اللي استلموا صندوق هالأسبوع.
   final Set<String> claimed;
   final List<ClanMember> members;
+
+  /// وصف الديوان، وشروط الدخول.
+  final String desc;
+  final int minLevel;
+  final ClanJoin join;
+
+  /// طلبات الدخول (لو الدخول بطلب)، الأقدم أول.
+  final List<ClanRequest> requests;
+
+  /// وقت آخر رسالة في الدردشة (عشان نعلّم إن فيه جديد).
+  final DateTime chatAt;
 
   String get id => tag.id;
   String get name => tag.name;

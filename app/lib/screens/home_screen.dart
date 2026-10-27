@@ -767,8 +767,12 @@ class _SideNav extends StatelessWidget {
       ),
       child: Column(
         children: [
-          // ديوانك (أو تدخل واحد)، والشارة لو ديوانك وصل هدف الأسبوع.
-          item('shield', 'الديوان', onClans),
+          // ديوانك (أو تدخل واحد)، والشارة لو وصلتك دعوة لديوان.
+          ValueListenableBuilder(
+            valueListenable: Backend.instance.profile,
+            builder: (context, p, _) =>
+                item('shield', 'الديوان', onClans, badge: p.clan == null && p.clanInvites.isNotEmpty),
+          ),
           MinuteTicker(
             builder: (context, now) => ValueListenableBuilder(
               valueListenable: Backend.instance.profile,
@@ -781,10 +785,11 @@ class _SideNav extends StatelessWidget {
           ),
           item('shop', 'المتجر', onShop),
           item('rank', 'الترتيب', onRank),
-          // نقطة حمرا لو فيه طلبات صداقة
+          // نقطة حمرا لو فيه طلبات صداقة أو رسائل ما قريتها
           ValueListenableBuilder(
             valueListenable: Backend.instance.profile,
-            builder: (context, p, _) => item('friends', 'الأصدقاء', onFriends, badge: p.friendReqs.isNotEmpty),
+            builder: (context, p, _) =>
+                item('friends', 'الأصدقاء', onFriends, badge: p.friendReqs.isNotEmpty || p.unreadDms > 0),
           ),
           item('profile', 'ملفي', onProfile),
           ValueListenableBuilder(

@@ -47,6 +47,8 @@ class Profile {
     this.invite,
     this.favorites = const [],
     this.clan,
+    this.clanInvites = const [],
+    this.dmUnread = const {},
     this.tour,
   });
 
@@ -94,6 +96,11 @@ class Profile {
     invite: j['invite'] == null ? null : Invite.fromJson(Map<String, dynamic>.from(j['invite'] as Map)),
     favorites: [for (final f in (j['favorites'] as List?) ?? const []) f as String],
     clan: ClanTag.maybe(j['clan']),
+    clanInvites: [
+      for (final MapEntry(:key, :value) in ((j['clanInvites'] as Map?) ?? const {}).entries)
+        if (value is Map) ClanInvite.fromJson(key as String, Map<String, dynamic>.from(value)),
+    ].where((i) => i.live).toList()..sort((a, b) => b.at.compareTo(a.at)),
+    dmUnread: _ints(j['dmUnread']),
     tour: TourState.maybe(j['tour']),
   );
 
@@ -187,6 +194,14 @@ class Profile {
 
   /// ديوانه (أو null).
   final ClanTag? clan;
+
+  /// دعوات الدواوين اللي وصلتني (الأحدث أول).
+  final List<ClanInvite> clanInvites;
+
+  /// كم رسالة ما قريتها من كل صاحب.
+  final Map<String, int> dmUnread;
+
+  int get unreadDms => dmUnread.values.fold(0, (a, b) => a + b);
 
   /// بطولة الأسبوع اللي سجّل فيها آخر مرة.
   final TourState? tour;

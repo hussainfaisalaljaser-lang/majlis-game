@@ -9,7 +9,7 @@ import type { PassMissionState } from './missions.js';
 import type { PassState } from './rewards.js';
 import { DEFAULT_EQUIPPED, avatarOfItem, isDefault, type EquipSlot } from './shop.js';
 import { rankOf } from './rank.js';
-import type { ClanTag } from './clans.js';
+import type { ClanInvite, ClanTag } from './clans.js';
 import type { TourState } from './tournament.js';
 
 /** الشخصيات المجانية (app/assets/avatars). */
@@ -114,6 +114,11 @@ export interface Profile {
   tour?: TourState;
   /** ديوانه (المعرف والاسم واللون والشعار)، أو null. */
   clan?: ClanTag | null;
+  /** دعوات الدواوين اللي وصلته (معرف الديوان ← الدعوة). */
+  clanInvites?: Record<string, ClanInvite>;
+  /** آخر رسالة أرسلها (عشان ما يكرر بسرعة)، والرسائل اللي ما قراها من كل صاحب. */
+  chatAt?: number;
+  dmUnread?: Record<string, number>;
   /** يلعب الحين: في أي روم ومن متى (أصحابه يقدرون يتفرجون). يتصفر لما تخلص اللعبة أو يطلع. */
   playing?: { code: string; at: number } | null;
   /** ملصقاته المفضلة (بالكثير ٥): تطلع له جنب زر التفاعل في اللعب بضغطة وحدة. */

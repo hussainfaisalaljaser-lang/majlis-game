@@ -6,7 +6,17 @@
 import assert from 'node:assert/strict';
 import { deleteApp, initializeApp, type FirebaseApp } from 'firebase/app';
 import { GoogleAuthProvider, connectAuthEmulator, getAuth, linkWithCredential, signInAnonymously } from 'firebase/auth';
-import { connectFirestoreEmulator, doc, getDoc, getFirestore } from 'firebase/firestore';
+import {
+  collection,
+  connectFirestoreEmulator,
+  doc,
+  getDoc,
+  getDocs,
+  getFirestore,
+  serverTimestamp,
+  setDoc,
+  type Firestore,
+} from 'firebase/firestore';
 import { connectFunctionsEmulator, getFunctions, httpsCallable } from 'firebase/functions';
 import { initializeApp as adminApp } from 'firebase-admin/app';
 import { getFirestore as adminFirestore } from 'firebase-admin/firestore';
@@ -19,6 +29,7 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 interface Client {
   app: FirebaseApp;
   uid: string;
+  fs: Firestore;
   call: <T = unknown>(name: string, data?: unknown) => Promise<T>;
   view: (code: string) => Promise<PlayerView>;
   profile: () => Promise<Record<string, any>>;
@@ -44,6 +55,7 @@ async function client(i: number, owner = false): Promise<Client> {
   return {
     app,
     uid: user.uid,
+    fs,
     call: async (name, data) => (await httpsCallable(fns, name)(data)).data as never,
     view: async (code) => (await getDoc(doc(fs, `games/${code}/views/${user.uid}`))).data() as PlayerView,
     profile: async () => (await getDoc(doc(fs, `users/${user.uid}`))).data()!,
@@ -386,7 +398,82 @@ async function main(): Promise<void> {
   assert.equal((await newbie.profile()).tutorialDone, undefined, 'التخطي ما يعطي مكافأة الشرح');
   console.log('✓ الشرح الإجباري: يتخطاه بنفسه، وبدون مكافأة');
 
-  await Promise.all([dev, plain, old, friend, watcher, newbie].map((c) => deleteApp(c.app)));
+  // ١٤. الدواوين: الوصف والشروط (المستوى، بطلب، بالدعوة) والرتب وتسليم المشيخة.
+  const [sheikh, joiner, outsider, stranger] = [await client(10), await client(11), await client(12), await client(13)];
+  for (const [c, name] of [
+    [sheikh, 'شيخ تجربة'],
+    [joiner, 'طالب تجربة'],
+    [outsider, 'ضيف تجربة'],
+    [stranger, 'غريب تجربة'],
+  ] as const) {
+    await c.call('ensureProfile', { proto: 2 });
+    await c.call('updateProfile', { name, avatar: 'falcon' });
+  }
+  await admin.doc(`users/${sheikh.uid}`).update({ coins: 9000 });
+  const { id: cid } = await sheikh.call<{ id: string }>('createClan', {
+    name: 'ديوان النخبة',
+    color: 1,
+    emblem: 'falcon',
+    desc: 'هلا يا كلب',
+    minLevel: 50,
+    join: 'request',
+  });
+  let cd = (await admin.doc(`clans/${cid}`).get()).data()!;
+  assert.equal(cd.desc, 'هلا يا ***', 'الكلام السيء ينخفى في الوصف');
+  assert.deepEqual([cd.minLevel, cd.join], [50, 'request']);
+  await expectError(joiner.call('joinClan', { id: cid }), 'failed-precondition');
+  await admin.doc(`users/${joiner.uid}`).update({ xp: 50_000_000 });
+  assert.equal((await joiner.call<{ requested?: boolean }>('joinClan', { id: cid })).requested, true);
+  assert.ok((await admin.doc(`clans/${cid}`).get()).data()!.requests[joiner.uid], 'الطلب وصل الديوان');
+  await sheikh.call('clanRespond', { uid: joiner.uid, accept: true });
+  assert.equal((await joiner.profile()).clan.id, cid);
+  await sheikh.call('clanRole', { uid: joiner.uid, role: 'elder' });
+  assert.equal((await admin.doc(`clans/${cid}`).get()).data()!.members[joiner.uid].role, 'elder');
+  await expectError(joiner.call('clanSettings', { desc: '', minLevel: 0, join: 'open' }), 'permission-denied');
+  await sheikh.call('clanSettings', { desc: 'ديوان للمحترفين', minLevel: 0, join: 'invite' });
+  await expectError(outsider.call('joinClan', { id: cid }), 'permission-denied');
+  await joiner.call('clanInvite', { uid: outsider.uid });
+  assert.equal((await outsider.profile()).clanInvites[cid].fromName, 'طالب تجربة');
+  await outsider.call('clanInviteRespond', { id: cid, accept: true });
+  assert.equal((await outsider.profile()).clan.id, cid, 'الدعوة تدخّله');
+  await sheikh.call('clanRole', { uid: joiner.uid, role: 'owner' });
+  cd = (await admin.doc(`clans/${cid}`).get()).data()!;
+  assert.deepEqual([cd.ownerId, cd.members[sheikh.uid].role], [joiner.uid, 'deputy']);
+  console.log('✓ الدواوين: وصف وشروط (مستوى وطلب ودعوة)، ورتب (وجيه ونائب)، وتسليم المشيخة');
+
+  // ١٥. الدردشة: الديوان لأعضائه بس، وبين الأصحاب بس، والكلام السيء ينخفى، ورسالة كل ثانية.
+  await outsider.call('sendChat', { to: 'clan', text: 'هلا يا حمار' });
+  await expectError(outsider.call('sendChat', { to: 'clan', text: 'ثانية' }), 'resource-exhausted');
+  const last = await admin.collection(`clans/${cid}/chat`).orderBy('at', 'desc').limit(1).get();
+  assert.deepEqual([last.docs[0].data().text, last.docs[0].data().role], ['هلا يا ****', 'member']);
+  assert.ok((await getDocs(collection(outsider.fs, `clans/${cid}/chat`))).size >= 3, 'العضو يقرا (ومعها أسطر الدخول)');
+  await assert.rejects(getDocs(collection(stranger.fs, `clans/${cid}/chat`)), 'الغريب ما يقرا دردشة الديوان');
+  await expectError(stranger.call('sendChat', { to: outsider.uid, text: 'هلا' }), 'permission-denied');
+  await stranger.call('friendRequest', { uid: outsider.uid });
+  await outsider.call('friendRespond', { uid: stranger.uid, accept: true });
+  await stranger.call('sendChat', { to: outsider.uid, text: 'شوف www.spam.com' });
+  assert.equal((await outsider.profile()).dmUnread[stranger.uid], 1);
+  const pair = [stranger.uid, outsider.uid].sort().join('_');
+  const dms = await getDocs(collection(outsider.fs, `dms/${pair}/msgs`));
+  assert.equal(dms.docs[0].data().text, 'شوف •••', 'الروابط تنخفى');
+  await assert.rejects(getDocs(collection(sheikh.fs, `dms/${pair}/msgs`)), 'الثالث ما يقرا');
+  await outsider.call('readDm', { uid: stranger.uid });
+  assert.equal((await outsider.profile()).dmUnread[stranger.uid], undefined);
+  console.log('✓ الدردشة: الديوان لأعضائه، والأصحاب بس، والكلام السيء والروابط تنخفى');
+
+  // ١٦. حالة الاتصال: كل واحد يكتب نبضته، وأصحابه وربعه في الديوان يشوفونها، والغريب لا.
+  await setDoc(doc(stranger.fs, `presence/${stranger.uid}`), { t: serverTimestamp(), on: true });
+  await assert.rejects(setDoc(doc(stranger.fs, `presence/${outsider.uid}`), { t: serverTimestamp(), on: true }));
+  await assert.rejects(setDoc(doc(stranger.fs, `presence/${stranger.uid}`), { t: 5, on: true }), 'الوقت لازم من السيرفر');
+  assert.equal((await getDoc(doc(outsider.fs, `presence/${stranger.uid}`))).data()!.on, true, 'صاحبه يشوفه');
+  await setDoc(doc(outsider.fs, `presence/${outsider.uid}`), { t: serverTimestamp(), on: true });
+  assert.equal((await getDoc(doc(joiner.fs, `presence/${outsider.uid}`))).exists(), true, 'ربعه في الديوان يشوفونه');
+  await assert.rejects(getDoc(doc(sheikh.fs, `presence/${stranger.uid}`)), 'الغريب ما يشوف');
+  console.log('✓ حالة الاتصال: لأصحابك وربعك في الديوان بس');
+
+  await Promise.all(
+    [dev, plain, old, friend, watcher, newbie, sheikh, joiner, outsider, stranger].map((c) => deleteApp(c.app)),
+  );
   console.log('\nكل اختبارات المزايا الجديدة نجحت ✅');
   process.exit(0);
 }

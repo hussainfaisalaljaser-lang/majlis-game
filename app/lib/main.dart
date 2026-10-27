@@ -10,6 +10,7 @@ import 'screens/welcome_screen.dart';
 import 'services/backend.dart';
 import 'services/capture.dart';
 import 'services/links.dart';
+import 'services/presence.dart';
 import 'services/push.dart';
 import 'services/music.dart';
 import 'services/sfx.dart';
@@ -35,6 +36,8 @@ Future<void> main() async {
   await Telemetry.init();
   Music.play('menu');
   runApp(const MajlisApp());
+  // حالة اتصالي لأصحابي وربعي في الديوان.
+  PresenceService.instance.start();
   await Push.init();
 }
 

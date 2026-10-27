@@ -3,6 +3,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../models/room.dart';
+import '../screens/chat_screen.dart';
+import '../screens/clans_screen.dart';
 import '../screens/friends_screen.dart';
 import '../screens/game_screen.dart';
 import 'backend.dart';
@@ -40,14 +42,18 @@ abstract final class Push {
       final n = m.notification;
       final kind = m.data['kind'];
       if (n == null || kind == 'invite' || _isOnGame(m.data['code'])) return;
+      // رسالة من صاحب وأنا فاتح محادثته: ما يحتاج شريط.
+      if (kind == 'dm' && m.data['from'] == ChatScreen.openFriend) return;
       messengerKey.currentState?.showSnackBar(
         SnackBar(
           content: Text('${n.title ?? ''}\n${n.body ?? ''}'),
-          action: kind == 'friend'
-              ? SnackBarAction(label: 'شوف', onPressed: _openFriends)
-              : m.data['code'] == null
-              ? null
-              : SnackBarAction(label: 'افتح', onPressed: () => _open(m.data['code'])),
+          action: switch (kind) {
+            'friend' => SnackBarAction(label: 'شوف', onPressed: _openFriends),
+            'dm' => SnackBarAction(label: 'رد', onPressed: () => _openDm(m.data['from'])),
+            'clanInvite' => SnackBarAction(label: 'شوف', onPressed: _openClans),
+            _ when m.data['code'] != null => SnackBarAction(label: 'افتح', onPressed: () => _open(m.data['code'])),
+            _ => null,
+          },
         ),
       );
     });
@@ -65,10 +71,28 @@ abstract final class Push {
         Links.joinInvite(code);
       case 'friend':
         _openFriends();
+      case 'dm':
+        _openDm(m.data['from']);
+      case 'clanInvite':
+        _openClans();
       default:
         _open(code);
     }
   }
+
+  /// محادثة الصاحب اللي أرسل.
+  static Future<void> _openDm(Object? from) async {
+    if (from is! String || from == ChatScreen.openFriend) return;
+    final e = await Backend.instance.fetchPlayer(from).catchError((_) => null);
+    if (e == null) return;
+    navigatorKey.currentState?.push(
+      MaterialPageRoute(
+        builder: (_) => ChatScreen.friend(friend: (uid: from, name: e.name, avatar: e.avatar, frame: e.frame)),
+      ),
+    );
+  }
+
+  static void _openClans() => navigatorKey.currentState?.push(MaterialPageRoute(builder: (_) => const ClansScreen()));
 
   static void _openFriends() => navigatorKey.currentState?.push(
     MaterialPageRoute(builder: (_) => FriendsScreen(tab: Backend.instance.profile.value.friendReqs.isNotEmpty ? 1 : 0)),

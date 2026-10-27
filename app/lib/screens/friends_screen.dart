@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../models/chat.dart';
 import '../models/leaderboard.dart';
 import '../models/shop.dart';
 import '../services/backend.dart';
@@ -10,6 +13,7 @@ import '../widgets/friend_button.dart';
 import '../widgets/pid.dart';
 import '../widgets/player_card.dart';
 import '../widgets/ui.dart';
+import 'chat_screen.dart';
 import 'game_screen.dart';
 
 /// الأصدقاء: قائمتك، والطلبات اللي وصلتك، وتضيف أحد برمزه.
@@ -54,10 +58,7 @@ class _FriendsScreenState extends State<FriendsScreen> {
                         text: 'ما عندك أصدقاء للحين.\nضيفهم برمزهم من «أضف صديق»، أو من بطاقة أي لاعب في الطاولة.',
                         action: ('أضف صديق', () => DefaultTabController.of(context).animateTo(2)),
                       )
-                    : ListView(
-                        padding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
-                        children: [for (final uid in p.friends.reversed) _FriendRow(uid: uid)],
-                      ),
+                    : _FriendsList(uids: p.friends, unread: p.dmUnread),
                 reqs.isEmpty
                     ? const _Empty(icon: 'invite', text: 'ما فيه طلبات صداقة')
                     : ListView(
@@ -107,7 +108,14 @@ class _Empty extends StatelessWidget {
 
 /// سطر لاعب: صورته واسمه ومستواه ورمزه، والضغط يفتح بطاقته. [trailing] أزرار على الطرف.
 class _PlayerRow extends StatelessWidget {
-  const _PlayerRow({required this.uid, required this.entry, this.trailing = const [], this.playing = false});
+  const _PlayerRow({
+    required this.uid,
+    required this.entry,
+    this.trailing = const [],
+    this.playing = false,
+    this.status,
+    this.online,
+  });
 
   final String uid;
   final LeaderboardEntry? entry;
@@ -115,6 +123,10 @@ class _PlayerRow extends StatelessWidget {
 
   /// يلعب الحين (نقطة خضرا وسطر تحت اسمه).
   final bool playing;
+
+  /// حالة الاتصال تحت اسمه (متصل، آخر ظهور…)، ونقطة على صورته: خضرا متصل، ورمادية لا (null: بدون نقطة).
+  final String? status;
+  final bool? online;
 
   @override
   Widget build(BuildContext context) {
@@ -137,11 +149,30 @@ class _PlayerRow extends StatelessWidget {
                       : () => showPlayerCard(context, uid: uid, name: e.name, avatar: e.avatar, frame: e.frame),
                   child: Row(
                     children: [
-                      PlayerAvatar(
-                        avatar: e?.avatar ?? 'masked',
-                        style: frameStyle(e?.frame),
-                        size: 46,
-                        animate: false,
+                      Stack(
+                        clipBehavior: Clip.none,
+                        children: [
+                          PlayerAvatar(
+                            avatar: e?.avatar ?? 'masked',
+                            style: frameStyle(e?.frame),
+                            size: 46,
+                            animate: false,
+                          ),
+                          if (online != null)
+                            PositionedDirectional(
+                              bottom: 0,
+                              end: 0,
+                              child: Container(
+                                width: 14,
+                                height: 14,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: online! ? AppColors.green : const Color(0xFF6B6785),
+                                  border: Border.all(color: AppColors.panel, width: 2.5),
+                                ),
+                              ),
+                            ),
+                        ],
                       ),
                       const SizedBox(width: 10),
                       Flexible(
@@ -156,11 +187,17 @@ class _PlayerRow extends StatelessWidget {
                             ),
                             if (e != null)
                               Text(
-                                playing ? 'يلعب الحين' : 'مستوى ${arabicNumber(e.level)}',
+                                playing
+                                    ? 'يلعب الحين'
+                                    : status == null
+                                    ? 'مستوى ${arabicNumber(e.level)}'
+                                    : '$status · مستوى ${arabicNumber(e.level)}',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
                                 style: TextStyle(
-                                  color: playing ? AppColors.green : AppColors.muted,
+                                  color: playing || (online ?? false) ? AppColors.green : AppColors.muted,
                                   fontSize: 12,
-                                  fontWeight: playing ? FontWeight.w800 : null,
+                                  fontWeight: playing || (online ?? false) ? FontWeight.w800 : null,
                                 ),
                               ),
                           ],
@@ -181,17 +218,144 @@ class _PlayerRow extends StatelessWidget {
   }
 }
 
+/// أصحابي: المتصلين أول (واللي يلعبون بعدهم)، وبعدين غير المتصلين من آخر ظهور. الحالة تتحدث مباشرة.
+class _FriendsList extends StatefulWidget {
+  const _FriendsList({required this.uids, required this.unread});
+
+  final List<String> uids;
+
+  /// رسائل ما قريتها من كل صاحب.
+  final Map<String, int> unread;
+
+  @override
+  State<_FriendsList> createState() => _FriendsListState();
+}
+
+class _FriendsListState extends State<_FriendsList> {
+  final _entries = <String, LeaderboardEntry?>{};
+  final _presence = <String, Presence>{};
+  final _subs = <String, StreamSubscription<Presence>>{};
+
+  @override
+  void initState() {
+    super.initState();
+    _sync();
+  }
+
+  @override
+  void didUpdateWidget(_FriendsList old) {
+    super.didUpdateWidget(old);
+    _sync();
+  }
+
+  /// كل صاحب: ملفه العام مرة، وحالته مباشرة. اللي انشال من الأصحاب نوقف متابعته.
+  void _sync() {
+    final backend = Backend.instance;
+    for (final uid in widget.uids) {
+      if (!_entries.containsKey(uid)) {
+        _entries[uid] = null;
+        backend.fetchPlayer(uid).then((e) {
+          if (mounted) setState(() => _entries[uid] = e);
+        }, onError: (_) {});
+      }
+      _subs.putIfAbsent(
+        uid,
+        () => backend.watchPresence(uid).listen((p) {
+          if (mounted) setState(() => _presence[uid] = p);
+        }),
+      );
+    }
+    for (final uid in _subs.keys.toList()) {
+      if (widget.uids.contains(uid)) continue;
+      _subs.remove(uid)!.cancel();
+      _presence.remove(uid);
+      _entries.remove(uid);
+    }
+  }
+
+  @override
+  void dispose() {
+    for (final s in _subs.values) {
+      s.cancel();
+    }
+    super.dispose();
+  }
+
+  bool _online(String uid) => (_presence[uid]?.online ?? false) || (_entries[uid]?.playing ?? false);
+
+  @override
+  Widget build(BuildContext context) {
+    // متصل (وما يلعب) ← يلعب ← غير متصل من آخر ظهور. وبين المتساوين: اللي أضفته أخيراً أول.
+    final order = {for (final (i, uid) in widget.uids.indexed) uid: i};
+    int rank(String uid) => (_entries[uid]?.playing ?? false) ? 1 : (_online(uid) ? 0 : 2);
+    final sorted = [...widget.uids]
+      ..sort((a, b) {
+        final r = rank(a).compareTo(rank(b));
+        if (r != 0) return r;
+        if (rank(a) == 2) {
+          final ta = _presence[a]?.at, tb = _presence[b]?.at;
+          if (ta != tb) return (tb ?? DateTime(2000)).compareTo(ta ?? DateTime(2000));
+        }
+        return order[b]!.compareTo(order[a]!);
+      });
+    final online = sorted.where(_online).toList();
+    final offline = sorted.where((u) => !_online(u)).toList();
+    Widget header(String text, int n, Color color) => Padding(
+      padding: const EdgeInsets.fromLTRB(4, 4, 4, 6),
+      child: Row(
+        children: [
+          Container(
+            width: 9,
+            height: 9,
+            decoration: BoxDecoration(shape: BoxShape.circle, color: color),
+          ),
+          const SizedBox(width: 6),
+          Text(
+            '$text (${arabicNumber(n)})',
+            style: TextStyle(color: color, fontWeight: FontWeight.w800, fontSize: 13),
+          ),
+        ],
+      ),
+    );
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
+      children: [
+        if (online.isNotEmpty) header('متصلين الحين', online.length, AppColors.green),
+        for (final uid in online)
+          _FriendRow(
+            key: ValueKey(uid),
+            uid: uid,
+            entry: _entries[uid],
+            presence: _presence[uid],
+            unread: widget.unread[uid] ?? 0,
+          ),
+        if (offline.isNotEmpty) header('غير متصلين', offline.length, AppColors.muted),
+        for (final uid in offline)
+          _FriendRow(
+            key: ValueKey(uid),
+            uid: uid,
+            entry: _entries[uid],
+            presence: _presence[uid],
+            unread: widget.unread[uid] ?? 0,
+          ),
+      ],
+    );
+  }
+}
+
 class _FriendRow extends StatefulWidget {
-  const _FriendRow({required this.uid});
+  const _FriendRow({super.key, required this.uid, required this.entry, required this.presence, required this.unread});
 
   final String uid;
+  final LeaderboardEntry? entry;
+  final Presence? presence;
+  final int unread;
 
   @override
   State<_FriendRow> createState() => _FriendRowState();
 }
 
 class _FriendRowState extends State<_FriendRow> {
-  late final Future<LeaderboardEntry?> _entry = Backend.instance.fetchPlayer(widget.uid).catchError((_) => null);
   bool _busy = false;
 
   /// تتفرج على لعبته وهي شغالة.
@@ -213,32 +377,80 @@ class _FriendRowState extends State<_FriendRow> {
     }
   }
 
+  void _chat() {
+    final e = widget.entry;
+    if (e == null) return;
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => ChatScreen.friend(friend: (uid: widget.uid, name: e.name, avatar: e.avatar, frame: e.frame)),
+      ),
+    );
+  }
+
   @override
-  Widget build(BuildContext context) => FutureBuilder(
-    future: _entry,
-    builder: (context, snap) {
-      final e = snap.data;
-      return _PlayerRow(
-        uid: widget.uid,
-        entry: e,
-        playing: e?.playing ?? false,
-        trailing: [
-          if (e?.playing ?? false)
+  Widget build(BuildContext context) {
+    final e = widget.entry;
+    final playing = e?.playing ?? false;
+    final p = widget.presence;
+    final online = playing || (p?.online ?? false);
+    return _PlayerRow(
+      uid: widget.uid,
+      entry: e,
+      playing: playing,
+      online: online,
+      status: online ? 'متصل' : (p?.lastSeen ?? 'غير متصل'),
+      trailing: [
+        if (playing)
+          SizedBox(
+            width: 104,
+            child: GameButton(
+              label: _busy ? 'لحظة…' : 'تفرّج',
+              icon: const Gfx('eye', size: 20),
+              tone: ButtonTone.purple,
+              height: 40,
+              fontSize: 14,
+              onPressed: _busy ? null : _watch,
+            ),
+          ),
+        Stack(
+          clipBehavior: Clip.none,
+          children: [
             SizedBox(
-              width: 110,
+              width: 96,
               child: GameButton(
-                label: _busy ? 'لحظة…' : 'تفرّج',
-                icon: const Gfx('eye', size: 20),
-                tone: ButtonTone.purple,
+                label: 'دردشة',
+                icon: const Gfx('chat', size: 20),
+                tone: widget.unread > 0 ? ButtonTone.gold : ButtonTone.ghost,
                 height: 40,
                 fontSize: 14,
-                onPressed: _busy ? null : _watch,
+                onPressed: e == null ? null : _chat,
               ),
             ),
-        ],
-      );
-    },
-  );
+            if (widget.unread > 0)
+              PositionedDirectional(
+                top: -6,
+                end: -4,
+                child: Container(
+                  constraints: const BoxConstraints(minWidth: 20),
+                  height: 20,
+                  padding: const EdgeInsets.symmetric(horizontal: 5),
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: AppColors.traitor,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: AppColors.bg, width: 1.5),
+                  ),
+                  child: Text(
+                    arabicNumber(widget.unread),
+                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w900, height: 1.1),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ],
+    );
+  }
 }
 
 class _RequestRow extends StatefulWidget {

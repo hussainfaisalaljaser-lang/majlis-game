@@ -9,6 +9,7 @@ import 'package:google_sign_in/google_sign_in.dart';
 
 import '../firebase_options.dart';
 import '../models/catalog.dart';
+import '../models/chat.dart';
 import '../models/clan.dart';
 import '../models/leaderboard.dart';
 import '../models/profile.dart';
@@ -305,18 +306,73 @@ class Backend {
       _db.doc('tours/$week').snapshots().map((s) => s.exists ? Tour.fromJson(s.data()!) : Tour.empty);
 
   /// يسوي ديوان (بسعر) وأنت شيخه. يرجّع معرفه.
-  Future<String> createClan({required String name, required int color, required String emblem}) async =>
-      (await _call('createClan', {'name': name, 'color': color, 'emblem': emblem}))['id'] as String;
+  Future<String> createClan({
+    required String name,
+    required int color,
+    required String emblem,
+    String desc = '',
+    int minLevel = 0,
+    ClanJoin join = ClanJoin.open,
+  }) async => (await _call('createClan', {
+    'name': name,
+    'color': color,
+    'emblem': emblem,
+    'desc': desc,
+    'minLevel': minLevel,
+    'join': join.name,
+  }))['id'] as String;
 
-  Future<void> joinClan(String id) => _call('joinClan', {'id': id});
+  /// يدخل ديوان. يرجع true لو انرسل طلب (الدخول بطلب) بدال ما يدخل على طول.
+  Future<bool> joinClan(String id) async => (await _call('joinClan', {'id': id}))['requested'] == true;
+
+  /// الشيخ ونوابه: وصف الديوان وشروطه.
+  Future<void> clanSettings({required String desc, required int minLevel, required ClanJoin join}) =>
+      _call('clanSettings', {'desc': desc, 'minLevel': minLevel, 'join': join.name});
+
+  /// الوجهاء وفوق: يقبلون أو يرفضون طلب دخول.
+  Future<void> clanRespond(String uid, {required bool accept}) =>
+      _call('clanRespond', {'uid': uid, 'accept': accept});
+
+  /// الوجهاء وفوق: يدعون لاعب للديوان.
+  Future<void> clanInvite(String uid) => _call('clanInvite', {'uid': uid});
+
+  /// دعوة وصلتني: أقبلها (أدخل على طول) أو أرفضها.
+  Future<void> clanInviteRespond(String id, {required bool accept}) =>
+      _call('clanInviteRespond', {'id': id, 'accept': accept});
+
+  /// يرسل رسالة: [to] = 'clan' لديوانك، أو معرف صاحبك. الكلام السيء ينخفى في السيرفر.
+  Future<void> sendChat(String to, String text) => _call('sendChat', {'to': to, 'text': text});
+
+  /// فتحت محادثة صاحبي: اللي ما قريته ينصفر.
+  Future<void> readDm(String friend) => _call('readDm', {'uid': friend});
+
+  /// آخر رسائل دردشة الديوان (الأحدث أول).
+  Stream<List<ChatMessage>> watchClanChat(String id) => _chat(_db.collection('clans/$id/chat'));
+
+  /// آخر رسائلي مع صاحبي (الأحدث أول).
+  Stream<List<ChatMessage>> watchDm(String friend) =>
+      _chat(_db.collection('dms/${([uid, friend]..sort()).join('_')}/msgs'));
+
+  Stream<List<ChatMessage>> _chat(CollectionReference<Map<String, dynamic>> c) => c
+      .orderBy('at', descending: true)
+      .limit(80)
+      .snapshots()
+      .map((s) => [for (final d in s.docs) ChatMessage.fromJson(d.id, d.data())]);
+
+  /// حالة اتصال لاعب (صاحبي أو من ديواني).
+  Stream<Presence> watchPresence(String other) => _db
+      .doc('presence/$other')
+      .snapshots()
+      .map((s) => Presence.fromJson(s.data()))
+      .handleError((_) {});
 
   Future<void> leaveClan() => _call('leaveClan', const {});
 
   /// الشيخ أو نائبه يطلّع عضو.
   Future<void> clanKick(String uid) => _call('clanKick', {'uid': uid});
 
-  /// الشيخ يخلي عضو نائب أو يرجّعه.
-  Future<void> clanRole(String uid, {required bool deputy}) => _call('clanRole', {'uid': uid, 'deputy': deputy});
+  /// يغيّر رتبة عضو (الشيخ: أي رتبة أو يسلّمه المشيخة، والنائب: بين العضو والوجيه).
+  Future<void> clanRole(String uid, ClanRole role) => _call('clanRole', {'uid': uid, 'role': role.name});
 
   /// صندوق هدف الأسبوع.
   Future<void> claimClanChest() => _call('claimClanChest', const {});
@@ -365,9 +421,10 @@ class Backend {
     return d.exists ? LeaderboardEntry.fromJson(d.id, d.data()!) : null;
   }
 
-  /// بلاغ عن لاعب: name (اسم مسيء)، behavior (يخرّب اللعب)، cheat (غش). يرجع true لو بلّغت عنه قبل اليوم.
-  Future<bool> reportPlayer(String uid, String reason, {String? code}) async =>
-      (await _call('reportPlayer', {'uid': uid, 'reason': reason, 'code': ?code}))['already'] == true;
+  /// بلاغ عن لاعب: name (اسم مسيء)، behavior (يخرّب اللعب)، cheat (غش)، chat (رسالة، ومعها [text]).
+  /// يرجع true لو بلّغت عنه قبل اليوم.
+  Future<bool> reportPlayer(String uid, String reason, {String? code, String? text}) async =>
+      (await _call('reportPlayer', {'uid': uid, 'reason': reason, 'code': ?code, 'text': ?text}))['already'] == true;
 
   Future<void> setBlocked(String uid, bool blocked) => _call('setBlocked', {'uid': uid, 'blocked': blocked});
 

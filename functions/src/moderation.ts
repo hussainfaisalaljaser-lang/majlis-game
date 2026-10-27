@@ -5,15 +5,16 @@
  */
 import { nameKey } from './profile.js';
 
-const WHOLE = [
+const RUDE = [
   // عربي
   'زب', 'كس', 'طيز', 'نيك', 'نيج', 'خول', 'عرص', 'زق', 'كلب', 'تفو', 'سكس', 'لوطي', 'ديوث', 'قحبه', 'حمار', 'منيك',
   'زاني', 'زانيه', 'شاذ',
   // English
   'sex', 'cum', 'fag', 'dick', 'cock', 'tits', 'porn', 'rape', 'nazi',
-  // انتحال صفة الإدارة
-  'admin', 'ادمن', 'مشرف', 'moderator', 'mod',
 ];
+/** انتحال صفة الإدارة (ممنوع في الأسماء بس، مو في الدردشة). */
+const STAFF = ['admin', 'ادمن', 'مشرف', 'moderator', 'mod'];
+const WHOLE = [...RUDE, ...STAFF];
 
 const INSIDE = [
   // عربي
@@ -41,4 +42,29 @@ export function offensiveName(name: string): boolean {
   if (tokens.some((t) => wholeKeys.has(t))) return true;
   const key = normalize(name);
   return insideKeys.some((w) => key.includes(w));
+}
+
+const rudeKeys = new Set(RUDE.map(normalize));
+
+/** بادئات ولواحق عربية شايعة: «والكلب»، «يا حمار»، «كلبك» نفس الكلمة. */
+const PREFIX = /^(?:و|ف)?(?:يا|بال|لل|ال|ب|ل|ك)?/;
+const SUFFIX = /(?:هم|كم|ها|ين|ات|ه|ك|ي)$/;
+
+function rudeWord(word: string): boolean {
+  const k = normalize(word);
+  if (!k) return false;
+  const bare = k.replace(PREFIX, '');
+  const forms = [k, bare, k.replace(SUFFIX, ''), bare.replace(SUFFIX, '')];
+  return forms.some((f) => f.length > 1 && rudeKeys.has(f)) || insideKeys.some((w) => k.includes(w));
+}
+
+const LINK = /(?:https?:\/\/|www\.)\S+|\b[\w-]+\.(?:com|net|org|io|me|ly|gg|xyz|link|app|sa|ae)\b\S*/giu;
+
+/**
+ * الدردشة: يخفي الكلام السيء بنجوم (الكلمة كلها)، والروابط بنقاط. الأرقام تبقى (عشان رموز اللاعبين).
+ */
+export function maskBadWords(text: string): string {
+  return text
+    .replace(LINK, '•••')
+    .replace(/[\p{L}\p{N}_@$]+/gu, (w) => (rudeWord(w) ? '*'.repeat(Math.min(Math.max(w.length, 3), 8)) : w));
 }

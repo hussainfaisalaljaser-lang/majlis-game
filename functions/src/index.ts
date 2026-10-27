@@ -110,14 +110,19 @@ import { avatarOfItem, itemById, slotOf } from './shop.js';
 import {
   addClanPoints,
   claimClanChest,
+  clanInvite,
+  clanInviteRespond,
   clanKick,
   clanPoints,
+  clanRespond,
   clanRole,
+  clanSettings,
   createClan,
   joinClan,
   leaveClan,
   readClans,
 } from './clans.js';
+import { dmPair, readDm, sendChat } from './chat.js';
 import {
   TOUR_TABLE,
   applyTour,
@@ -1626,7 +1631,7 @@ export const react = onCall(async (req) => {
 
 // ───────────── البلاغ والحظر وحذف الحساب والرسائل ─────────────
 
-const REPORT_REASONS = ['name', 'behavior', 'cheat'] as const;
+const REPORT_REASONS = ['name', 'behavior', 'cheat', 'chat'] as const;
 const MAX_REPORTS_PER_DAY = 10;
 /** كم لاعب مختلف لازم يبلّغون عن اسم عشان ينغيّر تلقائياً. */
 const NAME_REPORTS_TO_RENAME = 3;
@@ -1654,6 +1659,8 @@ export const reportPlayer = onCall(async (req) => {
   const target = String(req.data?.uid ?? '');
   const reason = String(req.data?.reason ?? '') as (typeof REPORT_REASONS)[number];
   const code = req.data?.code ? String(req.data.code).slice(0, 8) : null;
+  // بلاغ عن رسالة في الدردشة: نحفظ نصها عشان المراجعة.
+  const text = reason === 'chat' && typeof req.data?.text === 'string' ? req.data.text.slice(0, 200) : null;
   if (!REPORT_REASONS.includes(reason)) throw new HttpsError('invalid-argument', 'اختار سبب البلاغ');
   if (!target || target === uid || target.startsWith('bot_')) throw new HttpsError('invalid-argument', 'ما تقدر تبلّغ عن هذا اللاعب');
   const now = Date.now();
@@ -1669,7 +1676,7 @@ export const reportPlayer = onCall(async (req) => {
     const count = me.reportDay === day ? (me.reportCount ?? 0) : 0;
     if (count >= MAX_REPORTS_PER_DAY) throw new HttpsError('resource-exhausted', 'وصلت حد البلاغات اليوم، شكراً لك');
     const t = targetSnap.data() as Profile;
-    tx.set(ref, { reporter: uid, target, reason, code, name: t.name, at: now, status: 'open' });
+    tx.set(ref, { reporter: uid, target, reason, code, ...(text ? { text } : {}), name: t.name, at: now, status: 'open' });
     tx.set(userRef(uid), { ...me, reportDay: day, reportCount: count + 1 });
     if (reason === 'name') {
       const reporters = [...new Set([...(t.nameReporters ?? []), uid])];
@@ -1749,7 +1756,16 @@ async function deleteUserData(uid: string): Promise<void> {
   ]);
   for (const d of mine.docs) batch.update(d.ref, { reporter: 'deleted' });
   for (const d of feedback.docs) batch.delete(d.ref);
+  batch.delete(db.doc(`presence/${uid}`));
   await batch.commit();
+  // محادثاته مع أصحابه تنحذف كلها.
+  for (const friend of p?.friends ?? []) {
+    const msgs = await db.collection(`dms/${dmPair(uid, friend)}/msgs`).limit(500).get();
+    if (msgs.empty) continue;
+    const wipe = db.batch();
+    for (const d of msgs.docs) wipe.delete(d.ref);
+    await wipe.commit();
+  }
   if (p) await forgetUser(uid, p);
   await getAuth()
     .deleteUser(uid)
@@ -1852,7 +1868,21 @@ async function deleteFromRequest(id: string, confirm: boolean): Promise<object> 
 }
 
 export { buyPid, findPlayer, friendRequest, friendRespond, inviteFriend, quotePid, removeFriend, suggestIds };
-export { claimClanChest, clanKick, clanRole, createClan, joinClan, leaveClan, tourJoin };
+export {
+  claimClanChest,
+  clanInvite,
+  clanInviteRespond,
+  clanKick,
+  clanRespond,
+  clanRole,
+  clanSettings,
+  createClan,
+  joinClan,
+  leaveClan,
+  readDm,
+  sendChat,
+  tourJoin,
+};
 
 /**
  * كل طلبات التطبيق من دالة وحدة: بعد أول طلب (لما تفتح اللعبة) تبقى صاحية لكل الأزرار، بدال ما كل
@@ -1865,6 +1895,7 @@ const ROUTES: Record<string, CallableFunction<unknown, unknown>> = {
   registerPushToken, ackGifts, buyPass, giftPass, claimPassRewards, claimPassMission, claimMission, clearOpinion, react,
   setFavorites, reportPlayer, skipTutorial,
   spectate, stopWatching, createClan, joinClan, leaveClan, clanKick, clanRole, claimClanChest, tourJoin, tourPlay,
+  clanSettings, clanRespond, clanInvite, clanInviteRespond, sendChat, readDm,
   setBlocked, sendFeedback, deleteAccount, findPlayer, friendRequest, friendRespond, removeFriend, inviteFriend,
   quotePid, suggestIds, buyPid,
 };
