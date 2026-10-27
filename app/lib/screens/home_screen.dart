@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -9,6 +11,7 @@ import '../theme.dart';
 import '../widgets/common.dart';
 import '../widgets/daily_reward.dart';
 import '../widgets/gifts.dart';
+import '../widgets/majlis.dart';
 import '../widgets/ui.dart';
 import 'game_screen.dart';
 import 'friends_screen.dart';
@@ -347,7 +350,7 @@ class _Header extends StatelessWidget {
   }
 }
 
-/// البطاقة الكبيرة: شخصيات المجلس وزر "العب الحين".
+/// البطاقة الكبيرة: مجلسك (أنت قاعد على مسندك وقدامك القهوة) وزر "العب الحين".
 class _Hero extends StatelessWidget {
   const _Hero({required this.onPlay});
 
@@ -358,39 +361,28 @@ class _Hero extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(24),
-        gradient: const RadialGradient(
-          center: Alignment(-.4, -.4),
-          radius: 1.2,
-          colors: [Color(0xFF5B3AB0), Color(0xFF2A1B5E), Color(0xFF1A1140)],
-        ),
         border: Border.all(color: AppColors.gold.withValues(alpha: .45), width: 2),
         boxShadow: const [BoxShadow(color: Colors.black54, blurRadius: 18, offset: Offset(0, 8))],
       ),
       clipBehavior: Clip.antiAlias,
       child: Stack(
         children: [
-          // فوانيس
-          for (final x in [.06, .94])
-            Align(
-              alignment: Alignment(x * 2 - 1, -1),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(width: 1.5, height: 30, color: AppColors.gold),
-                  Container(
-                    width: 18,
-                    height: 22,
-                    decoration: BoxDecoration(
-                      color: AppColors.gold,
-                      borderRadius: const BorderRadius.vertical(bottom: Radius.circular(6)),
-                      boxShadow: [BoxShadow(color: AppColors.goldLight.withValues(alpha: .7), blurRadius: 16)],
-                    ),
-                  ),
-                ],
+          const Positioned.fill(child: MajlisRoom()),
+          // يغمّق فوق (عشان الكلام) وتحت (عشان الزر).
+          Positioned.fill(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [Colors.black.withValues(alpha: .45), Colors.transparent, Colors.black.withValues(alpha: .5)],
+                  stops: const [0, .45, 1],
+                ),
               ),
             ),
+          ),
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 14),
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -412,28 +404,7 @@ class _Hero extends StatelessWidget {
                   style: TextStyle(fontFamily: kufi, fontSize: 26, fontWeight: FontWeight.w700, height: 1.2),
                 ),
                 const Text('العب أونلاين مع ناس من كل مكان', style: TextStyle(fontSize: 12, color: Color(0xFFD9CFFF))),
-                const Expanded(
-                  child: FittedBox(
-                    child: Padding(
-                      padding: EdgeInsets.all(6),
-                      child: SizedBox(
-                        width: 230,
-                        height: 100,
-                        child: Stack(
-                          children: [
-                            Positioned(left: 0, top: 18, child: PlayerAvatar(avatar: 'pearl', size: 72)),
-                            Positioned(right: 0, top: 18, child: PlayerAvatar(avatar: 'desert', size: 72)),
-                            Positioned(
-                              left: 65,
-                              top: 0,
-                              child: PlayerAvatar(avatar: 'masked', frame: AppColors.traitor, size: 96),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
+                const Expanded(child: _MeSitting()),
                 SizedBox(
                   width: double.infinity,
                   child: GameButton(
@@ -452,6 +423,53 @@ class _Hero extends StatelessWidget {
       ),
     );
   }
+}
+
+/// أنت قاعد على مسندك في المجلس (بشخصيتك وإطارك)، وقدامك الدلة والفناجيل.
+class _MeSitting extends StatelessWidget {
+  const _MeSitting();
+
+  @override
+  Widget build(BuildContext context) => ValueListenableBuilder(
+    valueListenable: Backend.instance.profile,
+    builder: (context, p, _) => LayoutBuilder(
+      builder: (context, box) {
+        // المسند ما يطلع فوق على الكلام.
+        final av = math.min(box.maxHeight * .7, 104.0);
+        final cx = box.maxWidth / 2, cy = box.maxHeight * .55;
+        return Stack(
+          clipBehavior: Clip.none,
+          children: [
+            Positioned(
+              left: cx - av * .78,
+              top: cy - av * .66,
+              child: Cushion(width: av * 1.56, height: av * 1.04),
+            ),
+            Positioned(
+              left: cx - av / 2,
+              top: cy - av / 2,
+              child: PlayerAvatar(
+                avatar: p.avatar,
+                style: frameStyle(p.frame),
+                frame: frameStyle(p.frame) == null ? AppColors.gold : null,
+                size: av,
+              ),
+            ),
+            Positioned(
+              left: cx - av * 1.55,
+              top: cy + av * .02,
+              child: CoffeeSet(width: av * .82),
+            ),
+            Positioned(
+              left: cx + av * .78,
+              top: cy - av * .2,
+              child: Censer(width: av * .22),
+            ),
+          ],
+        );
+      },
+    ),
+  );
 }
 
 class _Tile extends StatelessWidget {

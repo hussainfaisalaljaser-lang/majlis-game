@@ -1,6 +1,8 @@
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 
 import '../../models/game_view.dart';
 import '../../models/room.dart';
@@ -11,7 +13,32 @@ import '../../theme.dart';
 import '../bubble.dart';
 import '../common.dart';
 import '../fx.dart';
+import '../majlis.dart';
 import '../ui.dart';
+
+/// مسافة الطاولة من حواف الشاشة (نفسها للمشاهد اللي تطلع فوقها، عشان تعرف وين كل لاعب).
+const tablePadding = EdgeInsets.fromLTRB(20, 34, 20, 2);
+
+const _seatW = 88.0, _seatH = 114.0;
+
+/// مكان السجادة داخل طاولة بمقاس [table]: عريضة (٢:١) تناسب الشاشة بالعرض.
+Rect rugRect(Size table) {
+  final w = math.min(table.width * .72, table.height * .74 * _rugAspect);
+  return Rect.fromCenter(center: table.center(Offset.zero), width: w, height: w / _rugAspect);
+}
+
+/// نص صورة كل لاعب على طاولة بمقاس [table] (نفس ترتيب GameTable).
+Map<String, Offset> seatCenters(GameView view, Size table) {
+  final rx = (table.width - _seatW) / 2, ry = (table.height - _seatH) / 2;
+  final n = view.players.length;
+  final angles = _seatAngles(n, rx, ry);
+  return {
+    for (final p in view.players)
+      p.id: _seatOrigin(angles[(p.seat - view.me.seat) % n], rx, ry) + const Offset(_seatW / 2, 31),
+  };
+}
+
+Offset _seatOrigin(double angle, double rx, double ry) => Offset(rx - rx * math.cos(angle), ry + ry * math.sin(angle));
 
 /// سجادة المجلس: اللاعبين قاعدين حولها، وفي النص صينية نحاس فيها رسالة المرحلة.
 class GameTable extends StatelessWidget {
@@ -27,6 +54,9 @@ class GameTable extends StatelessWidget {
     this.onTapPlayer,
     this.now,
     this.spotlight,
+    this.deaths = const {},
+    this.hiddenDeaths = const {},
+    this.timer,
   });
 
   final GameView view;
@@ -48,6 +78,15 @@ class GameTable extends StatelessWidget {
   /// وقت التصويت: الطاولة تظلم إلا الرئيس والوزير، عشان التركيز يكون عليهم.
   final Set<String>? spotlight;
 
+  /// متى بدأ مشهد حزن كل مطرود على كرسيه (بعد ما يخلص مشهد طرده). بدونه يبان مغطى على طول.
+  final Map<String, DateTime> deaths;
+
+  /// مطرودين لسا مشهد طردهم ما خلص: يبانون عادي لين يجي وقتهم.
+  final Set<String> hiddenDeaths;
+
+  /// وقت الدور: ساعة رملية جنب اللي عليه الدور (وجنب الصينية وقت التصويت).
+  final ({DateTime deadline, double total})? timer;
+
   @override
   Widget build(BuildContext context) {
     // كل لاعب يشوف الطاولة اللي لابسها من المتجر.
@@ -62,12 +101,13 @@ class GameTable extends StatelessWidget {
       builder: (context, box) {
         final w = box.maxWidth;
         final h = box.maxHeight;
-        const seatW = 88.0, seatH = 114.0;
+        const seatW = _seatW, seatH = _seatH;
         final rx = (w - seatW) / 2;
         final ry = (h - seatH) / 2;
         // سجادة عريضة (٢:١) تناسب الشاشة بالعرض، وصينية بيضاوية في نصها.
-        final rugW = math.min(w * .72, h * .74 * _rugAspect);
-        final rugH = rugW / _rugAspect;
+        final rug = rugRect(Size(w, h));
+        final rugW = rug.width;
+        final rugH = rug.height;
         final trayW = rugW * .46;
         final trayH = trayW * .625;
         final angles = _seatAngles(n, rx, ry);
@@ -84,6 +124,17 @@ class GameTable extends StatelessWidget {
                       opacity: spotlight == null ? 1 : .35,
                       duration: const Duration(milliseconds: 400),
                       child: Image.asset(skin.carpet, width: rugW, height: rugH, fit: BoxFit.fill),
+                    ),
+                    // دلة وفناجيل بزاوية، ومبخرة بالزاوية الثانية.
+                    Positioned(
+                      left: rugW * .045,
+                      bottom: rugH * .07,
+                      child: CoffeeSet(width: rugH * .3),
+                    ),
+                    Positioned(
+                      right: rugW * .055,
+                      bottom: rugH * .06,
+                      child: Censer(width: rugH * .1),
                     ),
                     Image.asset(skin.tray, width: trayW, height: trayH, fit: BoxFit.fill),
                     // كومة السحب (يمين) وكومة الرمي (يسار)، بين الصينية وحافة السجادة.
@@ -124,6 +175,8 @@ class GameTable extends StatelessWidget {
                         child: _SeatView(
                           // المقاعد اللي فوق: الملصق ينزل تحت الصورة عشان ما ينقص من فوق الشاشة.
                           stickerBelow: top < 30,
+                          deathHidden: hiddenDeaths.contains(p.id),
+                          deathAt: deaths[p.id],
                           player: p,
                           view: view,
                           room: room,
@@ -150,9 +203,45 @@ class GameTable extends StatelessWidget {
                   );
                 },
               ),
+            if (timer case final timer?) _hourglass(timer, Size(w, h), rug, trayH, angles, players, mySeat),
           ],
         );
       },
+    );
+  }
+
+  /// الساعة الرملية جنب اللي عليه الدور (من جهة نص الطاولة)، ووقت التصويت فوق الصينية.
+  Widget _hourglass(
+    ({DateTime deadline, double total}) timer,
+    Size table,
+    Rect rug,
+    double trayH,
+    List<double> angles,
+    List<ViewPlayer> players,
+    int mySeat,
+  ) {
+    const gw = 24.0, gh = gw * 1.6;
+    final actor = switch (view.phase) {
+      Phase.chancellorEnact => view.nomineeId,
+      Phase.election || Phase.gameOver => null,
+      _ => view.presidentId,
+    };
+    final p = actor == null ? null : players.where((p) => p.id == actor).firstOrNull;
+    final Offset at;
+    if (p == null) {
+      at = Offset(table.width / 2 - gw / 2, rug.center.dy - trayH / 2 - gh + 4);
+    } else {
+      final rx = (table.width - _seatW) / 2, ry = (table.height - _seatH) / 2;
+      final o = _seatOrigin(angles[(p.seat - mySeat) % players.length], rx, ry);
+      final right = o.dx + _seatW / 2 <= table.width / 2 + 1;
+      at = Offset(right ? o.dx + _seatW - 6 : o.dx - gw + 6, o.dy + 4);
+    }
+    return Positioned(
+      left: at.dx,
+      top: at.dy,
+      child: IgnorePointer(
+        child: _Hourglass(deadline: timer.deadline, total: timer.total, width: gw),
+      ),
     );
   }
 }
@@ -312,6 +401,8 @@ class _SeatView extends StatelessWidget {
   const _SeatView({
     this.dim = 1,
     this.stickerBelow = false,
+    this.deathHidden = false,
+    this.deathAt,
     required this.player,
     required this.view,
     required this.room,
@@ -337,6 +428,12 @@ class _SeatView extends StatelessWidget {
   /// الملصق يطلع تحت الصورة بدال فوقها (المقاعد اللي فوق).
   final bool stickerBelow;
 
+  /// انطرد بس مشهد طرده لسا ما خلص: يبان عادي.
+  final bool deathHidden;
+
+  /// متى يبدأ حزنه على كرسيه (وبعده ينطفي فانوسه ويتغطى).
+  final DateTime? deathAt;
+
   @override
   Widget build(BuildContext context) {
     final p = player;
@@ -355,6 +452,7 @@ class _SeatView extends StatelessWidget {
         : room?.reactions
               .where((r) => r.from == p.id && !r.at.isAfter(now) && now.difference(r.at).inSeconds < 5)
               .lastOrNull;
+    final dead = !p.alive && !deathHidden;
 
     Color? frame;
     if (selectable) {
@@ -370,6 +468,28 @@ class _SeatView extends StatelessWidget {
     } else if (isMe && frameStyle(rp?.frame) == null) {
       frame = AppColors.green;
     }
+
+    final avatar = AnimatedScale(
+      scale: selectable ? 1.1 : 1,
+      duration: const Duration(milliseconds: 250),
+      // الإطار المشترى يبان دايم، والتمييز (رئيس، مختار، خاين تعرفه) توهج حوله
+      child: PlayerAvatar(
+        avatar: rp?.avatar ?? 'masked',
+        frame: frameStyle(rp?.frame) == null ? frame : null,
+        highlight: frameStyle(rp?.frame) == null ? null : frame,
+        style: frameStyle(rp?.frame),
+        size: 62,
+        dead: over && !p.alive,
+        momentKey: p.id,
+      ),
+    );
+    final sticker = reaction == null ? null : stickerById(reaction.kind);
+    // الشخصية تتحرك مع ملصقها (تضحك، تعصب، تنصدم…).
+    final moving = _Since(
+      since: sticker == null ? null : reaction!.at,
+      seconds: _moodSeconds,
+      builder: (context, t) => _moodMotion(sticker == null ? _Mood.hop : _moodOf(sticker.id), t, avatar),
+    );
 
     return Semantics(
       button: onTap != null,
@@ -387,84 +507,11 @@ class _SeatView extends StatelessWidget {
               duration: const Duration(milliseconds: 400),
               child: Column(
                 children: [
-                  Stack(
-                    clipBehavior: Clip.none,
-                    children: [
-                      AnimatedScale(
-                        scale: selectable ? 1.1 : 1,
-                        duration: const Duration(milliseconds: 250),
-                        // الإطار المشترى يبان دايم، والتمييز (رئيس، مختار، خاين تعرفه) توهج حوله
-                        child: PlayerAvatar(
-                          avatar: rp?.avatar ?? 'masked',
-                          frame: frameStyle(rp?.frame) == null ? frame : null,
-                          highlight: frameStyle(rp?.frame) == null ? null : frame,
-                          style: frameStyle(rp?.frame),
-                          size: 62,
-                          dead: !p.alive,
-                          momentKey: p.id,
-                        ),
-                      ),
-                      if (!p.alive) const Positioned.fill(child: Center(child: Gfx('skull', size: 34))),
-                      if (!over && p.id == view.presidentId)
-                        const Positioned(top: -26, left: 0, right: 0, child: _Crown()),
-                      // ختم أحمر على كل خاين تعرفه (يبقى حتى لو صار رئيس أو وزير وتغيّر لون الإطار).
-                      // وبعد اللعبة الكل يبان ختمه، حتى الأوفياء.
-                      if (role != null && (over || !isMe && (role == Role.traitor || role == Role.leader)))
-                        Positioned(
-                          left: -8,
-                          bottom: -4,
-                          child: role == Role.leader
-                              ? const LeaderSeal(size: 32)
-                              : Seal(loyal: role == Role.loyal, size: 26),
-                        ),
-                      if (p.knownSpecial == Special.guardian && !isMe) const _Badge('shield', left: -6, bottom: -2),
-                      if (rp?.bot ?? false) const _Badge('bot', right: -8, top: 16),
-                      if (view.phase == Phase.election && p.hasVoted) const _Badge('check', left: -6, top: -4),
-                      if (note != null)
-                        Positioned(
-                          bottom: -2,
-                          left: 0,
-                          right: 0,
-                          child: Center(
-                            child: Container(
-                              width: 14,
-                              height: 14,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                color: noteColors[note],
-                                border: Border.all(color: AppColors.bg, width: 2),
-                              ),
-                            ),
-                          ),
-                        ),
-                      if (opinion != null && (opinion.suspect > 0 || opinion.trust > 0))
-                        Positioned(
-                          top: -6,
-                          right: -14,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-                            decoration: BoxDecoration(
-                              color: AppColors.bg,
-                              borderRadius: BorderRadius.circular(10),
-                              border: Border.all(
-                                color: opinion.suspect >= opinion.trust ? AppColors.traitor : AppColors.green,
-                                width: 1.2,
-                              ),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Gfx(opinion.suspect >= opinion.trust ? 'suspect' : 'trust', size: 15),
-                                const SizedBox(width: 2),
-                                Text(
-                                  arabicNumber(opinion.suspect >= opinion.trust ? opinion.suspect : opinion.trust),
-                                  style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w800),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                    ],
+                  _Since(
+                    // بعد اللعبة الغطا ينشال عن الكل، عشان تبان الأدوار.
+                    since: dead && !over ? deathAt : null,
+                    seconds: _deathSeconds,
+                    builder: (context, t) => _figure(t, dead && !over, over, moving, isMe, role, opinion),
                   ),
                   const SizedBox(height: 3),
                   if (over) ...[
@@ -490,7 +537,7 @@ class _SeatView extends StatelessWidget {
                         fontSize: 12,
                         height: 1.35,
                         fontWeight: FontWeight.w800,
-                        color: p.alive ? AppColors.text : AppColors.muted,
+                        color: dead ? AppColors.muted : AppColors.text,
                       ),
                     ),
                   ),
@@ -499,7 +546,7 @@ class _SeatView extends StatelessWidget {
             ),
             if (reaction != null)
               Positioned(
-                top: stickerById(reaction.kind) == null ? -30 : (stickerBelow ? 56 : -62),
+                top: sticker == null ? -30 : (stickerBelow ? 56 : -62),
                 child: _Bubble(reaction: reaction, view: view, bubble: rp?.bubble),
               ),
           ],
@@ -507,6 +554,386 @@ class _SeatView extends StatelessWidget {
       ),
     );
   }
+
+  /// اللاعب على مسنده وفانوسه جنبه، وفوقه شاراته. المطرود ([dying]) يحزن، وبعدها ينطفي فانوسه
+  /// ويطيح عليه غطا ([t] الوقت من بداية حزنه).
+  Widget _figure(
+    double t,
+    bool dying,
+    bool over,
+    Widget avatar,
+    bool isMe,
+    Role? role,
+    ({int suspect, int trust})? opinion,
+  ) {
+    final p = player;
+    final sad = dying ? seg(t, 0, .6) * (1 - seg(t, 2.8, 3.4)) : 0.0;
+    final grey = dying ? seg(t, 0, .9) * .8 : 0.0;
+    final lamp = over ? (p.alive ? 1.0 : 0.0) : (dying ? 1 - seg(t, 2.0, 2.5) : 1.0);
+    final cloth = dying ? seg(t, 2.6, 3.8) : 0.0;
+    Widget figure = Transform.translate(
+      offset: Offset(0, 5 * sad),
+      child: Transform.rotate(angle: .2 * sad, child: avatar),
+    );
+    if (dying) {
+      figure = Stack(
+        clipBehavior: Clip.none,
+        children: [
+          ColorFiltered(colorFilter: ColorFilter.matrix(greyMatrix(grey)), child: figure),
+          if (t < 3) Positioned.fill(child: CustomPaint(painter: _SadPainter(t))),
+        ],
+      );
+    }
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        // المسند ورا اللاعب، وفانوسه جنبه.
+        Positioned(left: -11, top: -12, child: Cushion(width: 84, height: 58, dead: over && !p.alive ? 1 : 0)),
+        Positioned(
+          right: -18,
+          top: 34,
+          child: FloorLantern(width: 14, on: lamp, seed: p.seat),
+        ),
+        // لما يتغطى كامل ما نرسمه تحت الغطا (ولا يطل إطاره من تحته).
+        if (cloth < 1) figure else const SizedBox(width: 62, height: 62),
+        if (cloth > 0) Positioned(left: -13, top: -16, child: SeatCloth(k: cloth, width: 88, height: 82)),
+        if (over && !p.alive) const Positioned.fill(child: Center(child: Gfx('skull', size: 34))),
+        if (!over && p.id == view.presidentId) const Positioned(top: -26, left: 0, right: 0, child: _Crown()),
+        // ختم أحمر على كل خاين تعرفه (يبقى حتى لو صار رئيس أو وزير وتغيّر لون الإطار).
+        // وبعد اللعبة الكل يبان ختمه، حتى الأوفياء.
+        if (role != null && (over || !isMe && (role == Role.traitor || role == Role.leader)))
+          Positioned(
+            left: -8,
+            bottom: -4,
+            child: role == Role.leader ? const LeaderSeal(size: 32) : Seal(loyal: role == Role.loyal, size: 26),
+          ),
+        if (p.knownSpecial == Special.guardian && !isMe) const _Badge('shield', left: -6, bottom: -2),
+        if (room?.player(p.id)?.bot ?? false) const _Badge('bot', right: -8, top: 16),
+        if (view.phase == Phase.election && p.hasVoted) const _Badge('check', left: -6, top: -4),
+        if (note != null)
+          Positioned(
+            bottom: -2,
+            left: 0,
+            right: 0,
+            child: Center(
+              child: Container(
+                width: 14,
+                height: 14,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: noteColors[note],
+                  border: Border.all(color: AppColors.bg, width: 2),
+                ),
+              ),
+            ),
+          ),
+        if (opinion != null && (opinion.suspect > 0 || opinion.trust > 0))
+          Positioned(
+            top: -6,
+            right: -14,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+              decoration: BoxDecoration(
+                color: AppColors.bg,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                  color: opinion.suspect >= opinion.trust ? AppColors.traitor : AppColors.green,
+                  width: 1.2,
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Gfx(opinion.suspect >= opinion.trust ? 'suspect' : 'trust', size: 15),
+                  const SizedBox(width: 2),
+                  Text(
+                    arabicNumber(opinion.suspect >= opinion.trust ? opinion.suspect : opinion.trust),
+                    style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w800),
+                  ),
+                ],
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+/// تقدم الحركة بين [a] و[b] (٠–١).
+double seg(double t, double a, double b, [Curve curve = Curves.linear]) =>
+    curve.transform(((t - a) / (b - a)).clamp(0.0, 1.0));
+
+/// تطلع وتنزل مرة وحدة بين [a] و[b].
+double bump(double t, double a, double b) => math.sin(seg(t, a, b) * math.pi);
+
+const _moodSeconds = 2.6;
+const _deathSeconds = 4.0;
+
+enum _Mood { laugh, angry, shock, sad, hop }
+
+/// وش تسوي الشخصية مع الملصق.
+_Mood _moodOf(String id) {
+  if (id.contains('laugh') || id.startsWith('par_') || id.startsWith('hype_') || id.startsWith('vip_')) {
+    return _Mood.laugh;
+  }
+  if (id.startsWith('ang_') || id == 'b_angry') return _Mood.angry;
+  if (id.startsWith('shock_') || id.startsWith('det_') || id == 'b_eyes') return _Mood.shock;
+  if (id.startsWith('nerv_') || id == 'inn_cry' || id == 'inn_pls') return _Mood.sad;
+  return _Mood.hop;
+}
+
+/// حركة الشخصية بعد ملصقها بـ[t] ثانية: تضحك وتنط، تعصب وتهتز، تنصدم وتنقز، تتوتر وتميل.
+Widget _moodMotion(_Mood mood, double t, Widget child) {
+  final env = seg(t, 0, .15) * (1 - seg(t, 2.1, _moodSeconds));
+  var dx = 0.0, dy = 0.0, rot = 0.0, sx = 1.0, sy = 1.0;
+  switch (mood) {
+    case _Mood.laugh:
+      final hop = math.sin(t * 14).abs();
+      dy = -hop * 7 * env;
+      rot = math.sin(t * 7) * .08 * env;
+      sx = 1 + .04 * env * hop;
+      sy = 1 - .05 * env * hop;
+    case _Mood.angry:
+      dx = math.sin(t * 42) * 3.5 * env;
+      sx = sy = 1 + .05 * env;
+    case _Mood.shock:
+      final jump = bump(t, 0, .35);
+      dy = -16 * jump;
+      sx = sy = 1 + .14 * jump;
+      if (t > .35) dx = math.sin(t * 50) * 1.5 * env;
+    case _Mood.sad:
+      rot = -.14 * env;
+      dy = 4 * env;
+      dx = math.sin(t * 30) * env;
+    case _Mood.hop:
+      dy = -9 * bump(t, 0, .3) - 4 * bump(t, .3, .55);
+  }
+  return Transform.translate(
+    offset: Offset(dx, dy),
+    child: Transform.rotate(
+      angle: rot,
+      child: Transform.scale(scaleX: sx, scaleY: sy, child: child),
+    ),
+  );
+}
+
+/// دموع تنزل وغيمة فوق راسه تمطر (أول ما ينطرد).
+class _SadPainter extends CustomPainter {
+  _SadPainter(this.t);
+
+  final double t;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final w = size.width;
+    final fade = seg(t, .2, .6) * (1 - seg(t, 2.5, 3));
+    // الغيمة
+    final cx = w / 2, cy = -14.0;
+    final drop = Paint()
+      ..strokeWidth = 1.8
+      ..strokeCap = StrokeCap.round;
+    for (var k = 0; k < 5; k++) {
+      final q = (t * 1.6 + k / 5) % 1;
+      final x = cx - 16 + k * 8;
+      final y = cy + 8 + q * 22;
+      drop.color = const Color(0xFF7DD3FC).withValues(alpha: (1 - q) * fade);
+      canvas.drawLine(Offset(x, y), Offset(x - 1.5, y + 5), drop);
+    }
+    final cloud = Paint()..color = const Color(0xFF64748B).withValues(alpha: fade);
+    for (final (dx, dy, r) in const [
+      (-13.0, 2.0, 9.0),
+      (0.0, -3.0, 12.0),
+      (13.0, 2.0, 9.0),
+      (-5.0, 5.0, 8.0),
+      (6.0, 5.0, 8.0),
+    ]) {
+      canvas.drawCircle(Offset(cx + dx, cy + dy), r, cloud);
+    }
+    // دمعتين
+    for (var k = 0; k < 2; k++) {
+      final q = seg(t, .5 + k * .9, 1.5 + k * .9);
+      if (q <= 0 || q >= 1) continue;
+      final at = Offset(w * (k.isEven ? .38 : .62), size.height * (.55 + q * .35));
+      canvas.drawPath(
+        Path()
+          ..moveTo(at.dx, at.dy - 6)
+          ..quadraticBezierTo(at.dx + 4, at.dy, at.dx, at.dy + 3)
+          ..quadraticBezierTo(at.dx - 4, at.dy, at.dx, at.dy - 6),
+        Paint()..color = const Color(0xFF7DD3FC).withValues(alpha: math.sin(q * math.pi)),
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(_SadPainter old) => old.t != t;
+}
+
+/// يعيد البناء كل فريم من [since] لين تخلص [seconds]، وبعدها يثبت على آخر لحظة.
+/// بدون [since] (أو بالوضع الخفيف) يرسم آخر لحظة على طول.
+class _Since extends StatefulWidget {
+  const _Since({required this.since, required this.seconds, required this.builder});
+
+  final DateTime? since;
+  final double seconds;
+  final Widget Function(BuildContext context, double t) builder;
+
+  @override
+  State<_Since> createState() => _SinceState();
+}
+
+class _SinceState extends State<_Since> with SingleTickerProviderStateMixin {
+  late final Ticker _ticker = createTicker((_) => _tick());
+  late double _t = _elapsed();
+
+  double _elapsed() {
+    final since = widget.since;
+    if (since == null || FxClock.lite.value) return widget.seconds;
+    return (DateTime.now().difference(since).inMicroseconds / 1e6).clamp(0.0, widget.seconds);
+  }
+
+  void _sync() {
+    _t = _elapsed();
+    if (_t < widget.seconds) {
+      if (!_ticker.isActive) _ticker.start();
+    } else if (_ticker.isActive) {
+      _ticker.stop();
+    }
+  }
+
+  void _tick() {
+    setState(() => _t = _elapsed());
+    if (_t >= widget.seconds) _ticker.stop();
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _sync();
+  }
+
+  @override
+  void didUpdateWidget(_Since old) {
+    super.didUpdateWidget(old);
+    if (old.since != widget.since) _sync();
+  }
+
+  @override
+  void dispose() {
+    _ticker.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.builder(context, _t);
+}
+
+/// ساعة رملية: الرمل ينزل لين يخلص الوقت، وآخر ٥ ثواني تحمر وتهتز.
+class _Hourglass extends StatelessWidget {
+  const _Hourglass({required this.deadline, required this.total, this.width = 24});
+
+  final DateTime deadline;
+  final double total;
+  final double width;
+
+  @override
+  Widget build(BuildContext context) => RepaintBoundary(
+    child: FxClock(
+      builder: (context, time) =>
+          CustomPaint(size: Size(width, width * 1.6), painter: _HourglassPainter(time, deadline, total)),
+    ),
+  );
+}
+
+class _HourglassPainter extends CustomPainter {
+  _HourglassPainter(this.time, this.deadline, this.total) : super(repaint: time);
+
+  final ValueListenable<double> time;
+  final DateTime deadline;
+  final double total;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final left = deadline.difference(DateTime.now()).inMilliseconds / 1000;
+    final p = (1 - left / total).clamp(0.0, 1.0);
+    final urgent = left <= 5 ? 1.0 : 0.0;
+    final t = time.value;
+    canvas.scale(size.width / 40);
+    if (urgent > 0) canvas.translate(math.sin(t * 50) * 1.4, 0);
+    final sand = urgent > 0 ? const Color(0xFFFF5A5A) : const Color(0xFFF2C14E);
+    if (urgent > 0) {
+      canvas.drawCircle(
+        const Offset(20, 32),
+        30,
+        Paint()
+          ..color = const Color(0xFFFF3B3B).withValues(alpha: .3 * (.6 + .4 * math.sin(t * 10)))
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 10),
+      );
+    }
+    final top = Path()
+      ..moveTo(7, 7)
+      ..lineTo(33, 7)
+      ..quadraticBezierTo(33, 24, 21.5, 31)
+      ..lineTo(18.5, 31)
+      ..quadraticBezierTo(7, 24, 7, 7)
+      ..close();
+    final bottom = Path()
+      ..moveTo(18.5, 33)
+      ..lineTo(21.5, 33)
+      ..quadraticBezierTo(33, 40, 33, 57)
+      ..lineTo(7, 57)
+      ..quadraticBezierTo(7, 40, 18.5, 33)
+      ..close();
+    final glass = Paint()..color = const Color(0xFF0B0818).withValues(alpha: .55);
+    canvas.drawPath(top, glass);
+    canvas.drawPath(bottom, glass);
+    final fill = Paint()..color = sand;
+    canvas.save();
+    canvas.clipPath(top);
+    canvas.drawRect(Rect.fromLTRB(0, 9 + 22 * p, 40, 32), fill);
+    canvas.restore();
+    canvas.save();
+    canvas.clipPath(bottom);
+    final h = 22 * p;
+    canvas.drawPath(
+      Path()
+        ..moveTo(0, 58)
+        ..lineTo(0, 58 - h * .55)
+        ..quadraticBezierTo(20, 58 - h * 1.5, 40, 58 - h * .55)
+        ..lineTo(40, 58)
+        ..close(),
+      fill,
+    );
+    canvas.restore();
+    if (p < 1) {
+      canvas.drawLine(
+        const Offset(20, 31),
+        Offset(20, 57 - h),
+        Paint()
+          ..color = sand
+          ..strokeWidth = 1.4,
+      );
+      for (var k = 0; k < 3; k++) {
+        canvas.drawCircle(Offset(20, 32 + ((t * 3 + k / 3) % 1) * (24 - h)), .9, fill);
+      }
+    }
+    final outline = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.4
+      ..color = Colors.white.withValues(alpha: .75);
+    canvas.drawPath(top, outline);
+    canvas.drawPath(bottom, outline);
+    final wood = Paint()..color = const Color(0xFF8A5A00);
+    canvas.drawRect(const Rect.fromLTWH(3.5, 7, 2.4, 50), wood);
+    canvas.drawRect(const Rect.fromLTWH(34.1, 7, 2.4, 50), wood);
+    final cap = Paint()
+      ..shader = const LinearGradient(colors: [Color(0xFFFDE68A), Color(0xFFB87A12)])
+          .createShader(const Rect.fromLTWH(0, 0, 40, 64));
+    canvas.drawRRect(RRect.fromRectAndRadius(const Rect.fromLTWH(1, 1, 38, 6), const Radius.circular(2)), cap);
+    canvas.drawRRect(RRect.fromRectAndRadius(const Rect.fromLTWH(1, 57, 38, 6), const Radius.circular(2)), cap);
+  }
+
+  @override
+  bool shouldRepaint(_HourglassPainter old) => true;
 }
 
 /// تاج الرئيس فوق راسه، كبير ويلمع.

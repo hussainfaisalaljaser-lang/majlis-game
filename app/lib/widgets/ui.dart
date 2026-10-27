@@ -1,7 +1,10 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../theme.dart';
+import 'fx.dart';
 
 /// خلفية اللعبة: ليل متدرج مع زخرفة عربية خفيفة تتكرر.
 class NightBackground extends StatelessWidget {
@@ -81,8 +84,15 @@ class GameButton extends StatefulWidget {
   State<GameButton> createState() => _GameButtonState();
 }
 
-class _GameButtonState extends State<GameButton> {
+class _GameButtonState extends State<GameButton> with TickerProviderStateMixin {
   bool _down = false;
+
+  /// بعد ما تشيل إصبعك: الزر يرجع بنطة صغيرة.
+  late final _release = AnimationController(vsync: this, duration: const Duration(milliseconds: 420));
+
+  /// موجة تطلع من مكان إصبعك.
+  late final _ripple = AnimationController(vsync: this, duration: const Duration(milliseconds: 450));
+  Offset _touch = Offset.zero;
 
   static const _tones = {
     ButtonTone.gold: (
@@ -112,6 +122,27 @@ class _GameButtonState extends State<GameButton> {
   };
 
   @override
+  void dispose() {
+    _release.dispose();
+    _ripple.dispose();
+    super.dispose();
+  }
+
+  void _press(TapDownDetails d) {
+    setState(() {
+      _down = true;
+      _touch = d.localPosition;
+    });
+    if (!FxClock.lite.value) _ripple.forward(from: 0);
+  }
+
+  void _lift() {
+    if (!_down) return;
+    setState(() => _down = false);
+    if (!FxClock.lite.value) _release.forward(from: 0);
+  }
+
+  @override
   Widget build(BuildContext context) {
     final enabled = widget.onPressed != null;
     final ghost = widget.tone == ButtonTone.ghost;
@@ -125,9 +156,9 @@ class _GameButtonState extends State<GameButton> {
       label: widget.semantics ?? widget.label,
       excludeSemantics: true,
       child: GestureDetector(
-        onTapDown: enabled ? (_) => setState(() => _down = true) : null,
-        onTapCancel: () => setState(() => _down = false),
-        onTapUp: enabled ? (_) => setState(() => _down = false) : null,
+        onTapDown: enabled ? _press : null,
+        onTapCancel: _lift,
+        onTapUp: enabled ? (_) => _lift() : null,
         onTap: enabled
             ? () {
                 HapticFeedback.lightImpact();
@@ -137,53 +168,89 @@ class _GameButtonState extends State<GameButton> {
         child: AnimatedOpacity(
           duration: const Duration(milliseconds: 150),
           opacity: enabled ? 1 : .45,
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 70),
-            height: widget.height,
-            margin: EdgeInsets.only(top: 5 - depth, bottom: depth),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(16),
-              gradient: ghost
-                  ? null
-                  : LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: t!.$1),
-              color: ghost ? Colors.white.withValues(alpha: .07) : null,
-              border: Border.all(color: ghost ? Colors.white.withValues(alpha: .16) : t!.$3, width: 2),
-              boxShadow: ghost
-                  ? null
-                  : [
-                      BoxShadow(color: t!.$2, offset: Offset(0, depth)),
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: .4),
-                        blurRadius: 14,
-                        offset: Offset(0, depth + 4),
-                      ),
-                    ],
-            ),
-            alignment: Alignment.center,
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (widget.icon != null) ...[widget.icon!, const SizedBox(width: 8)],
-                Flexible(
-                  child: Text(
-                    widget.label,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontFamily: kufi,
-                      fontWeight: FontWeight.w700,
-                      fontSize: widget.fontSize,
-                      color: fg,
-                    ),
-                  ),
+          child: AnimatedBuilder(
+            animation: Listenable.merge([_release, _ripple]),
+            builder: (context, child) {
+              // ينضغط وينزل لتحت، ولما تشيل إصبعك يرجع بنطة.
+              final r = _release.value;
+              final scale = _down ? .95 : 1 + .045 * math.sin(r * math.pi) * (1 - r);
+              return Transform.scale(scale: scale, child: child);
+            },
+            child: CustomPaint(
+              foregroundPainter: _RipplePainter(_ripple, _touch, top: 5 - depth, height: widget.height),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 70),
+                height: widget.height,
+                margin: EdgeInsets.only(top: 5 - depth, bottom: depth),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(16),
+                  gradient: ghost
+                      ? null
+                      : LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: t!.$1),
+                  color: ghost ? Colors.white.withValues(alpha: .07) : null,
+                  border: Border.all(color: ghost ? Colors.white.withValues(alpha: .16) : t!.$3, width: 2),
+                  boxShadow: ghost
+                      ? null
+                      : [
+                          BoxShadow(color: t!.$2, offset: Offset(0, depth)),
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: .4),
+                            blurRadius: 14,
+                            offset: Offset(0, depth + 4),
+                          ),
+                        ],
                 ),
-              ],
+                alignment: Alignment.center,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (widget.icon != null) ...[widget.icon!, const SizedBox(width: 8)],
+                    Flexible(
+                      child: Text(
+                        widget.label,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontFamily: kufi,
+                          fontWeight: FontWeight.w700,
+                          fontSize: widget.fontSize,
+                          color: fg,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
           ),
         ),
       ),
     );
   }
+}
+
+/// موجة بيضاء تتوسع من مكان الضغطة وتختفي (داخل حدود الزر).
+class _RipplePainter extends CustomPainter {
+  _RipplePainter(this.p, this.at, {required this.top, required this.height}) : super(repaint: p);
+
+  final Animation<double> p;
+  final Offset at;
+
+  /// مكان الزر نفسه داخل المساحة (فوقه فراغ ينضغط فيه).
+  final double top, height;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final v = p.value;
+    if (v <= 0 || v >= 1) return;
+    canvas.save();
+    canvas.clipRRect(RRect.fromRectAndRadius(Rect.fromLTWH(0, top, size.width, height), const Radius.circular(16)));
+    canvas.drawCircle(at, 12 + v * size.width * .9, Paint()..color = Colors.white.withValues(alpha: .35 * (1 - v)));
+    canvas.restore();
+  }
+
+  @override
+  bool shouldRepaint(_RipplePainter old) => old.at != at || old.top != top || old.height != height;
 }
 
 /// نص ذهبي متدرج للعناوين.

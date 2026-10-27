@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -16,12 +17,14 @@ import '../services/telemetry.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
 import '../widgets/fx_sig.dart';
+import '../widgets/game/card_hand.dart';
 import '../widgets/game/game_log.dart';
 import '../widgets/game/game_table.dart';
 import '../widgets/game/overlays.dart';
-import '../widgets/game/policy_card.dart';
 import '../widgets/game/reactions_sheet.dart';
+import '../widgets/game/scenes.dart';
 import '../widgets/game/tracks.dart';
+import '../widgets/majlis.dart';
 import '../widgets/player_card.dart';
 import '../widgets/ui.dart';
 
@@ -31,6 +34,12 @@ const _winReasons = {
   'leaderElected': 'الزعيم انتُخب وزير',
   'leaderExecuted': 'الزعيم انطرد',
 };
+
+/// مشهد ينتظر دوره فوق الطاولة، ومعه جمل الراوي، ووش يصير لما يخلص.
+typedef _Scene = ({GameScene scene, List<String> lines, VoidCallback? onEnd});
+
+/// التوتر حسب قرارات الخونة: يبدأ من الثالث، وآخر قرار قبل فوزهم أقوى شي.
+const _tensionByTraitorPolicies = [0.0, 0.0, 0.0, .35, .65, 1.0];
 
 /// نفس engine/src/rules.ts → PHASE_SECONDS.
 const _phaseSeconds = {
@@ -99,8 +108,12 @@ class _GameScreenState extends State<GameScreen> {
   bool _resultsOpen = false;
   bool _leftTable = false;
 
-  /// مشاهد تنتظر دورها فوق الطاولة (كشف التصويت، الختم، الطرد…)، ومعها جملة الراوي.
-  final List<(Widget, String, Duration)> _scenes = [];
+  /// مشاهد تنتظر دورها فوق الطاولة (كشف التصويت، الختم، الطرد، كشف الأقنعة).
+  final List<_Scene> _scenes = [];
+
+  /// المطرودين: متى بدأ حزنهم على كراسيهم، واللي لسا مشهد طردهم ما خلص.
+  final _deaths = <String, DateTime>{};
+  final _hiddenDeaths = <String>{};
 
   /// رد ينتظر تختار له لاعب (مثل أشك في…).
   TextReaction? _pendingReaction;
@@ -357,10 +370,6 @@ class _GameScreenState extends State<GameScreen> {
       );
     }
     _seerSeen = view.seerSees;
-    if (!_dangerShown && _introDone && view.traitorPolicies >= 3 && view.phase != Phase.gameOver) {
-      _dangerShown = true;
-      WidgetsBinding.instance.addPostFrameCallback((_) => _showLeaderDanger(view.yourRole));
-    }
     if (view.phase != Phase.gameOver) _live = true;
     if (!_roleShown) {
       _roleShown = true;
@@ -378,6 +387,7 @@ class _GameScreenState extends State<GameScreen> {
       WidgetsBinding.instance.addPostFrameCallback((_) => _showRole());
     }
     _queueScenes(view);
+    _maybeDanger();
     if (view.investigations.length > _seenInvestigations) {
       final result = view.investigations.last;
       _seenInvestigations = view.investigations.length;
@@ -405,11 +415,11 @@ class _GameScreenState extends State<GameScreen> {
         Telemetry.gameEnd(won: won, reason: view.winReason ?? '', rounds: view.round, tutorial: view.tutorial);
         if (view.tutorial) Telemetry.tutorialComplete();
       }
-      final line = (view.winnerLoyal ?? false) ? 'win_loyal' : 'win_traitor';
-      Future.delayed(Duration(milliseconds: 400 + 2600 * _scenes.length), () {
-        Sfx.say(line);
+      // حضرناها: الراوي يقول الفايز مع مشهد كشف الأقنعة. وإلا (فتحناها وهي خالصة) يقوله على طول.
+      if (!_live) {
+        Sfx.say((view.winnerLoyal ?? false) ? 'win_loyal' : 'win_traitor');
         if (view.tutorial) Sfx.say('tut_done');
-      });
+      }
     }
     _coach(view);
   }
@@ -424,41 +434,67 @@ class _GameScreenState extends State<GameScreen> {
       switch (e.type) {
         case 'voteResult':
           _scenes.add((
-            VoteReveal(
-              view: v,
-              room: _room,
-              votes: Map<String, bool>.from(d['votes'] as Map),
-              passed: d['passed'] == true,
-            ),
-            d['passed'] == true ? 'gov_passed' : 'gov_failed',
-            const Duration(milliseconds: 2800),
+            scene: VoteScene(view: v, votes: Map<String, bool>.from(d['votes'] as Map), passed: d['passed'] == true),
+            lines: [d['passed'] == true ? 'gov_passed' : 'gov_failed'],
+            onEnd: null,
           ));
         case 'enacted':
+          final gov = d['government'] as Map?;
           _scenes.add((
-            EnactStamp(loyal: d['policy'] == 'L', chaos: d['chaos'] == true),
-            d['chaos'] == true ? 'chaos' : (d['policy'] == 'L' ? 'enact_loyal' : 'enact_traitor'),
-            const Duration(milliseconds: 1900),
+            scene: EnactScene(
+              view: v,
+              loyal: d['policy'] == 'L',
+              chaos: d['chaos'] == true,
+              from: gov?['chancellor'] as String?,
+              skin: _skin,
+            ),
+            lines: [d['chaos'] == true ? 'chaos' : (d['policy'] == 'L' ? 'enact_loyal' : 'enact_traitor')],
+            onEnd: null,
           ));
         case 'executed' || 'guarded':
           final id = d['target'] as String;
+          final executed = e.type == 'executed';
+          // كرسيه يبان عادي لين يخلص المشهد، وبعدها يحزن ويتغطى.
+          if (executed) _hiddenDeaths.add(id);
           _scenes.add((
-            ExecutionScene(
+            scene: DeathScene(
               name: id == v.you ? 'أنت' : v.player(id).name,
               avatar: _room?.player(id)?.avatar ?? 'masked',
-              guarded: e.type == 'guarded',
+              guarded: !executed,
             ),
-            e.type == 'guarded' ? 'guarded' : 'executed',
-            const Duration(milliseconds: 2600),
+            lines: [executed ? 'executed' : 'guarded'],
+            onEnd: executed
+                ? () {
+                    _hiddenDeaths.remove(id);
+                    _deaths[id] = DateTime.now();
+                  }
+                : null,
+          ));
+        case 'gameOver':
+          _scenes.add((
+            scene: UnmaskScene(view: v, room: _room),
+            lines: [(v.winnerLoyal ?? false) ? 'win_loyal' : 'win_traitor', if (v.tutorial) 'tut_done'],
+            onEnd: null,
           ));
       }
     }
-    if (wasEmpty && _scenes.isNotEmpty) Sfx.say(_scenes.first.$2);
+    if (wasEmpty && _scenes.isNotEmpty) _scenes.first.lines.forEach(Sfx.say);
   }
 
   void _nextScene() {
     if (!mounted || _scenes.isEmpty) return;
-    setState(() => _scenes.removeAt(0));
-    if (_scenes.isNotEmpty) Sfx.say(_scenes.first.$2);
+    setState(() => _scenes.removeAt(0).onEnd?.call());
+    if (_scenes.isNotEmpty) _scenes.first.lines.forEach(Sfx.say);
+    _maybeDanger();
+  }
+
+  /// تنبيه الزعيم الكبير: مرة وحدة أول ما يصير عند الخونة ٣ قرارات، بعد ما يخلص مشهد الختم.
+  void _maybeDanger() {
+    final v = _view;
+    if (v == null || _dangerShown || !_introDone || _scenes.isNotEmpty) return;
+    if (v.traitorPolicies < 3 || v.phase == Phase.gameOver) return;
+    _dangerShown = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) => _showLeaderDanger(v.yourRole));
   }
 
   /// مفتاح الدور الحالي (نفس turnKey في السيرفر): يتغير لما يجي دور جديد، والتصويت الواحد ما يغيره.
@@ -888,188 +924,212 @@ class _GameScreenState extends State<GameScreen> {
         ? null
         : '${_pendingReaction!.label} اختر لاعب';
     final over = v.phase == Phase.gameOver;
+    // الإضاءة تحمر وترمش كل ما قرّبوا الخونة من الفوز.
+    final tension = over ? 0.0 : _tensionByTraitorPolicies[v.traitorPolicies.clamp(0, 5)];
 
     return PopScope(
       canPop: over || _leaving,
       onPopInvokedWithResult: (didPop, _) {
         if (!didPop) _confirmLeave();
       },
-      child: NightScaffold(
-        body: SafeArea(
-          child: Stack(
-            children: [
-              // الطاولة على الشاشة كلها، والباقي يطفو في الزوايا.
-              Positioned.fill(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 34, 20, 2),
-                  child: GameTable(
-                    view: v,
-                    room: _room,
-                    notes: _notes,
-                    selectable: selectable,
-                    onSelect: onSelect,
-                    onNote: _editNote,
-                    onTapPlayer: (id) => _tapPlayer(v, id),
-                    spotlight: v.phase == Phase.election && pickHint == null ? {v.presidentId, ?v.nomineeId} : null,
-                    center: over
-                        ? _ResultCenter(view: v, room: _room, onTap: () => setState(() => _resultsOpen = true))
-                        : _TableCenter(view: v, room: _room),
+      child: Scaffold(
+        backgroundColor: const Color(0xFF110905),
+        body: Stack(
+          children: [
+            // غرفة المجلس ورا الطاولة.
+            Positioned.fill(child: MajlisRoom(tension: tension)),
+            SafeArea(
+              child: Stack(
+                children: [
+                  // الطاولة على الشاشة كلها، والباقي يطفو في الزوايا. القرار الأحمر يهزها.
+                  Positioned.fill(
+                    child: ValueListenableBuilder(
+                      valueListenable: sceneShake,
+                      builder: (context, shake, child) {
+                        if (shake == 0) return child!;
+                        final ms = DateTime.now().millisecondsSinceEpoch / 1000;
+                        return Transform.translate(
+                          offset: Offset(math.sin(ms * 83) * 10, math.cos(ms * 61) * 7) * shake,
+                          child: child,
+                        );
+                      },
+                      child: Padding(
+                        padding: tablePadding,
+                        child: GameTable(
+                          view: v,
+                          room: _room,
+                          notes: _notes,
+                          selectable: selectable,
+                          onSelect: onSelect,
+                          onNote: _editNote,
+                          onTapPlayer: (id) => _tapPlayer(v, id),
+                          spotlight: v.phase == Phase.election && pickHint == null
+                              ? {v.presidentId, ?v.nomineeId}
+                              : null,
+                          deaths: _deaths,
+                          hiddenDeaths: _hiddenDeaths,
+                          timer: v.deadline != null && !over ? (deadline: v.deadline!, total: _phaseTotal(v)) : null,
+                          center: over
+                              ? _ResultCenter(view: v, room: _room, onTap: () => setState(() => _resultsOpen = true))
+                              : _TableCenter(view: v, room: _room),
+                        ),
+                      ),
+                    ),
                   ),
-                ),
-              ),
-              if (v.deadline != null && !over) Positioned(top: 0, left: 0, right: 0, child: _TopTimer(view: v)),
-              // بعد ٣ قرارات للخونة: لو الزعيم صار وزير يفوزون. نذكّر الكل وقت الترشيح والتصويت.
-              if (v.traitorPolicies >= 3 && (v.phase == Phase.nomination || v.phase == Phase.election))
-                Positioned(
-                  top: 10,
-                  left: 0,
-                  right: 0,
-                  child: Center(child: _LeaderDanger(role: v.yourRole)),
-                ),
-              // فوق يمين: الجولة ودورك
-              PositionedDirectional(
-                top: 8,
-                start: 10,
-                child: _RoundHud(
-                  view: v,
-                  roleName: roleName,
-                  roleColor: roleColor,
-                  special: special,
-                  onRole: _showRole,
-                  onBack: over ? _leaveTable : _confirmLeave,
-                ),
-              ),
-              // فوق يسار: النقاط مصغرة، تنضغط وتكبر
-              PositionedDirectional(
-                top: 8,
-                end: 10,
-                child: _tip == 'tut_enacted'
-                    ? _Pulse(
-                        child: MiniTracks(view: v, onTap: () => showTracksBoard(context, v)),
-                      )
-                    : MiniTracks(view: v, onTap: () => showTracksBoard(context, v)),
-              ),
-              // تحت يمين: التفاعل والعرّاف (والتفاعل يبقى بعد اللعبة للسوالف)
-              PositionedDirectional(
-                bottom: 10,
-                start: 10,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (!over && v.seerReady && !_sent.containsKey('seer')) ...[
-                      _RoundButton(
-                        gfx: 'seer',
-                        label: 'كشف العراف',
-                        color: const Color(0xFF7C5CFF),
-                        active: _seerPicking,
-                        onTap: () => setState(() {
-                          _pendingReaction = null;
-                          _seerPicking = !_seerPicking;
+                  Positioned.fill(child: TensionOverlay(tension: tension)),
+                  // بعد ٣ قرارات للخونة: لو الزعيم صار وزير يفوزون. نذكّر الكل وقت الترشيح والتصويت.
+                  if (v.traitorPolicies >= 3 && (v.phase == Phase.nomination || v.phase == Phase.election))
+                    Positioned(
+                      top: 10,
+                      left: 0,
+                      right: 0,
+                      child: Center(child: _LeaderDanger(role: v.yourRole)),
+                    ),
+                  // فوق يمين: الجولة ودورك
+                  PositionedDirectional(
+                    top: 8,
+                    start: 10,
+                    child: _RoundHud(
+                      view: v,
+                      roleName: roleName,
+                      roleColor: roleColor,
+                      special: special,
+                      onRole: _showRole,
+                      onBack: over ? _leaveTable : _confirmLeave,
+                    ),
+                  ),
+                  // فوق يسار: النقاط مصغرة، تنضغط وتكبر
+                  PositionedDirectional(
+                    top: 8,
+                    end: 10,
+                    child: _tip == 'tut_enacted'
+                        ? _Pulse(
+                            child: MiniTracks(view: v, onTap: () => showTracksBoard(context, v)),
+                          )
+                        : MiniTracks(view: v, onTap: () => showTracksBoard(context, v)),
+                  ),
+                  // تحت يمين: التفاعل والعرّاف (والتفاعل يبقى بعد اللعبة للسوالف)
+                  PositionedDirectional(
+                    bottom: 10,
+                    start: 10,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (!over && v.seerReady && !_sent.containsKey('seer')) ...[
+                          _RoundButton(
+                            gfx: 'seer',
+                            label: 'كشف العراف',
+                            color: const Color(0xFF7C5CFF),
+                            active: _seerPicking,
+                            onTap: () => setState(() {
+                              _pendingReaction = null;
+                              _seerPicking = !_seerPicking;
+                            }),
+                          ),
+                          const SizedBox(height: 10),
+                        ],
+                        // المطرود يتفرج بس، ما يتكلم (لين تخلص اللعبة).
+                        if (!v.me.alive && !over)
+                          const SizedBox.shrink()
+                        else if (_tip == 'tut_chat')
+                          _Pulse(
+                            child: _RoundButton(
+                              gfx: 'chat',
+                              label: 'تفاعل',
+                              color: AppColors.gold,
+                              active: true,
+                              onTap: () {
+                                _closeTip();
+                                _openReactions();
+                              },
+                            ),
+                          )
+                        else
+                          _RoundButton(gfx: 'chat', label: 'تفاعل', color: AppColors.gold, onTap: _openReactions),
+                      ],
+                    ),
+                  ),
+                  // جنب زر التفاعل: الادعاء اللي أجّلته (تحت، عشان ما يغطي مقعد أحد)
+                  if (!over && _canClaim(v) && !_claimPending(v))
+                    PositionedDirectional(
+                      bottom: 17,
+                      start: 74,
+                      child: _Pulse(child: _ClaimChip(onTap: () => setState(() => _claimOpen = _claimKey(v)))),
+                    ),
+                  // تحت يسار: السجل والصوت
+                  PositionedDirectional(
+                    bottom: 10,
+                    end: 10,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        ValueListenableBuilder(
+                          valueListenable: Sfx.muted,
+                          builder: (context, muted, _) => _RoundButton(
+                            gfx: muted ? 'mute' : 'sound',
+                            label: muted ? 'شغّل الصوت' : 'اكتم الصوت',
+                            size: 40,
+                            onTap: Sfx.toggle,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        ValueListenableBuilder(
+                          valueListenable: Music.muted,
+                          builder: (context, muted, _) => _RoundButton(
+                            gfx: muted ? 'music_off' : 'music',
+                            label: muted ? 'شغّل الموسيقى' : 'اكتم الموسيقى',
+                            size: 40,
+                            onTap: Music.toggle,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        _RoundButton(gfx: 'log', label: 'السجل', size: 40, onTap: () => showGameLog(context, v)),
+                      ],
+                    ),
+                  ),
+                  // حركتك أنت: بعد ما تخلص المشاهد، عشان ضغطتك ما تروح للمشهد وتحس إن الزر ما اشتغل.
+                  if (_scenes.isEmpty) ..._actionLayer(v, pickHint),
+                  if (_claimPending(v))
+                    Center(
+                      child: _ClaimPrompt(
+                        count: v.claimCount!,
+                        truth: _truth(v),
+                        onClaim: (policies) => _claim(v, policies),
+                        onLater: () => setState(() {
+                          _claimLater = _claimKey(v);
+                          _claimOpen = null;
                         }),
                       ),
-                      const SizedBox(height: 10),
-                    ],
-                    // المطرود يتفرج بس، ما يتكلم (لين تخلص اللعبة).
-                    if (!v.me.alive && !over)
-                      const SizedBox.shrink()
-                    else if (_tip == 'tut_chat')
-                      _Pulse(
-                        child: _RoundButton(
-                          gfx: 'chat',
-                          label: 'تفاعل',
-                          color: AppColors.gold,
-                          active: true,
-                          onTap: () {
-                            _closeTip();
-                            _openReactions();
-                          },
-                        ),
-                      )
-                    else
-                      _RoundButton(gfx: 'chat', label: 'تفاعل', color: AppColors.gold, onTap: _openReactions),
-                  ],
-                ),
-              ),
-              // جنب زر التفاعل: الادعاء اللي أجّلته (تحت، عشان ما يغطي مقعد أحد)
-              if (!over && _canClaim(v) && !_claimPending(v))
-                PositionedDirectional(
-                  bottom: 17,
-                  start: 74,
-                  child: _Pulse(child: _ClaimChip(onTap: () => setState(() => _claimOpen = _claimKey(v)))),
-                ),
-              // تحت يسار: السجل والصوت
-              PositionedDirectional(
-                bottom: 10,
-                end: 10,
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    ValueListenableBuilder(
-                      valueListenable: Sfx.muted,
-                      builder: (context, muted, _) => _RoundButton(
-                        gfx: muted ? 'mute' : 'sound',
-                        label: muted ? 'شغّل الصوت' : 'اكتم الصوت',
-                        size: 40,
-                        onTap: Sfx.toggle,
+                    ),
+                  if (_tip case final tip? when !over)
+                    Positioned(
+                      bottom: 8,
+                      left: 0,
+                      right: 0,
+                      child: Center(
+                        child: _CoachCard(key: ValueKey(tip), text: _tips[tip]!, onClose: _closeTip),
                       ),
                     ),
-                    const SizedBox(width: 8),
-                    ValueListenableBuilder(
-                      valueListenable: Music.muted,
-                      builder: (context, muted, _) => _RoundButton(
-                        gfx: muted ? 'music_off' : 'music',
-                        label: muted ? 'شغّل الموسيقى' : 'اكتم الموسيقى',
-                        size: 40,
-                        onTap: Music.toggle,
+                  if (over && _scenes.isEmpty && _resultsOpen)
+                    _GameOver(
+                      view: v,
+                      room: _room,
+                      onPlayer: _editNote,
+                      onClose: () => setState(() => _resultsOpen = false),
+                      onLeave: _leaveTable,
+                    ),
+                  if (_scenes.isNotEmpty)
+                    Positioned.fill(
+                      child: SceneOverlay(
+                        key: ObjectKey(_scenes.first),
+                        scene: _scenes.first.scene,
+                        onDone: _nextScene,
                       ),
                     ),
-                    const SizedBox(width: 8),
-                    _RoundButton(gfx: 'log', label: 'السجل', size: 40, onTap: () => showGameLog(context, v)),
-                  ],
-                ),
+                ],
               ),
-              // حركتك أنت: بعد ما تخلص المشاهد، عشان ضغطتك ما تروح للمشهد وتحس إن الزر ما اشتغل.
-              if (_scenes.isEmpty) ..._actionLayer(v, pickHint),
-              if (_claimPending(v))
-                Center(
-                  child: _ClaimPrompt(
-                    count: v.claimCount!,
-                    truth: _truth(v),
-                    onClaim: (policies) => _claim(v, policies),
-                    onLater: () => setState(() {
-                      _claimLater = _claimKey(v);
-                      _claimOpen = null;
-                    }),
-                  ),
-                ),
-              if (_tip case final tip? when !over)
-                Positioned(
-                  bottom: 8,
-                  left: 0,
-                  right: 0,
-                  child: Center(
-                    child: _CoachCard(key: ValueKey(tip), text: _tips[tip]!, onClose: _closeTip),
-                  ),
-                ),
-              if (over && _scenes.isEmpty && _resultsOpen)
-                _GameOver(
-                  view: v,
-                  room: _room,
-                  onPlayer: _editNote,
-                  onClose: () => setState(() => _resultsOpen = false),
-                  onLeave: _leaveTable,
-                ),
-              if (_scenes.isNotEmpty)
-                Positioned.fill(
-                  child: EventOverlay(
-                    key: ObjectKey(_scenes.first),
-                    duration: _scenes.first.$3,
-                    onDone: _nextScene,
-                    child: _scenes.first.$1,
-                  ),
-                ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -1219,48 +1279,64 @@ class _GameScreenState extends State<GameScreen> {
         ];
       case Phase.presidentDiscard when v.amPresident:
         return [
-          _hand(
-            'اختر الكرت اللي بترميه (سري)',
-            _cards(v.hand, (i) => _act({'type': 'discard', 'index': i}, note: 'رميت كرت، والباقي راح للوزير'), 'ارمِ'),
+          Positioned.fill(
+            child: CardHand(
+              key: ValueKey('discard${v.round}'),
+              cards: v.hand,
+              skin: _skin,
+              hint: 'اسحب الكرت اللي بترميه للمجمرة (سري)',
+              verb: 'ارمِ',
+              target: HandTarget.burn,
+              onPick: (i) => _act({'type': 'discard', 'index': i}, note: 'رميت كرت، والباقي راح للوزير'),
+            ),
           ),
         ];
       case Phase.chancellorEnact when v.amNominee:
         return [
-          _hand(
-            'اختر الكرت اللي بتمرره',
-            _cards(v.hand, (i) => _act({'type': 'enact', 'index': i}, note: 'مرّرت القرار'), 'مرّر'),
-            extra: v.canVeto
-                ? TextButton(
-                    onPressed: () => _act({'type': 'proposeVeto'}, note: 'طلبت فيتو… ننتظر رد الرئيس'),
-                    child: const Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [Gfx('hand', size: 22), SizedBox(width: 4), Text('اطلب فيتو (نرمي الاثنين)')],
-                    ),
-                  )
-                : null,
+          Positioned.fill(
+            child: CardHand(
+              key: ValueKey('enact${v.round}'),
+              cards: v.hand,
+              skin: _skin,
+              hint: 'اسحب الكرت اللي بتمرره للختم',
+              verb: 'مرّر',
+              target: HandTarget.stamp,
+              onPick: (i) => _act({'type': 'enact', 'index': i}, note: 'مرّرت القرار'),
+              extra: v.canVeto
+                  ? Container(
+                      decoration: BoxDecoration(
+                        color: AppColors.panel.withValues(alpha: .92),
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(color: AppColors.gold.withValues(alpha: .5)),
+                      ),
+                      child: TextButton(
+                        onPressed: () => _act({'type': 'proposeVeto'}, note: 'طلبت فيتو… ننتظر رد الرئيس'),
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [Gfx('hand', size: 22), SizedBox(width: 4), Text('اطلب فيتو (نرمي الاثنين)')],
+                        ),
+                      ),
+                    )
+                  : null,
+            ),
           ),
         ];
       case Phase.power when v.amPresident && v.pendingPower == Power.peek:
         return [
-          _hand(
-            'أول ٣ كروت في الكومة (لك بس)',
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                for (final p in v.peeked ?? const <Policy>[])
-                  Padding(
-                    padding: const EdgeInsets.all(4),
-                    child: PolicyCard(policy: p, skin: _skin, width: 66),
-                  ),
-              ],
-            ),
-            extra: SizedBox(
-              width: 160,
-              child: GameButton(
-                label: 'تمام',
-                height: 42,
-                fontSize: 16,
-                onPressed: () => _act({'type': 'acknowledgePeek'}),
+          Positioned.fill(
+            child: CardHand(
+              key: const ValueKey('peek'),
+              cards: v.peeked ?? const <Policy>[],
+              skin: _skin,
+              hint: 'أول ٣ كروت في الكومة (لك بس)',
+              extra: SizedBox(
+                width: 120,
+                child: GameButton(
+                  label: 'تمام',
+                  height: 42,
+                  fontSize: 16,
+                  onPressed: () => _act({'type': 'acknowledgePeek'}),
+                ),
               ),
             ),
           ),
@@ -1323,59 +1399,6 @@ class _GameScreenState extends State<GameScreen> {
       ],
     ),
   );
-
-  /// الكروت في نص الطاولة.
-  Widget _hand(String hint, Widget cards, {Widget? extra}) => Center(
-    child: Container(
-      padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
-      decoration: BoxDecoration(
-        color: AppColors.panel.withValues(alpha: .9),
-        borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: AppColors.gold.withValues(alpha: .6), width: 2),
-        boxShadow: const [BoxShadow(color: Colors.black87, blurRadius: 24)],
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            hint,
-            style: const TextStyle(fontFamily: kufi, fontSize: 15, fontWeight: FontWeight.w700),
-          ),
-          const SizedBox(height: 8),
-          cards,
-          if (extra != null) ...[const SizedBox(height: 6), extra],
-        ],
-      ),
-    ),
-  );
-
-  Widget _cards(List<Policy> hand, void Function(int) onPick, String verb) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        for (final (i, p) in hand.indexed)
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 6),
-            child: TweenAnimationBuilder<double>(
-              tween: Tween(begin: 0, end: 1),
-              duration: Duration(milliseconds: 300 + i * 120),
-              curve: Curves.easeOutBack,
-              builder: (context, t, child) => Transform.translate(
-                offset: Offset(0, 40 * (1 - t)),
-                child: Opacity(opacity: t.clamp(0, 1), child: child),
-              ),
-              child: PolicyCard(
-                policy: p,
-                skin: _skin,
-                width: 84,
-                label: '$verb كرت ${i + 1} ${p == Policy.loyal ? 'أوفياء' : 'خونة'}',
-                onTap: () => onPick(i),
-              ),
-            ),
-          ),
-      ],
-    );
-  }
 }
 
 /// فوق يمين: الجولة، ودورك (تضغطه يطلع لك بطاقة دورك).
@@ -1551,25 +1574,8 @@ class _RoundButton extends StatelessWidget {
   }
 }
 
-/// شريط الوقت على حافة الشاشة فوق. يحمر في آخر ٥ ثواني.
-class _TopTimer extends StatelessWidget {
-  const _TopTimer({required this.view});
-
-  final GameView view;
-
-  @override
-  Widget build(BuildContext context) {
-    final total = (_phaseSeconds[view.phase] ?? 30) * (view.tutorial ? 4 : (view.quick ? .5 : 1));
-    final left = view.deadline!.difference(DateTime.now()).inMilliseconds.clamp(0, total * 1000) / 1000;
-    final urgent = left <= 5;
-    return LinearProgressIndicator(
-      value: left / total,
-      minHeight: 4,
-      backgroundColor: Colors.transparent,
-      color: urgent ? AppColors.traitor : AppColors.gold,
-    );
-  }
-}
+/// مدة الدور كاملة بالثواني (الشرح أطول، والسريع نصها).
+double _phaseTotal(GameView v) => (_phaseSeconds[v.phase] ?? 30) * (v.tutorial ? 4 : (v.quick ? .5 : 1));
 
 /// الرسالة في نص الصينية: وش يصير الحين.
 class _TableCenter extends StatelessWidget {

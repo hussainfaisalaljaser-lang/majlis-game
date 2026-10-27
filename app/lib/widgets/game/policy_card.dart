@@ -16,6 +16,7 @@ class PolicyCard extends StatelessWidget {
     this.skin,
     this.width = 92,
     this.highlight = false,
+    this.stamp,
   });
 
   final Policy policy;
@@ -27,6 +28,9 @@ class PolicyCard extends StatelessWidget {
   final CardSkin? skin;
   final double width;
   final bool highlight;
+
+  /// مشهد الختم: الختم ينزل على الورقة من فوق (٠ قبل، ١ انختم). بدونه الورقة مختومة.
+  final double? stamp;
 
   @override
   Widget build(BuildContext context) {
@@ -83,6 +87,7 @@ class PolicyCard extends StatelessWidget {
               ],
             ),
             child: Stack(
+              clipBehavior: Clip.none,
               children: [
                 Positioned.fill(
                   child: Container(
@@ -93,14 +98,45 @@ class PolicyCard extends StatelessWidget {
                     ),
                   ),
                 ),
-                Align(alignment: const Alignment(0, -.25), child: seal),
-                Align(
-                  alignment: const Alignment(0, .78),
-                  child: Text(
-                    loyal ? 'أوفياء' : 'خونة',
-                    style: TextStyle(fontFamily: kufi, fontWeight: FontWeight.w700, fontSize: width * .17, color: edge),
+                if (stamp case final k?) ...[
+                  if (k > 0 && k < 1)
+                    Align(
+                      alignment: const Alignment(0, -.25),
+                      child: Container(
+                        width: width * .58 * (1.6 - .6 * k),
+                        height: width * .58 * (1.6 - .6 * k),
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: Colors.black.withValues(alpha: .3 * k),
+                        ),
+                      ),
+                    ),
+                  if (k > 0)
+                    Align(
+                      alignment: const Alignment(0, -.25),
+                      child: Opacity(
+                        opacity: k,
+                        child: Transform.rotate(
+                          angle: (1 - k) * .9,
+                          child: Transform.scale(scale: 1 + (1 - k) * 2.4, child: seal),
+                        ),
+                      ),
+                    ),
+                ] else
+                  Align(alignment: const Alignment(0, -.25), child: seal),
+                if ((stamp ?? 1) >= 1)
+                  Align(
+                    alignment: const Alignment(0, .78),
+                    child: Text(
+                      loyal ? 'أوفياء' : 'خونة',
+                      style: TextStyle(
+                        fontFamily: kufi,
+                        fontWeight: FontWeight.w700,
+                        fontSize: width * .17,
+                        color: edge,
+                      ),
+                    ),
                   ),
-                ),
               ],
             ),
           ),
