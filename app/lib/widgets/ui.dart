@@ -36,15 +36,39 @@ class NightBackground extends StatelessWidget {
 
 /// صفحة بخلفية الليل.
 class NightScaffold extends StatelessWidget {
-  const NightScaffold({super.key, this.appBar, required this.body, this.bottomNavigationBar, this.glow});
+  const NightScaffold({
+    super.key,
+    this.appBar,
+    required this.body,
+    this.bottomNavigationBar,
+    this.glow,
+    this.background,
+  });
 
   final PreferredSizeWidget? appBar;
   final Widget body;
   final Widget? bottomNavigationBar;
   final Color? glow;
 
+  /// رسمة ورا الشاشة بدال الليل (مثل مكان الطاولة)، ومعها ظل يخلي الكلام يبان.
+  final Widget? background;
+
   @override
   Widget build(BuildContext context) {
+    if (background case final bg?) {
+      return Stack(
+        children: [
+          Positioned.fill(child: bg),
+          const Positioned.fill(child: ColoredBox(color: Color(0xA6000000))),
+          Scaffold(
+            backgroundColor: Colors.transparent,
+            appBar: appBar,
+            body: body,
+            bottomNavigationBar: bottomNavigationBar,
+          ),
+        ],
+      );
+    }
     return NightBackground(
       glow: glow ?? const Color(0xFF3A2A78),
       child: Scaffold(

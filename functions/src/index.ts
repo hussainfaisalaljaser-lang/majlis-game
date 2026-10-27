@@ -26,6 +26,7 @@ import {
   botAction,
   botReactions,
   botSeerReveal,
+  botSpyPeek,
   botClaim,
   createGame,
   currentActors,
@@ -33,6 +34,8 @@ import {
   timeoutActions,
   turnKey,
   viewFor,
+  watchView,
+  WATCHER,
   type Action,
   type GameState,
 } from '../../engine/src/index.js';
@@ -56,6 +59,7 @@ import {
   XP_PER_WIN,
   levelFor,
   tierById,
+  weekendBoost,
   type TableTier,
 } from './economy.js';
 import { MISSIONS, bumpMissions, gulfWeek, todaysMissions, type MissionId } from './missions.js';
@@ -82,6 +86,26 @@ import {
 import { CATALOG, CHAMPION_REWARDS, REACTIONS, SEASON } from './catalog.js';
 import { addPassPoints, applyLevelRewards, claimPass, grant, passOf, seasonActive } from './rewards.js';
 import { avatarOfItem, itemById, slotOf } from './shop.js';
+import {
+  addClanPoints,
+  claimClanChest,
+  clanKick,
+  clanPoints,
+  clanRole,
+  createClan,
+  joinClan,
+  leaveClan,
+  readClans,
+} from './clans.js';
+import {
+  TOUR_TABLE,
+  applyTour,
+  tourJoin,
+  tourRef,
+  tourStageOf,
+  writeTour,
+  type Tour,
+} from './tournament.js';
 
 export interface RoomPlayer {
   uid: string;
@@ -93,6 +117,8 @@ export interface RoomPlayer {
   bubble?: string;
   /** لاعب آلي. يطلع للكل إنه بوت. */
   bot?: boolean;
+  /** نسخة بروتوكول تطبيقه (Profile.proto). الأدوار الجديدة بس لو كل البشر عندهم ٢ أو أكثر. */
+  proto?: number;
 }
 
 // البوتات لابسة أغراض من المتجر، عشان اللاعب يشوفها في اللعب.
@@ -118,6 +144,10 @@ export interface GameResult {
   xp: number;
   /** نقاط التصنيف (الطاولات العامة بس). */
   rank?: number;
+  /** الذهب انضرب في هالرقم (نهاية الأسبوع). */
+  boost?: number;
+  /** طاولة البطولة: وين صار (الدور بعد اللعبة)، وطلع أو لا، وصار بطل. */
+  tour?: { stage: number; out: boolean; champion: boolean };
 }
 
 export interface Room {
@@ -146,6 +176,13 @@ export interface Room {
   finishedAtMs?: number;
   /** اللي طلعوا من الطاولة بعد ما خلصت اللعبة (يبان للباقين إنهم طلعوا). */
   gone?: string[];
+  /** «العب مرة ثانية»: كود الروم الجديد بنفس الإعدادات (أول واحد ضغطها سواه، والباقين يدخلونه). */
+  next?: string;
+  /** أصحاب اللاعبين اللي يتفرجون على اللعبة (يقرون نسخة المتفرج). */
+  watchers?: string[];
+  /** طاولة بطولة الأسبوع: أي دور (٠ الأول، ١ نص النهائي، ٢ النهائي) وأي أسبوع. */
+  tour?: number;
+  tourWeek?: string;
 }
 
 export interface Reaction {
@@ -177,8 +214,14 @@ async function newRoomCode(): Promise<string> {
 
 const asPlayer = (uid: string, p: Profile): RoomPlayer => {
   const eq = equippedOf(p);
-  return { uid, name: p.name, avatar: avatarOf(p), frame: eq.frame, bubble: eq.bubble };
+  return { uid, name: p.name, avatar: avatarOf(p), frame: eq.frame, bubble: eq.bubble, proto: p.proto ?? 1 };
 };
+
+/** نسخة البروتوكول اللي فيها الأدوار الجديدة وإعادة اللعب والتفرج (Profile.proto). */
+const PROTO_V2 = 2;
+
+/** كل البشر في الروم تطبيقهم يعرف الأدوار الجديدة؟ (النسخة القديمة تطيح لو شافت دور ما تعرفه.) */
+const modernRoom = (room: Room) => room.players.every((p) => p.bot || (p.proto ?? 1) >= PROTO_V2);
 
 /** يتأكد إن اللاعب يقدر يدخل الطاولة (المستوى والذهب والـ VIP). */
 function checkTier(p: Profile, tier: TableTier): void {
@@ -201,11 +244,18 @@ function startGameTx(tx: Transaction, room: Room): GameState {
     ...createGame(
       room.players.map((p) => ({ id: p.uid, name: p.name })),
       randomInt(2 ** 31),
+      { extraSpecials: modernRoom(room) },
     ),
     quick: room.quick ?? false,
   };
   tx.update(db.doc(`rooms/${room.code}`), { status: 'playing' });
   writeGame(tx, room.code, state, deadlineFor(state, Date.now(), startGrace()));
+  // يلعب الحين: أصحابه يشوفونه ويقدرون يتفرجون.
+  const at = Date.now();
+  for (const p of room.players.filter((pl) => !isBot(pl.uid))) {
+    tx.set(userRef(p.uid), { playing: { code: room.code, at } }, { merge: true });
+    tx.set(boardRef(p.uid), { playingSince: at }, { merge: true });
+  }
   return state;
 }
 
@@ -252,12 +302,16 @@ function runInstantBots(state: GameState): GameState {
         }
       }
     }
-    // العرّاف البوت يستخدم كشفه لما يجي وقته (من الجولة الثانية).
+    // العرّاف البوت يستخدم كشفه لما يجي وقته (من الجولة الثانية)، والجاسوس البوت يشوف الكومة.
     for (const p of s.players) {
       if (!botPlays(s)(p.id)) continue;
       const target = botSeerReveal(s, p.id);
       if (target) {
         s = applyAction(s, p.id, { type: 'seerReveal', target });
+        changed = true;
+      }
+      if (botSpyPeek(s, p.id)) {
+        s = applyAction(s, p.id, { type: 'spyPeek' });
         changed = true;
       }
     }
@@ -281,6 +335,8 @@ function writeGame(tx: Transaction, code: string, state: GameState, deadline: nu
   for (const p of state.players) {
     tx.set(gameRef.collection('views').doc(p.id), { ...viewFor(state, p.id), deadline, autopilot: state.autopilot ?? [] });
   }
+  // نسخة المتفرجين (بدون أي سر).
+  tx.set(gameRef.collection('views').doc(WATCHER), { ...watchView(state), deadline, autopilot: state.autopilot ?? [] });
 }
 
 interface StoredGame extends GameState {
@@ -297,10 +353,12 @@ function splitGame(data: StoredGame): { state: GameState; deadline: number | nul
 export const ensureProfile = onCall(async (req) => {
   const uid = requireAuth(req);
   const owner = isOwner(req);
+  // نسخة التطبيق (النسخ القديمة ما ترسلها).
+  const proto = clampInt(req.data?.proto ?? 1, 1, 100);
   await db.runTransaction(async (tx) => {
     const snap = await tx.get(userRef(uid));
     if (!snap.exists) {
-      return tx.set(userRef(uid), { ...newProfile(), dev: owner, owner, pid: await reservePid(tx, uid), pidTier: 0 });
+      return tx.set(userRef(uid), { ...newProfile(), dev: owner, owner, proto, pid: await reservePid(tx, uid), pidTier: 0 });
     }
     const p = snap.data() as Profile;
     const dev = isDev(req, p);
@@ -308,8 +366,8 @@ export const ensureProfile = onCall(async (req) => {
     const withPid = p.pid ? p : { ...p, pid: await reservePid(tx, uid), pidTier: 0 };
     // هدايا مستويات ما أخذها (مثلاً وصل المستوى قبل ما تنضاف الهدايا).
     const rewarded = applyLevelRewards(withPid);
-    if (rewarded !== p || (p.dev ?? false) !== dev || (p.owner ?? false) !== owner) {
-      tx.set(userRef(uid), { ...rewarded, dev, owner });
+    if (rewarded !== p || (p.dev ?? false) !== dev || (p.owner ?? false) !== owner || (p.proto ?? 1) !== proto) {
+      tx.set(userRef(uid), { ...rewarded, dev, owner, proto });
     }
     if (withPid !== p && p.setupDone) tx.set(boardRef(uid), toLeaderboard(rewarded));
   });
@@ -414,15 +472,18 @@ async function forceRole(uid: string, code: string, role: unknown, special: unkn
     const players = state.players.map((p) => ({ ...p }));
     const me = players.find((p) => p.id === uid);
     if (!me) throw new HttpsError('permission-denied', 'أنت مو في هذي اللعبة');
-    const wantRole = special === 'seer' || special === 'guardian' ? 'loyal' : role;
+    const known = ['seer', 'guardian', 'judge', 'elder', 'spy'] as const;
+    const wanted = known.find((k) => k === special) ?? null;
+    // العرّاف والحارس للأوفياء بس، والأدوار الجديدة لأي فريق (إلا الزعيم).
+    const wantRole = wanted === 'seer' || wanted === 'guardian' ? 'loyal' : wanted && role === 'leader' ? 'loyal' : role;
     if (wantRole === 'loyal' || wantRole === 'traitor' || wantRole === 'leader') {
       const other = players.find((p) => p.id !== uid && p.role === wantRole && !p.special);
       if (me.role !== wantRole && other) [me.role, other.role] = [other.role, me.role];
     }
-    if (special === 'seer' || special === 'guardian') {
-      const holder = players.find((p) => p.special === special);
+    if (wanted) {
+      const holder = players.find((p) => p.special === wanted);
       if (holder && holder !== me) holder.special = me.special;
-      me.special = special;
+      me.special = wanted;
     }
     writeGame(tx, code, { ...state, players, seerSees: null }, deadline);
   });
@@ -514,29 +575,81 @@ export const createRoom = onCall(async (req) => {
   return { code };
 });
 
+/** يدخّل لاعب روم ينتظر (داخل عملية): يتأكد من المكان والطاولة ويخصم الرسوم. يرجّع اللعبة لو بدأت. */
+async function joinTx(tx: Transaction, code: string, uid: string): Promise<GameState | null> {
+  const ref = db.doc(`rooms/${code}`);
+  const snap = await tx.get(ref);
+  if (!snap.exists) throw new HttpsError('not-found', 'ما فيه روم بهذا الكود');
+  const room = snap.data() as Room;
+  if (room.players.some((p) => p.uid === uid)) return null;
+  if (room.status !== 'waiting') throw new HttpsError('failed-precondition', 'اللعبة بدأت');
+  if (room.players.length >= room.maxPlayers) throw new HttpsError('failed-precondition', 'الروم مليان');
+  const p = await readProfile(db, tx, uid);
+  requireNotBanned(p);
+  const tier = tierById(room.tierId);
+  if (tier) checkTier(p, tier);
+  if (room.entryFee > 0) chargeEntry(tx, uid, p, room.entryFee);
+  room.players.push(asPlayer(uid, p));
+  tx.update(ref, { players: room.players });
+  return !room.isPrivate && room.players.length === room.maxPlayers ? startGameTx(tx, room) : null;
+}
+
 export const joinRoom = onCall(async (req) => {
   const uid = requireAuth(req);
   const code = String(req.data?.code ?? '').trim().toUpperCase();
   if (!/^[A-Z0-9]{5}$/.test(code)) throw new HttpsError('invalid-argument', 'الكود لازم يكون ٥ حروف');
-  const started = await db.runTransaction(async (tx): Promise<GameState | null> => {
+  const started = await db.runTransaction((tx) => joinTx(tx, code, uid));
+  if (started) await sendPush(code, whoToNotify(null, started));
+  return { code };
+});
+
+/**
+ * «العب مرة ثانية» بعد ما تخلص اللعبة: أول واحد يضغطها يسوي روم جديد بنفس الإعدادات والبوتات (وهو صاحبه)،
+ * والباقين يدخلونه. التدريب (أنت والبوتات بس) يبدأ على طول، والطاولة العامة تبدأ لما تكتمل.
+ */
+export const rematch = onCall(async (req) => {
+  const uid = requireAuth(req);
+  const code = String(req.data?.code ?? '');
+  const fresh = await newRoomCode();
+  const out = await db.runTransaction(async (tx): Promise<{ code: string; started: GameState | null }> => {
     const ref = db.doc(`rooms/${code}`);
-    const snap = await tx.get(ref);
-    if (!snap.exists) throw new HttpsError('not-found', 'ما فيه روم بهذا الكود');
-    const room = snap.data() as Room;
-    if (room.players.some((p) => p.uid === uid)) return null;
-    if (room.status !== 'waiting') throw new HttpsError('failed-precondition', 'اللعبة بدأت');
-    if (room.players.length >= room.maxPlayers) throw new HttpsError('failed-precondition', 'الروم مليان');
+    const room = (await tx.get(ref)).data() as Room | undefined;
+    if (!room || room.status !== 'finished') throw new HttpsError('failed-precondition', 'اللعبة ما خلصت');
+    if (!room.players.some((p) => p.uid === uid)) throw new HttpsError('permission-denied', 'أنت مو في هذي الطاولة');
+    if (room.tutorial) throw new HttpsError('failed-precondition', 'لعبة الشرح ما تنعاد');
+    if (room.tour != null) throw new HttpsError('failed-precondition', 'جولات البطولة ما تنعاد، العب جولتك الجاية من البطولة');
+    // فيه روم جاهز من واحد ضغط قبلك: تدخله.
+    if (room.next) return { code: room.next, started: await joinTx(tx, room.next, uid) };
     const p = await readProfile(db, tx, uid);
     requireNotBanned(p);
     const tier = tierById(room.tierId);
     if (tier) checkTier(p, tier);
+    // البوتات ترجع لنفس الطاولة (مو اللاعبين اللي طلعوا وكمّل عنهم بوت).
+    const bots = room.players.filter((pl) => isBot(pl.uid));
+    const alone = room.players.every((pl) => pl.uid === uid || isBot(pl.uid));
+    const next: Room = {
+      code: fresh,
+      hostId: uid,
+      status: 'waiting',
+      isPrivate: room.isPrivate,
+      maxPlayers: room.maxPlayers,
+      tierId: room.tierId,
+      entryFee: room.entryFee,
+      players: [asPlayer(uid, p), ...bots.slice(0, room.maxPlayers - 1)],
+      createdAt: FieldValue.serverTimestamp(),
+      createdAtMs: Date.now(),
+      quick: room.quick ?? false,
+    };
     if (room.entryFee > 0) chargeEntry(tx, uid, p, room.entryFee);
-    room.players.push(asPlayer(uid, p));
-    tx.update(ref, { players: room.players });
-    return !room.isPrivate && room.players.length === room.maxPlayers ? startGameTx(tx, room) : null;
+    tx.set(db.doc(`rooms/${fresh}`), next);
+    tx.update(ref, { next: fresh });
+    const start =
+      (room.isPrivate && alone && next.players.length >= MIN_PLAYERS) ||
+      (!room.isPrivate && next.players.length === next.maxPlayers);
+    return { code: fresh, started: start ? startGameTx(tx, next) : null };
   });
-  if (started) await sendPush(code, whoToNotify(null, started));
-  return { code };
+  if (out.started) await sendPush(out.code, whoToNotify(null, out.started));
+  return { code: out.code, started: out.started !== null };
 });
 
 /** "العب الحين": يدخلك أول روم عام فيه مكان بنفس الطاولة وعدد اللاعبين، أو يسوي واحد جديد. */
@@ -594,6 +707,63 @@ export const quickMatch = onCall(async (req) => {
       createdAt: FieldValue.serverTimestamp(),
       createdAtMs: Date.now(),
       quick,
+    };
+    tx.set(db.doc(`rooms/${code}`), room);
+  });
+  return { code };
+});
+
+/**
+ * «العب جولتك» في بطولة الأسبوع: يدخلك طاولة بطولة بنفس دورك (أو يسوي وحدة)، وتتكمل بالبوتات بعد شوي.
+ */
+export const tourPlay = onCall(async (req) => {
+  const uid = requireAuth(req);
+  const now = Date.now();
+  const week = gulfWeek(now);
+  const stage = await db.runTransaction(async (tx) => tourStageOf(await readProfile(db, tx, uid), now));
+  const open = await db
+    .collection('rooms')
+    .where('status', '==', 'waiting')
+    .where('isPrivate', '==', false)
+    .where('tour', '==', stage)
+    .where('tourWeek', '==', week)
+    .limit(10)
+    .get();
+  for (const doc of open.docs) {
+    const joined = await db.runTransaction(async (tx): Promise<{ started: GameState | null } | null> => {
+      const room = (await tx.get(doc.ref)).data() as Room | undefined;
+      const p = await readProfile(db, tx, uid);
+      requireNotBanned(p);
+      if (tourStageOf(p, now) !== stage) return null;
+      if (!room || room.status !== 'waiting' || room.players.length >= room.maxPlayers) return null;
+      if (room.players.some((x) => x.uid === uid)) return { started: null };
+      if (room.players.some((x) => (p.blocked ?? []).includes(x.uid))) return null;
+      room.players.push(asPlayer(uid, p));
+      tx.update(doc.ref, { players: room.players });
+      return { started: room.players.length === room.maxPlayers ? startGameTx(tx, room) : null };
+    });
+    if (joined?.started) await sendPush(doc.id, whoToNotify(null, joined.started));
+    if (joined) return { code: doc.id };
+  }
+  const code = await newRoomCode();
+  await db.runTransaction(async (tx) => {
+    const p = await readProfile(db, tx, uid);
+    requireNotBanned(p);
+    tourStageOf(p, now);
+    const room: Room = {
+      code,
+      hostId: uid,
+      status: 'waiting',
+      isPrivate: false,
+      maxPlayers: TOUR_TABLE,
+      tierId: null,
+      entryFee: 0,
+      players: [asPlayer(uid, p)],
+      createdAt: FieldValue.serverTimestamp(),
+      createdAtMs: Date.now(),
+      quick: false,
+      tour: stage,
+      tourWeek: week,
     };
     tx.set(db.doc(`rooms/${code}`), room);
   });
@@ -766,7 +936,9 @@ export const startTutorial = onCall(async (req) => {
       tutorial: true,
     };
     tx.set(db.doc(`rooms/${code}`), room);
-    const state = rigTutorial(createGame(room.players.map((pl) => ({ id: pl.uid, name: pl.name })), randomInt(2 ** 31)), uid);
+    // لعبة الشرح بدون الأدوار الجديدة (قاضي، شيخ، جاسوس): خلّها بسيطة للاعب الجديد.
+    const players = room.players.map((pl) => ({ id: pl.uid, name: pl.name }));
+    const state = rigTutorial(createGame(players, randomInt(2 ** 31), { extraSpecials: false }), uid);
     writeGame(tx, code, state, deadlineFor(state, Date.now(), startGrace(true)));
   });
   return { code };
@@ -830,6 +1002,14 @@ async function finishTurn(
   const profiles = (await Promise.all(uids.map((uid) => tx.get(userRef(uid))))).map((s) =>
     s.exists ? (s.data() as Profile) : null,
   );
+  // الدواوين: الطاولات العامة بس تزيد نقاطها (عشان ما تنجمع من التدريب).
+  const forClans = over && !!room && !room.isPrivate && !next.tutorial;
+  const clans = forClans ? await readClans(tx, profiles.flatMap((p) => (p?.clan ? [p.clan.id] : []))) : new Map();
+  const clanGains: Parameters<typeof addClanPoints>[2] = [];
+  // طاولة البطولة: نقرا لوحة البطولة قبل الكتابة.
+  const tourWeek = over && room?.tour != null ? room.tourWeek : undefined;
+  const tourDoc = tourWeek ? ((await tx.get(tourRef(tourWeek))).data() as Tour | undefined) : undefined;
+  const tourChanges: Parameters<typeof writeTour>[3] = [];
 
   const delay = scenesDelay(prev.state, next);
   const deadline = turnKey(next) === prev.key ? prev.deadline : deadlineFor(next, now, delay);
@@ -860,6 +1040,8 @@ async function finishTurn(
   const winners = next.players.filter((p) => teamOf(p.role) === next.winner);
   const pot = room.entryFee * humans.length;
   const share = winners.length ? Math.floor(pot / winners.length) : 0;
+  // نهاية الأسبوع: ذهب الفوز مضاعف.
+  const boost = weekendBoost(now);
   const week = gulfWeek(now);
   const results: Record<string, GameResult> = {};
   humans.forEach((player, i) => {
@@ -867,11 +1049,13 @@ async function finishTurn(
     const won = teamOf(player.role) === next.winner && !(next.autopilot ?? []).includes(player.id);
     const p = profiles[i];
     const xp = XP_PER_GAME + (won ? XP_PER_WIN : 0);
-    const coins = won ? share : 0;
-    results[player.id] = { won, coins, xp };
+    const coins = won ? share * boost : 0;
+    results[player.id] = { won, coins, xp, ...(coins > 0 && boost > 1 ? { boost } : {}) };
     if (!p) return;
     const base: Profile = {
       ...p,
+      // خلصت اللعبة: ما عاد يلعب (إلا لو طلع منها ودخل لعبة ثانية).
+      playing: p.playing?.code === code ? null : (p.playing ?? null),
       coins: p.coins + coins,
       xp: p.xp + xp,
       level: levelFor(p.xp + xp),
@@ -888,6 +1072,22 @@ async function finishTurn(
     }
     // الإنجازات: إحصائيات هاللعبة، ودرجات جديدة لو وصلها.
     updated = applyStats(updated, statsFromGame(next, player.id, won), won);
+    // البطولة: الفايز يتأهل للدور اللي بعده، والخسران (أو اللي طلع) يطلع منها، واللي فاز النهائي بطل.
+    if (tourWeek && room.tour != null) {
+      const t = applyTour(updated, room.tour, tourWeek, won);
+      updated = t.profile;
+      if (t.result) {
+        tourChanges.push({ uid: player.id, p: updated, ...t.result });
+        results[player.id] = { ...results[player.id], tour: t.result };
+      }
+    }
+    // ديوانه: نقاط اللعبة (واللي ديوانه انحذف ينشال من ملفه).
+    if (forClans && updated.clan) {
+      if (!clans.has(updated.clan.id)) updated = { ...updated, clan: null };
+      else if (!(next.autopilot ?? []).includes(player.id)) {
+        clanGains.push({ uid: player.id, clan: updated.clan.id, points: clanPoints(won), p: updated });
+      }
+    }
     // التصنيف: الطاولات العامة بس (اللي طلع يخسر نقاط).
     if (!room.isPrivate && !next.tutorial) {
       const before = rankOf(updated).points;
@@ -897,6 +1097,8 @@ async function finishTurn(
     tx.set(userRef(player.id), updated);
     tx.set(boardRef(player.id), toLeaderboard(updated));
   });
+  if (clanGains.length) addClanPoints(tx, clans, clanGains, now);
+  if (tourWeek) writeTour(tx, tourWeek, tourDoc, tourChanges);
   tx.update(roomRef, { ...roomUpdate, status: 'finished', results, finishedAtMs: Date.now() });
   return whoToNotify(prev.state, next);
 }
@@ -909,7 +1111,11 @@ function handOver(tx: Transaction, room: Room, uids: string[], banUntil?: number
   tx.update(db.doc(`rooms/${room.code}`), {
     players: room.players.map((p) => (uids.includes(p.uid) ? { ...p, bot: true } : p)),
   });
-  if (banUntil) for (const uid of uids) tx.set(userRef(uid), { bannedUntil: banUntil }, { merge: true });
+  // طلع من اللعبة: ما عاد يلعب (والبوت يكمل عنه).
+  for (const uid of uids) {
+    tx.set(userRef(uid), { playing: null, ...(banUntil ? { bannedUntil: banUntil } : {}) }, { merge: true });
+    tx.set(boardRef(uid), { playingSince: null }, { merge: true });
+  }
 }
 
 /** اللي انطرد لأنه ما لعب، ما يدخل ألعاب لين يخلص عقابه. */
@@ -988,6 +1194,47 @@ export const timeout = onCall(async (req) => {
   });
   if (notes) await sendPush(code, notes);
   return { applied: notes !== null };
+});
+
+/** بالكثير كم واحد يتفرج على لعبة. */
+const MAX_WATCHERS = 20;
+
+/**
+ * تتفرج على لعبة صاحبك وهي شغالة: لازم يكون صاحبك ويلعب الحين. ترجع كود الروم، وتقدر تقرا نسخة المتفرج
+ * (كل شي عام، بدون أدوار ولا كروت).
+ */
+export const spectate = onCall(async (req) => {
+  const uid = requireAuth(req);
+  const target = String(req.data?.uid ?? '');
+  return db.runTransaction(async (tx) => {
+    const me = await readProfile(db, tx, uid);
+    if (!target || !(me.friends ?? []).includes(target)) throw new HttpsError('permission-denied', 'تقدر تتفرج على أصحابك بس');
+    const them = (await tx.get(userRef(target))).data() as Profile | undefined;
+    const code = them?.playing?.code;
+    if (!code) throw new HttpsError('failed-precondition', 'صاحبك ما يلعب الحين');
+    const ref = db.doc(`rooms/${code}`);
+    const room = (await tx.get(ref)).data() as Room | undefined;
+    if (!room || room.status !== 'playing') throw new HttpsError('failed-precondition', 'لعبة صاحبك خلصت');
+    if (room.players.some((p) => p.uid === uid)) throw new HttpsError('failed-precondition', 'أنت معه في نفس اللعبة!');
+    const watchers = room.watchers ?? [];
+    if (!watchers.includes(uid)) {
+      if (watchers.length >= MAX_WATCHERS) throw new HttpsError('resource-exhausted', 'المتفرجين كثير، جرّب بعدين');
+      tx.update(ref, { watchers: [...watchers, uid] });
+    }
+    return { code };
+  });
+});
+
+/** خلّص تفرّج: يطلع من قائمة المتفرجين (عشان العدد يبقى صحيح). */
+export const stopWatching = onCall(async (req) => {
+  const uid = requireAuth(req);
+  const code = String(req.data?.code ?? '');
+  await db.runTransaction(async (tx) => {
+    const ref = db.doc(`rooms/${code}`);
+    const room = (await tx.get(ref)).data() as Room | undefined;
+    if (room?.watchers?.includes(uid)) tx.update(ref, { watchers: room.watchers.filter((w) => w !== uid) });
+  });
+  return {};
 });
 
 /** شراء غرض من المتجر بالذهب أو الجواهر. */
@@ -1191,6 +1438,27 @@ export const claimMission = onCall(async (req) => {
     tx.set(userRef(uid), addPassPoints(claimed, MISSION_PASS_POINTS, Date.now()));
     return { coins: mission.coins };
   });
+});
+
+/** كم ملصق يقدر يحط في المفضلة. */
+const MAX_FAVORITES = 5;
+
+/** الملصقات المفضلة: بالكثير ٥، من الباقات اللي يملكها، بالترتيب اللي يبيه. */
+export const setFavorites = onCall(async (req) => {
+  const uid = requireAuth(req);
+  const raw: unknown[] = Array.isArray(req.data?.ids) ? req.data.ids : [];
+  const ids = [...new Set(raw.map(String))];
+  if (ids.length > MAX_FAVORITES) throw new HttpsError('invalid-argument', `المفضلة بالكثير ${MAX_FAVORITES}`);
+  await db.runTransaction(async (tx) => {
+    const p = await readProfile(db, tx, uid);
+    for (const id of ids) {
+      const spec = Object.hasOwn(REACTIONS, id) ? REACTIONS[id] : null;
+      if (!spec || spec.target) throw new HttpsError('invalid-argument', 'ملصق مو معروف');
+      if (spec.pack && !owns(p, spec.pack)) throw new HttpsError('permission-denied', 'هذا الملصق من باقة ما تملكها');
+    }
+    tx.set(userRef(uid), { ...p, favorites: ids });
+  });
+  return {};
 });
 
 /** يشيل رأيك (أشك أو أثق) في لاعب، لو غيّرت رأيك. */
@@ -1479,6 +1747,7 @@ async function deleteFromRequest(id: string, confirm: boolean): Promise<object> 
 }
 
 export { buyPid, findPlayer, friendRequest, friendRespond, inviteFriend, quotePid, removeFriend, suggestIds };
+export { claimClanChest, clanKick, clanRole, createClan, joinClan, leaveClan, tourJoin };
 
 /**
  * كل طلبات التطبيق من دالة وحدة: بعد أول طلب (لما تفتح اللعبة) تبقى صاحية لكل الأزرار، بدال ما كل
@@ -1487,8 +1756,9 @@ export { buyPid, findPlayer, friendRequest, friendRespond, inviteFriend, quotePi
  */
 const ROUTES: Record<string, CallableFunction<unknown, unknown>> = {
   ensureProfile, devTool, updateProfile, claimLinkReward, claimDaily, createRoom, joinRoom, quickMatch, addBots,
-  removeBot, leaveRoom, startGame, startTraining, startTutorial, act, leaveGame, timeout, buyItem, equipItem,
-  registerPushToken, ackGifts, buyPass, claimPassRewards, claimMission, clearOpinion, react, reportPlayer,
+  removeBot, leaveRoom, startGame, startTraining, startTutorial, act, leaveGame, timeout, buyItem, equipItem, rematch,
+  registerPushToken, ackGifts, buyPass, claimPassRewards, claimMission, clearOpinion, react, setFavorites, reportPlayer,
+  spectate, stopWatching, createClan, joinClan, leaveClan, clanKick, clanRole, claimClanChest, tourJoin, tourPlay,
   setBlocked, sendFeedback, deleteAccount, findPlayer, friendRequest, friendRespond, removeFriend, inviteFriend,
   quotePid, suggestIds, buyPid,
 };

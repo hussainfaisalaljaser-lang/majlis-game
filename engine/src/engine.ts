@@ -8,11 +8,13 @@ import {
   MIN_PLAYERS,
   TRAITOR_TO_WIN,
   VETO_UNLOCK,
+  extraSpecialCount,
   powerFor,
   traitorCount,
 } from './rules.js';
 import { shuffle } from './rng.js';
 import {
+  EXTRA_SPECIALS,
   RuleError,
   type Action,
   type GameState,
@@ -28,10 +30,14 @@ export function teamOf(role: Role): Team {
   return role === 'loyal' ? 'loyal' : 'traitor';
 }
 
-/** ينشئ لعبة جديدة: يوزع الأدوار ويخلط الكروت ويختار أول رئيس عشوائياً. */
+/**
+ * ينشئ لعبة جديدة: يوزع الأدوار ويخلط الكروت ويختار أول رئيس عشوائياً.
+ * [extraSpecials]: الأدوار الجديدة (قاضي، شيخ، جاسوس). لعبة الشرح بدونها.
+ */
 export function createGame(
   players: { id: PlayerId; name: string }[],
   seed: number,
+  { extraSpecials = true }: { extraSpecials?: boolean } = {},
 ): GameState {
   if (players.length < MIN_PLAYERS || players.length > MAX_PLAYERS) {
     throw new RuleError('playerCount', `عدد اللاعبين لازم يكون بين ${MIN_PLAYERS} و ${MAX_PLAYERS}`);
@@ -76,6 +82,17 @@ export function createGame(
   seer.special = 'seer';
   guardian.special = 'guardian';
 
+  // الأدوار الجديدة: لأي لاعب ما عنده دور خاص (وفي أو خاين)، إلا الزعيم.
+  if (extraSpecials) {
+    let kinds: (typeof EXTRA_SPECIALS)[number][];
+    [kinds, rng] = shuffle(EXTRA_SPECIALS, rng);
+    let free: number[];
+    [free, rng] = shuffle(seated.filter((p) => !p.special && p.role !== 'leader').map((p) => p.seat), rng);
+    kinds.slice(0, Math.min(extraSpecialCount(players.length), free.length)).forEach((kind, i) => {
+      seated[free[i]].special = kind;
+    });
+  }
+
   return {
     players: seated,
     phase: 'nomination',
@@ -98,6 +115,10 @@ export function createGame(
     investigations: [],
     seerSees: null,
     guardianUsed: false,
+    judgeUsed: false,
+    judgeCancel: null,
+    elderShown: false,
+    spySaw: null,
     winner: null,
     winReason: null,
     log: [],
@@ -120,6 +141,29 @@ export function applyAction(state: GameState, playerId: PlayerId, action: Action
       const target = requireTarget(s, playerId, action.target);
       // سري: ما ينكتب في السجل العام عشان العرّاف ما ينكشف.
       s.seerSees = target.id;
+      return s;
+    }
+
+    case 'judgeCancel': {
+      requirePhase(s, 'election');
+      if (actor.special !== 'judge') throw new RuleError('notJudge', 'بس القاضي يقدر يلغي التصويت');
+      if (s.judgeUsed || s.judgeCancel) throw new RuleError('judgeUsed', 'ألغيت تصويت من قبل');
+      if (playerId in s.votes) throw new RuleError('alreadyVoted', 'صوّتت من قبل');
+      // ينحسب صوته رافض، ولما يكمّلون التصويت تسقط الحكومة مهما كانت الأصوات.
+      s.judgeCancel = playerId;
+      s.votes[playerId] = false;
+      if (Object.keys(s.votes).length === alivePlayers(s).length) resolveElection(s);
+      return s;
+    }
+
+    case 'spyPeek': {
+      if (actor.special !== 'spy') throw new RuleError('notSpy', 'بس الجاسوس يقدر يشوف الكومة');
+      if (s.spySaw) throw new RuleError('spyUsed', 'شفت الكومة من قبل');
+      // لو خانة السحب فاضية، أول كرت بيجي من خانة الرمي (نفس ensureDeck).
+      const card = s.drawPile[0] ?? s.discardPile[0];
+      if (!card) throw new RuleError('emptyDeck', 'الكومة فاضية');
+      // سري: ما ينكتب في السجل.
+      s.spySaw = { card, round: s.round };
       return s;
     }
 
@@ -276,9 +320,26 @@ export function alivePlayers(s: GameState): Player[] {
 }
 
 function resolveElection(s: GameState): void {
-  const ja = Object.values(s.votes).filter(Boolean).length;
-  const passed = ja > alivePlayers(s).length / 2;
-  s.log.push({ type: 'voteResult', round: s.round, votes: { ...s.votes }, passed });
+  // الشيخ صوته بصوتين (لو صوّت)، وينكشف للكل من أول تصويت.
+  const elder = alivePlayers(s).find((p) => p.special === 'elder' && p.id in s.votes);
+  const weight = (id: PlayerId) => (id === elder?.id ? 2 : 1);
+  const ja = Object.entries(s.votes).reduce((n, [id, yes]) => n + (yes ? weight(id) : 0), 0);
+  const total = alivePlayers(s).reduce((n, p) => n + weight(p.id), 0);
+  const cancelledBy = s.judgeCancel ?? undefined;
+  const passed = !cancelledBy && ja > total / 2;
+  s.log.push({
+    type: 'voteResult',
+    round: s.round,
+    votes: { ...s.votes },
+    passed,
+    ...(cancelledBy ? { cancelledBy } : {}),
+    ...(elder ? { weights: { [elder.id]: 2 } } : {}),
+  });
+  if (elder) s.elderShown = true;
+  if (cancelledBy) {
+    s.judgeUsed = true;
+    s.judgeCancel = null;
+  }
   if (!passed) {
     failGovernment(s);
     return;
@@ -350,6 +411,7 @@ function startRound(s: GameState, presidentId: PlayerId): void {
   s.presidentId = presidentId;
   s.nomineeId = null;
   s.votes = {};
+  s.judgeCancel = null;
   s.hand = [];
   s.vetoRejectedThisRound = false;
   s.phase = 'nomination';

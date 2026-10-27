@@ -3,8 +3,8 @@ library;
 
 enum Role { loyal, traitor, leader }
 
-/// أدوار خاصة لبعض الأوفياء.
-enum Special { seer, guardian }
+/// أدوار خاصة: العرّاف والحارس لبعض الأوفياء، والقاضي والشيخ والجاسوس لأي لاعب إلا الزعيم.
+enum Special { seer, guardian, judge, elder, spy }
 
 enum Phase { nomination, election, presidentDiscard, chancellorEnact, vetoResponse, power, gameOver }
 
@@ -68,14 +68,30 @@ class GameEvent {
 }
 
 class GameView {
-  GameView.fromJson(Map<String, dynamic> j)
-    : you = j['you'] as String,
+  /// [perspective]: للمتفرج، اللاعب اللي يتفرج عليه (يقعد تحت في الطاولة).
+  GameView.fromJson(Map<String, dynamic> j, {String? perspective})
+    : spectator = j['spectator'] == true,
+      you = j['spectator'] == true && perspective != null ? perspective : j['you'] as String,
       tutorial = j['tutorial'] as bool? ?? false,
       quick = j['quick'] as bool? ?? false,
       yourRole = Role.values.byName(j['yourRole'] as String),
       yourSpecial = j['yourSpecial'] == null ? null : Special.values.byName(j['yourSpecial'] as String),
       seerSees = j['seerSees'] as String?,
       seerReady = j['seerReady'] as bool? ?? false,
+      judgeReady = j['judgeReady'] as bool? ?? false,
+      spyReady = j['spyReady'] as bool? ?? false,
+      spySaw = (j['spySaw'] as Map?) == null
+          ? null
+          : (card: Policy.parse((j['spySaw'] as Map)['card']), round: ((j['spySaw'] as Map)['round'] as num).toInt()),
+      truths = (j['truths'] as Map?) == null
+          ? null
+          : {
+              for (final MapEntry(:key, :value) in (j['truths'] as Map).entries)
+                int.parse('$key'): (
+                  president: [for (final c in ((value as Map)['president'] as List?) ?? const []) Policy.parse(c)],
+                  chancellor: [for (final c in (value['chancellor'] as List?) ?? const []) Policy.parse(c)],
+                ),
+            },
       autopilot = {for (final id in (j['autopilot'] as List?) ?? const []) id as String},
       players = [for (final p in j['players'] as List) ViewPlayer.fromJson(_map(p))],
       phase = Phase.values.byName(j['phase'] as String),
@@ -103,7 +119,13 @@ class GameView {
 
   static Map<String, dynamic> _map(Object? o) => Map<String, dynamic>.from(o as Map);
 
+  /// نسخة المتفرج (صاحب يتفرج): [you] هو اللاعب اللي يتفرج عليه، وما فيه ولا سر.
+  final bool spectator;
+
   final String you;
+
+  /// اسم اللاعب، و«أنت» لو هو أنت (مو للمتفرج).
+  String nameOf(String id) => id == you && !spectator ? 'أنت' : player(id).name;
 
   /// لعبة الشرح: الراوي يطلع نصايح لكل خطوة.
   final bool tutorial;
@@ -118,6 +140,18 @@ class GameView {
 
   /// أنت العرّاف وكشفك لسا ما استخدمته.
   final bool seerReady;
+
+  /// أنت القاضي، والتصويت شغال وما صوّتت، وإلغاؤك ما استخدمته.
+  final bool judgeReady;
+
+  /// أنت الجاسوس وما شفت الكومة للحين.
+  final bool spyReady;
+
+  /// لو أنت الجاسوس وشفت: أول كرت كان بالكومة، وأي جولة.
+  final ({Policy card, int round})? spySaw;
+
+  /// بعد نهاية اللعبة: الكروت الحقيقية اللي وصلت كل حكومة (الجولة ← كروت الرئيس واللي عطاها الوزير).
+  final Map<int, ({List<Policy> president, List<Policy> chancellor})>? truths;
 
   /// لاعبين طلعوا أو انطردوا، ويلعب بدالهم بوت.
   final Set<String> autopilot;
@@ -183,6 +217,62 @@ class GameView {
     if (n <= 6) return [null, null, Power.peek, Power.execute, Power.execute, null];
     if (n <= 8) return [null, Power.investigate, Power.specialElection, Power.execute, Power.execute, null];
     return [Power.investigate, Power.investigate, Power.specialElection, Power.execute, Power.execute, null];
+  }
+}
+
+/// حكومة مررت قرار، للكشف بعد اللعبة («مين كذب؟»): وش وصل كل واحد فعلاً ووش قال.
+class GovernmentRecord {
+  const GovernmentRecord({
+    required this.round,
+    required this.president,
+    required this.chancellor,
+    required this.enacted,
+    this.presidentDrew,
+    this.chancellorGot,
+    this.presidentSaid,
+    this.chancellorSaid,
+  });
+
+  final int round;
+  final String president;
+  final String chancellor;
+  final Policy enacted;
+
+  /// الكروت الحقيقية (من السيرفر بعد اللعبة).
+  final List<Policy>? presidentDrew;
+  final List<Policy>? chancellorGot;
+
+  /// ادعاءاتهم (null لو ما قال شي).
+  final List<Policy>? presidentSaid;
+  final List<Policy>? chancellorSaid;
+
+  static int _blues(List<Policy> l) => l.where((c) => c == Policy.loyal).length;
+
+  /// كذب؟ (عدد الأزرق في كلامه غير اللي وصله). null لو ما ادعى أو ما نعرف الحقيقة.
+  bool? get presidentLied =>
+      presidentSaid == null || presidentDrew == null ? null : _blues(presidentSaid!) != _blues(presidentDrew!);
+  bool? get chancellorLied =>
+      chancellorSaid == null || chancellorGot == null ? null : _blues(chancellorSaid!) != _blues(chancellorGot!);
+}
+
+extension Governments on GameView {
+  /// كل حكومة مررت قرار (مو الفوضى ولا الفيتو)، بالترتيب، ومعها الحقيقة والادعاءات.
+  List<GovernmentRecord> get governments {
+    final said = <(int, bool), List<Policy>>{for (final c in claims) (c.round, c.president): c.policies};
+    return [
+      for (final e in log)
+        if (e.type == 'enacted' && e.data['chaos'] != true && e.data['government'] is Map)
+          GovernmentRecord(
+            round: e.round,
+            president: (e.data['government'] as Map)['president'] as String,
+            chancellor: (e.data['government'] as Map)['chancellor'] as String,
+            enacted: Policy.parse(e.data['policy']),
+            presidentDrew: truths?[e.round]?.president.length == 3 ? truths![e.round]!.president : null,
+            chancellorGot: truths?[e.round]?.chancellor.length == 2 ? truths![e.round]!.chancellor : null,
+            presidentSaid: said[(e.round, true)],
+            chancellorSaid: said[(e.round, false)],
+          ),
+    ];
   }
 }
 

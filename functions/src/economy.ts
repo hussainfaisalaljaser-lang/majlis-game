@@ -73,6 +73,16 @@ export function gulfDay(ms: number): string {
   return new Date(ms + 3 * 3600_000).toISOString().slice(0, 10);
 }
 
+/**
+ * نهاية الأسبوع بتوقيت الخليج: من الخميس ٦ المغرب لين نهاية السبت، ذهب الفوز مضاعف.
+ * يرجّع كم ينضرب الذهب (٢ أو ١). نفس الحسبة في التطبيق (app/lib/models/events.dart).
+ */
+export function weekendBoost(ms: number): number {
+  const t = new Date(ms + 3 * 3600_000);
+  const day = t.getUTCDay();
+  return (day === 4 && t.getUTCHours() >= 18) || day === 5 || day === 6 ? 2 : 1;
+}
+
 export function previousDay(day: string): string {
   return new Date(Date.parse(`${day}T00:00:00Z`) - 86400_000).toISOString().slice(0, 10);
 }

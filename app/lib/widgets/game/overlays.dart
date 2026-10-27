@@ -18,6 +18,13 @@ const roleInfo = {
 const specialInfo = {
   Special.seer: ('العرّاف', 'مرة وحدة في اللعبة تقدر تكشف فريق أي لاعب. اختر الوقت الصح، ولا تنكشف!', 'seer'),
   Special.guardian: ('الحارس', 'لو أحد حاول يطردك، تنجو مرة وحدة ويبان للكل إنك حارس', 'shield'),
+  Special.judge: (
+    'القاضي',
+    'مرة وحدة باللعبة تقدر تلغي تصويت: الحكومة تسقط مهما كانت الأصوات، والكل يعرف إنك القاضي',
+    'scales',
+  ),
+  Special.elder: ('الشيخ', 'صوتك بصوتين في كل تصويت، والكل يعرف إنك الشيخ من أول تصويت', 'ballot'),
+  Special.spy: ('الجاسوس', 'مرة وحدة باللعبة، في أي وقت، تشوف أول كرت بالكومة (لك بس)', 'eye'),
 };
 
 /// كشف الدور: بطاقة مقلوبة تنقلب وتطلع دورك.
@@ -140,6 +147,21 @@ class _RoleRevealState extends State<_RoleReveal> with TickerProviderStateMixin 
               specialInfo[special]!.$2,
               textAlign: TextAlign.center,
               style: const TextStyle(color: AppColors.ink, fontSize: 13.5, height: 1.5, fontWeight: FontWeight.w700),
+            ),
+          ],
+          // الجاسوس: اللي شافه بالكومة.
+          if (v.spySaw case final saw?) ...[
+            const SizedBox(height: 8),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Seal(loyal: saw.card == Policy.loyal, size: 26),
+                const SizedBox(width: 6),
+                Text(
+                  'شفت بالجولة ${arabicNumber(saw.round)}: أول كرت ${saw.card == Policy.loyal ? 'أزرق' : 'أحمر'}',
+                  style: const TextStyle(color: AppColors.ink, fontSize: 13.5, fontWeight: FontWeight.w800),
+                ),
+              ],
             ),
           ],
           if (seerTarget != null || mates.isNotEmpty) ...[

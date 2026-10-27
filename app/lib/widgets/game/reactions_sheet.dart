@@ -15,11 +15,15 @@ class ReactionsSheet extends StatefulWidget {
     required this.onSticker,
     this.onClearOpinion,
     this.over = false,
+    this.onFavorites,
   });
 
   final Profile profile;
   final ValueChanged<TextReaction> onText;
   final ValueChanged<Sticker> onSticker;
+
+  /// المفضلة تغيّرت (ضغطة مطوّلة على ملصق تضيفه أو تشيله).
+  final ValueChanged<List<String>>? onFavorites;
 
   /// يطلع زر "أشيل رأيي" لو عنده رأي في أحد.
   final VoidCallback? onClearOpinion;
@@ -34,6 +38,27 @@ class ReactionsSheet extends StatefulWidget {
 class _ReactionsSheetState extends State<ReactionsSheet> {
   // ٠ = الكلام، والباقي باقات الملصقات بالترتيب (المملوكة أول).
   int _tab = 1;
+
+  /// المفضلة هنا تتغير على طول (والسيرفر يحفظها ورا).
+  late final List<String> _favorites = [...widget.profile.favorites];
+
+  /// آخر شي صار في المفضلة (انضاف، انشال، مليانة).
+  String? _favNote;
+
+  void _toggleFavorite(String id) {
+    setState(() {
+      if (_favorites.remove(id)) {
+        _favNote = 'شلته من المفضلة';
+      } else if (_favorites.length >= Profile.maxFavorites) {
+        _favNote = 'المفضلة مليانة (${arabicNumber(Profile.maxFavorites)})، شيل واحد أول';
+        return;
+      } else {
+        _favorites.add(id);
+        _favNote = 'انضاف للمفضلة (${arabicNumber(_favorites.length)} من ${arabicNumber(Profile.maxFavorites)})';
+      }
+      widget.onFavorites?.call([..._favorites]);
+    });
+  }
 
   late final List<ShopItem> _packs = () {
     final packs = [
@@ -145,6 +170,32 @@ class _ReactionsSheetState extends State<ReactionsSheet> {
             ),
             const SizedBox(width: 8),
             if (!owned) Expanded(child: _LockedNote(pack.buyable ? 'من المتجر (تبويب الملصقات)' : pack.source)),
+            if (owned && widget.onFavorites != null)
+              Expanded(
+                child: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 200),
+                  child: Row(
+                    key: ValueKey(_favNote),
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.star_rounded, color: AppColors.gold, size: 18),
+                      const SizedBox(width: 3),
+                      Flexible(
+                        child: Text(
+                          _favNote ?? 'اضغط مطوّل على ملصق وتحطه بالمفضلة',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: _favNote == null ? AppColors.muted : AppColors.goldLight,
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
           ],
         ),
         const SizedBox(height: 6),
@@ -161,9 +212,28 @@ class _ReactionsSheetState extends State<ReactionsSheet> {
                   excludeSemantics: true,
                   child: GestureDetector(
                     onTap: owned ? () => widget.onSticker(stickerById(id)!) : null,
-                    child: Opacity(
-                      opacity: owned ? 1 : .38,
-                      child: StickerView(sticker: stickerById(id)!, pop: false),
+                    onLongPress: owned && widget.onFavorites != null ? () => _toggleFavorite(id) : null,
+                    child: Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        Positioned.fill(
+                          child: Opacity(
+                            opacity: owned ? 1 : .38,
+                            child: StickerView(sticker: stickerById(id)!, pop: false),
+                          ),
+                        ),
+                        if (_favorites.contains(id))
+                          const PositionedDirectional(
+                            top: -4,
+                            end: -2,
+                            child: Icon(
+                              Icons.star_rounded,
+                              color: AppColors.gold,
+                              size: 22,
+                              shadows: [Shadow(color: Colors.black, blurRadius: 4)],
+                            ),
+                          ),
+                      ],
                     ),
                   ),
                 ),

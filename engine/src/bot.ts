@@ -51,6 +51,30 @@ export function botSeerReveal(s: GameState, botId: PlayerId, rand: Rand = Math.r
 }
 
 /**
+ * القاضي البوت: يلغي التصويت بدال ما يصوّت؟ الوفي يلغي حكومة فيها أحد مشكوك فيه كثير (أو الزعيم ممكن يفوز فيها)،
+ * والخاين يلغي حكومة وفية لما الأوفياء قربوا يفوزون.
+ */
+function wantsJudgeCancel(s: GameState, botId: PlayerId, rand: Rand): boolean {
+  const bot = me(s, botId);
+  if (bot.special !== 'judge' || s.judgeUsed || s.judgeCancel || s.tutorial) return false;
+  const gov = [s.presidentId, s.nomineeId!];
+  if (gov.includes(botId)) return false;
+  if (isTraitorTeam(bot)) {
+    if (gov.some((id) => knownTraitor(s, botId, id))) return false;
+    return s.loyalPolicies >= 3 && rand() < 0.7;
+  }
+  if (s.traitorPolicies >= LEADER_DANGER_ZONE && suspicion(s, botId, s.nomineeId!) > 1) return true;
+  const worst = Math.max(...gov.map((id) => suspicion(s, botId, id)));
+  return worst >= 6 || (worst >= 3 && s.traitorPolicies >= 3 && rand() < 0.6);
+}
+
+/** الجاسوس البوت: يشوف الكومة مرة من الجولة الثالثة. */
+export function botSpyPeek(s: GameState, botId: PlayerId, rand: Rand = Math.random): boolean {
+  const bot = me(s, botId);
+  return bot.special === 'spy' && bot.alive && !s.spySaw && s.phase !== 'gameOver' && s.round >= 3 && rand() < 0.5;
+}
+
+/**
  * درجة الشك من السجل العام: كل حكومة مررت أحمر تزيد الشك، والأزرق ينقصه،
  * والادعاءات اللي ما تركب مع بعض (أو مع اللي يعرفه البوت لو كان في الحكومة) تزيده.
  */
@@ -230,7 +254,8 @@ export function botAction(s: GameState, botId: PlayerId, rand: Rand = Math.rando
     case 'nomination':
       return isPres ? { type: 'nominate', chancellor: nominate(s, botId, rand) } : null;
     case 'election':
-      return botId in s.votes ? null : { type: 'vote', ja: vote(s, botId, rand) };
+      if (botId in s.votes) return null;
+      return wantsJudgeCancel(s, botId, rand) ? { type: 'judgeCancel' } : { type: 'vote', ja: vote(s, botId, rand) };
     case 'presidentDiscard':
       return isPres ? { type: 'discard', index: chooseCard(s, botId, s.hand, false, rand) } : null;
     case 'chancellorEnact': {
@@ -346,6 +371,11 @@ export function botReactions(prev: GameState, next: GameState, rand: Rand = Math
           if (watcher) add(watcher.id, pick(STICKERS.think, rand));
         }
       }
+    }
+    if (e.type === 'voteResult' && e.cancelledBy) {
+      // القاضي ألغى التصويت: ينصدمون.
+      const watcher = shuffled.find((b) => b.alive && b.id !== e.cancelledBy);
+      if (watcher && rand() < 0.6) add(watcher.id, pick(STICKERS.shock, rand));
     }
     if (e.type === 'executed' || e.type === 'guarded') {
       const watcher = shuffled.find((b) => b.alive && b.id !== e.by);

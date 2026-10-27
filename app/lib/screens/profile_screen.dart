@@ -6,6 +6,7 @@ import '../theme.dart';
 import '../widgets/account.dart';
 import 'dev_screen.dart';
 import 'shop_screen.dart';
+import 'wardrobe_screen.dart';
 import '../widgets/achievements_list.dart';
 import '../widgets/common.dart';
 import '../widgets/item_preview.dart';
@@ -237,6 +238,17 @@ class ProfileScreen extends StatelessWidget {
                         child: const Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [Gfx('edit', size: 22), SizedBox(width: 6), Text('تعديل الاسم والشخصية')],
+                        ),
+                      ),
+                    ),
+                  if (Backend.instance.isReady)
+                    Center(
+                      child: TextButton(
+                        onPressed: () =>
+                            Navigator.of(context).push(MaterialPageRoute(builder: (_) => const WardrobeScreen())),
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [Gfx('cat_frame', size: 22), SizedBox(width: 6), Text('غرفة التبديل')],
                         ),
                       ),
                     ),

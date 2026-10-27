@@ -1,4 +1,5 @@
 import 'catalog.dart';
+import 'clan.dart';
 import 'profile.dart';
 
 /// أنواع جدول الترتيب.
@@ -21,7 +22,11 @@ class LeaderboardEntry {
       },
       rankPoints = j['rankSeason'] == season.id ? (j['rankPoints'] as num?)?.toInt() ?? 0 : 0,
       pid = j['pid'] as String? ?? '',
-      pidTier = (j['pidTier'] as num?)?.toInt() ?? 0;
+      pidTier = (j['pidTier'] as num?)?.toInt() ?? 0,
+      playingSince = j['playingSince'] == null
+          ? null
+          : DateTime.fromMillisecondsSinceEpoch((j['playingSince'] as num).toInt()),
+      clan = ClanTag.maybe(j['clan']);
 
   final String uid;
   final String name;
@@ -42,6 +47,15 @@ class LeaderboardEntry {
   /// رمزه اللي يبحثون فيه عنه، ودرجته.
   final String pid;
   final int pidTier;
+
+  /// يلعب الحين من متى (أصحابه يقدرون يتفرجون).
+  final DateTime? playingSince;
+
+  /// ديوانه.
+  final ClanTag? clan;
+
+  /// يلعب الحين؟ (لعبة بدأت من أقل من ساعة ونص، عشان لو علقت لعبة ما يبان يلعب للأبد).
+  bool get playing => playingSince != null && DateTime.now().difference(playingSince!) < const Duration(minutes: 90);
 
   int get winRate => gamesPlayed == 0 ? 0 : (gamesWon * 100 / gamesPlayed).round();
 }

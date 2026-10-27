@@ -312,7 +312,14 @@ class _DevScreenState extends State<DevScreen> {
                   const SizedBox(height: 10),
                   chips(
                     'دور خاص',
-                    const [(null, 'بدون'), ('seer', 'العرّاف'), ('guardian', 'الحارس')],
+                    const [
+                      (null, 'بدون'),
+                      ('seer', 'العرّاف'),
+                      ('guardian', 'الحارس'),
+                      ('judge', 'القاضي'),
+                      ('elder', 'الشيخ'),
+                      ('spy', 'الجاسوس'),
+                    ],
                     _special,
                     (v) => _special = v,
                   ),
@@ -324,7 +331,7 @@ class _DevScreenState extends State<DevScreen> {
                   ),
                   const SizedBox(height: 6),
                   const Text(
-                    'العرّاف والحارس يخلّونك وفي تلقائياً.',
+                    'العرّاف والحارس يخلّونك وفي تلقائياً، والقاضي والشيخ والجاسوس لأي فريق إلا الزعيم.',
                     style: TextStyle(color: AppColors.muted, fontSize: 12),
                   ),
                 ],

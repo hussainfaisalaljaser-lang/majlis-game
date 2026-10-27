@@ -6,6 +6,7 @@ import '../models/shop.dart';
 import '../services/backend.dart';
 import '../services/notes.dart';
 import '../theme.dart';
+import 'clan_crest.dart';
 import 'badges.dart';
 import 'common.dart';
 import 'friend_button.dart';
@@ -234,6 +235,7 @@ class _PlayerCardState extends State<_PlayerCard> {
                           const SizedBox(height: 8),
                           PidBadge(pid: e.pid, tier: e.pidTier, size: 12.5),
                         ],
+                        if (e.clan case final clan?) ...[const SizedBox(height: 8), ClanBadge(tag: clan)],
                       ],
                     ],
                   ),

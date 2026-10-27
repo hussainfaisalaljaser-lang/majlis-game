@@ -4,8 +4,14 @@ export type PlayerId = string;
 export type Team = 'loyal' | 'traitor';
 export type Role = 'loyal' | 'traitor' | 'leader';
 
-/** أدوار خاصة لبعض الأوفياء. محد يعرفها إلا صاحبها (لين تنكشف). */
-export type Special = 'seer' | 'guardian';
+/**
+ * أدوار خاصة. العرّاف والحارس لبعض الأوفياء، والقاضي والشيخ والجاسوس لأي لاعب (وفي أو خاين، بس مو الزعيم).
+ * محد يعرفها إلا صاحبها (لين تنكشف).
+ */
+export type Special = 'seer' | 'guardian' | 'judge' | 'elder' | 'spy';
+
+/** الأدوار الجديدة اللي تطلع لأي لاعب. */
+export const EXTRA_SPECIALS = ['judge', 'elder', 'spy'] as const satisfies readonly Special[];
 
 /** القرار: L = قرار الأوفياء (أزرق)، T = قرار الخونة (أحمر). */
 export type Policy = 'L' | 'T';
@@ -32,7 +38,10 @@ export interface Player {
   name: string;
   seat: number;
   role: Role;
-  /** العرّاف يعرف خائن من البداية، والحارس ينجو من أول طرد. */
+  /**
+   * العرّاف يكشف فريق لاعب، والحارس ينجو من أول طرد، والقاضي يلغي تصويت مرة، والشيخ صوته بصوتين،
+   * والجاسوس يشوف أول كرت بالكومة مرة.
+   */
   special: Special | null;
   alive: boolean;
 }
@@ -51,7 +60,16 @@ export interface Claim {
 
 export type GameEvent =
   | { type: 'nominated'; round: number; president: PlayerId; chancellor: PlayerId }
-  | { type: 'voteResult'; round: number; votes: Record<PlayerId, boolean>; passed: boolean }
+  | {
+      type: 'voteResult';
+      round: number;
+      votes: Record<PlayerId, boolean>;
+      passed: boolean;
+      /** القاضي اللي ألغى التصويت (الحكومة تسقط مهما كانت الأصوات). */
+      cancelledBy?: PlayerId;
+      /** أصوات تنحسب بأكثر من واحد (الشيخ: ٢). */
+      weights?: Record<PlayerId, number>;
+    }
   | { type: 'enacted'; round: number; policy: Policy; chaos: boolean; government?: Government }
   | { type: 'vetoed'; round: number; government: Government }
   | { type: 'vetoRejected'; round: number }
@@ -102,6 +120,14 @@ export interface GameState {
   misses?: Record<PlayerId, number>;
   /** الحارس استخدم حمايته؟ */
   guardianUsed: boolean;
+  /** القاضي ألغى تصويت (مرة وحدة باللعبة)، وانكشف للكل. */
+  judgeUsed?: boolean;
+  /** القاضي ضغط «ألغِ» في التصويت الحالي: ينطبق لما يكمّلون التصويت. */
+  judgeCancel?: PlayerId | null;
+  /** الشيخ انكشف (أول تصويت ينحسب صوته فيه بصوتين). */
+  elderShown?: boolean;
+  /** اللي شافه الجاسوس (سري): أول كرت بالكومة وقتها، وأي جولة. */
+  spySaw?: { card: Policy; round: number } | null;
   /** لعبة الشرح للاعب الجديد: وقت أطول، والبوتات توافق على أول حكومة (السيرفر يعبّيها). */
   tutorial?: boolean;
   /** الوضع السريع: نفس القوانين بس الوقت نص، والبوتات أسرع (السيرفر يعبّيها). */
@@ -130,7 +156,11 @@ export type Action =
   | { type: 'specialElection'; target: PlayerId }
   | { type: 'execute'; target: PlayerId }
   /** العرّاف: مرة وحدة في اللعبة، في أي وقت، يكشف فريق لاعب واحد (سراً). */
-  | { type: 'seerReveal'; target: PlayerId };
+  | { type: 'seerReveal'; target: PlayerId }
+  /** القاضي: بدال ما يصوّت، يلغي التصويت (مرة وحدة باللعبة، وينكشف). */
+  | { type: 'judgeCancel' }
+  /** الجاسوس: مرة وحدة في اللعبة، في أي وقت، يشوف أول كرت بالكومة (سراً). */
+  | { type: 'spyPeek' };
 
 export class RuleError extends Error {
   constructor(public code: string, message: string) {

@@ -222,11 +222,23 @@ class _Plate extends StatelessWidget {
 
 /// كشف التصويت: كرت مقلوب جنب كل لاعب صوّت، يرجف مع دق الطبول، وبعدها كلهم ينقلبون مرة وحدة.
 class VoteScene extends GameScene {
-  const VoteScene({required this.view, required this.votes, required this.passed});
+  const VoteScene({
+    required this.view,
+    required this.votes,
+    required this.passed,
+    this.cancelledBy,
+    this.weights = const {},
+  });
 
   final GameView view;
   final Map<String, bool> votes;
   final bool passed;
+
+  /// القاضي اللي ألغى التصويت.
+  final String? cancelledBy;
+
+  /// أصوات تنحسب بأكثر من واحد (الشيخ: ٢).
+  final Map<String, int> weights;
 
   @override
   Duration get duration => const Duration(milliseconds: 3600);
@@ -245,7 +257,10 @@ class VoteScene extends GameScene {
     final roll = seg(t, .2, 1.5);
     final flip = seg(t, 1.55, 1.95, Curves.easeInOut);
     final pop = bump(t, 1.95, 2.25);
-    final yes = votes.values.where((v) => v).length;
+    int weight(String id) => weights[id] ?? 1;
+    final yes = votes.entries.where((e) => e.value).fold(0, (n, e) => n + weight(e.key));
+    final no = votes.entries.where((e) => !e.value).fold(0, (n, e) => n + weight(e.key));
+    final judge = cancelledBy;
     final mid = size.width / 2;
     return Stack(
       clipBehavior: Clip.none,
@@ -272,7 +287,26 @@ class VoteScene extends GameScene {
                   angle: math.sin(t * 43 + i) * .1 * roll * (1 - flip),
                   child: Transform.scale(
                     scale: appear * (1 + .2 * pop),
-                    child: _Flip(angle: (1 - flip) * math.pi, front: _VoteFace(ja), back: const _VoteBack()),
+                    child: Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        _Flip(
+                          angle: (1 - flip) * math.pi,
+                          front: id == judge ? const _JudgeFace() : _VoteFace(ja),
+                          back: const _VoteBack(),
+                        ),
+                        // الشيخ: صوته بصوتين.
+                        if (weight(id) > 1 && flip > .5)
+                          Positioned(
+                            top: -12,
+                            right: -14,
+                            child: Transform.scale(
+                              scale: Curves.elasticOut.transform(seg(t, 1.9, 2.4)),
+                              child: GoldText('×${arabicNumber(weight(id))}', size: 20),
+                            ),
+                          ),
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -287,30 +321,53 @@ class VoteScene extends GameScene {
                 opacity: seg(t, 2.2, 2.45),
                 child: Transform.scale(
                   scale: seg(t, 2.2, 2.55, Curves.easeOutBack),
-                  child: _Plate(
-                    color: passed ? AppColors.green : AppColors.traitor,
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Gfx(passed ? 'check' : 'cross', size: 28),
-                        const SizedBox(width: 8),
-                        Text(
-                          passed ? 'الحكومة انتخبت' : 'الحكومة انرفضت',
-                          style: TextStyle(
-                            fontFamily: kufi,
-                            fontSize: 21,
-                            fontWeight: FontWeight.w700,
-                            color: passed ? AppColors.green : AppColors.traitorLight,
+                  child: judge != null
+                      ? _Plate(
+                          color: const Color(0xFFA48BFF),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Gfx('scales', size: 28),
+                              const SizedBox(width: 8),
+                              Flexible(
+                                child: Text(
+                                  'القاضي ${judge == view.you && !view.spectator ? '(أنت)' : view.player(judge).name} ألغى التصويت',
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    fontFamily: kufi,
+                                    fontSize: 19,
+                                    fontWeight: FontWeight.w700,
+                                    color: Color(0xFFD9CFFF),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        )
+                      : _Plate(
+                          color: passed ? AppColors.green : AppColors.traitor,
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Gfx(passed ? 'check' : 'cross', size: 28),
+                              const SizedBox(width: 8),
+                              Text(
+                                passed ? 'الحكومة انتخبت' : 'الحكومة انرفضت',
+                                style: TextStyle(
+                                  fontFamily: kufi,
+                                  fontSize: 21,
+                                  fontWeight: FontWeight.w700,
+                                  color: passed ? AppColors.green : AppColors.traitorLight,
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Text(
+                                '${arabicNumber(yes)} – ${arabicNumber(no)}',
+                                style: const TextStyle(fontFamily: kufi, fontSize: 21, fontWeight: FontWeight.w700),
+                              ),
+                            ],
                           ),
                         ),
-                        const SizedBox(width: 12),
-                        Text(
-                          '${arabicNumber(yes)} – ${arabicNumber(votes.length - yes)}',
-                          style: const TextStyle(fontFamily: kufi, fontSize: 21, fontWeight: FontWeight.w700),
-                        ),
-                      ],
-                    ),
-                  ),
                 ),
               ),
             ),
@@ -351,6 +408,43 @@ class _VoteFace extends StatelessWidget {
             fontSize: 13,
             height: 1.3,
             color: yes ? const Color(0xFF062814) : Colors.white,
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+/// ورقة القاضي: ميزان وكلمة «ألغى» بدال نعم أو لا.
+class _JudgeFace extends StatelessWidget {
+  const _JudgeFace();
+
+  @override
+  Widget build(BuildContext context) => Container(
+    width: 42,
+    height: 58,
+    decoration: BoxDecoration(
+      borderRadius: BorderRadius.circular(8),
+      gradient: const LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [Color(0xFFC4B5FD), Color(0xFF5B21B6)],
+      ),
+      border: Border.all(color: Colors.white.withValues(alpha: .85), width: 2),
+      boxShadow: [BoxShadow(color: const Color(0xFF7C3AED).withValues(alpha: .7), blurRadius: 12)],
+    ),
+    child: const Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Gfx('scales', size: 22),
+        Text(
+          'ألغى',
+          style: TextStyle(
+            fontFamily: kufi,
+            fontWeight: FontWeight.w700,
+            fontSize: 12,
+            height: 1.3,
+            color: Colors.white,
           ),
         ),
       ],
@@ -899,7 +993,7 @@ class UnmaskScene extends GameScene {
                 cell,
                 rowH,
                 _Unmask(
-                  name: p.id == view.you ? 'أنت' : p.name,
+                  name: view.nameOf(p.id),
                   avatar: room?.player(p.id)?.avatar ?? 'masked',
                   role: p.knownRole ?? Role.loyal,
                   size: av,

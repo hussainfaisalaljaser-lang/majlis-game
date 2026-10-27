@@ -2,16 +2,20 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../models/events.dart';
 import '../models/room.dart';
 import '../models/shop.dart';
 import '../models/table_tier.dart';
+import '../models/tour.dart';
 import '../services/backend.dart';
 import '../services/links.dart';
 import '../services/telemetry.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
+import '../widgets/majlis.dart';
 import '../widgets/player_card.dart';
 import '../widgets/ui.dart';
+import '../widgets/venues.dart';
 import 'friends_screen.dart';
 import 'game_screen.dart';
 
@@ -160,13 +164,23 @@ class _WaitingScreenState extends State<WaitingScreen> {
       canPop: false,
       onPopInvokedWithResult: (didPop, _) => didPop ? null : _leave(),
       child: NightScaffold(
+        // كل طاولة لها مكانها: تشوفه من غرفة الانتظار.
+        background: _room?.tour != null
+            ? const MajlisRoom(venue: Venue.kings)
+            : tier == null
+            ? null
+            : MajlisRoom(venue: venueOf(tier.id)),
         appBar: AppBar(
           title: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Gfx(tier == null ? 'key' : tier.icon, size: 30),
+              Gfx(_room?.tour != null ? 'trophy' : (tier == null ? 'key' : tier.icon), size: 30),
               const SizedBox(width: 8),
-              Text(tier == null ? 'روم خاص' : 'طاولة ${tier.name}'),
+              Text(
+                _room?.tour != null
+                    ? 'بطولة الأسبوع · ${tourStageNames[_room!.tour!]}'
+                    : (tier == null ? 'روم خاص' : 'طاولة ${tier.name}'),
+              ),
               if (_room?.quick ?? false) ...[
                 const SizedBox(width: 10),
                 const Gfx('bolt', size: 22),
@@ -437,6 +451,8 @@ class _PotBox extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // نهاية الأسبوع: ذهب الفوز مضاعف.
+    final boost = Weekend.at(DateTime.now()).boost;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(10),
@@ -447,10 +463,13 @@ class _PotBox extends StatelessWidget {
       child: Column(
         children: [
           Text(
-            'الجائزة: ${arabicNumber(pot)} ذهب',
+            'الجائزة: ${arabicNumber(pot * boost)} ذهب',
             style: const TextStyle(color: AppColors.gold, fontSize: 18, fontWeight: FontWeight.w800),
           ),
-          const Text('تتوزع على الفريق الفايز', style: TextStyle(fontSize: 12)),
+          Text(
+            boost > 1 ? 'مضاعفة لأنها نهاية الأسبوع، وتتوزع على الفريق الفايز' : 'تتوزع على الفريق الفايز',
+            style: const TextStyle(fontSize: 12),
+          ),
         ],
       ),
     );

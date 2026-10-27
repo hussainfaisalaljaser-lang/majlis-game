@@ -1,10 +1,22 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { gulfDay, levelFor } from '../src/economy.js';
+import { gulfDay, levelFor, weekendBoost } from '../src/economy.js';
 import { bumpMissions, gulfWeek } from '../src/missions.js';
 import { dailyClaim, newProfile } from '../src/profile.js';
 
 const day = (iso: string) => Date.parse(iso);
+
+describe('نهاية الأسبوع', () => {
+  it('الذهب مضاعف من الخميس ٦ المغرب لين نهاية السبت بتوقيت الخليج', () => {
+    // ٢٠٢٦/١٠/٢٩ خميس.
+    assert.equal(weekendBoost(day('2026-10-29T14:59:00Z')), 1);
+    assert.equal(weekendBoost(day('2026-10-29T15:00:00Z')), 2);
+    assert.equal(weekendBoost(day('2026-10-30T12:00:00Z')), 2);
+    assert.equal(weekendBoost(day('2026-10-31T20:59:00Z')), 2);
+    assert.equal(weekendBoost(day('2026-10-31T21:00:00Z')), 1);
+    assert.equal(weekendBoost(day('2026-11-02T12:00:00Z')), 1);
+  });
+});
 
 describe('الهدية اليومية', () => {
   it('تتجدد الساعة ١٢ بالليل بتوقيت الخليج', () => {

@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../models/leaderboard.dart';
 import '../models/shop.dart';
 import '../services/backend.dart';
 import '../services/links.dart';
@@ -13,7 +14,10 @@ import '../widgets/daily_reward.dart';
 import '../widgets/gifts.dart';
 import '../widgets/majlis.dart';
 import '../widgets/ui.dart';
+import '../widgets/weekend.dart';
+import '../models/events.dart';
 import 'game_screen.dart';
+import 'clans_screen.dart';
 import 'friends_screen.dart';
 import 'how_to_play_screen.dart';
 import 'leaderboard_screen.dart';
@@ -23,6 +27,8 @@ import 'private_screen.dart';
 import 'profile_screen.dart';
 import 'shop_screen.dart';
 import 'tables_screen.dart';
+import 'tournament_screen.dart';
+import 'wardrobe_screen.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -154,6 +160,8 @@ class HomeScreen extends StatelessWidget {
                     ),
                   ),
                   _SideNav(
+                    onClans: () => _push(context, const ClansScreen()),
+                    onTour: () => _push(context, const TournamentScreen()),
                     onShop: () => _push(context, const ShopScreen()),
                     onRank: () => _push(context, const LeaderboardScreen()),
                     onFriends: () => _push(
@@ -386,17 +394,22 @@ class _Hero extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                  decoration: BoxDecoration(color: AppColors.traitor, borderRadius: BorderRadius.circular(8)),
-                  child: const Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Gfx('fire', size: 14),
-                      SizedBox(width: 3),
-                      Text('الأكثر لعباً', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800)),
-                    ],
-                  ),
+                // نهاية الأسبوع: الذهب مضاعف (وإلا «الأكثر لعباً»).
+                MinuteTicker(
+                  builder: (context, now) => Weekend.at(now).on
+                      ? const WeekendChip()
+                      : Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                          decoration: BoxDecoration(color: AppColors.traitor, borderRadius: BorderRadius.circular(8)),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Gfx('fire', size: 14),
+                              SizedBox(width: 3),
+                              Text('الأكثر لعباً', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800)),
+                            ],
+                          ),
+                        ),
                 ),
                 const SizedBox(height: 4),
                 const Text(
@@ -464,6 +477,37 @@ class _MeSitting extends StatelessWidget {
               left: cx + av * .78,
               top: cy - av * .2,
               child: Censer(width: av * .22),
+            ),
+            // تضغط على نفسك: غرفة التبديل (كل اللي تملكه بمكان واحد).
+            Positioned(
+              left: cx - av * .78,
+              top: cy - av * .66,
+              width: av * 1.56,
+              height: av * 1.2,
+              child: Semantics(
+                button: true,
+                label: 'غرفة التبديل',
+                excludeSemantics: true,
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const WardrobeScreen())),
+                ),
+              ),
+            ),
+            Positioned(
+              left: cx + av * .36,
+              top: cy + av * .2,
+              child: IgnorePointer(
+                child: Container(
+                  padding: const EdgeInsets.all(4),
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: AppColors.panel.withValues(alpha: .9),
+                    border: Border.all(color: AppColors.gold, width: 1.5),
+                  ),
+                  child: const Gfx('edit', size: 16),
+                ),
+              ),
             ),
           ],
         );
@@ -674,6 +718,8 @@ class _MissionsCard extends StatelessWidget {
 /// شريط التنقل على الجنب (بالعرض)، بدال الشريط اللي تحت.
 class _SideNav extends StatelessWidget {
   const _SideNav({
+    required this.onClans,
+    required this.onTour,
     required this.onShop,
     required this.onRank,
     required this.onFriends,
@@ -681,6 +727,8 @@ class _SideNav extends StatelessWidget {
     required this.onGuide,
   });
 
+  final VoidCallback onClans;
+  final VoidCallback onTour;
   final VoidCallback onShop;
   final VoidCallback onRank;
   final VoidCallback onFriends;
@@ -701,7 +749,7 @@ class _SideNav extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
                 decoration: BoxDecoration(
                   color: on ? AppColors.gold.withValues(alpha: .16) : null,
                   borderRadius: BorderRadius.circular(14),
@@ -709,7 +757,7 @@ class _SideNav extends StatelessWidget {
                 child: Stack(
                   clipBehavior: Clip.none,
                   children: [
-                    Opacity(opacity: on ? 1 : .75, child: Gfx(icon, size: 34)),
+                    Opacity(opacity: on ? 1 : .75, child: Gfx(icon, size: 30)),
                     if (badge)
                       const PositionedDirectional(
                         top: -2,
@@ -742,7 +790,18 @@ class _SideNav extends StatelessWidget {
       ),
       child: Column(
         children: [
-          item('home', 'الرئيسية', null, on: true),
+          // ديوانك (أو تدخل واحد)، والشارة لو ديوانك وصل هدف الأسبوع.
+          item('shield', 'الديوان', onClans),
+          MinuteTicker(
+            builder: (context, now) => ValueListenableBuilder(
+              valueListenable: Backend.instance.profile,
+              builder: (context, p, _) {
+                final open = Weekend.at(now).on;
+                final t = p.tour?.week == gulfWeek(now) ? p.tour : null;
+                return item('trophy', 'البطولة', onTour, badge: open && (t == null || (!t.out && !t.champion)));
+              },
+            ),
+          ),
           item('shop', 'المتجر', onShop),
           item('rank', 'الترتيب', onRank),
           // نقطة حمرا لو فيه طلبات صداقة

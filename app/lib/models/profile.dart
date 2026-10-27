@@ -1,4 +1,6 @@
+import 'clan.dart';
 import 'missions.dart';
+import 'tour.dart';
 import 'shop.dart';
 
 /// ملف اللاعب كما يحفظه السيرفر (functions/src/profile.ts).
@@ -40,6 +42,9 @@ class Profile {
     this.friendReqs = const {},
     this.sentReqs = const {},
     this.invite,
+    this.favorites = const [],
+    this.clan,
+    this.tour,
   });
 
   factory Profile.fromJson(Map<String, dynamic> j) => Profile(
@@ -82,6 +87,9 @@ class Profile {
     friendReqs: _ints(j['friendReqs']),
     sentReqs: {for (final s in (j['sentReqs'] as List?) ?? const []) s as String},
     invite: j['invite'] == null ? null : Invite.fromJson(Map<String, dynamic>.from(j['invite'] as Map)),
+    favorites: [for (final f in (j['favorites'] as List?) ?? const []) f as String],
+    clan: ClanTag.maybe(j['clan']),
+    tour: TourState.maybe(j['tour']),
   );
 
   static Map<String, int> _ints(Object? m) => {
@@ -163,6 +171,18 @@ class Profile {
   /// آخر دعوة وصلته من صديق لروم.
   final Invite? invite;
 
+  /// ملصقاته المفضلة (بالكثير [maxFavorites])، تطلع جنب زر التفاعل في اللعب.
+  final List<String> favorites;
+
+  /// نفس functions/src/index.ts → MAX_FAVORITES.
+  static const maxFavorites = 5;
+
+  /// ديوانه (أو null).
+  final ClanTag? clan;
+
+  /// بطولة الأسبوع اللي سجّل فيها آخر مرة.
+  final TourState? tour;
+
   /// هدايا وصلت وما شافها (مستويات أو بطولة).
   final List<Gift> gifts;
 
@@ -231,6 +251,7 @@ class Gift {
       tutorial = j['kind'] == 'tutorial',
       achievement = j['kind'] == 'achievement' ? j['ach'] as String? : null,
       rank = j['kind'] == 'rank',
+      tour = j['kind'] == 'tour',
       n = (j['n'] as num).toInt(),
       coins = (j['coins'] as num?)?.toInt() ?? 0,
       diamonds = (j['diamonds'] as num?)?.toInt() ?? 0,
@@ -247,6 +268,9 @@ class Gift {
 
   /// وصل رتبة تصنيف جديدة ([n] رقمها في rankTiers).
   final bool rank;
+
+  /// بطل بطولة الأسبوع.
+  final bool tour;
 
   /// المستوى، أو المركز للبطولة.
   final int n;

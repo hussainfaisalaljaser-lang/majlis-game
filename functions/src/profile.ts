@@ -8,13 +8,15 @@ import type { RankState } from './rank.js';
 import type { PassState } from './rewards.js';
 import { DEFAULT_EQUIPPED, avatarOfItem, isDefault, type EquipSlot } from './shop.js';
 import { rankOf } from './rank.js';
+import type { ClanTag } from './clans.js';
+import type { TourState } from './tournament.js';
 
 /** الشخصيات المجانية (app/assets/avatars). */
 export const AVATARS = FREE_AVATARS;
 
 /** هدية وصلت اللاعب (مستوى، بطولة الأسبوع، الشرح، إنجاز). التطبيق يعرضها ويشيلها بـ ackGifts. */
 export interface Gift {
-  kind: 'level' | 'champion' | 'tutorial' | 'achievement' | 'rank';
+  kind: 'level' | 'champion' | 'tutorial' | 'achievement' | 'rank' | 'tour';
   /** المستوى (للمستويات) أو المركز (للأبطال) أو الدرجة (للإنجازات). */
   n: number;
   /** معرف الإنجاز (للإنجازات). */
@@ -96,6 +98,19 @@ export interface Profile {
   sentReqs?: string[];
   /** آخر مرة دعا كل صديق لرومه (عشان ما يزعجه). */
   invitedAt?: Record<string, number>;
+  /**
+   * نسخة بروتوكول التطبيق اللي فتحه آخر مرة (ensureProfile). النسخ القديمة ما ترسله (يعني ١).
+   * ٢: تعرف الأدوار الجديدة (قاضي، شيخ، جاسوس) وإعادة اللعب والتفرج.
+   */
+  proto?: number;
+  /** بطولة الأسبوع: أي أسبوع سجّل فيه، ووين وصل، وطلع أو لا. */
+  tour?: TourState;
+  /** ديوانه (المعرف والاسم واللون والشعار)، أو null. */
+  clan?: ClanTag | null;
+  /** يلعب الحين: في أي روم ومن متى (أصحابه يقدرون يتفرجون). يتصفر لما تخلص اللعبة أو يطلع. */
+  playing?: { code: string; at: number } | null;
+  /** ملصقاته المفضلة (بالكثير ٥): تطلع له جنب زر التفاعل في اللعب بضغطة وحدة. */
+  favorites?: string[];
   /** آخر دعوة وصلته من صديق: التطبيق يعرضها لو كانت جديدة والروم للحين ينتظر. */
   invite?: { from: string; name: string; code: string; at: number };
   createdAt?: FieldValue;
@@ -121,6 +136,10 @@ export interface LeaderboardEntry {
   /** رمزه ودرجته (للبحث والبطاقة). */
   pid: string;
   pidTier: number;
+  /** يلعب الحين من متى (بدون كود الروم، الكود بس لأصحابه من spectate). */
+  playingSince: number | null;
+  /** ديوانه (يطلع في بطاقته). */
+  clan: ClanTag | null;
 }
 
 export function toLeaderboard(p: Profile): LeaderboardEntry {
@@ -139,6 +158,8 @@ export function toLeaderboard(p: Profile): LeaderboardEntry {
     rankPoints: rankOf(p).points,
     pid: p.pid ?? '',
     pidTier: p.pidTier ?? 0,
+    playingSince: p.playing?.at ?? null,
+    clan: p.clan ?? null,
   };
 }
 

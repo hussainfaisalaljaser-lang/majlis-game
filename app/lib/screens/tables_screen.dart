@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 
+import '../models/events.dart';
 import '../models/profile.dart';
 import '../models/table_tier.dart';
 import '../services/backend.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
 import '../widgets/ui.dart';
+import '../widgets/venues.dart';
+import '../widgets/weekend.dart';
 import 'waiting_screen.dart';
 
 /// اللعب العشوائي: تختار عدد اللاعبين ومستوى الطاولة، وندخلك مع لاعبين من كل مكان (مثل يلا لودو).
@@ -102,6 +105,8 @@ class _TablesScreenState extends State<TablesScreen> {
                       style: const TextStyle(color: AppColors.muted, fontSize: 11.5),
                     ),
                     const Spacer(),
+                    const WeekendChip(),
+                    const SizedBox(height: 6),
                     const Text(
                       'الطاولات العامة تحسب في تصنيفك',
                       style: TextStyle(color: AppColors.muted, fontSize: 11.5),
@@ -198,40 +203,96 @@ class _TierTile extends StatelessWidget {
             borderRadius: BorderRadius.circular(16),
             border: Border.all(color: selected ? AppColors.gold : AppColors.line, width: 1.5),
           ),
-          child: Row(
+          child: Stack(
+            clipBehavior: Clip.none,
             children: [
-              Opacity(opacity: locked ? .5 : 1, child: Gfx(tier.icon, size: 40)),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Text(tier.name, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
-                        if (locked) ...[const SizedBox(width: 5), const Gfx('lock', size: 18)],
-                      ],
-                    ),
-                    if (hint != null) Text(hint, style: const TextStyle(color: AppColors.muted, fontSize: 12)),
-                  ],
-                ),
+              // مكان الطاولة ورا الكلام: لمحة من اللي بتشوفه لما تدخل.
+              Positioned.fill(
+                left: -14,
+                right: -14,
+                top: -12,
+                bottom: -12,
+                child: _VenuePeek(tier: tier, selected: selected),
               ),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Amount('coin', arabicNumber(tier.entryFee), size: 16),
-                  Amount(
-                    'trophy',
-                    arabicNumber(tier.pot(players)),
-                    size: 15,
-                    style: const TextStyle(color: AppColors.green, fontSize: 12, fontWeight: FontWeight.w700),
-                  ),
-                ],
-              ),
+              _tileRow(hint),
             ],
           ),
         ),
       ),
     );
   }
+
+  Widget _tileRow(String? hint) => Row(
+    children: [
+      Opacity(opacity: locked ? .5 : 1, child: Gfx(tier.icon, size: 40)),
+      const SizedBox(width: 10),
+      Expanded(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Text(tier.name, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
+                if (locked) ...[const SizedBox(width: 5), const Gfx('lock', size: 18)],
+              ],
+            ),
+            if (hint != null) Text(hint, style: const TextStyle(color: AppColors.muted, fontSize: 12)),
+          ],
+        ),
+      ),
+      Column(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          Amount('coin', arabicNumber(tier.entryFee), size: 16),
+          Amount(
+            'trophy',
+            // نهاية الأسبوع: الجائزة مضاعفة.
+            arabicNumber(tier.pot(players) * Weekend.at(DateTime.now()).boost),
+            size: 15,
+            style: const TextStyle(color: AppColors.green, fontSize: 12, fontWeight: FontWeight.w700),
+          ),
+        ],
+      ),
+    ],
+  );
+}
+
+/// رسمة مكان الطاولة (ثابتة) مقصوصة على البطاقة، ومغطاة بظل من جهة الكلام.
+class _VenuePeek extends StatelessWidget {
+  const _VenuePeek({required this.tier, required this.selected});
+
+  final TableTier tier;
+  final bool selected;
+
+  @override
+  Widget build(BuildContext context) => ClipRRect(
+    borderRadius: BorderRadius.circular(15),
+    child: Stack(
+      fit: StackFit.expand,
+      children: [
+        FittedBox(
+          fit: BoxFit.cover,
+          child: SizedBox(
+            width: 400,
+            height: 225,
+            child: RepaintBoundary(child: CustomPaint(painter: venueBackdrop(venueOf(tier.id)), isComplex: true)),
+          ),
+        ),
+        DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: AlignmentDirectional.centerStart,
+              end: AlignmentDirectional.centerEnd,
+              colors: [
+                (selected ? const Color(0xFF2B2A22) : AppColors.card).withValues(alpha: .97),
+                (selected ? const Color(0xFF2B2A22) : AppColors.card).withValues(alpha: .62),
+                (selected ? const Color(0xFF2B2A22) : AppColors.card).withValues(alpha: .9),
+              ],
+              stops: const [.28, .62, 1],
+            ),
+          ),
+        ),
+      ],
+    ),
+  );
 }

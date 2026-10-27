@@ -81,6 +81,8 @@ Future<void> showGiftDialog(BuildContext context, Gift g) {
       ? 'إنجاز جديد: ${ach.name}'
       : g.tutorial
       ? 'خلّصت الشرح!'
+      : g.tour
+      ? 'بطل بطولة الأسبوع!'
       : g.champion
       ? (g.n == 1 ? 'بطل الأسبوع!' : (g.n == 2 ? 'وصيف الأسبوع!' : 'ثالث الأسبوع!'))
       : 'هدية المستوى ${arabicNumber(g.n)}!';
@@ -90,6 +92,8 @@ Future<void> showGiftDialog(BuildContext context, Gift g) {
       ? 'وصلت الدرجة ${tierNames[g.n.clamp(0, 3)]}: ${ach.descFor(g.n - 1)}. تطلع في ملفك للكل.'
       : g.tutorial
       ? 'هذي هديتك على أول لعبة. الحين أنت جاهز تلعب مع الناس!'
+      : g.tour
+      ? 'فزت بالنهائي! هذي جائزة البطل، واسمك بلوحة أبطال الأسبوع.'
       : g.champion
       ? 'الإطار والشخصية لك لين التتويج الجاي (أسبوع). لابسها الحين!'
       : 'وصلت ملفك، تقدر تلبسها من المتجر أو ملفك.';
@@ -135,7 +139,7 @@ Future<void> showGiftDialog(BuildContext context, Gift g) {
                         else if (ach != null)
                           BadgeMedal(achievement: ach, tier: g.n, size: 50)
                         else
-                          Gfx(g.tutorial ? 'trophy' : (g.champion ? 'medal${g.n}' : 'gift'), size: 46),
+                          Gfx(g.tutorial || g.tour ? 'trophy' : (g.champion ? 'medal${g.n}' : 'gift'), size: 46),
                         const SizedBox(width: 10),
                         GoldText(title, size: 28),
                       ],

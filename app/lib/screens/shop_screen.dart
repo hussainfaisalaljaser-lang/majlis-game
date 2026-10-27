@@ -13,6 +13,7 @@ import '../widgets/fx_sig.dart';
 import '../widgets/item_preview.dart';
 import '../widgets/pid.dart';
 import '../widgets/ui.dart';
+import 'wardrobe_screen.dart';
 
 /// أقسام المتجر: الأيقونة والاسم ونوع الأغراض.
 const _sections = [
@@ -54,6 +55,13 @@ class _ShopScreenState extends State<ShopScreen> {
           children: [Gfx('shop', size: 30), SizedBox(width: 8), Text('المتجر')],
         ),
         actions: [
+          // غرفة التبديل: تلبس اللي تملكه من مكان واحد.
+          TextButton.icon(
+            onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const WardrobeScreen())),
+            icon: const Gfx('cat_frame', size: 22),
+            label: const Text('غرفة التبديل'),
+          ),
+          const SizedBox(width: 6),
           ValueListenableBuilder(
             valueListenable: Backend.instance.profile,
             builder: (context, p, _) => Row(

@@ -57,6 +57,7 @@ class GameTable extends StatelessWidget {
     this.deaths = const {},
     this.hiddenDeaths = const {},
     this.timer,
+    this.ready = const {},
   });
 
   final GameView view;
@@ -86,6 +87,9 @@ class GameTable extends StatelessWidget {
 
   /// وقت الدور: ساعة رملية جنب اللي عليه الدور (وجنب الصينية وقت التصويت).
   final ({DateTime deadline, double total})? timer;
+
+  /// بعد اللعبة: اللي دخلوا الجولة الجاية («العب مرة ثانية»).
+  final Set<String> ready;
 
   @override
   Widget build(BuildContext context) {
@@ -177,6 +181,7 @@ class GameTable extends StatelessWidget {
                           stickerBelow: top < 30,
                           deathHidden: hiddenDeaths.contains(p.id),
                           deathAt: deaths[p.id],
+                          ready: ready.contains(p.id),
                           player: p,
                           view: view,
                           room: room,
@@ -403,6 +408,7 @@ class _SeatView extends StatelessWidget {
     this.stickerBelow = false,
     this.deathHidden = false,
     this.deathAt,
+    this.ready = false,
     required this.player,
     required this.view,
     required this.room,
@@ -434,6 +440,9 @@ class _SeatView extends StatelessWidget {
   /// متى يبدأ حزنه على كرسيه (وبعده ينطفي فانوسه ويتغطى).
   final DateTime? deathAt;
 
+  /// دخل الجولة الجاية («العب مرة ثانية»).
+  final bool ready;
+
   @override
   Widget build(BuildContext context) {
     final p = player;
@@ -441,8 +450,8 @@ class _SeatView extends StatelessWidget {
     final rp = room?.player(p.id);
     final role = p.knownRole;
     final over = view.phase == Phase.gameOver;
-    // طلع من الطاولة بعد ما خلصت اللعبة.
-    final gone = room?.gone.contains(p.id) ?? false;
+    // طلع من الطاولة بعد ما خلصت اللعبة (إلا لو راح للجولة الجاية).
+    final gone = !ready && (room?.gone.contains(p.id) ?? false);
     // اللي حظرتهم: ما تشوف ردودهم ولا رأيهم.
     final blocked = Backend.instance.profile.value.blocked;
     final opinion = room?.opinionOf(p.id, ignore: blocked);
@@ -515,7 +524,10 @@ class _SeatView extends StatelessWidget {
                   ),
                   const SizedBox(height: 3),
                   if (over) ...[
-                    if (gone) const _Office('طلع', Color(0xFF5B5F78), Colors.white),
+                    if (ready)
+                      const _Office('جاهز يعيد', AppColors.green, Color(0xFF062814))
+                    else if (gone)
+                      const _Office('طلع', Color(0xFF5B5F78), Colors.white),
                   ] else if (p.id == view.presidentId)
                     const _Office('الرئيس', AppColors.gold, AppColors.goldInk)
                   else if (p.id == view.nomineeId)
@@ -530,7 +542,7 @@ class _SeatView extends StatelessWidget {
                       border: Border.all(color: Colors.white.withValues(alpha: .14)),
                     ),
                     child: Text(
-                      isMe ? 'أنت' : p.name,
+                      isMe && !view.spectator ? 'أنت' : p.name,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
@@ -607,7 +619,8 @@ class _SeatView extends StatelessWidget {
             bottom: -4,
             child: role == Role.leader ? const LeaderSeal(size: 32) : Seal(loyal: role == Role.loyal, size: 26),
           ),
-        if (p.knownSpecial == Special.guardian && !isMe) const _Badge('shield', left: -6, bottom: -2),
+        if (p.knownSpecial case final special? when !isMe && (over || special != Special.seer))
+          _Badge(specialIcon[special]!, right: -8, bottom: -2),
         if (room?.player(p.id)?.bot ?? false) const _Badge('bot', right: -8, top: 16),
         if (view.phase == Phase.election && p.hasVoted) const _Badge('check', left: -6, top: -4),
         if (note != null)
@@ -976,6 +989,15 @@ class _Office extends StatelessWidget {
   );
 }
 
+/// أيقونة كل دور خاص (نفس overlays.dart → specialInfo).
+const specialIcon = {
+  Special.seer: 'seer',
+  Special.guardian: 'shield',
+  Special.judge: 'scales',
+  Special.elder: 'ballot',
+  Special.spy: 'eye',
+};
+
 class _Badge extends StatelessWidget {
   const _Badge(this.icon, {this.left, this.right, this.top, this.bottom});
 
@@ -1003,7 +1025,7 @@ class _Bubble extends StatelessWidget {
     final target = reaction.target;
     final targetName = target == null
         ? null
-        : target == view.you
+        : target == view.you && !view.spectator
         ? 'أنت'
         : view.players.where((p) => p.id == target).firstOrNull?.name;
     final text = textReaction(reaction.kind)?.text(targetName) ?? '…';

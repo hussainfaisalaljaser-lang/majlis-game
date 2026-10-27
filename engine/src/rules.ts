@@ -30,6 +30,11 @@ export function leaderKnowsTraitors(players: number): boolean {
   return players <= 6;
 }
 
+/** كم دور جديد (قاضي، شيخ، جاسوس) يطلع في اللعبة حسب عدد اللاعبين. */
+export function extraSpecialCount(players: number): number {
+  return players <= 6 ? 1 : players <= 8 ? 2 : 3;
+}
+
 /** القدرة اللي تنفتح للرئيس بعد تمرير قرار الخونة رقم n (يبدأ من ١). */
 export function powerFor(players: number, traitorPolicyNumber: number): Power | null {
   const small: (Power | null)[] = [null, null, 'peek', 'execute', 'execute'];

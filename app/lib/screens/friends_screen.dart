@@ -10,6 +10,7 @@ import '../widgets/friend_button.dart';
 import '../widgets/pid.dart';
 import '../widgets/player_card.dart';
 import '../widgets/ui.dart';
+import 'game_screen.dart';
 
 /// الأصدقاء: قائمتك، والطلبات اللي وصلتك، وتضيف أحد برمزه.
 class FriendsScreen extends StatefulWidget {
@@ -106,11 +107,14 @@ class _Empty extends StatelessWidget {
 
 /// سطر لاعب: صورته واسمه ومستواه ورمزه، والضغط يفتح بطاقته. [trailing] أزرار على الطرف.
 class _PlayerRow extends StatelessWidget {
-  const _PlayerRow({required this.uid, required this.entry, this.trailing = const []});
+  const _PlayerRow({required this.uid, required this.entry, this.trailing = const [], this.playing = false});
 
   final String uid;
   final LeaderboardEntry? entry;
   final List<Widget> trailing;
+
+  /// يلعب الحين (نقطة خضرا وسطر تحت اسمه).
+  final bool playing;
 
   @override
   Widget build(BuildContext context) {
@@ -152,8 +156,12 @@ class _PlayerRow extends StatelessWidget {
                             ),
                             if (e != null)
                               Text(
-                                'مستوى ${arabicNumber(e.level)}',
-                                style: const TextStyle(color: AppColors.muted, fontSize: 12),
+                                playing ? 'يلعب الحين' : 'مستوى ${arabicNumber(e.level)}',
+                                style: TextStyle(
+                                  color: playing ? AppColors.green : AppColors.muted,
+                                  fontSize: 12,
+                                  fontWeight: playing ? FontWeight.w800 : null,
+                                ),
                               ),
                           ],
                         ),
@@ -173,15 +181,63 @@ class _PlayerRow extends StatelessWidget {
   }
 }
 
-class _FriendRow extends StatelessWidget {
+class _FriendRow extends StatefulWidget {
   const _FriendRow({required this.uid});
 
   final String uid;
 
   @override
+  State<_FriendRow> createState() => _FriendRowState();
+}
+
+class _FriendRowState extends State<_FriendRow> {
+  late final Future<LeaderboardEntry?> _entry = Backend.instance.fetchPlayer(widget.uid).catchError((_) => null);
+  bool _busy = false;
+
+  /// تتفرج على لعبته وهي شغالة.
+  Future<void> _watch() async {
+    setState(() => _busy = true);
+    try {
+      final code = await Backend.instance.spectate(widget.uid);
+      if (mounted) {
+        await Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => GameScreen(code: code, watching: widget.uid),
+          ),
+        );
+      }
+    } on BackendException catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) => FutureBuilder(
-    future: Backend.instance.fetchPlayer(uid).catchError((_) => null),
-    builder: (context, snap) => _PlayerRow(uid: uid, entry: snap.data),
+    future: _entry,
+    builder: (context, snap) {
+      final e = snap.data;
+      return _PlayerRow(
+        uid: widget.uid,
+        entry: e,
+        playing: e?.playing ?? false,
+        trailing: [
+          if (e?.playing ?? false)
+            SizedBox(
+              width: 110,
+              child: GameButton(
+                label: _busy ? 'لحظة…' : 'تفرّج',
+                icon: const Gfx('eye', size: 20),
+                tone: ButtonTone.purple,
+                height: 40,
+                fontSize: 14,
+                onPressed: _busy ? null : _watch,
+              ),
+            ),
+        ],
+      );
+    },
   );
 }
 

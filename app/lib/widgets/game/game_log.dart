@@ -26,7 +26,7 @@ class _GameLog extends StatelessWidget {
   final GameView view;
   final ScrollController controller;
 
-  String _name(String id) => id == view.you ? 'أنت' : view.player(id).name;
+  String _name(String id) => view.nameOf(id);
 
   @override
   Widget build(BuildContext context) {
@@ -110,7 +110,18 @@ class _RoundCard extends StatelessWidget {
           lines.add(line('crown', '${name(d['president'] as String)} رشّح ${name(d['chancellor'] as String)} وزير'));
         case 'voteResult':
           final votes = Map<String, bool>.from(d['votes'] as Map);
-          lines.add(d['passed'] == true ? line('check', 'الحكومة انتخبت') : line('cross', 'الحكومة رُفضت'));
+          final weights = {
+            for (final MapEntry(:key, :value) in ((d['weights'] as Map?) ?? const {}).entries)
+              key as String: (value as num).toInt(),
+          };
+          final judge = d['cancelledBy'] as String?;
+          lines.add(
+            judge != null
+                ? line('scales', 'القاضي ${name(judge)} ألغى التصويت، والحكومة سقطت')
+                : d['passed'] == true
+                ? line('check', 'الحكومة انتخبت')
+                : line('cross', 'الحكومة رُفضت'),
+          );
           lines.add(
             Wrap(
               spacing: 4,
@@ -129,7 +140,7 @@ class _RoundCard extends StatelessWidget {
                         Gfx(value ? 'check' : 'cross', size: 14),
                         const SizedBox(width: 3),
                         Text(
-                          name(key),
+                          (weights[key] ?? 1) > 1 ? '${name(key)} ×${arabicNumber(weights[key]!)}' : name(key),
                           style: TextStyle(
                             fontSize: 12,
                             color: value ? const Color(0xFF8EE4AB) : const Color(0xFFFFB0B0),

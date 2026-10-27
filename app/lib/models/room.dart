@@ -64,6 +64,9 @@ class Room {
     this.opinions = const {},
     this.quick = false,
     this.gone = const {},
+    this.next,
+    this.watchers = const [],
+    this.tour,
   });
 
   factory Room.fromJson(Map<String, dynamic> j) => Room(
@@ -83,6 +86,14 @@ class Room {
           coins: value['coins'] as int,
           xp: value['xp'] as int,
           rank: (value['rank'] as num?)?.toInt(),
+          boost: (value['boost'] as num?)?.toInt() ?? 1,
+          tour: (value['tour'] as Map?) == null
+              ? null
+              : (
+                  stage: ((value['tour'] as Map)['stage'] as num).toInt(),
+                  out: (value['tour'] as Map)['out'] == true,
+                  champion: (value['tour'] as Map)['champion'] == true,
+                ),
         ),
     },
     reactions: [
@@ -94,6 +105,9 @@ class Room {
     },
     quick: j['quick'] as bool? ?? false,
     gone: {for (final g in (j['gone'] as List?) ?? const []) g as String},
+    next: j['next'] as String?,
+    watchers: [for (final w in (j['watchers'] as List?) ?? const []) w as String],
+    tour: (j['tour'] as num?)?.toInt(),
   );
 
   final String code;
@@ -115,7 +129,8 @@ class Room {
   static const botFillAfter = Duration(seconds: 25);
 
   /// اللي كسبه كل لاعب لما انتهت اللعبة.
-  final Map<String, ({bool won, int coins, int xp, int? rank})> results;
+  final Map<String, ({bool won, int coins, int xp, int? rank, int boost, ({int stage, bool out, bool champion})? tour})>
+  results;
   final List<Reaction> reactions;
 
   /// opinions[من][في] = true لو يشك فيه، false لو يثق فيه.
@@ -123,6 +138,15 @@ class Room {
 
   /// اللي طلعوا من الطاولة بعد ما خلصت اللعبة.
   final Set<String> gone;
+
+  /// «العب مرة ثانية»: كود الروم الجديد بنفس الإعدادات (لو أحد ضغطها).
+  final String? next;
+
+  /// أصحاب اللاعبين اللي يتفرجون الحين.
+  final List<String> watchers;
+
+  /// طاولة بطولة الأسبوع: أي دور (٠ الأول، ١ نص النهائي، ٢ النهائي).
+  final int? tour;
 
   RoomPlayer? player(String uid) => players.where((p) => p.uid == uid).firstOrNull;
 

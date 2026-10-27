@@ -1,9 +1,13 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
+  EXTRA_SPECIALS,
   RuleError,
   applyAction,
+  botAction,
   botSeerReveal,
+  botSpyPeek,
+  extraSpecialCount,
   createGame,
   eligibleChancellors,
   viewFor,
@@ -311,6 +315,22 @@ describe('الادعاءات', () => {
     assert.equal(claims.length, 2);
   });
 
+  it('الكروت الحقيقية سرية لين تنتهي اللعبة، وبعدها تطلع للكل (مين كذب؟)', () => {
+    let s = rigged(5, FIVE, ['L', 'L', 'T', 'L', 'L', 'L', 'L', 'L', 'L', 'L', 'L', 'L', 'L', 'L', 'L']);
+    s = govern(s, 'p1');
+    assert.equal(viewFor(s, 'p2').truths, null);
+    assert.equal(viewFor(s, 'p0').truths, null, 'حتى الرئيس ما يشوفها في السجل');
+    s.loyalPolicies = 4;
+    s.presidentId = 'p2';
+    s.rotationSeat = 2;
+    s.lastElected = null;
+    s = govern(s, 'p3');
+    assert.equal(s.phase, 'gameOver');
+    const truths = viewFor(s, 'p4').truths!;
+    assert.deepEqual(truths[1], { president: ['L', 'L', 'T'], chancellor: ['L', 'T'] });
+    assert.equal(Object.keys(truths).length, 2);
+  });
+
   it('المطرود ما يتكلم: ما له ادعاء', () => {
     let s = rigged(5, FIVE, ['L', 'L', 'T', 'L', 'L', 'L']);
     s = govern(s, 'p1');
@@ -550,6 +570,89 @@ describe('الأدوار الخاصة', () => {
     const t = botSeerReveal(s, 'p1');
     assert.ok(t && t !== 'p1');
     assert.equal(botSeerReveal(s, 'p2'), null, 'مو عرّاف');
+  });
+
+  it('الأدوار الجديدة: قاضي وشيخ وجاسوس لأي لاعب إلا الزعيم، وعددها حسب الطاولة', () => {
+    for (let n = 5; n <= 10; n++) {
+      for (let seed = 1; seed <= 30; seed++) {
+        const s = createGame(ids(n), seed * 31 + n);
+        const extra = s.players.filter((p) => (EXTRA_SPECIALS as readonly string[]).includes(p.special ?? ''));
+        assert.equal(extra.length, extraSpecialCount(n));
+        assert.equal(new Set(extra.map((p) => p.special)).size, extra.length, 'ما يتكرر');
+        assert.ok(extra.every((p) => p.role !== 'leader'), 'الزعيم ما ياخذ دور جديد');
+        assert.equal(s.players.filter((p) => p.special === 'seer').length, 1);
+        assert.equal(s.players.filter((p) => p.special === 'guardian').length, 1);
+      }
+      const plain = createGame(ids(n), 7, { extraSpecials: false });
+      assert.ok(plain.players.every((p) => !p.special || p.special === 'seer' || p.special === 'guardian'));
+    }
+  });
+
+  it('القاضي يلغي التصويت مرة وحدة: الحكومة تسقط مهما كانت الأصوات، وينكشف', () => {
+    let s = rigged(5, FIVE, Array(17).fill('L'));
+    s.players[2].special = 'judge';
+    s = act(s, 'p0', { type: 'nominate', chancellor: 'p1' });
+    assert.equal(viewFor(s, 'p2').judgeReady, true);
+    assert.equal(viewFor(s, 'p3').judgeReady, false);
+    assert.throws(() => act(s, 'p3', { type: 'judgeCancel' }), /notJudge|القاضي/);
+    s = act(s, 'p2', { type: 'judgeCancel' });
+    assert.equal(viewFor(s, 'p2').judgeReady, false);
+    assert.equal(viewFor(s, 'p4').players[2].knownSpecial, null, 'ما ينكشف لين يخلص التصويت');
+    for (const id of ['p0', 'p1', 'p3', 'p4']) s = act(s, id, { type: 'vote', ja: true });
+    const result = s.log.findLast((e) => e.type === 'voteResult');
+    assert.ok(result?.type === 'voteResult' && !result.passed && result.cancelledBy === 'p2');
+    assert.equal(s.electionTracker, 1);
+    assert.equal(s.phase, 'nomination');
+    assert.equal(viewFor(s, 'p4').players[2].knownSpecial, 'judge', 'انكشف للكل');
+    // مرة وحدة بس
+    s = act(s, s.presidentId, { type: 'nominate', chancellor: eligibleChancellors(s)[0] });
+    assert.throws(() => act(s, 'p2', { type: 'judgeCancel' }), /judgeUsed|ألغيت/);
+  });
+
+  it('الشيخ صوته بصوتين، والتعادل رفض', () => {
+    const vote = (yes: string[]) => {
+      let s = rigged(5, FIVE, Array(17).fill('L'));
+      s.players[2].special = 'elder';
+      s = act(s, 'p0', { type: 'nominate', chancellor: 'p1' });
+      for (const p of s.players) s = act(s, p.id, { type: 'vote', ja: yes.includes(p.id) });
+      return s;
+    };
+    // المجموع ٦: الشيخ + ٢ = ٤ يمر، الشيخ + ١ = ٣ تعادل يسقط، ٣ بدون الشيخ = ٣ يسقط.
+    assert.equal(vote(['p2', 'p0', 'p1']).phase, 'presidentDiscard');
+    assert.equal(vote(['p2', 'p0']).phase, 'nomination');
+    assert.equal(vote(['p0', 'p1', 'p3']).phase, 'nomination');
+    const s = vote(['p2', 'p0', 'p1']);
+    const result = s.log.findLast((e) => e.type === 'voteResult');
+    assert.ok(result?.type === 'voteResult' && result.weights?.p2 === 2);
+    assert.equal(viewFor(s, 'p4').players[2].knownSpecial, 'elder', 'انكشف من أول تصويت');
+  });
+
+  it('الجاسوس يشوف أول كرت بالكومة مرة وحدة، وسراً', () => {
+    let s = rigged(5, FIVE, ['T', 'L', 'L', 'L', 'L']);
+    s.players[3].special = 'spy';
+    assert.equal(viewFor(s, 'p3').spyReady, true);
+    const logBefore = s.log.length;
+    s = act(s, 'p3', { type: 'spyPeek' });
+    assert.equal(s.log.length, logBefore, 'ما ينكتب في السجل');
+    assert.deepEqual(viewFor(s, 'p3').spySaw, { card: 'T', round: 1 });
+    assert.equal(viewFor(s, 'p3').spyReady, false);
+    assert.equal(viewFor(s, 'p2').spySaw, null, 'الباقين ما يشوفون');
+    assert.throws(() => act(s, 'p3', { type: 'spyPeek' }), /spyUsed|شفت/);
+    assert.throws(() => act(s, 'p2', { type: 'spyPeek' }), /notSpy|الجاسوس/);
+  });
+
+  it('القاضي البوت يلغي حكومة فيها مكشوف، والجاسوس البوت يشوف من الجولة الثالثة', () => {
+    let s = rigged(5, FIVE, Array(17).fill('L'));
+    s.players[2].special = 'judge';
+    // الوفي حقق مع p3 وطلع خاين.
+    s.investigations.push({ by: 'p2', target: 'p3', team: 'traitor' });
+    s = act(s, 'p0', { type: 'nominate', chancellor: 'p3' });
+    assert.deepEqual(botAction(s, 'p2', () => 0.1), { type: 'judgeCancel' });
+    const spy = rigged(5, FIVE, Array(17).fill('L'));
+    spy.players[1].special = 'spy';
+    assert.equal(botSpyPeek(spy, 'p1', () => 0.1), false, 'الجولة الأولى لا');
+    spy.round = 3;
+    assert.equal(botSpyPeek(spy, 'p1', () => 0.1), true);
   });
 
   it('الحارس ينجو من أول طرد وينكشف للكل، والثاني يطرده', () => {

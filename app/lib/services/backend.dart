@@ -9,13 +9,19 @@ import 'package:google_sign_in/google_sign_in.dart';
 
 import '../firebase_options.dart';
 import '../models/catalog.dart';
+import '../models/clan.dart';
 import '../models/leaderboard.dart';
 import '../models/profile.dart';
 import '../models/room.dart';
+import '../models/tour.dart';
 
 /// شغّل التطبيق مع `--dart-define=USE_EMULATOR=true` عشان يتصل بمحاكي Firebase على جهازك.
 const _useEmulator = bool.fromEnvironment('USE_EMULATOR');
 const _emulatorHost = String.fromEnvironment('EMULATOR_HOST', defaultValue: '10.0.2.2');
+
+/// نسخة بروتوكول التطبيق: السيرفر يعطي الأدوار الجديدة (قاضي، شيخ، جاسوس) بس لو كل اللي بالطاولة
+/// عندهم ٢ أو أكثر، عشان النسخ القديمة ما تطيح لما تشوف دور ما تعرفه (functions/src/index.ts → PROTO_V2).
+const protocolVersion = 2;
 
 /// كل الاتصال بالسيرفر يمر من هنا.
 class Backend {
@@ -75,7 +81,7 @@ class Backend {
       profile.value = Profile.fromJson(s.data()!);
       profileLoaded.value = true;
     }, onError: (Object e) => debugPrint('profile listener: $e'));
-    await _call('ensureProfile', {});
+    await _call('ensureProfile', {'proto': protocolVersion});
   }
 
   static UserInfo? _googleOf(User? u) =>
@@ -255,6 +261,12 @@ class Backend {
 
   Future<void> leaveRoom(String code) => _call('leaveRoom', {'code': code});
 
+  /// «العب مرة ثانية»: يسوي روم جديد بنفس الإعدادات أو يدخل اللي سواه غيرك. يرجّع كوده وهل بدأت.
+  Future<({String code, bool started})> rematch(String code) async {
+    final r = await _call('rematch', {'code': code});
+    return (code: r['code'] as String, started: r['started'] == true);
+  }
+
   Future<void> startGame(String code) => _call('startGame', {'code': code});
 
   Future<void> act(String code, Map<String, dynamic> action) => _call('act', {'code': code, 'action': action});
@@ -271,6 +283,67 @@ class Backend {
   Future<void> leaveGame(String code) => _call('leaveGame', {'code': code});
 
   Future<void> clearOpinion(String code, String target) => _call('clearOpinion', {'code': code, 'target': target});
+
+  /// يسجّل في بطولة هالأسبوع (برسوم).
+  Future<void> tourJoin() => _call('tourJoin', const {});
+
+  /// «العب جولتك» في البطولة: يرجّع كود طاولة البطولة.
+  Future<String> tourPlay() async => (await _call('tourPlay', const {}))['code'] as String;
+
+  /// لوحة بطولة الأسبوع.
+  Stream<Tour> watchTour(String week) =>
+      _db.doc('tours/$week').snapshots().map((s) => s.exists ? Tour.fromJson(s.data()!) : Tour.empty);
+
+  /// يسوي ديوان (بسعر) وأنت شيخه. يرجّع معرفه.
+  Future<String> createClan({required String name, required int color, required String emblem}) async =>
+      (await _call('createClan', {'name': name, 'color': color, 'emblem': emblem}))['id'] as String;
+
+  Future<void> joinClan(String id) => _call('joinClan', {'id': id});
+
+  Future<void> leaveClan() => _call('leaveClan', const {});
+
+  /// الشيخ أو نائبه يطلّع عضو.
+  Future<void> clanKick(String uid) => _call('clanKick', {'uid': uid});
+
+  /// الشيخ يخلي عضو نائب أو يرجّعه.
+  Future<void> clanRole(String uid, {required bool deputy}) => _call('clanRole', {'uid': uid, 'deputy': deputy});
+
+  /// صندوق هدف الأسبوع.
+  Future<void> claimClanChest() => _call('claimClanChest', const {});
+
+  /// الديوان مباشرة.
+  Stream<Clan?> watchClan(String id) {
+    final week = gulfWeek(DateTime.now());
+    return _db.doc('clans/$id').snapshots().map((s) => s.exists ? Clan.fromJson(s.data()!, week) : null);
+  }
+
+  /// أفضل الدواوين هالأسبوع (بنقاط الأسبوع).
+  Stream<List<Clan>> watchTopClans() {
+    final week = gulfWeek(DateTime.now());
+    return _db
+        .collection('clans')
+        .orderBy('weekly.$week', descending: true)
+        .limit(50)
+        .snapshots()
+        .map((s) => [for (final d in s.docs) Clan.fromJson(d.data(), week)]);
+  }
+
+  /// يدور ديوان بأول اسمه.
+  Future<List<Clan>> searchClans(String prefix) async {
+    final week = gulfWeek(DateTime.now());
+    final key = clanKey(prefix);
+    if (key.isEmpty) return const [];
+    final s = await _db
+        .collection('clans')
+        .where('nameKey', isGreaterThanOrEqualTo: key)
+        .where('nameKey', isLessThan: '$key\uf8ff')
+        .limit(20)
+        .get();
+    return [for (final d in s.docs) Clan.fromJson(d.data(), week)];
+  }
+
+  /// يحفظ الملصقات المفضلة (بالترتيب، بالكثير ٥).
+  Future<void> setFavorites(List<String> ids) => _call('setFavorites', {'ids': ids});
 
   /// رد في الطاولة: كلام (textReactions) أو ملصق (stickers).
   Future<void> react(String code, String kind, {String? target}) =>
@@ -350,6 +423,16 @@ class Backend {
   /// نسخة اللاعب من اللعبة (فيها أسراره هو بس).
   Stream<Map<String, dynamic>?> watchView(String code) =>
       _db.doc('games/$code/views/$uid').snapshots().map((s) => s.data());
+
+  /// نسخة المتفرج (بدون أسرار). تنقرا بعد [spectate] بس.
+  Stream<Map<String, dynamic>?> watchSpectator(String code) =>
+      _db.doc('games/$code/views/_watch').snapshots().map((s) => s.data());
+
+  /// تتفرج على لعبة صاحبك (لازم يكون يلعب الحين). يرجّع كود الروم.
+  Future<String> spectate(String friend) async => (await _call('spectate', {'uid': friend}))['code'] as String;
+
+  /// خلّصت تفرّج.
+  Future<void> stopWatching(String code) => _call('stopWatching', {'code': code});
 }
 
 class BackendException implements Exception {
