@@ -42,14 +42,14 @@ class AvatarRig {
       'sultana' => _sultana(),
       'queen' => _queen(),
       'astronaut' => _astronaut(),
-      'lv20' => _sage(),
-      'lv30' => _goldSheikh(),
-      'lv40' => _rubyWarrior(),
-      'lv50' => _legend(),
-      's1a' => _nightKnight(),
-      's1b' => _moonGuard(),
-      's1c' => _seasonSultan(),
-      _ => _champion(),
+      'lv20' => _owl(),
+      'lv30' => _leopard(),
+      'lv40' => _lion(),
+      'lv50' => _phoenix(),
+      's1a' => _caracal(),
+      's1b' => _gazelle(),
+      's1c' => _horse(),
+      _ => _oryx(),
     },
   );
 
@@ -481,99 +481,110 @@ class AvatarRig {
     ];
   }
 
-  /// الحكيم: كل شوي يطالع في كتابه ويقلّب صفحة.
-  List<Widget> _sage() {
+  // ───────────── حيوانات الجوائز (تناسب الكل) ─────────────
+
+  /// البومة الحكيمة: تقرأ في كتابها وتقلّب صفحة، وكل شوي تلف راسها مثل البوم، ونظارتها تلمع.
+  List<Widget> _owl() {
     final read = _hold(6, 2.6, 0, .2);
     final page = _phase(6, 1.8);
-    return _human(
-      rot: .07 * read,
-      shift: Offset(1.5 * read, 2 * read),
-      over: (head) => [
-        _img('book', _body),
-        _fx(_body, (c) {
-          if (page == null || page < .3) return;
-          final q = Curves.easeInOut.transform(((page - .3) / .45).clamp(0.0, 1.0));
-          if (q >= 1) return;
-          c.save();
-          c.translate(146, 170);
-          c.rotate(-12 * math.pi / 180);
-          final x = 22 * math.cos(math.pi * q);
-          final lift = 4 * math.sin(math.pi * q);
-          final leaf = Path()
-            ..moveTo(0, -14)
-            ..lineTo(x, -14 - lift)
-            ..lineTo(x, 14 - lift)
-            ..lineTo(0, 14)
-            ..close();
-          c.drawPath(leaf, Paint()..color = const Color(0xFFFFF8E7));
-          c.drawPath(
-            leaf,
-            Paint()
-              ..style = PaintingStyle.stroke
-              ..strokeWidth = 1.2
-              ..color = const Color(0xFFC9B48A),
-          );
-          c.restore();
-        }),
-      ],
-    );
-  }
-
-  /// الشيخ الذهبي: سلسلته الذهب تتمرجح، وغترته تلمع، ويهز راسه.
-  List<Widget> _goldSheikh() {
-    final nod = _pulse(5.6, 1.1);
-    return _human(
-      shift: Offset(0, 1.8 * nod),
-      under: [_img('chain', _body.multiplied(_xf(rot: .08 * math.sin(t * 2.3), pivot: _neck)))],
-      over: (head) => [
-        _fx(head, (c) {
-          _sparkle(c, const Offset(128, 84), 4.2, _pulse(2.4, .5));
-          _sparkle(c, const Offset(70, 128), 3.6, _pulse(2.4, .5, 1.2));
-        }),
-      ],
-    );
-  }
-
-  /// محارب الياقوت: ريشته تتمايل، وياقوتة خوذته تتوهج، وكل شوي يصرخ صرخة حرب.
-  List<Widget> _rubyWarrior() {
-    final cry = _hold(7.5, 1.1, 2, .2);
-    final head = _head(rot: .05 * math.sin(t * 32) * cry, shift: Offset(0, -1.6 * cry));
-    final sway = .14 * math.sin(t * 2.1) + .05 * math.sin(t * 5.3);
+    final turn = _hold(9, 1.6, 4, .25);
+    final head = _head(rot: .07 * read + .22 * turn, shift: Offset(1.5 * read, 2 * read));
     return [
       _img('body', _body),
-      _img('plume', head.multiplied(_xf(rot: sway + .2 * cry, pivot: const Offset(106, 46)))),
       _img('head', head),
-      if (_p.blink && cry < .3) _img('blink', head),
-      if (cry > .2) _img('mouth', head),
+      if (_p.blink && turn < .2) _img('blink', head),
+      _img('glasses', head),
+      _fx(head, (c) => _sparkle(c, const Offset(66, 88), 3.4, _pulse(3.4, .45, 1))),
+      _img('book', _body),
+      _fx(_body, (c) {
+        if (page == null || page < .3) return;
+        final q = Curves.easeInOut.transform(((page - .3) / .45).clamp(0.0, 1.0));
+        if (q >= 1) return;
+        c.save();
+        c.translate(146, 170);
+        c.rotate(-12 * math.pi / 180);
+        final x = 22 * math.cos(math.pi * q);
+        final lift = 4 * math.sin(math.pi * q);
+        final leaf = Path()
+          ..moveTo(0, -14)
+          ..lineTo(x, -14 - lift)
+          ..lineTo(x, 14 - lift)
+          ..lineTo(0, 14)
+          ..close();
+        c.drawPath(leaf, Paint()..color = const Color(0xFFFFF8E7));
+        c.drawPath(
+          leaf,
+          Paint()
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = 1.2
+            ..color = const Color(0xFFC9B48A),
+        );
+        c.restore();
+      }),
+    ];
+  }
+
+  /// النمر الذهبي: سلسلته الذهب تتمرجح، وفروه يلمع، ويهز راسه.
+  List<Widget> _leopard() {
+    final nod = _pulse(5.6, 1.1);
+    final head = _head(shift: Offset(0, 1.8 * nod));
+    return [
+      _img('body', _body),
+      _img('chain', _body.multiplied(_xf(rot: .08 * math.sin(t * 2.3), pivot: _neck))),
+      _img('head', head),
+      if (_p.blink) _img('blink', head),
+      _fx(head, (c) {
+        _sparkle(c, const Offset(140, 62), 4.2, _pulse(2.4, .5));
+        _sparkle(c, const Offset(62, 116), 3.6, _pulse(2.4, .5, 1.2));
+      }),
+    ];
+  }
+
+  /// أسد الياقوت: لبدته تتمايل، وياقوتته تتوهج، وكل شوي يزأر وتنتفش لبدته.
+  List<Widget> _lion() {
+    final roar = _hold(7.5, 1.2, 2, .2);
+    final head = _head(rot: .04 * math.sin(t * 30) * roar, shift: Offset(0, -1.6 * roar));
+    final puff = 1 + .05 * roar;
+    return [
+      _img('body', _body),
+      _img('mane', head.multiplied(_xf(rot: .03 * math.sin(t * 1.9), sx: puff, sy: puff))),
+      _img('head', head),
+      if (_p.blink && roar < .3) _img('blink', head),
+      if (roar > .2) _img('mouth', head),
       _fx(
         head,
         (c) => _glow(
           c,
-          const Offset(100, 62),
-          13 * (1 + .25 * math.sin(t * 3)) + 8 * cry,
+          const Offset(100, 75),
+          12 * (1 + .25 * math.sin(t * 3)) + 8 * roar,
           const Color(0xFFF43F5E),
-          .55 + .3 * cry,
+          .55 + .3 * roar,
         ),
       ),
     ];
   }
 
-  /// أسطورة المجلس: عيونه تشع وتنبض، وتاجه يلمع، وكل شوي تنفجر طاقة حوله.
-  List<Widget> _legend() {
+  /// العنقاء: عرفها يتراقص مثل النار، وجناحينها يرفرفون، وكل شوي يتطاير حولها شرار.
+  List<Widget> _phoenix() {
     final head = _head();
     final burst = _pulse(6, 1.2, 1);
+    final flap = .5 + .5 * math.sin(t * 2.6);
+    final crest = head.multiplied(
+      _xf(rot: .05 * math.sin(t * 5.2), pivot: const Offset(100, 66), sy: 1 + .06 * math.sin(t * 7.3)),
+    );
     return [
+      _img('wings', _xf(pivot: const Offset(100, 200), sx: 1 + .07 * flap, sy: 1 + .03 * flap)),
       _img('body', _body),
+      _img('crest', crest),
       _img('head', head),
-      if (_p.blink)
-        _img('blink', head)
-      else
-        _img('glow', head, opacity: .5 + .3 * (.5 + .5 * math.sin(t * 2.2)) + .2 * burst),
-      _fx(head, (c) {
-        for (final (i, at) in const [Offset(60, 24), Offset(100, 12), Offset(140, 24)].indexed) {
+      if (_p.blink) _img('blink', head),
+      _fx(crest, (c) {
+        for (final (i, at) in const [Offset(72, 40), Offset(100, 10), Offset(128, 40)].indexed) {
           _sparkle(c, at, 4, _pulse(3, .5, i * .7), glow: const Color(0xFFFDE68A));
         }
-        if (burst > 0) {
+      }),
+      if (burst > 0)
+        _fx(head, (c) {
           for (var i = 0; i < 6; i++) {
             final a = i * math.pi / 3 + t * .5;
             _sparkle(
@@ -581,69 +592,77 @@ class AvatarRig {
               const Offset(100, 100) + Offset(math.cos(a), math.sin(a)) * (40 + 22 * burst),
               3.4,
               burst,
-              glow: const Color(0xFFF9A8D4),
+              glow: const Color(0xFFFB923C),
             );
           }
-        }
-      }),
+        }),
     ];
   }
 
-  /// فارس الليل: يتلفت يمين ويسار، وهلاله يلمع.
-  List<Widget> _nightKnight() {
+  /// وشق الليل: يتلفت يمين ويسار، ويحرك أذونه بخصلها، وهلاله يلمع.
+  List<Widget> _caracal() {
     final p = _Pose(t, _seed, look: .1, period: 2.3);
     final head = _xf(rot: p.head, pivot: _neck, shift: p.body);
     return [
       _img('body', _body),
+      _img('ear_l', head.multiplied(_xf(rot: -.22 * _pulse(3.1, .22), pivot: const Offset(68, 72)))),
+      _img('ear_r', head.multiplied(_xf(rot: .22 * _pulse(3.7, .22, 1.4), pivot: const Offset(132, 72)))),
       _img('head', head),
       if (p.blink) _img('blink', head),
-      _fx(head, (c) => _sparkle(c, const Offset(104, 56), 4, _pulse(3.6, .55), glow: const Color(0xFFFDE68A))),
+      _fx(_body, (c) => _sparkle(c, const Offset(99, 178), 4, _pulse(3.6, .55), glow: const Color(0xFFFDE68A))),
     ];
   }
 
-  /// حارسة القمر: هلالها يضوي وينطفي بهدوء، ولمعة تمشي على عقدها، وترمش.
-  List<Widget> _moonGuard() {
+  /// غزال القمر: هلاله يضوي بين قرونه وينطفي بهدوء، ويحرك أذونه، ويرمش.
+  List<Widget> _gazelle() {
     final head = _head();
     return [
       _img('body', _body),
+      _img('ear_l', head.multiplied(_xf(rot: .3 * _pulse(4.2, .25), pivot: const Offset(76, 84)))),
+      _img('ear_r', head.multiplied(_xf(rot: -.3 * _pulse(5.1, .25, 2), pivot: const Offset(124, 84)))),
       _img('head', head),
       if (_p.blink) _img('blink', head),
-      _img('necklace', _body),
       _fx(
         head,
-        (c) => _glow(c, const Offset(98, 66), 18, const Color(0xFFFDE68A), .35 + .3 * (.5 + .5 * math.sin(t * 1.8))),
+        (c) => _glow(c, const Offset(98, 39), 18, const Color(0xFFFDE68A), .35 + .3 * (.5 + .5 * math.sin(t * 1.8))),
       ),
-      _fx(_body, _pearlGlint),
+      _fx(_body, (c) => _sparkle(c, const Offset(98, 177), 3.4, _pulse(3.2, .5, .8), glow: const Color(0xFFFDE68A))),
     ];
   }
 
-  /// سلطان الموسم الأول: يهز راسه، وهلاله يضوي، وجوهرة عمامته تلمع.
-  List<Widget> _seasonSultan() {
+  /// أصيل الموسم الأول: يهز راسه وعرفه يتطاير، وهلاله يضوي.
+  List<Widget> _horse() {
     final nod = _pulse(5.8, 1.1);
-    return _human(
-      shift: Offset(0, 1.8 * nod),
-      over: (head) => [
-        _fx(head, (c) {
-          _glow(c, const Offset(98, 52), 15, const Color(0xFFFDE68A), .3 + .25 * math.sin(t * 2));
-          _sparkle(c, const Offset(100, 70), 3.6, _pulse(3, .5, 1));
-        }),
-      ],
-    );
+    final head = _head(shift: Offset(0, 1.8 * nod));
+    return [
+      _img('body', _body),
+      _img('mane', head.multiplied(_xf(rot: .045 * math.sin(t * 2.2) + .03 * nod, pivot: const Offset(118, 48)))),
+      _img('head', head),
+      if (_p.blink) _img('blink', head),
+      _fx(head, (c) {
+        _glow(c, const Offset(99, 88), 14, const Color(0xFFFDE68A), .3 + .25 * math.sin(t * 2));
+        _sparkle(c, const Offset(78, 134), 3.2, _pulse(3, .5, 1));
+      }),
+    ];
   }
 
-  /// أبطال الأسبوع: الميدالية تتمرجح وتلمع، ويرفع راسه بفخر، وكل شوي يضحك فرحان.
-  List<Widget> _champion() {
+  /// أبطال الأسبوع (المها): الميدالية تتمرجح وتلمع، وترفع راسها بفخر، وكل شوي تضحك وتهز أذونها فرحانة.
+  List<Widget> _oryx() {
     final laugh = _hold(9, 1.3, 3, .15);
     final proud = _pulse(6, 1.2);
+    final head = _head(shift: Offset(0, -1.5 * proud + 1.2 * math.sin(t * 25) * laugh));
+    final wiggle = .25 * math.sin(t * 18) * laugh;
     final medal = _body.multiplied(_xf(rot: .1 * math.sin(t * 2.2), pivot: _neck));
-    return _human(
-      shift: Offset(0, -1.5 * proud + 1.2 * math.sin(t * 25) * laugh),
-      mouth: laugh > .2,
-      over: (head) => [
-        _img('medal', medal),
-        _fx(medal, (c) => _sparkle(c, const Offset(106, 174), 3.4, _pulse(2.5, .5))),
-      ],
-    );
+    return [
+      _img('body', _body),
+      _img('ear_l', head.multiplied(_xf(rot: -.08 * proud + wiggle, pivot: const Offset(76, 78)))),
+      _img('ear_r', head.multiplied(_xf(rot: .08 * proud - wiggle, pivot: const Offset(124, 78)))),
+      _img('head', head),
+      if (_p.blink && laugh < .2) _img('blink', head),
+      if (laugh > .2) _img('mouth', head),
+      _img('medal', medal),
+      _fx(medal, (c) => _sparkle(c, const Offset(106, 174), 3.4, _pulse(2.5, .5))),
+    ];
   }
 }
 

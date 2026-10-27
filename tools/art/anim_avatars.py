@@ -5,7 +5,7 @@
 ويطلع معها الشكل الثابت (assets/avatars/<id>.webp) بنفس الرسمة للقوائم.
 تشغيل:  python3 tools/art/anim_avatars.py app/assets/avatars [ids,...]
 """
-import io, os, subprocess, sys
+import io, math, os, subprocess, sys
 from concurrent.futures import ThreadPoolExecutor
 
 from PIL import Image
@@ -299,29 +299,26 @@ RIGS = {
                    extra={'necklace': necklace()}),
     'astronaut': human(space_suit() + below('#F1F3F5', 24, 176), space_helmet() + face('tan'), 'tan',
                        extra={'visor': space_visor_front()}),
-    'lv20': human(robe('#E2E8F0', '#94A3B8') + below('#E2E8F0', 26, 174), face('light', beard='full', beard_color='grey') + turban('#FFFFFF', '#60A5FA'),
-                  'light', beard=True, extra={'book': book()}),
-    'lv30': human(bisht('#FCD34D', '#7A4E00') + below('#7A4E00', 26, 174), face('light', beard='full') + gold_ghutra(), 'light', beard=True,
-                  extra={'chain': chain_only()}),
-    'lv40': human(armor('#7F1D1D', '#FB7185') + below('#7F1D1D', 26, 174),
-                  face('deep', beard='full', brows='sly') + helmet('#B91C1C') + '<circle cx="100" cy="62" r="7" fill="#F43F5E" stroke="#4C0519" stroke-width="2"/>',
-                  'deep', beard=True, extra={'plume': helmet_plume('#FDA4AF')}),
-    'lv50': human(bisht('#F472B6', '#312E81') + below('#312E81', 26, 174),
-                  face('tan', beard='goatee', brows='sly') + colored_ghutra('#FFFFFF') + big_crown('#FDE68A', 44), 'tan',
-                  extra={'glow': glow_eyes('#F9A8D4')}),
-    's1a': human(thobe('#0F2E2C', '#134E4A') + below('#0F2E2C', 30, 170),
-                 face('tan', brows='sly') + colored_ghutra('#134E4A') + face_mask() + crescent_badge(100, 66), 'tan'),
-    's1b': human(abaya('#1E1B4B') + below('#1E1B4B', 28, 172),
-                 hijab('#4338CA', '#FDE68A') + face('light', ears=False) + hijab_front('#4338CA') + crescent_badge(100, 66), 'light', lashes=True,
-                 extra={'necklace': necklace()}),
-    's1c': human(bisht('#FCD34D', '#0F766E') + below('#0F766E', 26, 174),
-                 face('light', beard='full') + turban('#0F766E', '#FCD34D') + crescent_badge(100, 52, '#FDE68A'), 'light', beard=True),
-    'champ1': human(thobe() + below('#F4F1EA', 30, 170), face('tan', beard='goatee') + ghutra() + laurel('#FCD34D'), 'tan',
-                    extra={'medal': medal_on('#FCD34D', '١')}),
-    'champ2': human(thobe() + below('#F4F1EA', 30, 170), face('light', beard='stubble') + ghutra('red') + laurel('#E2E8F0'), 'light',
-                    extra={'medal': medal_on('#CBD5E1', '٢')}),
-    'champ3': human(thobe() + below('#F4F1EA', 30, 170), face('brown', beard='mustache') + ghutra() + laurel('#E0A060'), 'brown',
-                    extra={'medal': medal_on('#D08B4E', '٣')}),
+    # حيوانات الجوائز (characters.py): تناسب الكل
+    'lv20': {'body': (owl_body() + owl_wing() + below('#7A6650', 28, 172), False), 'head': (owl_head(), False),
+             'blink': (owl_lids(), False), 'glasses': (owl_glasses(), False), 'book': (book() + owl_tip(), False)},
+    'lv30': {'body': (leopard_body() + below('#E9A631', 34, 166), False), 'chain': (gold_chain(), False),
+             'head': (leopard_head(), False), 'blink': (leopard_lids(), False)},
+    'lv40': {'body': (ruby_armor() + below('#7F1D1D', 26, 174), False), 'mane': (lion_mane(), False),
+             'head': (lion_head(), False), 'blink': (lion_lids(), False), 'mouth': (lion_roar(), False)},
+    'lv50': {'wings': (phoenix_wings(), False), 'body': (phoenix_body() + below('#EA580C', 50, 150), False),
+             'crest': (phoenix_crest(), False), 'head': (phoenix_head(crest=False), False), 'blink': (phoenix_lids(), False)},
+    's1a': {'body': (caracal_body() + below('#0F2E2C', 34, 166), False), 'ear_l': (caracal_ear(-1), False),
+            'ear_r': (caracal_ear(1), False), 'head': (caracal_head(ears=False), False), 'blink': (caracal_lids(), False)},
+    's1b': {'body': (gazelle_body() + below('#C98E58', 36, 164), False), 'ear_l': (gazelle_ear(-1), False),
+            'ear_r': (gazelle_ear(1), False), 'head': (gazelle_head(ears=False), False), 'blink': (gazelle_lids(), False)},
+    's1c': {'body': (horse_body() + below('#2E211C', 36, 164), False), 'mane': (horse_mane(), False),
+            'head': (horse_head(), False), 'blink': (horse_lids(), False)},
+    **{c: {'body': (laurel_low(lc, le) + oryx_body() + below('#EDE5D8', 36, 164), False),
+           'ear_l': (oryx_ear(-1), False), 'ear_r': (oryx_ear(1), False),
+           'head': (oryx_horns(metal, ring) + oryx_head(), False), 'blink': (oryx_lids(), False),
+           'mouth': (oryx_mouth(), False), 'medal': (medal_ring(mc, n), False)}
+       for c, (metal, ring, lc, le, mc, n) in CHAMPS.items()},
 }
 ANIMS.update(RIGS)
 
