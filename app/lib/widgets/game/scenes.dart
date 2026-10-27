@@ -295,14 +295,33 @@ class VoteScene extends GameScene {
                           front: id == judge ? const _JudgeFace() : _VoteFace(ja),
                           back: const _VoteBack(),
                         ),
-                        // الشيخ: صوته بصوتين.
+                        // الشيخ: صوته بصوتين (شارة فوق كرته).
                         if (weight(id) > 1 && flip > .5)
                           Positioned(
-                            top: -12,
-                            right: -14,
-                            child: Transform.scale(
-                              scale: Curves.elasticOut.transform(seg(t, 1.9, 2.4)),
-                              child: GoldText('×${arabicNumber(weight(id))}', size: 20),
+                            top: -15,
+                            left: -16,
+                            right: -16,
+                            child: Center(
+                              child: Transform.scale(
+                                scale: Curves.elasticOut.transform(seg(t, 1.9, 2.4)),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 1),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFF2A1B0A),
+                                    borderRadius: BorderRadius.circular(10),
+                                    border: Border.all(color: AppColors.gold, width: 1.5),
+                                    boxShadow: [BoxShadow(color: AppColors.gold.withValues(alpha: .5), blurRadius: 8)],
+                                  ),
+                                  child: Text(
+                                    weight(id) == 2 ? 'صوتين' : '×${arabicNumber(weight(id))}',
+                                    style: const TextStyle(
+                                      color: AppColors.goldLight,
+                                      fontWeight: FontWeight.w900,
+                                      fontSize: 12.5,
+                                    ),
+                                  ),
+                                ),
+                              ),
                             ),
                           ),
                       ],
