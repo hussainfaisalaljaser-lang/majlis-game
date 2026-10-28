@@ -3,7 +3,6 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/achievements.dart';
 import '../models/game_view.dart';
@@ -120,13 +119,6 @@ class _GameScreenState extends State<GameScreen> {
   /// شفنا اللعبة وهي شغالة (مو بس نتيجتها).
   bool _live = false;
 
-  /// شرح الشاشة: كل جزء من الطاولة ووظيفته. [_helpSeen]: لين يفتحه أول مرة، زره ينبض.
-  bool _helpOpen = false;
-  bool _helpSeen = true;
-  static const _helpKey = 'game_help_seen';
-  final _kHud = GlobalKey(), _kTracks = GlobalKey(), _kCenter = GlobalKey(), _kChat = GlobalKey();
-  final _kTools = GlobalKey();
-
   /// بعد اللعبة: النتيجة كاملة مفتوحة فوق الطاولة (وإلا الطاولة تبقى للسوالف والملخص في نصها).
   bool _resultsOpen = false;
   bool _leftTable = false;
@@ -156,9 +148,6 @@ class _GameScreenState extends State<GameScreen> {
   @override
   void initState() {
     super.initState();
-    SharedPreferences.getInstance().then((p) {
-      if (mounted && !(p.getBool(_helpKey) ?? false)) setState(() => _helpSeen = false);
-    }, onError: (_) {});
     if (!_spectating) Push.setCurrentGame(widget.code);
     Music.play('game');
     _viewSub = (_spectating ? _backend.watchSpectator(widget.code) : _backend.watchView(widget.code)).listen((data) {
@@ -1086,10 +1075,7 @@ class _GameScreenState extends State<GameScreen> {
                                   onTap: _spectating ? () {} : () => setState(() => _resultsOpen = true),
                                   onLies: () => showLiesReveal(context, v, _room),
                                 )
-                              : KeyedSubtree(
-                                  key: _kCenter,
-                                  child: _TableCenter(view: v, room: _room),
-                                ),
+                              : _TableCenter(view: v, room: _room),
                         ),
                       ),
                     ),
@@ -1099,7 +1085,6 @@ class _GameScreenState extends State<GameScreen> {
                   PositionedDirectional(
                     top: 8,
                     start: 10,
-                    key: _kHud,
                     child: _RoundHud(
                       view: v,
                       roleName: _spectating ? 'متفرج' : roleName,
@@ -1116,7 +1101,6 @@ class _GameScreenState extends State<GameScreen> {
                   PositionedDirectional(
                     top: 8,
                     end: 10,
-                    key: _kTracks,
                     child: _tip == 'tut_enacted'
                         ? _Pulse(
                             child: MiniTracks(view: v, onTap: () => showTracksBoard(context, v)),
@@ -1128,7 +1112,6 @@ class _GameScreenState extends State<GameScreen> {
                     PositionedDirectional(
                       bottom: 10,
                       start: 10,
-                      key: _kChat,
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
@@ -1197,28 +1180,13 @@ class _GameScreenState extends State<GameScreen> {
                       end: 158,
                       child: _Pulse(child: _ClaimChip(onTap: () => setState(() => _claimOpen = _claimKey(v)))),
                     ),
-                  // تحت يسار: شرح الشاشة والسجل والصوت
+                  // تحت يسار: السجل والصوت
                   PositionedDirectional(
                     bottom: 10,
                     end: 10,
-                    key: _kTools,
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        if (_helpSeen)
-                          _RoundButton(gfx: 'info', label: 'شرح الشاشة', size: 40, onTap: _openHelp)
-                        else
-                          _Pulse(
-                            child: _RoundButton(
-                              gfx: 'info',
-                              label: 'شرح الشاشة',
-                              size: 40,
-                              color: AppColors.gold,
-                              active: true,
-                              onTap: _openHelp,
-                            ),
-                          ),
-                        const SizedBox(width: 8),
                         ValueListenableBuilder(
                           valueListenable: Sfx.muted,
                           builder: (context, muted, _) => _RoundButton(
@@ -1296,42 +1264,6 @@ class _GameScreenState extends State<GameScreen> {
                         onDone: _nextScene,
                       ),
                     ),
-                  if (_helpOpen)
-                    Positioned.fill(
-                      child: _HelpOverlay(
-                        onClose: () => setState(() => _helpOpen = false),
-                        targets: [
-                          (
-                            key: _kHud,
-                            title: 'الجولة ودورك',
-                            text: 'رقم الجولة والوقت. اضغط على دورك تشوف بطاقتك السرية، و«خروج» يطلعك ويكمل بوت مكانك.',
-                          ),
-                          (
-                            key: _kTracks,
-                            title: 'لوحة القرارات',
-                            text: 'الأزرق قرارات الأوفياء (٥ ويفوزون)، والأحمر قرارات الخونة (٦ ويفوزون). اضغطها تكبر وتشوف القدرات.',
-                          ),
-                          (
-                            key: _kCenter,
-                            title: 'الطاولة واللاعبين',
-                            text:
-                                'في النص الحكومة: الرئيس يرشّح وزير والكل يصوّت، وعلى الجنبين كومة السحب والرمي. '
-                                'على المقاعد شارة الرئيس والوزير، والساعة الرملية عند اللي عليه الدور. '
-                                'اضغط على أي لاعب تشوف ملفه وتحط عليه شك أو ثقة.',
-                          ),
-                          (
-                            key: _kChat,
-                            title: 'التفاعل',
-                            text: 'أرسل كلام وملصقات للاعبين، مثل «أشك في…». ملصقاتك المفضلة فوقه بضغطة وحدة، وزر قدرتك (لو عندك دور خاص).',
-                          ),
-                          (
-                            key: _kTools,
-                            title: 'الشرح والسجل والصوت',
-                            text: 'هذا الشرح، والسجل يحكي كل اللي صار جولة بجولة، وهني تكتم الصوت أو الموسيقى.',
-                          ),
-                        ],
-                      ),
-                    ),
                 ],
               ),
             ),
@@ -1349,14 +1281,6 @@ class _GameScreenState extends State<GameScreen> {
         (!over && v.seerReady && !_sent.containsKey('seer') ? 1 : 0);
     final top = 74 + ((_room?.watchers.length ?? 0) > 0 ? 30 : 0);
     return ((h - top - 10 - 52 - powers * 62 - 4) / 47).floor().clamp(0, 5);
-  }
-
-  void _openHelp() {
-    setState(() {
-      _helpOpen = true;
-      _helpSeen = true;
-    });
-    SharedPreferences.getInstance().then((p) => p.setBool(_helpKey, true)).ignore();
   }
 
   bool _leaving = false;
@@ -2976,157 +2900,4 @@ class _GameOver extends StatelessWidget {
       ),
     );
   }
-}
-
-/// جزء من الشاشة نشرحه: مكانه (المفتاح) وعنوانه وشرحه.
-typedef _HelpTarget = ({GlobalKey key, String title, String text});
-
-/// الطاولة اللي في النص: شرحها تحتها بالعرض (مو على الجنب).
-bool _middle(Rect r, Size size) => (r.center.dx - size.width / 2).abs() < size.width * .12;
-
-/// شرح الشاشة: يغمّق كل شي إلا أجزاء الطاولة، وجنب كل جزء بطاقة تقول وش هو ووظيفته. أي ضغطة تسكّره.
-class _HelpOverlay extends StatefulWidget {
-  const _HelpOverlay({required this.targets, required this.onClose});
-
-  final List<_HelpTarget> targets;
-  final VoidCallback onClose;
-
-  @override
-  State<_HelpOverlay> createState() => _HelpOverlayState();
-}
-
-class _HelpOverlayState extends State<_HelpOverlay> {
-  List<(Rect, _HelpTarget)> _found = const [];
-
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _measure());
-  }
-
-  /// مكان كل جزء على الشاشة (بعد ما ترسمت)، نسبةً لهالطبقة.
-  void _measure() {
-    final me = context.findRenderObject() as RenderBox?;
-    if (!mounted || me == null || !me.hasSize) return;
-    final found = <(Rect, _HelpTarget)>[];
-    for (final t in widget.targets) {
-      final box = t.key.currentContext?.findRenderObject() as RenderBox?;
-      if (box == null || !box.attached || !box.hasSize || box.size.isEmpty) continue;
-      found.add((box.localToGlobal(Offset.zero, ancestor: me) & box.size, t));
-    }
-    setState(() => _found = found);
-  }
-
-  @override
-  Widget build(BuildContext context) => Semantics(
-    button: true,
-    label: 'سكّر الشرح',
-    child: GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: widget.onClose,
-      child: LayoutBuilder(
-        builder: (context, box) {
-          final size = box.biggest;
-          return Stack(
-            children: [
-              Positioned.fill(
-                child: CustomPaint(painter: _SpotlightPainter([for (final (r, _) in _found) r.inflate(5)])),
-              ),
-              for (final (r, t) in _found) _bubble(size, r, t),
-              Positioned(
-                top: 4,
-                left: 0,
-                right: 0,
-                child: IgnorePointer(
-                  child: Center(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                      decoration: BoxDecoration(borderRadius: BorderRadius.circular(14), color: AppColors.gold),
-                      child: const Text(
-                        'شرح الشاشة · اضغط أي مكان وكمّل',
-                        style: TextStyle(color: AppColors.goldInk, fontWeight: FontWeight.w900, fontSize: 12.5),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          );
-        },
-      ),
-    ),
-  );
-
-  /// بطاقة الشرح جنب الجزء، باتجاه نص الشاشة عشان ما تطلع برا.
-  Widget _bubble(Size size, Rect r, _HelpTarget t) {
-    final wide = _middle(r, size);
-    final w = wide ? math.min(360.0, size.width - 32) : math.min(230.0, size.width / 2 - 24);
-    final left = wide
-        ? r.center.dx - w / 2
-        : (r.center.dx < size.width / 2 ? r.left : r.right - w).clamp(8.0, size.width - w - 8);
-    final above = wide ? false : r.center.dy > size.height / 2;
-    final card = Container(
-      width: w,
-      padding: const EdgeInsets.fromLTRB(10, 7, 10, 8),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(14),
-        color: const Color(0xF2140F2A),
-        border: Border.all(color: AppColors.gold.withValues(alpha: .7), width: 1.5),
-        boxShadow: const [BoxShadow(color: Colors.black54, blurRadius: 10)],
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            t.title,
-            style: const TextStyle(fontFamily: kufi, color: AppColors.gold, fontWeight: FontWeight.w700, fontSize: 14),
-          ),
-          const SizedBox(height: 2),
-          Text(t.text, style: const TextStyle(fontSize: 12, height: 1.45, fontWeight: FontWeight.w700)),
-        ],
-      ),
-    );
-    if (wide) {
-      // الطاولة: البطاقة تحت نصها (المقاعد اللي تحت تبقى تبان على الجنبين).
-      return Positioned(
-        left: left,
-        top: math.min(r.bottom + 6, size.height - 96),
-        child: IgnorePointer(child: card),
-      );
-    }
-    return Positioned(
-      left: left,
-      top: above ? null : r.bottom + 8,
-      bottom: above ? size.height - r.top + 8 : null,
-      child: IgnorePointer(child: card),
-    );
-  }
-}
-
-/// يغمّق الشاشة ويخلي فتحات مضيئة حول الأجزاء اللي نشرحها، بحد ذهبي.
-class _SpotlightPainter extends CustomPainter {
-  _SpotlightPainter(this.holes);
-
-  final List<Rect> holes;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final dim = Path()..addRect(Offset.zero & size);
-    final cut = Path();
-    for (final h in holes) {
-      cut.addRRect(RRect.fromRectAndRadius(h, const Radius.circular(16)));
-    }
-    canvas.drawPath(Path.combine(PathOperation.difference, dim, cut), Paint()..color = const Color(0xC4000000));
-    final edge = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2
-      ..color = AppColors.gold.withValues(alpha: .85);
-    for (final h in holes) {
-      canvas.drawRRect(RRect.fromRectAndRadius(h, const Radius.circular(16)), edge);
-    }
-  }
-
-  @override
-  bool shouldRepaint(_SpotlightPainter old) => old.holes != holes;
 }
