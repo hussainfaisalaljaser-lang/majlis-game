@@ -148,7 +148,7 @@ class _GameScreenState extends State<GameScreen> {
   @override
   void initState() {
     super.initState();
-    if (!_spectating) Push.setCurrentGame(widget.code);
+    if (!_spectating) Push.enterGame(widget.code);
     Music.play('game');
     _viewSub = (_spectating ? _backend.watchSpectator(widget.code) : _backend.watchView(widget.code)).listen((data) {
       if (data == null || !mounted) return;
@@ -370,7 +370,7 @@ class _GameScreenState extends State<GameScreen> {
     }
     _tipTimer?.cancel();
     _timeoutTimer?.cancel();
-    if (!_spectating) Push.setCurrentGame(null);
+    if (!_spectating) Push.leaveGame(widget.code);
     Music.play('menu');
     _viewSub.cancel();
     _roomSub.cancel();

@@ -35,4 +35,17 @@ describe('الإشعارات', () => {
     s = applyAction(s, pres, { type: 'discard', index: 0 });
     assert.deepEqual(whoToNotify(before, s).map((n) => n.uid), [chancellor]);
   });
+
+  it('اللي طلع من اللعبة (البوت يكمل عنه) ما يوصله إشعار عنها', () => {
+    const s = createGame(players, 1);
+    const pres = s.presidentId;
+    const gone = players.find((p) => p.id !== pres)!.id;
+    const chancellor = players.find((p) => p.id !== pres && p.id !== gone)!.id;
+    const next = { ...applyAction(s, pres, { type: 'nominate', chancellor }), autopilot: [gone] };
+    const uids = whoToNotify(s, next).map((n) => n.uid);
+    assert.equal(uids.length, 4, 'التصويت للكل إلا اللي طلع');
+    assert.ok(!uids.includes(gone));
+    const over = { ...next, phase: 'gameOver' as const, winner: 'loyal' as const, winReason: 'loyalPolicies' as const };
+    assert.ok(!whoToNotify(next, over).some((n) => n.uid === gone), 'ولا إشعار النهاية');
+  });
 });

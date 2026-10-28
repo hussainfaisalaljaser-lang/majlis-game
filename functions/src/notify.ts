@@ -11,8 +11,14 @@ const name = (s: GameState, id: string | null) => s.players.find((p) => p.id ===
 /**
  * مين نرسل له إشعار بعد تغيير في اللعبة. بس اللي عليهم دور، عشان ما نزعج الباقين.
  * ما نكشف أي سر في الإشعار (لا أدوار ولا كروت).
+ * اللي طلع من اللعبة (والبوت يكمل عنه) ما يوصله شي عنها: ما يقدر يلعب فيها، ويمكن الحين في لعبة ثانية.
  */
 export function whoToNotify(prev: GameState | null, next: GameState): Note[] {
+  const left = new Set(next.autopilot ?? []);
+  return notesFor(prev, next).filter((n) => !left.has(n.uid));
+}
+
+function notesFor(prev: GameState | null, next: GameState): Note[] {
   const alive = next.players.filter((p) => p.alive);
   if (next.phase === 'gameOver') {
     if (prev?.phase === 'gameOver') return [];

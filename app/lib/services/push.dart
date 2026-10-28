@@ -36,12 +36,12 @@ abstract final class Push {
       return;
     }
 
-    // والتطبيق مفتوح: نعرض الإشعار كشريط تحت بدل إشعار النظام.
+    // والتطبيق مفتوح: نعرض الإشعار كشريط تحت بدل إشعار النظام، بس مو وأنت تلعب (يغطي الطاولة).
     // (دعوات الأصدقاء تطلع نافذة من ملفه في LinkWatcher، فما نكررها هنا.)
     FirebaseMessaging.onMessage.listen((m) {
       final n = m.notification;
       final kind = m.data['kind'];
-      if (n == null || kind == 'invite' || _isOnGame(m.data['code'])) return;
+      if (n == null || kind == 'invite' || inGame) return;
       // رسالة من صاحب وأنا فاتح محادثته: ما يحتاج شريط.
       if (kind == 'dm' && m.data['from'] == ChatScreen.openFriend) return;
       messengerKey.currentState?.showSnackBar(
@@ -98,15 +98,18 @@ abstract final class Push {
     MaterialPageRoute(builder: (_) => FriendsScreen.forProfile(Backend.instance.profile.value)),
   );
 
-  static String? _currentGame;
+  /// شاشات اللعب المفتوحة. لما تعيد اللعبة الشاشة الجديدة تفتح قبل ما تنقفل القديمة، فنعدّها كلها
+  /// (لو حفظنا وحدة بس، القديمة تمسحها وهي تنقفل).
+  static final _games = <String>[];
 
-  /// شاشة اللعب تسجل نفسها هنا عشان ما نزعجك بإشعار عن الطاولة اللي أنت فيها.
-  static void setCurrentGame(String? code) => _currentGame = code;
+  /// شاشة اللعب تسجل نفسها هنا عشان ما نزعجك بإشعار وأنت تلعب.
+  static void enterGame(String code) => _games.add(code);
+  static void leaveGame(String code) => _games.remove(code);
 
-  static bool _isOnGame(Object? code) => code != null && code == _currentGame;
+  static bool _isOnGame(Object? code) => code != null && _games.contains(code);
 
-  /// اللاعب في طاولة الحين (ما نطلعه منها لرابط دعوة مثلاً).
-  static bool get inGame => _currentGame != null;
+  /// اللاعب في طاولة الحين (ما نطلعه منها لرابط دعوة، ولا نطلع له أشرطة الإشعارات).
+  static bool get inGame => _games.isNotEmpty;
 
   static Future<void> _open(Object? code) async {
     if (code is! String || _isOnGame(code)) return;
