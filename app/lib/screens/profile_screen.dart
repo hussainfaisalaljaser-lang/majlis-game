@@ -5,6 +5,7 @@ import '../services/backend.dart';
 import '../theme.dart';
 import '../widgets/account.dart';
 import 'dev_screen.dart';
+import 'history_screen.dart';
 import 'shop_screen.dart';
 import 'wardrobe_screen.dart';
 import '../widgets/achievements_list.dart';
@@ -337,6 +338,18 @@ class ProfileScreen extends StatelessWidget {
                       ),
                     ],
                   ),
+                  if (Backend.instance.isReady) ...[
+                    const SizedBox(height: 10),
+                    GameButton(
+                      label: 'سجل مبارياتي',
+                      icon: const Gfx('log', size: 24),
+                      tone: ButtonTone.purple,
+                      height: 44,
+                      fontSize: 15,
+                      onPressed: () =>
+                          Navigator.of(context).push(MaterialPageRoute(builder: (_) => const HistoryScreen())),
+                    ),
+                  ],
                   const SizedBox(height: 10),
                   RankPanel(profile: p),
                   const SizedBox(height: 10),

@@ -7,12 +7,13 @@
  * الرسائل تنحذف بعد أسبوعين.
  */
 import { FieldValue, type DocumentReference } from 'firebase-admin/firestore';
-import { HttpsError, onCall } from 'firebase-functions/v2/https';
+import { HttpsError } from 'firebase-functions/v2/https';
 import { db, requireAuth, userRef } from './base.js';
 import type { Clan } from './clans.js';
 import { maskBadWords } from './moderation.js';
 import { avatarOf, readProfile, type Profile } from './profile.js';
 import { sendNotes } from './push.js';
+import { onCall } from './security.js';
 
 export const CHAT_MAX = 200;
 export const CHAT_GAP_MS = 1000;

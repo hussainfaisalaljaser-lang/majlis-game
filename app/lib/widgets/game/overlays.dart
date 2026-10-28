@@ -15,6 +15,14 @@ const roleInfo = {
   Role.leader: ('زعيم الخونة', 'خلّهم يثقون فيك وينتخبونك وزير', AppColors.traitor, AppColors.traitorDark),
 };
 
+/// ليش انتهت اللعبة (engine → WinReason).
+const winReasons = {
+  'loyalPolicies': 'تمررت ٥ قرارات للأوفياء',
+  'traitorPolicies': 'تمررت ٦ قرارات للخونة',
+  'leaderElected': 'الزعيم انتُخب وزير',
+  'leaderExecuted': 'الزعيم انطرد',
+};
+
 const specialInfo = {
   Special.seer: ('العرّاف', 'مرة وحدة في اللعبة تقدر تكشف فريق أي لاعب. اختر الوقت الصح، ولا تنكشف!', 'seer'),
   Special.guardian: ('الحارس', 'لو أحد حاول يطردك، تنجو مرة وحدة ويبان للكل إنك حارس', 'shield'),

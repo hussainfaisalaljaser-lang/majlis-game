@@ -7,11 +7,12 @@
  */
 import { randomInt } from 'node:crypto';
 import { FieldValue, type Transaction } from 'firebase-admin/firestore';
-import { HttpsError, onCall } from 'firebase-functions/v2/https';
+import { HttpsError } from 'firebase-functions/v2/https';
 import { boardRef, db, requireAuth, userRef } from './base.js';
 import { pidPrice, pidTier, randomPid, suggestPids, validPid } from './ids.js';
 import { toLeaderboard, type Profile } from './profile.js';
 import { sendNotes } from './push.js';
+import { onCall } from './security.js';
 
 export const MAX_FRIENDS = 200;
 const MAX_REQUESTS = 50;

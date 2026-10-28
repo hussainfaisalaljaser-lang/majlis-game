@@ -13,6 +13,8 @@ import {
   getDoc,
   getDocs,
   getFirestore,
+  orderBy,
+  query,
   serverTimestamp,
   setDoc,
   type Firestore,
@@ -230,6 +232,19 @@ async function main(): Promise<void> {
     assert.equal(t?.chancellor.length, 2, `الجولة ${e.round}: كروت الوزير`);
   }
   console.log(`✓ مين كذب: ${enacted.length} حكومة بكروتها الحقيقية بعد النهاية`);
+
+  // ٦ب. سجل المباريات: اللعبة اللي خلصت تنحفظ لصاحبها (له بس) بأدوارها وكروتها الحقيقية ونتيجته.
+  const hist = await getDocs(query(collection(dev.fs, `users/${dev.uid}/history`), orderBy('at', 'desc')));
+  const entry = hist.docs.map((d) => d.data()).find((h) => h.room.code === ecode);
+  assert.ok(entry, 'اللعبة في السجل');
+  assert.equal(entry.view.phase, 'gameOver');
+  assert.ok(entry.view.truths, 'فيها الكروت الحقيقية');
+  assert.ok(entry.view.players.every((p: { knownRole: string | null }) => p.knownRole), 'كل الأدوار مكشوفة');
+  const myTeam = entry.view.yourRole === 'loyal' ? 'loyal' : 'traitor';
+  assert.equal(entry.room.results[dev.uid].won, myTeam === entry.view.winner, 'نتيجته');
+  assert.ok(entry.expireAt, 'تنحذف بعد ٣٠ يوم');
+  await assert.rejects(getDocs(collection(plain.fs, `users/${dev.uid}/history`)), 'غيره ما يشوفه');
+  console.log('✓ سجل المباريات: اللعبة انحفظت لصاحبها بأدوارها وكروتها ونتيجته، وغيره ما يشوفها');
 
   // ٧. «العب مرة ثانية» في التدريب: نفس البوتات، وتبدأ على طول
   const oldBots = (await dev.room(ecode)).players.filter((p: { bot?: boolean }) => p.bot).map((p: { name: string }) => p.name);
@@ -489,6 +504,18 @@ async function main(): Promise<void> {
   assert.equal(await deathIn(fxRoom), 'death_sand', 'افكته في الروم');
   assert.ok(seats.filter((p) => p.bot).some((p) => p.death), 'البوتات لها افكتات');
   console.log('✓ افكت الموت: ينشرى وينلبس، ويوصل للروم عشان الكل يشوفه');
+
+  // ١٨. الحماية من الغش: على المراقبة الكل يدخل، ولما تتفعّل اللي بدون شهادة التطبيق ينرفض (إلا صاحب اللعبة).
+  type Mode = { mode: string };
+  assert.equal((await dev.call<Mode>('devTool', { action: 'appCheck' })).mode, 'monitor', 'الافتراضي مراقبة');
+  await expectError(plain.call('devTool', { action: 'appCheck', mode: 'enforce' }), 'permission-denied');
+  await dev.call('devTool', { action: 'appCheck', mode: 'enforce' });
+  await expectError(fx.call('claimDaily'), 'failed-precondition');
+  await expectError(fx.call('ensureProfile', { proto: 2 }), 'failed-precondition');
+  assert.equal((await dev.call<Mode>('devTool', { action: 'appCheck' })).mode, 'enforce', 'صاحب اللعبة يدخل دايم');
+  await dev.call('devTool', { action: 'appCheck', mode: 'monitor' });
+  await fx.call('ensureProfile', { proto: 2 });
+  console.log('✓ الحماية من الغش: مراقبة بالبداية، ولما تتفعّل اللي بدون شهادة ينرفض وصاحب اللعبة يدخل');
 
   await Promise.all(
     [dev, plain, old, friend, watcher, newbie, sheikh, joiner, outsider, stranger, fx].map((c) => deleteApp(c.app)),

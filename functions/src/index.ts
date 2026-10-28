@@ -1,10 +1,11 @@
 import { randomInt } from 'node:crypto';
 import { getAuth } from 'firebase-admin/auth';
-import { FieldValue, type Transaction } from 'firebase-admin/firestore';
+import { FieldValue, Timestamp, type Transaction } from 'firebase-admin/firestore';
 import { logger } from 'firebase-functions/v2';
-import { HttpsError, onCall, type CallableFunction } from 'firebase-functions/v2/https';
+import { HttpsError, type CallableFunction } from 'firebase-functions/v2/https';
 import { boardRef, db, requireAuth, userRef } from './base.js';
 import { sendPush } from './push.js';
+import { appCheckMode, onCall, openCall, setAppCheckMode } from './security.js';
 import {
   buyPid,
   findPlayer,
@@ -413,7 +414,7 @@ export const ensureProfile = onCall(async (req) => {
  * أدوات المطور للتجربة. ما تشتغل إلا لحساب مطور (isDev).
  * grant: ذهب وجواهر · level: يحط مستواك · unlockAll: كل أغراض المتجر · resetDaily · unban
  * forceRole: في لعبة شغالة، يخليك الدور والدور الخاص اللي تختاره.
- * لصاحب اللعبة بس: setDev (يخلي لاعب مطوّر برمزه أو يشيله) · devs (المطورين).
+ * لصاحب اللعبة بس: setDev (يخلي لاعب مطوّر برمزه أو يشيله) · devs (المطورين) · appCheck (الحماية من الغش).
  */
 export const devTool = onCall(async (req) => {
   const uid = requireAuth(req);
@@ -427,6 +428,15 @@ export const devTool = onCall(async (req) => {
     return action === 'devs' ? { devs: await listDevs() } : setDev(String(req.data?.pid ?? '').trim(), req.data?.on !== false);
   }
   if (action === 'forceRole') return forceRole(uid, String(req.data?.code ?? ''), req.data?.role, req.data?.special);
+  // الحماية من الغش (security.ts): كل مطوّر يشوفها، وصاحب اللعبة بس يغيّرها.
+  if (action === 'appCheck') {
+    const mode = req.data?.mode;
+    if (mode === 'monitor' || mode === 'enforce') {
+      if (!owner) throw new HttpsError('permission-denied', 'بس صاحب اللعبة يغيّر الحماية');
+      await setAppCheckMode(mode);
+    }
+    return { mode: await appCheckMode() };
+  }
   if (action === 'crown') return { champions: await crownChampions(gulfWeek(Date.now()), Date.now()) };
   if (action === 'reports') return { reports: await openReports() };
   if (action === 'feedback') return { feedback: await recentFeedback() };
@@ -1143,6 +1153,9 @@ async function finishTurn(
       updated = applyRank(updated, rankDelta(won, humans.length, next.players.length));
       results[player.id] = { ...results[player.id], rank: rankOf(updated).points - before };
     }
+    if (!next.tutorial) {
+      tx.set(userRef(player.id).collection('history').doc(`${now}-${code}`), historyEntry(next, room, player.id, results[player.id], now));
+    }
     tx.set(userRef(player.id), updated);
     tx.set(boardRef(player.id), toLeaderboard(updated));
   });
@@ -1150,6 +1163,36 @@ async function finishTurn(
   if (tourWeek) writeTour(tx, tourWeek, tourDoc, tourChanges);
   tx.update(roomRef, { ...roomUpdate, status: 'finished', results, finishedAtMs: Date.now() });
   return whoToNotify(prev.state, next);
+}
+
+/** كم يوم تبقى اللعبة في سجل المباريات (Firestore يحذفها بنفسه بعدها: firestore.indexes.json → expireAt). */
+const HISTORY_DAYS = 30;
+
+/**
+ * سجل المباريات: نسخة اللاعب من اللعبة بعد النهاية (كل الأدوار والادعاءات والكروت الحقيقية، عشان «مين كذب؟»)،
+ * ولاعبين الروم (أسماؤهم وصورهم)، ونتيجته هو.
+ */
+function historyEntry(state: GameState, room: Room, uid: string, result: GameResult, now: number) {
+  return {
+    at: now,
+    expireAt: Timestamp.fromMillis(now + HISTORY_DAYS * 24 * 3600_000),
+    view: { ...viewFor(state, uid), deadline: null, autopilot: state.autopilot ?? [] },
+    room: {
+      code: room.code,
+      hostId: room.hostId,
+      status: 'finished',
+      isPrivate: room.isPrivate,
+      maxPlayers: room.maxPlayers,
+      tierId: room.tierId,
+      entryFee: room.entryFee,
+      players: room.players,
+      roles: room.roles === true,
+      quick: room.quick === true,
+      ...(room.tour != null ? { tour: room.tour } : {}),
+      ...(room.createdAtMs != null ? { createdAtMs: room.createdAtMs } : {}),
+      results: { [uid]: result },
+    },
+  };
 }
 
 /**
@@ -1768,6 +1811,14 @@ async function deleteUserData(uid: string): Promise<void> {
     for (const d of msgs.docs) wipe.delete(d.ref);
     await wipe.commit();
   }
+  // سجل مبارياته.
+  for (;;) {
+    const old = await userRef(uid).collection('history').limit(400).get();
+    if (old.empty) break;
+    const wipe = db.batch();
+    for (const d of old.docs) wipe.delete(d.ref);
+    await wipe.commit();
+  }
   if (p) await forgetUser(uid, p);
   await getAuth()
     .deleteUser(uid)
@@ -1781,7 +1832,7 @@ const MAX_DELETION_REQUESTS_PER_DAY = 200;
  * طلب حذف حساب من صفحة الموقع (site/delete.html) لمن ما يقدر يدخل اللعبة. بدون تسجيل دخول،
  * فالمطور يراجعه ويحذف بنفسه (devTool → deleteUser). فيه حد يومي عشان ما ينضرب بالطلبات.
  */
-export const requestDeletion = onCall(async (req) => {
+export const requestDeletion = openCall(async (req) => {
   const name = String(req.data?.name ?? '').trim().slice(0, 40);
   const details = String(req.data?.details ?? '').trim().slice(0, 500);
   const contact = String(req.data?.contact ?? '').trim().slice(0, 100);

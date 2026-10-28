@@ -22,10 +22,25 @@ class _DevScreenState extends State<DevScreen> {
   /// المطورين اللي خليتهم (لصاحب اللعبة بس).
   List<({String name, String pid})>? _devs;
 
+  /// الحماية من الغش مفعّلة؟ (null لين توصل من السيرفر)
+  bool? _enforce;
+
   @override
   void initState() {
     super.initState();
-    if (Backend.instance.profile.value.owner) _loadDevs();
+    if (Backend.instance.profile.value.owner) {
+      _loadDevs();
+      _loadAppCheck();
+    }
+  }
+
+  Future<void> _loadAppCheck([String? mode]) async {
+    try {
+      final data = await Backend.instance.devData('appCheck', {'mode': ?mode});
+      if (mounted) setState(() => _enforce = data['mode'] == 'enforce');
+    } on BackendException catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+    }
   }
 
   @override
@@ -96,6 +111,39 @@ class _DevScreenState extends State<DevScreen> {
     });
     if (code != null && mounted) navigator.push(MaterialPageRoute(builder: (_) => GameScreen(code: code!)));
   }
+
+  /// صاحب اللعبة: الحماية من الغش. السيرفر يقبل بس اللي جاي من التطبيق الأصلي (من قوقل بلاي) لما تتفعّل.
+  Widget _appCheckPanel() => Panel(
+    padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+    child: Row(
+      children: [
+        const Gfx('shield', size: 34),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(switch (_enforce) {
+                true => 'الحماية من الغش: مفعّلة',
+                false => 'الحماية من الغش: مراقبة بس',
+                null => 'الحماية من الغش',
+              }, style: const TextStyle(fontFamily: kufi, fontSize: 16, fontWeight: FontWeight.w700)),
+              const Text(
+                'فعّلها بعد ما تنزل اللعبة على قوقل بلاي: أي طلب من نسخة معدّلة أو من برا المتجر ينرفض. '
+                'أنت تقدر تدخل دايم.',
+                style: TextStyle(color: AppColors.muted, fontSize: 12),
+              ),
+            ],
+          ),
+        ),
+        Switch(
+          value: _enforce ?? false,
+          activeThumbColor: AppColors.green,
+          onChanged: _enforce == null || _busy ? null : (on) => _loadAppCheck(on ? 'enforce' : 'monitor'),
+        ),
+      ],
+    ),
+  );
 
   /// صاحب اللعبة: يخلي أي لاعب مطوّر برمزه، ويشوف المطورين ويشيلهم.
   Widget _devsPanel() => Panel(
@@ -263,7 +311,12 @@ class _DevScreenState extends State<DevScreen> {
                     onPressed: () =>
                         Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ModerationScreen())),
                   ),
-                  if (backend.profile.value.owner) ...[const SizedBox(height: 14), _devsPanel()],
+                  if (backend.profile.value.owner) ...[
+                    const SizedBox(height: 14),
+                    _appCheckPanel(),
+                    const SizedBox(height: 10),
+                    _devsPanel(),
+                  ],
                   const SizedBox(height: 8),
                   Row(
                     children: [

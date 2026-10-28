@@ -8,6 +8,12 @@ service cloud.firestore {
     match /users/{uid} {
       allow read: if request.auth != null && request.auth.uid == uid;
       allow write: if false;
+
+      // سجل مبارياته (السيرفر يكتبه لما تخلص كل لعبة). له بس.
+      match /history/{game} {
+        allow read: if request.auth != null && request.auth.uid == uid;
+        allow write: if false;
+      }
     }
 
     // جدول الترتيب: الاسم والصورة والمستوى وعدد الفوز بس. الكل يشوفه.

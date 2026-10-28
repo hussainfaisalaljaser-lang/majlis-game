@@ -7,11 +7,12 @@
  * - طاولة البطولة روم عام فيه tour (الدور) وtourWeek، يتكمل بالبوتات مثل الطاولات العامة.
  */
 import { type Transaction } from 'firebase-admin/firestore';
-import { HttpsError, onCall } from 'firebase-functions/v2/https';
+import { HttpsError } from 'firebase-functions/v2/https';
 import { db, requireAuth, userRef } from './base.js';
 import { weekendBoost } from './economy.js';
 import { gulfWeek } from './missions.js';
 import { avatarOf, equippedOf, readProfile, type Profile } from './profile.js';
+import { onCall } from './security.js';
 
 export const TOUR_FEE = 1000;
 export const TOUR_PRIZE = { coins: 15000, diamonds: 25 };

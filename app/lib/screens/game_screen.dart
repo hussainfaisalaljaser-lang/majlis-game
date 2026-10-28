@@ -36,13 +36,6 @@ import '../widgets/ui.dart';
 import '../widgets/venues.dart';
 import 'waiting_screen.dart';
 
-const _winReasons = {
-  'loyalPolicies': 'تمررت ٥ قرارات للأوفياء',
-  'traitorPolicies': 'تمررت ٦ قرارات للخونة',
-  'leaderElected': 'الزعيم انتُخب وزير',
-  'leaderExecuted': 'الزعيم انطرد',
-};
-
 /// مشهد ينتظر دوره فوق الطاولة، ومعه جمل الراوي، ووش يصير لما يخلص.
 typedef _Scene = ({GameScene scene, List<String> lines, VoidCallback? onEnd});
 
@@ -2015,7 +2008,7 @@ class _ResultCenter extends StatelessWidget {
                   ],
                 ),
                 Text(
-                  '${loyalWon ? 'فاز الأوفياء' : 'فاز الخونة'} · ${_winReasons[view.winReason] ?? ''}',
+                  '${loyalWon ? 'فاز الأوفياء' : 'فاز الخونة'} · ${winReasons[view.winReason] ?? ''}',
                   style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Color(0xFFD9CFFF)),
                 ),
                 if (r != null) ...[
@@ -2830,7 +2823,7 @@ class _GameOver extends StatelessWidget {
                                 ],
                               ),
                               Text(
-                                '${loyalWon ? 'فاز الأوفياء' : 'فاز الخونة'} · ${_winReasons[view.winReason] ?? ''}',
+                                '${loyalWon ? 'فاز الأوفياء' : 'فاز الخونة'} · ${winReasons[view.winReason] ?? ''}',
                                 textAlign: TextAlign.center,
                                 style: const TextStyle(fontSize: 13, color: Color(0xFFD9CFFF)),
                               ),

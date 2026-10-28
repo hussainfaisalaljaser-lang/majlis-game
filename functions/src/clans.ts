@@ -10,7 +10,7 @@
  * - ملف اللاعب فيه clan (المعرف والاسم واللون والشعار) عشان يطلع في بطاقته، وclanInvites (الدعوات اللي وصلته).
  */
 import { FieldValue, type DocumentSnapshot, type Transaction } from 'firebase-admin/firestore';
-import { HttpsError, onCall } from 'firebase-functions/v2/https';
+import { HttpsError } from 'firebase-functions/v2/https';
 import { boardRef, db, requireAuth, userRef } from './base.js';
 import { FREE_AVATARS } from './catalog.js';
 import { levelFor } from './economy.js';
@@ -18,6 +18,7 @@ import { gulfWeek } from './missions.js';
 import { maskBadWords } from './moderation.js';
 import { avatarOf, nameKey, readProfile, toLeaderboard, type Profile } from './profile.js';
 import { sendNotes } from './push.js';
+import { onCall } from './security.js';
 
 /** سعر تأسيس ديوان (عشان ما تكثر الدواوين الفاضية). */
 export const CLAN_PRICE = 5000;

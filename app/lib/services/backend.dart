@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
+import 'package:firebase_app_check/firebase_app_check.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
@@ -11,6 +12,7 @@ import '../firebase_options.dart';
 import '../models/catalog.dart';
 import '../models/chat.dart';
 import '../models/clan.dart';
+import '../models/history.dart';
 import '../models/leaderboard.dart';
 import '../models/profile.dart';
 import '../models/room.dart';
@@ -54,6 +56,18 @@ class Backend {
     if (options == null) return false;
     try {
       await Firebase.initializeApp(options: options);
+      // شهادة إن الطلب جاي من تطبيقنا الأصلي (من قوقل بلاي): السيرفر يرفض اللي بدونها لما تتفعّل الحماية
+      // (functions/src/security.ts). الويب والمحاكي للتجربة بس، بدونها.
+      if (!kIsWeb && !_useEmulator) {
+        await FirebaseAppCheck.instance
+            .activate(
+              providerAndroid: kDebugMode ? const AndroidDebugProvider() : const AndroidPlayIntegrityProvider(),
+              providerApple: kDebugMode
+                  ? const AppleDebugProvider()
+                  : const AppleAppAttestWithDeviceCheckFallbackProvider(),
+            )
+            .catchError((Object e) => debugPrint('App Check: $e'));
+      }
       _functions = FirebaseFunctions.instanceFor(region: 'europe-west1');
       _db = FirebaseFirestore.instance;
       if (_useEmulator) {
@@ -258,6 +272,20 @@ class Backend {
   }) async {
     final r = await _call('quickMatch', {'maxPlayers': maxPlayers, 'tierId': tierId, 'quick': quick, 'roles': roles});
     return r['code'] as String;
+  }
+
+  /// سجل مبارياتي: آخر ٣٠ لعبة (السيرفر يكتبها لما تخلص كل لعبة). اللي ما تنقرا (نسخة قديمة) تنتخطى.
+  Future<List<HistoryEntry>> history() async {
+    final snap = await _db.collection('users/$uid/history').orderBy('at', descending: true).limit(30).get();
+    final out = <HistoryEntry>[];
+    for (final d in snap.docs) {
+      try {
+        out.add(HistoryEntry.fromJson(d.id, d.data()));
+      } catch (e) {
+        debugPrint('سجل ${d.id}: $e');
+      }
+    }
+    return out;
   }
 
   /// لعبة الشرح: أنت و٤ بوتات، تبدأ على طول، ويرجع رمزها.
