@@ -61,6 +61,7 @@ flutter:
     - assets/avatars/anim/tycoon/
     - assets/avatars/anim/wolf/
     - assets/images/
+    - assets/design/
     - assets/icons/
     - assets/voice/
     - assets/music/
@@ -81,3 +82,9 @@ flutter:
       fonts:
         - asset: assets/fonts/Marhey-Bold.ttf
           weight: 700
+    - family: Baloo
+      fonts:
+        - asset: assets/fonts/BalooBhaijaan2-Bold.ttf
+          weight: 700
+        - asset: assets/fonts/BalooBhaijaan2-ExtraBold.ttf
+          weight: 800

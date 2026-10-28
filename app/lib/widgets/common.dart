@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import '../models/shop.dart';
 import 'anim_avatar.dart';
+import 'design.dart';
 import 'fx.dart';
 import 'fx_sig.dart';
 
@@ -64,12 +65,14 @@ class CurrencyPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // شريط غامق بحد بني مثل عدادات التصميم.
     return Container(
-      padding: const EdgeInsetsDirectional.fromSTEB(4, 3, 8, 3),
+      padding: const EdgeInsetsDirectional.fromSTEB(4, 3, 10, 3),
       decoration: BoxDecoration(
-        color: Colors.black.withValues(alpha: .35),
+        color: const Color(0xFF1E120B).withValues(alpha: .92),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white.withValues(alpha: .12), width: 1.5),
+        border: Border.all(color: const Color(0xFF6B4A2C), width: 2),
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: .35), blurRadius: 4, offset: const Offset(0, 2))],
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -258,6 +261,32 @@ class PlayerAvatar extends StatelessWidget {
     .33, .33, .33, 0, 0,
     0, 0, 0, .55, 0,
   ];
+}
+
+/// صورة لاعب بحلقة ذهب (مثل صور اللاعبين في التصميم). لو عنده إطار من المتجر ([style]) يطلع إطاره بدال الحلقة.
+/// [gems]: أربع جواهر حمر على الحلقة.
+class GoldRingAvatar extends StatelessWidget {
+  const GoldRingAvatar({super.key, required this.avatar, this.style, this.size = 64, this.gems = false, this.animate = true});
+
+  final String avatar;
+  final FrameStyle? style;
+  final double size;
+  final bool gems;
+  final bool animate;
+
+  @override
+  Widget build(BuildContext context) {
+    if (style != null) return PlayerAvatar(avatar: avatar, style: style, size: size, animate: animate);
+    return Stack(
+      alignment: Alignment.center,
+      children: [
+        PlayerAvatar(avatar: avatar, frame: Colors.transparent, size: size, animate: animate),
+        Positioned.fill(
+          child: IgnorePointer(child: CustomPaint(painter: GoldRingPainter(size: size, gems: gems))),
+        ),
+      ],
+    );
+  }
 }
 
 /// يسجل وقت اللحظة الخاصة (بساعة الحركات نفسها) لما تنادى بمفتاح هالصورة.
