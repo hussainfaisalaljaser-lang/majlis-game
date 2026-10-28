@@ -28,8 +28,8 @@ jobs:
     needs: test
     runs-on: ubuntu-latest
     env:
-      # مفتاح الرفع لـ Google Play موجود؟ (الأسرار ما تنقرا مباشرة في شروط الخطوات)
-      HAS_UPLOAD_KEY: ${{ secrets.UPLOAD_KEYSTORE != '' }}
+      # مفتاح الرفع لـ Google Play: كلمة سره في الأسرار (UPLOAD_KEY_PASSWORD)، والأسرار ما تنقرا مباشرة في شروط الخطوات.
+      HAS_UPLOAD_KEY: ${{ secrets.UPLOAD_KEY_PASSWORD != '' }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
@@ -48,11 +48,11 @@ jobs:
         working-directory: app
         run: flutter test
       # رقم البناء يزيد كل مرة (Google Play يشترطه)، ويطلع في الإعدادات داخل اللعبة.
-      # للجوالات بس (بدون نسخة محاكي الكمبيوتر)، ومكتبات التشغيل مضغوطة (compressLibs): حوالي ٣٠ ميقا بدال ٧٦.
+      # للجوالات وللكمبيوتر (بلوستاكس وغيره يحتاج نسخة x64)، ومكتبات التشغيل مضغوطة (compressLibs): حوالي ٤٠ ميقا بدال ٧٦.
       - name: Build APK
         working-directory: app
         run: >-
-          flutter build apk --release --target-platform android-arm,android-arm64 -P compressLibs=true
+          flutter build apk --release --target-platform android-arm,android-arm64,android-x64 -P compressLibs=true
           --build-number=${{ github.run_number }} --dart-define=BUILD=${{ github.run_number }}
       # نسخة برقمها، ونسخة باسم ثابت (majlis.apk) عشان رابط التحميل في الموقع ما يتغير.
       - name: Rename
@@ -63,26 +63,39 @@ jobs:
         with:
           name: majlis-apk
           path: majlis-${{ github.run_number }}.apk
-      # ملف المتجر (AAB): بس في main ولما يكون مفتاح الرفع موجود في GitHub Secrets.
+      # ملف المتجر (AAB): بس في main ولما تكون كلمة سر مفتاح الرفع في الأسرار.
+      # المفتاح نفسه: أول مرة يتسوى هنا في GitHub وينحفظ في المستودع مشفّر بكلمة السر (ما ينفتح بدونها، وهي ما
+      # تنكتب في أي مكان)، وبعدها كل نسخة تفكّه وتوقّع فيه ملف المتجر.
       - name: Build AAB for Google Play
         if: github.ref_name == 'main' && env.HAS_UPLOAD_KEY == 'true'
         working-directory: app
         env:
-          UPLOAD_KEYSTORE: ${{ secrets.UPLOAD_KEYSTORE }}
-          UPLOAD_KEYSTORE_PASSWORD: ${{ secrets.UPLOAD_KEYSTORE_PASSWORD }}
-          UPLOAD_KEY_ALIAS: ${{ secrets.UPLOAD_KEY_ALIAS }}
           UPLOAD_KEY_PASSWORD: ${{ secrets.UPLOAD_KEY_PASSWORD }}
         run: |
-          echo "$UPLOAD_KEYSTORE" | base64 -d > "$RUNNER_TEMP/upload.keystore"
-          export UPLOAD_KEYSTORE_PATH="$RUNNER_TEMP/upload.keystore"
+          if [ ${#UPLOAD_KEY_PASSWORD} -lt 16 ]; then
+            echo "::error::كلمة سر مفتاح الرفع قصيرة: لازم ١٦ حرف أو أكثر"
+            exit 1
+          fi
+          KEY=android/app/upload.keystore.enc
+          if [ ! -f "$KEY" ]; then
+            keytool -genkeypair -keystore "$RUNNER_TEMP/new.p12" -storetype PKCS12 -alias upload \
+              -keyalg RSA -keysize 4096 -validity 10000 -dname "CN=Jawlah Studio" \
+              -storepass:env UPLOAD_KEY_PASSWORD -keypass:env UPLOAD_KEY_PASSWORD
+            openssl enc -aes-256-cbc -pbkdf2 -iter 1000000 -salt -in "$RUNNER_TEMP/new.p12" -out "$KEY" \
+              -pass env:UPLOAD_KEY_PASSWORD
+            rm "$RUNNER_TEMP/new.p12"
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add "$KEY"
+            git commit -m "Encrypted Google Play upload key"
+            git push origin HEAD:main
+          fi
+          openssl enc -d -aes-256-cbc -pbkdf2 -iter 1000000 -in "$KEY" -out "$RUNNER_TEMP/upload.keystore" \
+            -pass env:UPLOAD_KEY_PASSWORD
+          export UPLOAD_KEYSTORE_PATH="$RUNNER_TEMP/upload.keystore" UPLOAD_KEYSTORE_PASSWORD="$UPLOAD_KEY_PASSWORD" UPLOAD_KEY_ALIAS=upload
           flutter build appbundle --release --build-number=${{ github.run_number }} --dart-define=BUILD=${{ github.run_number }}
           rm "$RUNNER_TEMP/upload.keystore"
-      - name: Upload AAB
-        if: github.ref_name == 'main' && env.HAS_UPLOAD_KEY == 'true'
-        uses: actions/upload-artifact@v4
-        with:
-          name: majlis-aab
-          path: app/build/app/outputs/bundle/release/app-release.aab
+          cp build/app/outputs/bundle/release/app-release.aab ../majlis-${{ github.run_number }}.aab
       # نسخة في Releases تحمّلها من جوالك. نسخ main هي "الأحدث"، فرابط
       # releases/latest/download/majlis.apk (في صفحة الدعوة) يعطي دايم آخر نسخة منها.
       - uses: softprops/action-gh-release@v2
@@ -95,6 +108,7 @@ jobs:
           files: |
             majlis-${{ github.run_number }}.apk
             majlis.apk
+            majlis-${{ github.run_number }}.aab
           body: |
             نسخة تجريبية من فرع `${{ github.ref_name }}`.
             حمّل ملف الـ APK وافتحه على جوالك (يمكن يطلب منك تسمح بتثبيت التطبيقات من مصادر غير معروفة).
