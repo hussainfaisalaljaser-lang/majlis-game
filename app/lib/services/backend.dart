@@ -266,10 +266,6 @@ class Backend {
   /// يتخطى الشرح الإجباري (يعرف يلعب).
   Future<void> skipTutorial() => _call('skipTutorial', const {});
 
-  /// تدريب: روم خاص فيه أنت و٤ بوتات، يبدأ على طول بطلب واحد، ويرجع رمزه.
-  Future<String> startTraining({bool roles = false}) async =>
-      (await _call('startTraining', {'roles': roles}))['code'] as String;
-
   Future<void> leaveRoom(String code) => _call('leaveRoom', {'code': code});
 
   /// «العب مرة ثانية»: يسوي روم جديد بنفس الإعدادات أو يدخل اللي سواه غيرك. يرجّع كوده وهل بدأت.
@@ -313,14 +309,16 @@ class Backend {
     String desc = '',
     int minLevel = 0,
     ClanJoin join = ClanJoin.open,
-  }) async => (await _call('createClan', {
-    'name': name,
-    'color': color,
-    'emblem': emblem,
-    'desc': desc,
-    'minLevel': minLevel,
-    'join': join.name,
-  }))['id'] as String;
+  }) async =>
+      (await _call('createClan', {
+            'name': name,
+            'color': color,
+            'emblem': emblem,
+            'desc': desc,
+            'minLevel': minLevel,
+            'join': join.name,
+          }))['id']
+          as String;
 
   /// يدخل ديوان. يرجع true لو انرسل طلب (الدخول بطلب) بدال ما يدخل على طول.
   Future<bool> joinClan(String id) async => (await _call('joinClan', {'id': id}))['requested'] == true;
@@ -330,8 +328,7 @@ class Backend {
       _call('clanSettings', {'desc': desc, 'minLevel': minLevel, 'join': join.name});
 
   /// الوجهاء وفوق: يقبلون أو يرفضون طلب دخول.
-  Future<void> clanRespond(String uid, {required bool accept}) =>
-      _call('clanRespond', {'uid': uid, 'accept': accept});
+  Future<void> clanRespond(String uid, {required bool accept}) => _call('clanRespond', {'uid': uid, 'accept': accept});
 
   /// الوجهاء وفوق: يدعون لاعب للديوان.
   Future<void> clanInvite(String uid) => _call('clanInvite', {'uid': uid});
@@ -360,11 +357,8 @@ class Backend {
       .map((s) => [for (final d in s.docs) ChatMessage.fromJson(d.id, d.data())]);
 
   /// حالة اتصال لاعب (صاحبي أو من ديواني).
-  Stream<Presence> watchPresence(String other) => _db
-      .doc('presence/$other')
-      .snapshots()
-      .map((s) => Presence.fromJson(s.data()))
-      .handleError((_) {});
+  Stream<Presence> watchPresence(String other) =>
+      _db.doc('presence/$other').snapshots().map((s) => Presence.fromJson(s.data())).handleError((_) {});
 
   Future<void> leaveClan() => _call('leaveClan', const {});
 

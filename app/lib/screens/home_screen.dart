@@ -34,7 +34,7 @@ class HomeScreen extends StatelessWidget {
 
   void _push(BuildContext context, Widget page) => Navigator.of(context).push(MaterialPageRoute(builder: (_) => page));
 
-  /// اللعب (عشوائي، خاص، تدريب): اللاعب الجديد يتعلم أول (الشرح الإجباري)، وبعدها يختار الطور.
+  /// اللعب (عشوائي أو خاص): اللاعب الجديد يتعلم أول (الشرح الإجباري)، وبعدها يختار الطور.
   Future<void> _play(BuildContext context, ModePurpose purpose) async {
     if (!await ensureOnboarded(context) || !context.mounted) return;
     _push(context, ModeScreen(purpose: purpose));
@@ -77,42 +77,65 @@ class HomeScreen extends StatelessWidget {
                                 const SizedBox(width: 12),
                                 Expanded(
                                   flex: 11,
-                                  child: Row(
+                                  // الخاص فوق بالعرض، وتحته الديوان والموسم والمتجر.
+                                  child: Column(
                                     crossAxisAlignment: CrossAxisAlignment.stretch,
                                     children: [
                                       Expanded(
+                                        flex: 2,
                                         child: _Tile(
                                           icon: 'friends',
                                           title: 'خاص',
-                                          subtitle: 'روم مع أصحابك',
+                                          subtitle: 'روم مع أصحابك، وتقدر تضيف بوتات',
                                           colors: const [Color(0xFF2FBF71), Color(0xFF145C38)],
                                           shadow: const Color(0xFF0B3A22),
                                           onTap: () => _play(context, ModePurpose.private),
                                         ),
                                       ),
-                                      const SizedBox(width: 10),
+                                      const SizedBox(height: 10),
                                       Expanded(
-                                        child: _Tile(
-                                          icon: 'bot',
-                                          title: 'تدريب',
-                                          subtitle: 'أنت و٤ بوتات',
-                                          colors: const [Color(0xFF7C5CFF), Color(0xFF3A1F9C)],
-                                          shadow: const Color(0xFF23125E),
-                                          onTap: () => _play(context, ModePurpose.training),
-                                        ),
-                                      ),
-                                      const SizedBox(width: 10),
-                                      Expanded(
+                                        flex: 3,
                                         child: ValueListenableBuilder(
                                           valueListenable: Backend.instance.profile,
-                                          builder: (context, p, _) => _Tile(
-                                            icon: 'pass',
-                                            title: 'الموسم',
-                                            subtitle: 'الدرجة ${arabicNumber(p.pass.tier)}',
-                                            badge: p.pass.claimable,
-                                            colors: const [Color(0xFF14B8A6), Color(0xFF134E4A)],
-                                            shadow: const Color(0xFF062F2C),
-                                            onTap: () => _push(context, const PassScreen()),
+                                          builder: (context, p, _) => Row(
+                                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                                            children: [
+                                              Expanded(
+                                                // ديوانك (أو تدخل واحد)، والشارة لو وصلتك دعوة لديوان.
+                                                child: _Tile(
+                                                  icon: 'shield',
+                                                  title: 'الديوان',
+                                                  subtitle: p.clan?.name ?? 'ادخل ديوان',
+                                                  badge: p.clan == null && p.clanInvites.isNotEmpty,
+                                                  colors: const [Color(0xFF4F7CF7), Color(0xFF1E3A8A)],
+                                                  shadow: const Color(0xFF14254F),
+                                                  onTap: () => _push(context, const ClansScreen()),
+                                                ),
+                                              ),
+                                              const SizedBox(width: 10),
+                                              Expanded(
+                                                child: _Tile(
+                                                  icon: 'pass',
+                                                  title: 'الموسم',
+                                                  subtitle: 'الدرجة ${arabicNumber(p.pass.tier)}',
+                                                  badge: p.pass.claimable,
+                                                  colors: const [Color(0xFF14B8A6), Color(0xFF134E4A)],
+                                                  shadow: const Color(0xFF062F2C),
+                                                  onTap: () => _push(context, const PassScreen()),
+                                                ),
+                                              ),
+                                              const SizedBox(width: 10),
+                                              Expanded(
+                                                child: _Tile(
+                                                  icon: 'shop',
+                                                  title: 'المتجر',
+                                                  subtitle: 'إطارات وشخصيات',
+                                                  colors: const [Color(0xFFE0458B), Color(0xFF7A1A4E)],
+                                                  shadow: const Color(0xFF45102C),
+                                                  onTap: () => _push(context, const ShopScreen()),
+                                                ),
+                                              ),
+                                            ],
                                           ),
                                         ),
                                       ),
@@ -127,11 +150,9 @@ class HomeScreen extends StatelessWidget {
                     ),
                   ),
                   _SideNav(
-                    onClans: () => _push(context, const ClansScreen()),
                     onTour: () async {
                       if (await ensureOnboarded(context) && context.mounted) _push(context, const TournamentScreen());
                     },
-                    onShop: () => _push(context, const ShopScreen()),
                     onRank: () => _push(context, const LeaderboardScreen()),
                     onFriends: () => _push(
                       context,
@@ -531,37 +552,60 @@ class _Tile extends StatelessWidget {
             border: Border.all(color: Colors.white.withValues(alpha: .25), width: 2),
             boxShadow: [BoxShadow(color: shadow, offset: const Offset(0, 4))],
           ),
-          // البطاقة طويلة (بالعرض فيه مكان)، فالأيقونة تكبر على قد طولها ووراها هالة خفيفة.
+          // الأيقونة تكبر على قد البطاقة ووراها هالة خفيفة. البطاقة العريضة (الخاص): الأيقونة جنب الاسم.
           child: LayoutBuilder(
             builder: (context, box) {
-              final icon = (box.maxHeight * .34).clamp(46.0, 96.0);
+              Widget glow(double size) => Stack(
+                clipBehavior: Clip.none,
+                alignment: Alignment.center,
+                children: [
+                  Container(
+                    width: size * 1.55,
+                    height: size * 1.55,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      gradient: RadialGradient(
+                        colors: [Colors.white.withValues(alpha: .22), Colors.white.withValues(alpha: 0)],
+                      ),
+                    ),
+                  ),
+                  Gfx(icon, size: size),
+                  if (badge)
+                    PositionedDirectional(
+                      top: size * .2,
+                      end: size * .2,
+                      child: const CircleAvatar(radius: 7, backgroundColor: AppColors.traitor),
+                    ),
+                ],
+              );
+              if (box.maxWidth > box.maxHeight * 2) {
+                return Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    glow((box.maxHeight * .6).clamp(40.0, 84.0)),
+                    const SizedBox(width: 12),
+                    Flexible(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            title,
+                            style: const TextStyle(fontFamily: kufi, fontWeight: FontWeight.w700, fontSize: 22),
+                          ),
+                          if (subtitle != null)
+                            Text(subtitle!, style: const TextStyle(fontSize: 12.5, color: Colors.white70)),
+                        ],
+                      ),
+                    ),
+                  ],
+                );
+              }
               final big = box.maxHeight > 200;
               return Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Stack(
-                    clipBehavior: Clip.none,
-                    alignment: Alignment.center,
-                    children: [
-                      Container(
-                        width: icon * 1.55,
-                        height: icon * 1.55,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          gradient: RadialGradient(
-                            colors: [Colors.white.withValues(alpha: .22), Colors.white.withValues(alpha: 0)],
-                          ),
-                        ),
-                      ),
-                      Gfx(this.icon, size: icon),
-                      if (badge)
-                        PositionedDirectional(
-                          top: icon * .2,
-                          end: icon * .2,
-                          child: const CircleAvatar(radius: 7, backgroundColor: AppColors.traitor),
-                        ),
-                    ],
-                  ),
+                  glow((box.maxHeight * .34).clamp(46.0, 96.0)),
                   SizedBox(height: big ? 4 : 0),
                   Text(
                     title,
@@ -571,6 +615,8 @@ class _Tile extends StatelessWidget {
                     Text(
                       subtitle!,
                       textAlign: TextAlign.center,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: TextStyle(fontSize: big ? 12.5 : 10.5, color: Colors.white70),
                     ),
                 ],
@@ -695,18 +741,14 @@ class _TopIcon extends StatelessWidget {
 /// شريط التنقل على الجنب (بالعرض)، بدال الشريط اللي تحت.
 class _SideNav extends StatelessWidget {
   const _SideNav({
-    required this.onClans,
     required this.onTour,
-    required this.onShop,
     required this.onRank,
     required this.onFriends,
     required this.onProfile,
     required this.onGuide,
   });
 
-  final VoidCallback onClans;
   final VoidCallback onTour;
-  final VoidCallback onShop;
   final VoidCallback onRank;
   final VoidCallback onFriends;
   final VoidCallback onProfile;
@@ -767,12 +809,6 @@ class _SideNav extends StatelessWidget {
       ),
       child: Column(
         children: [
-          // ديوانك (أو تدخل واحد)، والشارة لو وصلتك دعوة لديوان.
-          ValueListenableBuilder(
-            valueListenable: Backend.instance.profile,
-            builder: (context, p, _) =>
-                item('shield', 'الديوان', onClans, badge: p.clan == null && p.clanInvites.isNotEmpty),
-          ),
           MinuteTicker(
             builder: (context, now) => ValueListenableBuilder(
               valueListenable: Backend.instance.profile,
@@ -783,7 +819,6 @@ class _SideNav extends StatelessWidget {
               },
             ),
           ),
-          item('shop', 'المتجر', onShop),
           item('rank', 'الترتيب', onRank),
           // نقطة حمرا لو فيه طلبات صداقة أو رسائل ما قريتها
           ValueListenableBuilder(

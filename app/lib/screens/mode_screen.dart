@@ -9,14 +9,13 @@ import '../widgets/common.dart';
 import '../widgets/fx.dart';
 import '../widgets/mode_theme.dart';
 import '../widgets/ui.dart';
-import 'game_screen.dart';
 import 'private_screen.dart';
 import 'tables_screen.dart';
 
 /// وين يروح بعد ما يختار الطور.
-enum ModePurpose { random, private, training }
+enum ModePurpose { random, private }
 
-/// أول شي قبل اللعب: يختار الطور (الكلاسيكي أو المطوّر)، وبعدها يكمل للطاولات أو الروم الخاص أو التدريب.
+/// أول شي قبل اللعب: يختار الطور (الكلاسيكي أو المطوّر)، وبعدها يكمل للطاولات أو الروم الخاص.
 class ModeScreen extends StatefulWidget {
   const ModeScreen({super.key, required this.purpose});
 
@@ -31,7 +30,6 @@ class _ModeScreenState extends State<ModeScreen> {
 
   /// آخر طور اختاره (عشان نعلّم عليه).
   bool? _last;
-  bool _busy = false;
 
   @override
   void initState() {
@@ -47,7 +45,6 @@ class _ModeScreenState extends State<ModeScreen> {
   }
 
   Future<void> _pick(ModeTheme mode) async {
-    if (_busy) return;
     setState(() => _last = mode.roles);
     try {
       await (await SharedPreferences.getInstance()).setBool(_lastKey, mode.roles);
@@ -59,40 +56,6 @@ class _ModeScreenState extends State<ModeScreen> {
         navigator.push(MaterialPageRoute(builder: (_) => TablesScreen(mode: mode)));
       case ModePurpose.private:
         navigator.push(MaterialPageRoute(builder: (_) => PrivateScreen(mode: mode)));
-      case ModePurpose.training:
-        await _train(mode);
-    }
-  }
-
-  /// تدريب: روم فيه أنت و٤ بوتات بالطور اللي اخترته، ويبدأ على طول.
-  Future<void> _train(ModeTheme mode) async {
-    final backend = Backend.instance;
-    if (!backend.isReady) return;
-    setState(() => _busy = true);
-    final navigator = Navigator.of(context);
-    final messenger = ScaffoldMessenger.of(context);
-    showDialog<void>(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => const AlertDialog(
-        content: Row(
-          children: [
-            CircularProgressIndicator(color: AppColors.gold),
-            SizedBox(width: 16),
-            Text('نجهّز المجلس…'),
-          ],
-        ),
-      ),
-    );
-    try {
-      final code = await backend.startTraining(roles: mode.roles);
-      navigator.pop();
-      // بعد اللعبة يرجع للرئيسية مو لصفحة الطور.
-      navigator.pushReplacement(MaterialPageRoute(builder: (_) => GameScreen(code: code)));
-    } on BackendException catch (e) {
-      navigator.pop();
-      messenger.showSnackBar(SnackBar(content: Text(e.message)));
-      if (mounted) setState(() => _busy = false);
     }
   }
 
@@ -102,17 +65,12 @@ class _ModeScreenState extends State<ModeScreen> {
       ModePurpose.random => ('games', 'عشوائي', 'العب '),
       // «ب» تلتصق بـ«ال»: كمّل بالكلاسيكي.
       ModePurpose.private => ('friends', 'روم خاص', 'كمّل ب'),
-      ModePurpose.training => ('bot', 'تدريب مع البوتات', 'تدرّب على '),
     };
     return NightScaffold(
       appBar: AppBar(
         title: Row(
           mainAxisSize: MainAxisSize.min,
-          children: [
-            Gfx(icon, size: 30),
-            const SizedBox(width: 8),
-            Text('$title · اختر الطور'),
-          ],
+          children: [Gfx(icon, size: 30), const SizedBox(width: 8), Text('$title · اختر الطور')],
         ),
         actions: [
           if (widget.purpose == ModePurpose.private)
@@ -141,7 +99,6 @@ class _ModeScreenState extends State<ModeScreen> {
                     cta: '$cta${mode.name}',
                     last: _last == mode.roles,
                     fresh: mode.roles,
-                    busy: _busy,
                     onTap: () => _pick(mode),
                   ),
                 ),
@@ -156,14 +113,7 @@ class _ModeScreenState extends State<ModeScreen> {
 
 /// بطاقة الطور: خلفيته وحركته، ورسمته، واسمه، والأدوار اللي فيه، وزر يدخلك.
 class _ModeCard extends StatefulWidget {
-  const _ModeCard({
-    required this.mode,
-    required this.cta,
-    required this.onTap,
-    this.last = false,
-    this.fresh = false,
-    this.busy = false,
-  });
+  const _ModeCard({required this.mode, required this.cta, required this.onTap, this.last = false, this.fresh = false});
 
   final ModeTheme mode;
   final String cta;
@@ -174,7 +124,6 @@ class _ModeCard extends StatefulWidget {
 
   /// شارة «جديد».
   final bool fresh;
-  final bool busy;
 
   @override
   State<_ModeCard> createState() => _ModeCardState();
@@ -188,46 +137,55 @@ class _ModeCardState extends State<_ModeCard> {
     showDialog<void>(
       context: context,
       builder: (context) => AlertDialog(
-        title: Row(children: [Gfx(m.icon, size: 28), const SizedBox(width: 8), ModeName(mode: m, size: 22)]),
+        title: Row(
+          children: [
+            Gfx(m.icon, size: 28),
+            const SizedBox(width: 8),
+            ModeName(mode: m, size: 22),
+          ],
+        ),
         content: SizedBox(
           width: 440,
           child: SingleChildScrollView(
             child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(m.tagline, style: const TextStyle(color: AppColors.muted, fontWeight: FontWeight.w700)),
-              const SizedBox(height: 10),
-              for (final (icon, name, what) in m.cast)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 6),
-                  child: Row(
-                    children: [
-                      Gfx(icon, size: 28),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Text.rich(
-                          TextSpan(
-                            children: [
-                              TextSpan(
-                                text: '$name: ',
-                                style: const TextStyle(fontWeight: FontWeight.w900),
-                              ),
-                              TextSpan(text: what),
-                            ],
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  m.tagline,
+                  style: const TextStyle(color: AppColors.muted, fontWeight: FontWeight.w700),
+                ),
+                const SizedBox(height: 10),
+                for (final (icon, name, what) in m.cast)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 6),
+                    child: Row(
+                      children: [
+                        Gfx(icon, size: 28),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text.rich(
+                            TextSpan(
+                              children: [
+                                TextSpan(
+                                  text: '$name: ',
+                                  style: const TextStyle(fontWeight: FontWeight.w900),
+                                ),
+                                TextSpan(text: what),
+                              ],
+                            ),
+                            style: const TextStyle(fontSize: 14, height: 1.5),
                           ),
-                          style: const TextStyle(fontSize: 14, height: 1.5),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
-              if (m.roles)
-                const Text(
-                  'الأدوار الخاصة تنعطى لبعض اللاعبين، وفوقها الزعيم والخونة والأوفياء مثل الكلاسيكي.',
-                  style: TextStyle(color: AppColors.muted, fontSize: 12.5, height: 1.5),
-                ),
-            ],
+                if (m.roles)
+                  const Text(
+                    'الأدوار الخاصة تنعطى لبعض اللاعبين، وفوقها الزعيم والخونة والأوفياء مثل الكلاسيكي.',
+                    style: TextStyle(color: AppColors.muted, fontSize: 12.5, height: 1.5),
+                  ),
+              ],
             ),
           ),
         ),
@@ -246,7 +204,7 @@ class _ModeCardState extends State<_ModeCard> {
         onTapDown: (_) => setState(() => _down = true),
         onTapCancel: () => setState(() => _down = false),
         onTapUp: (_) => setState(() => _down = false),
-        onTap: widget.busy ? null : widget.onTap,
+        onTap: widget.onTap,
         child: AnimatedScale(
           scale: _down ? .975 : 1,
           duration: const Duration(milliseconds: 120),
@@ -279,7 +237,9 @@ class _ModeCardState extends State<_ModeCard> {
                   padding: const EdgeInsets.fromLTRB(16, 12, 16, 14),
                   child: Column(
                     children: [
-                      Expanded(child: m.roles ? _AdvancedEmblem(mode: m) : _ClassicEmblem(mode: m)),
+                      Expanded(
+                        child: m.roles ? _AdvancedEmblem(mode: m) : _ClassicEmblem(mode: m),
+                      ),
                       ModeName(mode: m, size: 30),
                       Text(
                         m.tagline,
@@ -296,12 +256,12 @@ class _ModeCardState extends State<_ModeCard> {
                       _Cast(mode: m),
                       const SizedBox(height: 10),
                       GameButton(
-                        label: widget.busy ? 'لحظة…' : widget.cta,
+                        label: widget.cta,
                         icon: Gfx(m.icon, size: 24),
                         tone: m.button,
                         height: 44,
                         fontSize: 17,
-                        onPressed: widget.busy ? null : widget.onTap,
+                        onPressed: widget.onTap,
                       ),
                     ],
                   ),
@@ -455,10 +415,8 @@ class _AdvancedEmblem extends StatelessWidget {
             final t = time.value;
             final pulse = .5 + .5 * math.sin(t * 2.2);
             // كل أيقونة: زاويتها في المدار، واللي ورا تصغر وتبهت.
-            final orbiters = [
-              for (final (i, icon) in _orbit.indexed)
-                (icon: icon, a: t * .5 + i * math.pi / 2),
-            ]..sort((x, y) => math.sin(x.a).compareTo(math.sin(y.a)));
+            final orbiters = [for (final (i, icon) in _orbit.indexed) (icon: icon, a: t * .5 + i * math.pi / 2)]
+              ..sort((x, y) => math.sin(x.a).compareTo(math.sin(y.a)));
             Widget orbiter(({String icon, double a}) o) {
               final depth = (math.sin(o.a) + 1) / 2;
               return Transform.translate(
