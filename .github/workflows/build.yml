@@ -48,9 +48,12 @@ jobs:
         working-directory: app
         run: flutter test
       # رقم البناء يزيد كل مرة (Google Play يشترطه)، ويطلع في الإعدادات داخل اللعبة.
+      # للجوالات بس (بدون نسخة محاكي الكمبيوتر)، ومكتبات التشغيل مضغوطة (compressLibs): حوالي ٣٠ ميقا بدال ٧٦.
       - name: Build APK
         working-directory: app
-        run: flutter build apk --release --build-number=${{ github.run_number }} --dart-define=BUILD=${{ github.run_number }}
+        run: >-
+          flutter build apk --release --target-platform android-arm,android-arm64 -P compressLibs=true
+          --build-number=${{ github.run_number }} --dart-define=BUILD=${{ github.run_number }}
       # نسخة برقمها، ونسخة باسم ثابت (majlis.apk) عشان رابط التحميل في الموقع ما يتغير.
       - name: Rename
         run: |

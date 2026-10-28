@@ -50,6 +50,14 @@ android {
         }
     }
 
+    // ملف التثبيت اللي ينرسل مباشرة (build.yml يمرر compressLibs): مكتبات التشغيل مضغوطة عشان يصغر حجمه.
+    // ملف المتجر (AAB) يبقى بدونها، وقوقل بلاي يقسّمه ويضغط التحميل بنفسه.
+    packaging {
+        jniLibs {
+            useLegacyPackaging = project.hasProperty("compressLibs")
+        }
+    }
+
     buildTypes {
         debug {
             signingConfig = signingConfigs.getByName("test")
