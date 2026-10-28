@@ -1,3 +1,4 @@
+import 'chat.dart' show ChatLast;
 import 'clan.dart';
 import 'leaderboard.dart' show gulfWeek;
 import 'missions.dart';
@@ -50,6 +51,7 @@ class Profile {
     this.clan,
     this.clanInvites = const [],
     this.dmUnread = const {},
+    this.dmLast = const {},
     this.tour,
   });
 
@@ -103,6 +105,10 @@ class Profile {
         if (value is Map) ClanInvite.fromJson(key as String, Map<String, dynamic>.from(value)),
     ].where((i) => i.live).toList()..sort((a, b) => b.at.compareTo(a.at)),
     dmUnread: _ints(j['dmUnread']),
+    dmLast: {
+      for (final MapEntry(:key, :value) in ((j['dmLast'] as Map?) ?? const {}).entries)
+        if (value is Map) key as String: ChatLast.fromJson(Map<String, dynamic>.from(value)),
+    },
     tour: TourState.maybe(j['tour']),
   );
 
@@ -207,6 +213,9 @@ class Profile {
   final Map<String, int> dmUnread;
 
   int get unreadDms => dmUnread.values.fold(0, (a, b) => a + b);
+
+  /// آخر رسالة مع كل صاحب (قائمة المحادثات).
+  final Map<String, ChatLast> dmLast;
 
   /// بطولة الأسبوع اللي سجّل فيها آخر مرة.
   final TourState? tour;

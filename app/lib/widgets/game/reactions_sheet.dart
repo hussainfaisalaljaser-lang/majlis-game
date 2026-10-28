@@ -7,11 +7,12 @@ import '../bubble.dart';
 import '../common.dart';
 
 /// لوحة الردود في اللعبة: الكلام بفقاعتك، وباقات الملصقات (المقفلة تطلع باهتة مع وين تنكسب).
+/// بدون [onText] (الدردشة): الملصقات بس.
 class ReactionsSheet extends StatefulWidget {
   const ReactionsSheet({
     super.key,
     required this.profile,
-    required this.onText,
+    this.onText,
     required this.onSticker,
     this.onClearOpinion,
     this.over = false,
@@ -19,7 +20,7 @@ class ReactionsSheet extends StatefulWidget {
   });
 
   final Profile profile;
-  final ValueChanged<TextReaction> onText;
+  final ValueChanged<TextReaction>? onText;
   final ValueChanged<Sticker> onSticker;
 
   /// المفضلة تغيّرت (ضغطة مطوّلة على ملصق تضيفه أو تشيله).
@@ -90,12 +91,13 @@ class _ReactionsSheetState extends State<ReactionsSheet> {
               width: 74,
               child: ListView(
                 children: [
-                  _TabButton(
-                    selected: _tab == 0,
-                    label: 'كلام',
-                    onTap: () => setState(() => _tab = 0),
-                    child: ChatBubble(style: bubbleStyle(p.bubble), text: 'هلا', fontSize: 11, maxWidth: 60),
-                  ),
+                  if (widget.onText != null)
+                    _TabButton(
+                      selected: _tab == 0,
+                      label: 'كلام',
+                      onTap: () => setState(() => _tab = 0),
+                      child: ChatBubble(style: bubbleStyle(p.bubble), text: 'هلا', fontSize: 11, maxWidth: 60),
+                    ),
                   for (final (i, pack) in _packs.indexed)
                     _TabButton(
                       selected: _tab == i + 1,
@@ -130,7 +132,7 @@ class _ReactionsSheetState extends State<ReactionsSheet> {
                   label: 'رد ${r.id}',
                   excludeSemantics: true,
                   child: GestureDetector(
-                    onTap: () => widget.onText(r),
+                    onTap: () => widget.onText?.call(r),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [

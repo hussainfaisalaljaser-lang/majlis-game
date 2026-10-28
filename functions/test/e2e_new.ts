@@ -476,6 +476,24 @@ async function main(): Promise<void> {
   assert.equal((await outsider.profile()).dmUnread[stranger.uid], undefined);
   console.log('✓ الدردشة: الديوان لأعضائه، والأصحاب بس، والكلام السيء والروابط تنخفى');
 
+  // ١٥ب. الملصقات في الدردشة (من باقة يملكها بس)، وآخر رسالة تنحفظ عند الاثنين (قائمة المحادثات).
+  await sleep(1100);
+  await expectError(outsider.call('sendChat', { to: stranger.uid, sticker: 'nothing' }), 'invalid-argument');
+  await expectError(outsider.call('sendChat', { to: stranger.uid, sticker: 'suspect' }), 'invalid-argument');
+  await expectError(outsider.call('sendChat', { to: stranger.uid, sticker: 'laugh_tears' }), 'permission-denied');
+  await outsider.call('sendChat', { to: stranger.uid, sticker: 'b_laugh' });
+  const stk = await getDocs(query(collection(stranger.fs, `dms/${pair}/msgs`), orderBy('at', 'desc')));
+  assert.deepEqual([stk.docs[0].data().sticker, stk.docs[0].data().text], ['b_laugh', ''], 'الملصق وصل');
+  for (const [c, other] of [[stranger, outsider], [outsider, stranger]] as const) {
+    const lastMsg = (await c.profile()).dmLast[other.uid];
+    assert.deepEqual([lastMsg.sticker, lastMsg.from], ['b_laugh', outsider.uid], 'آخر رسالة عند الاثنين');
+  }
+  await sleep(1100);
+  await outsider.call('sendChat', { to: 'clan', sticker: 'b_laugh' });
+  const clanLast = await admin.collection(`clans/${cid}/chat`).orderBy('at', 'desc').limit(1).get();
+  assert.equal(clanLast.docs[0].data().sticker, 'b_laugh', 'ملصق في الديوان');
+  console.log('✓ الملصقات في الدردشة: من باقاتك بس، وآخر رسالة تنحفظ لقائمة المحادثات');
+
   // ١٦. حالة الاتصال: كل واحد يكتب نبضته، وأصحابه وربعه في الديوان يشوفونها، والغريب لا.
   await setDoc(doc(stranger.fs, `presence/${stranger.uid}`), { t: serverTimestamp(), on: true });
   await assert.rejects(setDoc(doc(stranger.fs, `presence/${outsider.uid}`), { t: serverTimestamp(), on: true }));

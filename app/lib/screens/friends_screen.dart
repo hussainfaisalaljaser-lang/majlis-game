@@ -4,10 +4,13 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../models/chat.dart';
+import '../models/clan.dart';
 import '../models/leaderboard.dart';
+import '../models/profile.dart';
 import '../models/shop.dart';
 import '../services/backend.dart';
 import '../theme.dart';
+import '../widgets/clan_crest.dart';
 import '../widgets/common.dart';
 import '../widgets/friend_button.dart';
 import '../widgets/pid.dart';
@@ -16,11 +19,20 @@ import '../widgets/ui.dart';
 import 'chat_screen.dart';
 import 'game_screen.dart';
 
-/// الأصدقاء: قائمتك، والطلبات اللي وصلتك، وتضيف أحد برمزه.
+/// الأصدقاء: قائمتك، ومحادثاتك، والطلبات اللي وصلتك، وتضيف أحد برمزه.
 class FriendsScreen extends StatefulWidget {
-  const FriendsScreen({super.key, this.tab = 0});
+  const FriendsScreen({super.key, this.tab = friendsTab});
 
-  /// ٠ أصدقائي، ١ الطلبات، ٢ أضف صديق.
+  /// يفتح على اللي يهمك: طلبات صداقة، أو رسائل ما قريتها، أو أصدقائك.
+  FriendsScreen.forProfile(Profile p, {super.key})
+    : tab = p.friendReqs.isNotEmpty
+          ? requestsTab
+          : p.unreadDms > 0
+          ? chatsTab
+          : friendsTab;
+
+  static const friendsTab = 0, chatsTab = 1, requestsTab = 2, addTab = 3;
+
   final int tab;
 
   @override
@@ -37,7 +49,7 @@ class _FriendsScreenState extends State<FriendsScreen> {
       builder: (context, p, _) {
         final reqs = p.friendReqs.entries.toList()..sort((a, b) => b.value.compareTo(a.value));
         return DefaultTabController(
-          length: 3,
+          length: 4,
           initialIndex: widget.tab,
           child: NightScaffold(
             appBar: AppBar(
@@ -45,6 +57,7 @@ class _FriendsScreenState extends State<FriendsScreen> {
               bottom: TabBar(
                 tabs: [
                   Tab(text: p.friends.isEmpty ? 'أصدقائي' : 'أصدقائي (${arabicNumber(p.friends.length)})'),
+                  Tab(text: p.unreadDms == 0 ? 'الدردشات' : 'الدردشات (${arabicNumber(p.unreadDms)})'),
                   Tab(text: reqs.isEmpty ? 'الطلبات' : 'الطلبات (${arabicNumber(reqs.length)})'),
                   const Tab(text: 'أضف صديق'),
                 ],
@@ -56,9 +69,10 @@ class _FriendsScreenState extends State<FriendsScreen> {
                     ? _Empty(
                         icon: 'friends',
                         text: 'ما عندك أصدقاء للحين.\nضيفهم برمزهم من «أضف صديق»، أو من بطاقة أي لاعب في الطاولة.',
-                        action: ('أضف صديق', () => DefaultTabController.of(context).animateTo(2)),
+                        action: ('أضف صديق', () => DefaultTabController.of(context).animateTo(FriendsScreen.addTab)),
                       )
                     : _FriendsList(uids: p.friends, unread: p.dmUnread),
+                _ChatsList(profile: p),
                 reqs.isEmpty
                     ? const _Empty(icon: 'invite', text: 'ما فيه طلبات صداقة')
                     : ListView(
@@ -339,6 +353,288 @@ class _FriendsListState extends State<_FriendsList> {
             unread: widget.unread[uid] ?? 0,
           ),
       ],
+    );
+  }
+}
+
+/// محادثاتك: دردشة ديوانك (لو أنت في ديوان)، ومحادثاتك مع أصحابك (الأحدث فوق)، وكل وحدة فيها آخر رسالة
+/// ومتى، وكم رسالة ما قريتها.
+class _ChatsList extends StatefulWidget {
+  const _ChatsList({required this.profile});
+
+  final Profile profile;
+
+  @override
+  State<_ChatsList> createState() => _ChatsListState();
+}
+
+class _ChatsListState extends State<_ChatsList> {
+  final _entries = <String, LeaderboardEntry?>{};
+
+  /// الأصحاب اللي بينا محادثة (أو رسائل ما قريتها من قبل ما تنحفظ آخر رسالة)، والأحدث أول.
+  List<String> get _uids {
+    final p = widget.profile;
+    final ids = {...p.dmLast.keys, ...p.dmUnread.keys}.where(p.friends.contains).toList();
+    final epoch = DateTime.fromMillisecondsSinceEpoch(0);
+    ids.sort((a, b) => (p.dmLast[b]?.at ?? epoch).compareTo(p.dmLast[a]?.at ?? epoch));
+    return ids;
+  }
+
+  void _fetch(String uid) {
+    if (_entries.containsKey(uid)) return;
+    _entries[uid] = null;
+    Backend.instance.fetchPlayer(uid).then((e) {
+      if (mounted) setState(() => _entries[uid] = e);
+    }, onError: (_) {});
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final p = widget.profile;
+    final uids = _uids;
+    uids.forEach(_fetch);
+    if (p.clan == null && uids.isEmpty) {
+      return const _Empty(
+        icon: 'chat',
+        text: 'ما فيه محادثات للحين.\nابدأ دردشة مع أي صاحب من «أصدقائي»، أو ادخل ديوان وسولف مع ربعك.',
+      );
+    }
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
+      children: [
+        if (p.clan case final clan?) _ClanChatRow(clan: clan),
+        for (final uid in uids)
+          _ChatRow(
+            key: ValueKey(uid),
+            uid: uid,
+            entry: _entries[uid],
+            last: p.dmLast[uid],
+            unread: p.dmUnread[uid] ?? 0,
+            me: Backend.instance.uid,
+          ),
+      ],
+    );
+  }
+}
+
+/// سطر محادثة: الصورة والاسم، وآخر رسالة ومتى، وعدد اللي ما قريته.
+class _ChatTile extends StatelessWidget {
+  const _ChatTile({
+    required this.leading,
+    required this.title,
+    required this.preview,
+    required this.onTap,
+    this.previewSticker,
+    this.at,
+    this.unread = 0,
+    this.fresh = false,
+  });
+
+  final Widget leading;
+  final String title;
+  final String preview;
+
+  /// لو آخر رسالة ملصق: صورته الصغيرة قبل الكلام.
+  final String? previewSticker;
+  final DateTime? at;
+  final int unread;
+
+  /// فيه جديد (دردشة الديوان ما تنعد، بس نعلّمها).
+  final bool fresh;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final hot = unread > 0 || fresh;
+    final sticker = previewSticker == null ? null : stickerById(previewSticker!);
+    return Semantics(
+      button: true,
+      label: 'محادثة $title',
+      excludeSemantics: true,
+      child: Padding(
+        padding: const EdgeInsets.only(bottom: 8),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: onTap,
+          child: Container(
+            padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+            decoration: BoxDecoration(
+              color: hot ? AppColors.gold.withValues(alpha: .08) : AppColors.card,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: hot ? AppColors.gold.withValues(alpha: .5) : AppColors.line),
+            ),
+            child: Row(
+              children: [
+                leading,
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15),
+                      ),
+                      Row(
+                        children: [
+                          if (sticker != null) ...[
+                            Image.asset(sticker.asset, width: 22, height: 22, filterQuality: FilterQuality.medium),
+                            const SizedBox(width: 4),
+                          ],
+                          Flexible(
+                            child: Text(
+                              preview,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: hot ? AppColors.text : AppColors.muted,
+                                fontWeight: hot ? FontWeight.w800 : FontWeight.w600,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    if (at != null)
+                      Text(
+                        agoText(DateTime.now().difference(at!)),
+                        style: TextStyle(color: hot ? AppColors.goldLight : AppColors.muted, fontSize: 11.5),
+                      ),
+                    const SizedBox(height: 4),
+                    if (unread > 0)
+                      Container(
+                        constraints: const BoxConstraints(minWidth: 22),
+                        height: 22,
+                        padding: const EdgeInsets.symmetric(horizontal: 6),
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(color: AppColors.traitor, borderRadius: BorderRadius.circular(11)),
+                        child: Text(
+                          arabicNumber(unread),
+                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w900, height: 1.1),
+                        ),
+                      )
+                    else if (fresh)
+                      Container(
+                        width: 10,
+                        height: 10,
+                        decoration: const BoxDecoration(shape: BoxShape.circle, color: AppColors.traitor),
+                      ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// آخر رسالة بالكلام: «ملصق» جنب صورته، و«أنت: » لو أنت اللي أرسلتها.
+String _previewOf({required String text, required String? sticker, required bool mine, String? name}) {
+  final body = sticker != null ? 'ملصق' : text;
+  if (mine) return 'أنت: $body';
+  return name == null || name.isEmpty ? body : '$name: $body';
+}
+
+class _ClanChatRow extends StatefulWidget {
+  const _ClanChatRow({required this.clan});
+
+  final ClanTag clan;
+
+  @override
+  State<_ClanChatRow> createState() => _ClanChatRowState();
+}
+
+class _ClanChatRowState extends State<_ClanChatRow> {
+  late Stream<ChatMessage?> _last = Backend.instance.watchClanLast(widget.clan.id);
+  DateTime? _seen;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSeen();
+  }
+
+  @override
+  void didUpdateWidget(_ClanChatRow old) {
+    super.didUpdateWidget(old);
+    if (old.clan.id != widget.clan.id) _last = Backend.instance.watchClanLast(widget.clan.id);
+  }
+
+  Future<void> _loadSeen() async {
+    final seen = await clanChatSeen(widget.clan.id);
+    if (mounted) setState(() => _seen = seen);
+  }
+
+  @override
+  Widget build(BuildContext context) => StreamBuilder<ChatMessage?>(
+    stream: _last,
+    builder: (context, snap) {
+      final m = snap.data;
+      return _ChatTile(
+        leading: ClanCrest.of(widget.clan, size: 44),
+        title: 'ديوان ${widget.clan.name}',
+        preview: m == null
+            ? 'دردشة ربعك في الديوان'
+            : m.system
+            ? m.text
+            : _previewOf(text: m.text, sticker: m.sticker, mine: m.uid == Backend.instance.uid, name: m.name),
+        previewSticker: m?.sticker,
+        at: m?.at,
+        fresh: m != null && _seen != null && m.at.isAfter(_seen!) && m.uid != Backend.instance.uid,
+        onTap: () async {
+          await Navigator.of(context).push(MaterialPageRoute(builder: (_) => ChatScreen.clan(clan: widget.clan)));
+          _loadSeen();
+        },
+      );
+    },
+  );
+}
+
+class _ChatRow extends StatelessWidget {
+  const _ChatRow({
+    super.key,
+    required this.uid,
+    required this.entry,
+    required this.last,
+    required this.unread,
+    required this.me,
+  });
+
+  final String uid;
+  final LeaderboardEntry? entry;
+  final ChatLast? last;
+  final int unread;
+  final String me;
+
+  @override
+  Widget build(BuildContext context) {
+    final e = entry;
+    final l = last;
+    return _ChatTile(
+      leading: PlayerAvatar(avatar: e?.avatar ?? 'masked', style: frameStyle(e?.frame), size: 44, animate: false),
+      title: e?.name ?? '…',
+      preview: l == null ? 'رسائل جديدة' : _previewOf(text: l.text, sticker: l.sticker, mine: l.from == me),
+      previewSticker: l?.sticker,
+      at: l?.at,
+      unread: unread,
+      onTap: e == null
+          ? null
+          : () => Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => ChatScreen.friend(friend: (uid: uid, name: e.name, avatar: e.avatar, frame: e.frame)),
+              ),
+            ),
     );
   }
 }
@@ -745,7 +1041,10 @@ class _InviteSheetState extends State<_InviteSheet> {
                   'أضف أصدقاء',
                   () {
                     Navigator.pop(context);
-                    Navigator.push(context, MaterialPageRoute(builder: (_) => const FriendsScreen(tab: 2)));
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const FriendsScreen(tab: FriendsScreen.addTab)),
+                    );
                   },
                 ),
               )

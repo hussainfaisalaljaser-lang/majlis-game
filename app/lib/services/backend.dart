@@ -368,8 +368,19 @@ class Backend {
   /// يرسل رسالة: [to] = 'clan' لديوانك، أو معرف صاحبك. الكلام السيء ينخفى في السيرفر.
   Future<void> sendChat(String to, String text) => _call('sendChat', {'to': to, 'text': text});
 
+  /// يرسل ملصق (من باقة أملكها) بدال الكلام.
+  Future<void> sendSticker(String to, String sticker) => _call('sendChat', {'to': to, 'sticker': sticker});
+
   /// فتحت محادثة صاحبي: اللي ما قريته ينصفر.
   Future<void> readDm(String friend) => _call('readDm', {'uid': friend});
+
+  /// آخر رسالة في دردشة الديوان (خانة الديوان في قائمة المحادثات).
+  Stream<ChatMessage?> watchClanLast(String id) => _db
+      .collection('clans/$id/chat')
+      .orderBy('at', descending: true)
+      .limit(1)
+      .snapshots()
+      .map((s) => s.docs.isEmpty ? null : ChatMessage.fromJson(s.docs.first.id, s.docs.first.data()));
 
   /// آخر رسائل دردشة الديوان (الأحدث أول).
   Stream<List<ChatMessage>> watchClanChat(String id) => _chat(_db.collection('clans/$id/chat'));

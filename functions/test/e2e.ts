@@ -743,14 +743,19 @@ async function main(): Promise<void> {
   assert.equal((await pb.call<{ available: boolean }>('quotePid', { pid: '7777' })).available, false);
   console.log('✓ الرمز المميز: ٧٧٧٧ بـ ١٥٠٠ جوهرة، والقديم انفك، وما ينشرى مرتين');
 
-  // حذف حساب صديق: ينشال من الأصدقاء ورمزه ينفك
+  // حذف حساب صديق: ينشال من الأصدقاء ورمزه ينفك، وآخر رسالة منه تنمسح من قائمة محادثاتهم
   const fbPid = (await pb.profile()).pid;
+  await pb.call('sendChat', { to: pa.uid, text: 'آخر رسالة قبل الحذف' });
+  assert.equal((await pa.profile()).dmLast?.[pb.uid]?.text, 'آخر رسالة قبل الحذف');
   await pb.call('deleteAccount');
-  assert.ok(!((await pa.profile()).friends ?? []).includes(pb.uid), 'انشال من أصدقائه');
+  const afterDelete = await pa.profile();
+  assert.ok(!(afterDelete.friends ?? []).includes(pb.uid), 'انشال من أصدقائه');
+  assert.equal(afterDelete.dmLast?.[pb.uid], undefined, 'آخر رسالته انمسحت');
+  assert.equal(afterDelete.dmUnread?.[pb.uid], undefined, 'وعدّاد رسايله');
   await expectError(pa.call('findPlayer', { pid: fbPid }), 'not-found');
   await Promise.all(pals.filter((x) => x !== pb).map((x) => deleteApp(x.app)));
   await deleteApp(pb.app);
-  console.log('✓ حذف الحساب: ينشال من الأصدقاء ورمزه ينفك');
+  console.log('✓ حذف الحساب: ينشال من الأصدقاء ورمزه ينفك وآخر رسالته تنمسح');
 
   // حذف الحساب: الملف والترتيب والاسم ينحذفون
   const leaver = await client(55);

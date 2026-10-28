@@ -8,8 +8,10 @@ import '../models/clan.dart';
 import '../models/shop.dart';
 import '../services/backend.dart';
 import '../theme.dart';
+import '../widgets/bubble.dart';
 import '../widgets/clan_crest.dart';
 import '../widgets/common.dart';
+import '../widgets/game/reactions_sheet.dart';
 import '../widgets/player_card.dart';
 import '../widgets/ui.dart';
 
@@ -102,6 +104,28 @@ class _ChatScreenState extends State<ChatScreen> {
     }
   }
 
+  /// الملصقات: من باقاتك (والمقفلة تطلع باهتة مع وين تنكسب)، وضغطة ترسله على طول.
+  Future<void> _stickers() async {
+    _focus.unfocus();
+    final sticker = await showModalBottomSheet<Sticker>(
+      context: context,
+      backgroundColor: AppColors.panel,
+      isScrollControlled: true,
+      constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(context).height * .72),
+      builder: (context) =>
+          ReactionsSheet(profile: _backend.profile.value, onSticker: (s) => Navigator.pop(context, s)),
+    );
+    if (sticker == null || !mounted || _sending) return;
+    setState(() => _sending = true);
+    try {
+      await _backend.sendSticker(widget.clan != null ? 'clan' : widget.friend!.uid, sticker.id);
+    } on BackendException catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+    } finally {
+      if (mounted) setState(() => _sending = false);
+    }
+  }
+
   /// ضغطة مطوّلة على رسالة أحد ثاني.
   Future<void> _options(ChatMessage m) async {
     final action = await showModalBottomSheet<String>(
@@ -114,7 +138,7 @@ class _ChatScreenState extends State<ChatScreen> {
             ListTile(
               leading: PlayerAvatar(avatar: m.avatar, size: 40, animate: false),
               title: Text(m.name),
-              subtitle: Text(m.text, maxLines: 2, overflow: TextOverflow.ellipsis),
+              subtitle: Text(m.sticker != null ? 'ملصق' : m.text, maxLines: 2, overflow: TextOverflow.ellipsis),
             ),
             ListTile(
               leading: const Gfx('profile', size: 26),
@@ -143,7 +167,7 @@ class _ChatScreenState extends State<ChatScreen> {
         case 'card':
           showPlayerCard(context, uid: m.uid, name: m.name, avatar: m.avatar);
         case 'report':
-          await _backend.reportPlayer(m.uid, 'chat', text: m.text);
+          await _backend.reportPlayer(m.uid, 'chat', text: m.sticker != null ? 'ملصق ${m.sticker}' : m.text);
           messenger.showSnackBar(const SnackBar(content: Text('وصلنا بلاغك، شكراً لك')));
         case 'block':
           await _backend.setBlocked(m.uid, true);
@@ -260,7 +284,7 @@ class _ChatScreenState extends State<ChatScreen> {
                 ),
               ),
             ),
-            _InputBar(controller: _input, focus: _focus, sending: _sending, onSend: _send),
+            _InputBar(controller: _input, focus: _focus, sending: _sending, onSend: _send, onStickers: _stickers),
           ],
         ),
       ),
@@ -315,28 +339,41 @@ class _MessageRow extends StatelessWidget {
         ),
       );
     }
-    final bubble = GestureDetector(
-      onLongPress: onLongPress,
-      child: Container(
-        constraints: const BoxConstraints(maxWidth: 420),
-        padding: const EdgeInsets.fromLTRB(12, 7, 12, 6),
-        decoration: BoxDecoration(
-          gradient: mine ? const LinearGradient(colors: [Color(0xFF6D4BD8), Color(0xFF4C2FA8)]) : null,
-          color: mine ? null : AppColors.card,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: mine ? Colors.white.withValues(alpha: .18) : AppColors.line),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(m.text, style: const TextStyle(fontSize: 14.5, height: 1.45, fontWeight: FontWeight.w600)),
-            const SizedBox(height: 1),
-            Text(_time, style: TextStyle(fontSize: 9.5, color: Colors.white.withValues(alpha: .55))),
-          ],
-        ),
-      ),
-    );
+    final sticker = m.sticker == null ? null : stickerById(m.sticker!);
+    final bubble = sticker != null
+        ? GestureDetector(
+            onLongPress: onLongPress,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                StickerView(sticker: sticker, size: 96, pop: false),
+                Text(_time, style: TextStyle(fontSize: 9.5, color: Colors.white.withValues(alpha: .55))),
+              ],
+            ),
+          )
+        : GestureDetector(
+            onLongPress: onLongPress,
+            child: Container(
+              constraints: const BoxConstraints(maxWidth: 420),
+              padding: const EdgeInsets.fromLTRB(12, 7, 12, 6),
+              decoration: BoxDecoration(
+                gradient: mine ? const LinearGradient(colors: [Color(0xFF6D4BD8), Color(0xFF4C2FA8)]) : null,
+                color: mine ? null : AppColors.card,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: mine ? Colors.white.withValues(alpha: .18) : AppColors.line),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(m.text, style: const TextStyle(fontSize: 14.5, height: 1.45, fontWeight: FontWeight.w600)),
+                  const SizedBox(height: 1),
+                  Text(_time, style: TextStyle(fontSize: 9.5, color: Colors.white.withValues(alpha: .55))),
+                ],
+              ),
+            ),
+          );
     if (mine) {
       return Padding(
         padding: EdgeInsets.only(top: grouped ? 2 : 8),
@@ -392,12 +429,19 @@ class _MessageRow extends StatelessWidget {
 }
 
 class _InputBar extends StatelessWidget {
-  const _InputBar({required this.controller, required this.focus, required this.sending, required this.onSend});
+  const _InputBar({
+    required this.controller,
+    required this.focus,
+    required this.sending,
+    required this.onSend,
+    required this.onStickers,
+  });
 
   final TextEditingController controller;
   final FocusNode focus;
   final bool sending;
   final VoidCallback onSend;
+  final VoidCallback onStickers;
 
   @override
   Widget build(BuildContext context) => Container(
@@ -408,6 +452,28 @@ class _InputBar extends StatelessWidget {
     ),
     child: Row(
       children: [
+        // الملصقات
+        Semantics(
+          button: true,
+          label: 'ملصقات',
+          excludeSemantics: true,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(22),
+            onTap: sending ? null : onStickers,
+            child: Container(
+              width: 44,
+              height: 42,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: AppColors.card,
+                border: Border.all(color: AppColors.gold.withValues(alpha: .5)),
+              ),
+              child: const Gfx('cat_sticker', size: 28),
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
         Expanded(
           child: TextField(
             controller: controller,

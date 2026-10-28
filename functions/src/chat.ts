@@ -3,15 +3,18 @@
  * السيء والروابط (moderation.ts)، وبحد: رسالة كل ثانية، و٢٠٠ حرف بالكثير.
  * - clans/{id}/chat/{msg}: دردشة الديوان (الأعضاء يقرون).
  * - dms/{a_b}/msgs/{msg}: بين صاحبين (a وb مرتبين)، والاثنين بس يقرون.
- * - ملف اللاعب: dmUnread (كم رسالة ما قراها من كل صاحب)، وchatAt (آخر رسالة أرسلها).
+ * - ملف اللاعب: dmUnread (كم رسالة ما قراها من كل صاحب)، وdmLast (آخر رسالة مع كل صاحب، لقائمة المحادثات)،
+ *   وchatAt (آخر رسالة أرسلها).
+ * - الرسالة ممكن تكون ملصق من باقة يملكها (sticker)، بدال الكلام.
  * الرسائل تنحذف بعد أسبوعين.
  */
 import { FieldValue, type DocumentReference } from 'firebase-admin/firestore';
 import { HttpsError } from 'firebase-functions/v2/https';
 import { db, requireAuth, userRef } from './base.js';
+import { REACTIONS } from './catalog.js';
 import type { Clan } from './clans.js';
 import { maskBadWords } from './moderation.js';
-import { avatarOf, readProfile, type Profile } from './profile.js';
+import { avatarOf, owns, readProfile, type ChatLast, type Profile } from './profile.js';
 import { sendNotes } from './push.js';
 import { onCall } from './security.js';
 
@@ -27,6 +30,8 @@ export interface ChatMessage {
   name: string;
   avatar: string;
   text: string;
+  /** ملصق بدال الكلام. */
+  sticker?: string;
   at: number;
   /** رتبته في الديوان (يطلع جنب اسمه). */
   role?: string;
@@ -34,20 +39,27 @@ export interface ChatMessage {
   system?: boolean;
 }
 
-/** يرسل رسالة: to = 'clan' لديوانك، أو معرف صاحبك. */
+/** يرسل رسالة: to = 'clan' لديوانك، أو معرف صاحبك. الكلام (text) أو ملصق (sticker). */
 export const sendChat = onCall(async (req) => {
   const uid = requireAuth(req);
   const to = String(req.data?.to ?? '');
+  const sticker = typeof req.data?.sticker === 'string' ? req.data.sticker : null;
+  const spec = sticker && Object.hasOwn(REACTIONS, sticker) ? REACTIONS[sticker] : null;
+  if (sticker && !spec?.sticker) throw new HttpsError('invalid-argument', 'ملصق مو معروف');
   const raw = typeof req.data?.text === 'string' ? req.data.text : '';
-  const clean = raw.replace(/\s+/g, ' ').trim();
-  if (!clean) throw new HttpsError('invalid-argument', 'اكتب شي');
+  const clean = sticker ? '' : raw.replace(/\s+/g, ' ').trim();
+  if (!sticker && !clean) throw new HttpsError('invalid-argument', 'اكتب شي');
   if (clean.length > CHAT_MAX) throw new HttpsError('invalid-argument', `الرسالة بالكثير ${CHAT_MAX} حرف`);
-  if (to !== 'clan' && (!to || to === uid || to.includes('/'))) throw new HttpsError('invalid-argument', 'لمين الرسالة؟');
+  if (to !== 'clan' && (!to || to === uid || to.includes('/') || to.includes('.'))) {
+    throw new HttpsError('invalid-argument', 'لمين الرسالة؟');
+  }
   const text = maskBadWords(clean);
   const now = Date.now();
+  const extra = sticker ? { sticker } : {};
   const sent = await db.runTransaction(async (tx) => {
     const p = await readProfile(db, tx, uid);
     if (p.chatAt && now - p.chatAt < CHAT_GAP_MS) throw new HttpsError('resource-exhausted', 'شوي شوي على الرسائل');
+    if (spec?.pack && !owns(p, spec.pack)) throw new HttpsError('permission-denied', 'هذا الملصق من باقة ما تملكها');
     let ref: DocumentReference;
     let friend: Profile | null = null;
     if (to === 'clan') {
@@ -57,7 +69,7 @@ export const sendChat = onCall(async (req) => {
       const me = clan?.members[uid];
       if (!clan || !me) throw new HttpsError('failed-precondition', 'أنت مو في هالديوان');
       ref = db.collection(`clans/${clan.id}/chat`).doc();
-      const msg: ChatMessage = { uid, name: p.name, avatar: avatarOf(p), role: me.role, text, at: now };
+      const msg: ChatMessage = { uid, name: p.name, avatar: avatarOf(p), role: me.role, text, ...extra, at: now };
       tx.set(ref, msg);
       tx.update(snap.ref, { chatAt: now });
     } else {
@@ -69,19 +81,21 @@ export const sendChat = onCall(async (req) => {
         throw new HttpsError('permission-denied', 'ما تقدر تراسله');
       }
       ref = db.collection(`dms/${dmPair(uid, to)}/msgs`).doc();
-      const msg: ChatMessage = { uid, name: p.name, avatar: avatarOf(p), text, at: now };
+      const msg: ChatMessage = { uid, name: p.name, avatar: avatarOf(p), text, ...extra, at: now };
       tx.set(ref, msg);
-      tx.update(userRef(to), { [`dmUnread.${uid}`]: FieldValue.increment(1) });
+      const last: ChatLast = { text, ...extra, at: now, from: uid };
+      tx.update(userRef(to), { [`dmUnread.${uid}`]: FieldValue.increment(1), [`dmLast.${uid}`]: last });
+      tx.update(userRef(uid), { chatAt: now, [`dmLast.${to}`]: last });
     }
-    tx.update(userRef(uid), { chatAt: now });
+    if (to === 'clan') tx.update(userRef(uid), { chatAt: now });
     return { path: ref.parent.path, name: p.name, dm: friend != null };
   });
   // تنظيف خفيف: أحياناً نحذف الرسائل اللي عدّى عليها أسبوعين.
   if (Math.random() < 0.05) await trimChat(sent.path, now).catch(() => {});
   if (sent.dm) {
-    await sendNotes([{ uid: to, title: sent.name, body: text }], { kind: 'dm', from: uid }, `dm_${uid}`);
+    await sendNotes([{ uid: to, title: sent.name, body: sticker ? 'أرسل لك ملصق' : text }], { kind: 'dm', from: uid }, `dm_${uid}`);
   }
-  return { text };
+  return { text, ...extra };
 });
 
 /** فتح محادثة صاحبه: الرسائل اللي ما قراها تنصفر. */

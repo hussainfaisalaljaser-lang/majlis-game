@@ -29,6 +29,15 @@ export interface Gift {
   items: string[];
 }
 
+/** آخر رسالة في محادثة صاحبين (قائمة المحادثات). */
+export interface ChatLast {
+  text: string;
+  sticker?: string;
+  at: number;
+  /** معرف اللي أرسلها. */
+  from: string;
+}
+
 export interface Profile {
   name: string;
   avatar: string;
@@ -119,6 +128,8 @@ export interface Profile {
   /** آخر رسالة أرسلها (عشان ما يكرر بسرعة)، والرسائل اللي ما قراها من كل صاحب. */
   chatAt?: number;
   dmUnread?: Record<string, number>;
+  /** آخر رسالة في محادثته مع كل صاحب (قائمة المحادثات): الكلام أو الملصق، ومتى، ومن أرسلها. */
+  dmLast?: Record<string, ChatLast>;
   /** يلعب الحين: في أي روم ومن متى (أصحابه يقدرون يتفرجون). يتصفر لما تخلص اللعبة أو يطلع. */
   playing?: { code: string; at: number } | null;
   /** ملصقاته المفضلة (بالكثير ٥): تطلع له جنب زر التفاعل في اللعب بضغطة وحدة. */

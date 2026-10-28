@@ -154,10 +154,7 @@ class HomeScreen extends StatelessWidget {
                       if (await ensureOnboarded(context) && context.mounted) _push(context, const TournamentScreen());
                     },
                     onRank: () => _push(context, const LeaderboardScreen()),
-                    onFriends: () => _push(
-                      context,
-                      FriendsScreen(tab: Backend.instance.profile.value.friendReqs.isNotEmpty ? 1 : 0),
-                    ),
+                    onFriends: () => _push(context, FriendsScreen.forProfile(Backend.instance.profile.value)),
                     onProfile: () => _push(context, const ProfileScreen()),
                     onGuide: () => _push(context, const HowToPlayScreen()),
                   ),

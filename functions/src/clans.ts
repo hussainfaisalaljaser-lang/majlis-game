@@ -90,7 +90,7 @@ export interface Clan {
   join?: ClanJoin;
   /** طلبات الدخول (لو الدخول بطلب). */
   requests?: Record<string, ClanRequest>;
-  /** وقت آخر رسالة في الدردشة. */
+  /** وقت آخر رسالة في الدردشة (ملف الديوان عام، فالرسالة نفسها ما تنحفظ هنا). */
   chatAt?: number;
 }
 

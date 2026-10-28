@@ -211,7 +211,7 @@ export const buyPid = onCall(async (req) => {
   return { pid, price };
 });
 
-/** لما ينحذف حساب: نشيله من أصدقائه وطلباتهم، ونفك رمزه. */
+/** لما ينحذف حساب: نشيله من أصدقائه وطلباتهم (ومعها آخر رسالة منه في قائمة محادثاتهم)، ونفك رمزه. */
 export async function forgetUser(uid: string, p: Profile): Promise<void> {
   const others = [...new Set([...(p.friends ?? []), ...(p.sentReqs ?? []), ...Object.keys(p.friendReqs ?? {})])];
   const batch = db.batch();
@@ -225,6 +225,8 @@ export async function forgetUser(uid: string, p: Profile): Promise<void> {
         sentReqs: FieldValue.arrayRemove(uid),
         [`friendReqs.${uid}`]: FieldValue.delete(),
         [`invitedAt.${uid}`]: FieldValue.delete(),
+        [`dmUnread.${uid}`]: FieldValue.delete(),
+        [`dmLast.${uid}`]: FieldValue.delete(),
       });
     }
   }

@@ -393,15 +393,15 @@ def ts():
     L.append('/** الشخصيات المجانية (assets/avatars). الباقي من الكتالوج: avatar_<الاسم>. */')
     L.append('export const FREE_AVATARS = ' + json.dumps(FREE_AVATARS) + ';')
     L.append('')
-    L.append('/** الردود المسموحة: target = لازم يختار لاعب، pack = لازم يملك الباقة. */')
-    L.append('export const REACTIONS: Record<string, { target: boolean; pack?: string }> = {')
+    L.append('/** الردود المسموحة: target = لازم يختار لاعب، pack = لازم يملك الباقة، sticker = ملصق (ينرسل في الدردشة بعد). */')
+    L.append('export const REACTIONS: Record<string, { target: boolean; pack?: string; sticker?: boolean }> = {')
     for t in TEXT_REACTIONS:
         o = {'target': t['target']}
         if 'pack' in t: o['pack'] = t['pack']
         L.append(f"  {t['id']}: {json.dumps(o)},")
     for p in STICKER_PACKS:
         for s, _ in p['stickers']:
-            o = {'target': False}
+            o = {'target': False, 'sticker': True}
             if not p.get('default'): o['pack'] = p['id']
             L.append(f"  {s}: {json.dumps(o)},")
     L.append('};')

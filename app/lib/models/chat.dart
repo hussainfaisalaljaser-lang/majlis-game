@@ -10,6 +10,7 @@ class ChatMessage {
       name = j['name'] as String? ?? '',
       avatar = j['avatar'] as String? ?? 'masked',
       text = j['text'] as String? ?? '',
+      sticker = j['sticker'] as String?,
       role = ClanRole.values.asNameMap()[j['role']],
       system = j['system'] == true,
       at = DateTime.fromMillisecondsSinceEpoch((j['at'] as num?)?.toInt() ?? 0);
@@ -20,12 +21,29 @@ class ChatMessage {
   final String avatar;
   final String text;
 
+  /// ملصق بدال الكلام.
+  final String? sticker;
+
   /// رتبته في الديوان وقت ما كتب (دردشة الديوان بس).
   final ClanRole? role;
 
   /// سطر من النظام (دخل، طلع، صار نائب…).
   final bool system;
   final DateTime at;
+}
+
+/// آخر رسالة في محادثة صاحب (قائمة المحادثات): الكلام أو الملصق، ومتى، ومن أرسلها.
+class ChatLast {
+  ChatLast.fromJson(Map<String, dynamic> j)
+    : text = j['text'] as String? ?? '',
+      sticker = j['sticker'] as String?,
+      at = DateTime.fromMillisecondsSinceEpoch((j['at'] as num?)?.toInt() ?? 0),
+      from = j['from'] as String? ?? '';
+
+  final String text;
+  final String? sticker;
+  final DateTime at;
+  final String from;
 }
 
 /// حالة اتصال لاعب: نبضته كل ٣ دقايق والتطبيق مفتوح، ولما يطلع للخلفية تنكتب إنه طلع.

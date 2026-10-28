@@ -95,7 +95,7 @@ abstract final class Push {
   static void _openClans() => navigatorKey.currentState?.push(MaterialPageRoute(builder: (_) => const ClansScreen()));
 
   static void _openFriends() => navigatorKey.currentState?.push(
-    MaterialPageRoute(builder: (_) => FriendsScreen(tab: Backend.instance.profile.value.friendReqs.isNotEmpty ? 1 : 0)),
+    MaterialPageRoute(builder: (_) => FriendsScreen.forProfile(Backend.instance.profile.value)),
   );
 
   static String? _currentGame;
