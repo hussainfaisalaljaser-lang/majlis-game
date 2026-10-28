@@ -63,7 +63,7 @@
 كلها في `docs/store/` وجاهزة للرفع بنفس الترتيب:
 
 - **صورة الواجهة (Feature graphic، ١٠٢٤×٥٠٠):** `feature-graphic.png`
-- **لقطات الشاشة (Phone screenshots، ٨ صور ١٩٢٠×١٠٨٠ بالعرض):** من `screenshot-1-home.png` إلى `screenshot-8-rank.png`، والرقم هو ترتيب الرفع
+- **لقطات الشاشة (Phone screenshots، ٨ صور ١٩٢٠×١٠٨٠ بالعرض):** من `screenshot-1-vote.png` إلى `screenshot-8-shop.png`، والرقم هو ترتيب الرفع
 - **أيقونة التطبيق (٥١٢×٥١٢):** `icon-512.png`
 
 ## نموذج أمان البيانات (Data safety)
