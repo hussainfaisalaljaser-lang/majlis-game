@@ -197,7 +197,7 @@ class _DevScreenState extends State<DevScreen> {
                 const SizedBox(width: 6),
                 Expanded(
                   child: Text(
-                    '${d.name} · ${d.pid}',
+                    '${d.name} (${d.pid})',
                     style: const TextStyle(fontWeight: FontWeight.w700),
                     overflow: TextOverflow.ellipsis,
                   ),

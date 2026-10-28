@@ -188,10 +188,7 @@ class _WaitingScreenState extends State<WaitingScreen> {
                 const Text(' سريع', style: TextStyle(color: AppColors.gold, fontSize: 15)),
               ],
               // الطور (الكلاسيكي أو المطوّر) بثيمه.
-              if (_room case final room?) ...[
-                const SizedBox(width: 10),
-                ModeChip(mode: ModeTheme.of(room.roles)),
-              ],
+              if (_room case final room?) ...[const SizedBox(width: 10), ModeChip(mode: ModeTheme.of(room.roles))],
             ],
           ),
         ),
@@ -231,10 +228,10 @@ class _WaitingScreenState extends State<WaitingScreen> {
                       const SizedBox(height: 4),
                       Text(
                         isPrivate
-                            ? '${arabicNumber(players.length)} من ${arabicNumber(max)} · يحتاج ٥ لاعبين على الأقل'
+                            ? '${arabicNumber(players.length)} من ${arabicNumber(max)}، يحتاج ٥ لاعبين على الأقل'
                             : _botCountdown != null && _botCountdown! > 0
-                            ? '${arabicNumber(players.length)} من ${arabicNumber(max)} · لو ما اكتملت خلال ${arabicNumber(_botCountdown!)} ثانية نكمّلها ببوتات'
-                            : '${arabicNumber(players.length)} من ${arabicNumber(max)} · تبدأ تلقائياً لما تكتمل',
+                            ? '${arabicNumber(players.length)} من ${arabicNumber(max)}، لو ما اكتملت خلال ${arabicNumber(_botCountdown!)} ثانية نكمّلها ببوتات'
+                            : '${arabicNumber(players.length)} من ${arabicNumber(max)}، تبدأ تلقائياً لما تكتمل',
                         textAlign: TextAlign.center,
                         style: const TextStyle(color: AppColors.muted, fontSize: 12),
                       ),

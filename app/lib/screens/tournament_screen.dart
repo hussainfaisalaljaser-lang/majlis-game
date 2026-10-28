@@ -93,7 +93,7 @@ class _TournamentScreenState extends State<TournamentScreen> {
           'سجّل في البطولة',
           'تفوز تتأهل، وتخسر تطلع. ٣ فوزات ورا بعض وأنت البطل.',
           GameButton(
-            label: _busy ? 'لحظة…' : 'سجّل · ${arabicNumber(tourFee)} ذهب',
+            label: _busy ? 'لحظة…' : 'سجّل بـ${arabicNumber(tourFee)} ذهب',
             icon: const Gfx('coin', size: 24),
             height: 48,
             fontSize: 16,

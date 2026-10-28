@@ -159,7 +159,7 @@ class _ModerationScreenState extends State<ModerationScreen> {
                                       crossAxisAlignment: CrossAxisAlignment.start,
                                       children: [
                                         Text(
-                                          '${r['name']}  ·  ${arabicNumber((r['count'] as num).toInt())} بلاغ',
+                                          '${r['name']}، ${arabicNumber((r['count'] as num).toInt())} بلاغ',
                                           style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15),
                                         ),
                                         Text(

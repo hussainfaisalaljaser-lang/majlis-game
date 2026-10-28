@@ -462,9 +462,14 @@ class _GameScreenState extends State<GameScreen> {
           bots: view.players.any((p) => p.id.startsWith('bot_')),
         );
       }
-      // الترحيب بس في بداية اللعبة (مو لو رجعت لها في النص)، وبعده جملة دورك لما تنقلب البطاقة.
-      if (view.round == 1 && view.log.isEmpty) Sfx.say('intro');
-      WidgetsBinding.instance.addPostFrameCallback((_) => _showRole());
+      if (view.phase == Phase.gameOver) {
+        // فتحت لعبة خلصت: النتيجة على طول (الأدوار كلها مكشوفة، وبطاقة الدور ما لها داعي).
+        _introDone = true;
+      } else {
+        // الترحيب بس في بداية اللعبة (مو لو رجعت لها في النص)، وبعده جملة دورك لما تنقلب البطاقة.
+        if (view.round == 1 && view.log.isEmpty) Sfx.say('intro');
+        WidgetsBinding.instance.addPostFrameCallback((_) => _showRole());
+      }
     }
     _queueScenes(view);
     _maybeDanger();

@@ -154,7 +154,7 @@ class RankChip extends StatelessWidget {
           RankEmblem(tier: t, size: size),
           const SizedBox(width: 4),
           Text(
-            '${t.name} · ${arabicNumber(points)}',
+            '${t.name} (${arabicNumber(points)})',
             style: TextStyle(color: t.color, fontWeight: FontWeight.w800, fontSize: size * .58),
           ),
         ],

@@ -725,7 +725,7 @@ class _PremiumIdsSection extends StatelessWidget {
                         PidBadge(pid: pid, tier: tier, size: 16, copy: false),
                         const SizedBox(height: 4),
                         Text(
-                          '${pidTierNames[tier]} · ${arabicNumber(price)}',
+                          '${pidTierNames[tier]} (${arabicNumber(price)})',
                           style: TextStyle(color: pidTierColor(tier), fontWeight: FontWeight.w800, fontSize: 12.5),
                         ),
                       ],

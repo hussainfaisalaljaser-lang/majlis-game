@@ -202,7 +202,7 @@ class _CreateClanState extends State<_CreateClan> {
           ),
           const SizedBox(height: 6),
           GameButton(
-            label: _busy ? 'لحظة…' : (p.dev ? 'سوّ الديوان' : 'سوّ الديوان · ${arabicNumber(clanPrice)} ذهب'),
+            label: _busy ? 'لحظة…' : (p.dev ? 'سوّ الديوان' : 'سوّ الديوان بـ${arabicNumber(clanPrice)} ذهب'),
             icon: const Gfx('shield', size: 26),
             height: 46,
             fontSize: 16,
@@ -737,7 +737,7 @@ class _RankingState extends State<_Ranking> {
                         if (c.join == ClanJoin.invite) ...[const SizedBox(width: 4), const Gfx('lock', size: 13)],
                         if (c.minLevel > 0)
                           Text(
-                            ' · ${arabicNumber(c.minLevel)}+',
+                            '، ${arabicNumber(c.minLevel)}+',
                             style: const TextStyle(color: Color(0xFFFFB86B), fontSize: 11, fontWeight: FontWeight.w800),
                           ),
                       ],
@@ -1127,7 +1127,7 @@ Future<void> _requests(BuildContext context, Clan clan) async {
                           leading: PlayerAvatar(avatar: r.avatar, size: 36, animate: false),
                           title: Text(r.name, style: const TextStyle(fontWeight: FontWeight.w800)),
                           subtitle: Text(
-                            'مستوى ${arabicNumber(r.level)} · ${agoText(DateTime.now().difference(r.at))}',
+                            'مستوى ${arabicNumber(r.level)}، ${agoText(DateTime.now().difference(r.at))}',
                             style: const TextStyle(color: AppColors.muted, fontSize: 12),
                           ),
                           trailing: Row(

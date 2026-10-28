@@ -90,7 +90,10 @@ class _RoleRevealState extends State<_RoleReveal> with TickerProviderStateMixin 
   Widget build(BuildContext context) {
     final v = widget.view;
     final (name, goal, color, dark) = roleInfo[v.yourRole]!;
-    final mates = v.players.where((p) => p.id != v.you && p.knownRole != null && p.id != v.seerSees).toList();
+    // ربعك الخونة (والزعيم): آخر اللعبة كل الأدوار تنكشف، فالأوفياء ما يدخلون هنا.
+    final mates = v.players
+        .where((p) => p.id != v.you && p.knownRole != null && p.knownRole != Role.loyal && p.id != v.seerSees)
+        .toList();
     final special = v.yourSpecial;
     final seerTarget = v.seerSees == null ? null : v.player(v.seerSees!);
     // البطاقة على قد الشاشة (بالعرض الطول قليل).

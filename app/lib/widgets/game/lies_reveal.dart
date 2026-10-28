@@ -434,13 +434,13 @@ class _AwardsRow extends StatelessWidget {
             liar == null ? 'ما كذب أحد!' : 'أكبر كذاب',
             liar == null
                 ? 'الكل قال الصدق هاللعبة'
-                : '${name(liar!)} · ${arabicNumber(lies)} ${lies == 1 ? 'كذبة' : 'كذبات'}',
+                : '${name(liar!)}: ${arabicNumber(lies)} ${lies == 1 ? 'كذبة' : 'كذبات'}',
             AppColors.traitorLight,
             'tr_mask',
           ),
           if (honest != null) ...[
             const SizedBox(width: 12),
-            award(1, honest, 'أصدق واحد', '${name(honest!)} · ما كذب ولا مرة', AppColors.green, 'inn_halo'),
+            award(1, honest, 'أصدق واحد', '${name(honest!)}: ما كذب ولا مرة', AppColors.green, 'inn_halo'),
           ],
         ],
       ),
