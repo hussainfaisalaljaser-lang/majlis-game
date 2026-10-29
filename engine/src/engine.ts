@@ -218,8 +218,8 @@ export function applyAction(state: GameState, playerId: PlayerId, action: Action
     case 'proposeVeto': {
       requirePhase(s, 'chancellorEnact');
       requireChancellor(s, playerId);
-      if (s.traitorPolicies < VETO_UNLOCK) throw new RuleError('vetoLocked', 'الفيتو ما انفتح للحين');
-      if (s.vetoRejectedThisRound) throw new RuleError('vetoRejected', 'الرئيس رفض الفيتو، لازم تمرر قرار');
+      if (s.traitorPolicies < VETO_UNLOCK) throw new RuleError('vetoLocked', 'النقض ما انفتح للحين');
+      if (s.vetoRejectedThisRound) throw new RuleError('vetoRejected', 'الرئيس رفض النقض، لازم تمرر قرار');
       s.phase = 'vetoResponse';
       return s;
     }
@@ -348,7 +348,7 @@ function resolveElection(s: GameState): void {
     return;
   }
 
-  // العداد ما يتصفر هنا: يتصفر لما يتمرر قرار. فلو انتُخبت حكومة ورمت الكرتين بالفيتو، تنحسب رفضة.
+  // العداد ما يتصفر هنا: يتصفر لما يتمرر قرار. فلو انتُخبت حكومة ورمت الكرتين بالنقض، تنحسب رفضة.
   s.lastElected = { president: s.presidentId, chancellor: s.nomineeId! };
   const chancellor = s.players.find((p) => p.id === s.nomineeId)!;
   if (s.traitorPolicies >= LEADER_DANGER_ZONE && chancellor.role === 'leader') {
@@ -361,7 +361,7 @@ function resolveElection(s: GameState): void {
   s.phase = 'presidentDiscard';
 }
 
-/** حكومة فشلت (تصويت أو فيتو): يزيد العداد، ولو وصل ٣ يتمرر أول قرار تلقائياً. */
+/** حكومة فشلت (تصويت أو النقض): يزيد العداد، ولو وصل ٣ يتمرر أول قرار تلقائياً. */
 function failGovernment(s: GameState): void {
   s.electionTracker++;
   if (s.electionTracker >= MAX_FAILED_ELECTIONS) {

@@ -2,7 +2,9 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../models/shop.dart';
+import '../theme.dart';
 import 'anim_avatar.dart';
+import 'design.dart';
 import 'fx.dart';
 import 'fx_sig.dart';
 
@@ -53,32 +55,45 @@ class Amount extends StatelessWidget {
 }
 
 class CurrencyPill extends StatelessWidget {
-  const CurrencyPill({super.key, required this.icon, required this.amount, this.onAdd, this.infinite = false});
+  const CurrencyPill({super.key, required this.icon, required this.amount, this.onAdd, this.onTap, this.infinite = false});
 
   final String icon;
   final int amount;
 
   /// حساب المطور: ما يخلص.
   final bool infinite;
+
+  /// زر «+» صغير بالشارة (للشاشات القديمة).
   final VoidCallback? onAdd;
+
+  /// ضغطة على الشارة كلها (مثل الرئيسية: تفتح شحن الجواهر).
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsetsDirectional.fromSTEB(4, 3, 8, 3),
+    // شريط غامق بحد بني مثل عدادات التصميم.
+    final pill = Container(
+      height: 30,
+      padding: const EdgeInsetsDirectional.fromSTEB(5, 0, 12, 0),
       decoration: BoxDecoration(
-        color: Colors.black.withValues(alpha: .35),
+        color: const Color(0xFF1A0F08).withValues(alpha: .78),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white.withValues(alpha: .12), width: 1.5),
+        border: Border.all(color: const Color(0xFF5A3B22), width: 1.5),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Gfx(icon, size: 22),
-          const SizedBox(width: 5),
+          Gfx(icon, size: 24),
+          const SizedBox(width: 7),
           Text(
             infinite ? '∞' : arabicNumber(amount),
-            style: TextStyle(fontWeight: FontWeight.w800, fontSize: infinite ? 20 : 14, height: infinite ? 1 : null),
+            style: TextStyle(
+              fontFamily: kufi,
+              fontWeight: FontWeight.w800,
+              fontSize: infinite ? 21 : 17,
+              color: AppColors.text,
+              height: infinite ? 1 : 1.2,
+            ),
           ),
           if (onAdd != null) ...[
             const SizedBox(width: 6),
@@ -99,6 +114,7 @@ class CurrencyPill extends StatelessWidget {
         ],
       ),
     );
+    return onTap == null ? pill : GestureDetector(behavior: HitTestBehavior.opaque, onTap: onTap, child: pill);
   }
 }
 
@@ -258,6 +274,32 @@ class PlayerAvatar extends StatelessWidget {
     .33, .33, .33, 0, 0,
     0, 0, 0, .55, 0,
   ];
+}
+
+/// صورة لاعب بحلقة ذهب (مثل صور اللاعبين في التصميم). لو عنده إطار من المتجر ([style]) يطلع إطاره بدال الحلقة.
+/// [gems]: أربع جواهر حمر على الحلقة.
+class GoldRingAvatar extends StatelessWidget {
+  const GoldRingAvatar({super.key, required this.avatar, this.style, this.size = 64, this.gems = false, this.animate = true});
+
+  final String avatar;
+  final FrameStyle? style;
+  final double size;
+  final bool gems;
+  final bool animate;
+
+  @override
+  Widget build(BuildContext context) {
+    if (style != null) return PlayerAvatar(avatar: avatar, style: style, size: size, animate: animate);
+    return Stack(
+      alignment: Alignment.center,
+      children: [
+        PlayerAvatar(avatar: avatar, frame: Colors.transparent, size: size, animate: animate),
+        Positioned.fill(
+          child: IgnorePointer(child: CustomPaint(painter: GoldRingPainter(size: size, gems: gems))),
+        ),
+      ],
+    );
+  }
 }
 
 /// يسجل وقت اللحظة الخاصة (بساعة الحركات نفسها) لما تنادى بمفتاح هالصورة.

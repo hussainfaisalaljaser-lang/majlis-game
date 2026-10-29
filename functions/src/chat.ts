@@ -58,27 +58,27 @@ export const sendChat = onCall(async (req) => {
   const extra = sticker ? { sticker } : {};
   const sent = await db.runTransaction(async (tx) => {
     const p = await readProfile(db, tx, uid);
-    if (p.chatAt && now - p.chatAt < CHAT_GAP_MS) throw new HttpsError('resource-exhausted', 'شوي شوي على الرسائل');
+    if (p.chatAt && now - p.chatAt < CHAT_GAP_MS) throw new HttpsError('resource-exhausted', 'مهلاً، أبطئ في إرسال الرسائل');
     if (spec?.pack && !owns(p, spec.pack)) throw new HttpsError('permission-denied', 'هذا الملصق من باقة ما تملكها');
     let ref: DocumentReference;
     let friend: Profile | null = null;
     if (to === 'clan') {
-      if (!p.clan) throw new HttpsError('failed-precondition', 'أنت مو في ديوان');
+      if (!p.clan) throw new HttpsError('failed-precondition', 'أنت لست في ديوان');
       const snap = await tx.get(db.doc(`clans/${p.clan.id}`));
       const clan = snap.data() as Clan | undefined;
       const me = clan?.members[uid];
-      if (!clan || !me) throw new HttpsError('failed-precondition', 'أنت مو في هالديوان');
+      if (!clan || !me) throw new HttpsError('failed-precondition', 'أنت لست في هالديوان');
       ref = db.collection(`clans/${clan.id}/chat`).doc();
       const msg: ChatMessage = { uid, name: p.name, avatar: avatarOf(p), role: me.role, text, ...extra, at: now };
       tx.set(ref, msg);
       tx.update(snap.ref, { chatAt: now });
     } else {
-      if (!(p.friends ?? []).includes(to)) throw new HttpsError('permission-denied', 'الدردشة مع أصحابك بس');
+      if (!(p.friends ?? []).includes(to)) throw new HttpsError('permission-denied', 'الدردشة مع أصحابك فقط');
       const snap = await tx.get(userRef(to));
       if (!snap.exists) throw new HttpsError('not-found', 'اللاعب مو موجود');
       friend = snap.data() as Profile;
       if ((friend.blocked ?? []).includes(uid) || (p.blocked ?? []).includes(to)) {
-        throw new HttpsError('permission-denied', 'ما تقدر تراسله');
+        throw new HttpsError('permission-denied', 'لا تستطيع أن تراسله');
       }
       ref = db.collection(`dms/${dmPair(uid, to)}/msgs`).doc();
       const msg: ChatMessage = { uid, name: p.name, avatar: avatarOf(p), text, ...extra, at: now };

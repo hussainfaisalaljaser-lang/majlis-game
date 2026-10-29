@@ -3,8 +3,8 @@ import 'package:flutter/material.dart';
 import '../services/backend.dart';
 import '../theme.dart';
 import '../widgets/account.dart';
-import '../widgets/common.dart';
-import '../widgets/ui.dart';
+import '../widgets/design.dart';
+import '../widgets/design_social.dart';
 import 'profile_screen.dart';
 
 /// أول شاشة للاعب الجديد: يدخل بقوقل (وحسابه ينحفظ) أو يجرب كضيف. بعدها يختار اسمه وشخصيته.
@@ -34,65 +34,120 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
   @override
   Widget build(BuildContext context) {
     if (_pickProfile) return const EditProfileScreen(firstTime: true);
-    return NightScaffold(
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 12),
-          child: Row(
-            children: [
-              // الشعار والشخصيات
-              Expanded(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(30),
-                      child: Image.asset('assets/logo.png', width: 120, height: 120),
-                    ),
-                    const SizedBox(height: 8),
-                    const GoldText('مجلس الخونة', size: 38),
-                    const SizedBox(height: 4),
-                    const Text(
-                      'بينكم خونة… اكشفهم قبل لا يحكمون المجلس',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(color: AppColors.muted, fontSize: 14),
-                    ),
-                    const SizedBox(height: 12),
-                    const _Faces(),
-                  ],
+    return WelcomeView(busy: _busy, onGoogle: _google, onGuest: () => setState(() => _pickProfile = true));
+  }
+}
+
+/// شكل شاشة الترحيب: الشعار والشخصيات، ولوحة مخمل فيها طرق الدخول. ما تلمس السيرفر.
+class WelcomeView extends StatelessWidget {
+  const WelcomeView({super.key, required this.busy, required this.onGoogle, required this.onGuest});
+
+  final bool busy;
+  final VoidCallback onGoogle;
+  final VoidCallback onGuest;
+
+  @override
+  Widget build(BuildContext context) {
+    return WoodWall(
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        body: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 14),
+            child: Row(
+              children: [
+                // الشعار والشخصيات
+                Expanded(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Flexible(
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(30),
+                            border: Border.all(color: const Color(0xFFD9A84E), width: 3),
+                            boxShadow: [
+                              BoxShadow(
+                                color: const Color(0xFFFFB02E).withValues(alpha: .4),
+                                blurRadius: 26,
+                                spreadRadius: 1,
+                              ),
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: .5),
+                                blurRadius: 10,
+                                offset: const Offset(0, 5),
+                              ),
+                            ],
+                          ),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(27),
+                            child: Image.asset('assets/logo.png', width: 120, height: 120),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      const FittedBox(fit: BoxFit.scaleDown, child: GoldTitle('مجلس الخونة', size: 44)),
+                      const SizedBox(height: 4),
+                      const Text(
+                        'بينكم خونة… اكشفهم قبل لا يحكمون المجلس',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: Color(0xFFE9D3B5),
+                          fontSize: 15,
+                          fontFamily: kufi,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      const _Faces(),
+                    ],
+                  ),
                 ),
-              ),
-              const SizedBox(width: 28),
-              // طريقة الدخول
-              Expanded(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    GoogleButton(onPressed: _busy ? null : _google),
-                    const SizedBox(height: 8),
-                    const Text(
-                      '٥٠٠ ذهب هدية، وحسابك ينحفظ لو غيّرت جوالك',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(color: AppColors.gold, fontSize: 13, fontWeight: FontWeight.w700),
+                const SizedBox(width: 28),
+                // طريقة الدخول
+                Expanded(
+                  child: Center(
+                    child: VelvetPanel(
+                      padding: const EdgeInsets.fromLTRB(26, 24, 26, 20),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          GoogleButton(onPressed: busy ? null : onGoogle),
+                          const SizedBox(height: 8),
+                          const OutlinedText(
+                            '٥٠٠ ذهب هدية، وحسابك ينحفظ لو غيّرت جوالك',
+                            size: 15,
+                            gradient: goldTitleColors,
+                            stroke: Color(0xFF3A1606),
+                          ),
+                          const SizedBox(height: 22),
+                          SocButton(
+                            label: 'ادخل كضيف',
+                            semantics: 'ادخل كضيف',
+                            tone: SocTone.orange,
+                            height: 52,
+                            fontSize: 20,
+                            onPressed: busy ? null : onGuest,
+                          ),
+                          const SizedBox(height: 6),
+                          const Text(
+                            'تستطيع أن تربط حسابك لاحقاً من «ملفي»',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: socMuted,
+                              fontSize: 13,
+                              fontFamily: kufi,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                    const SizedBox(height: 22),
-                    GameButton(
-                      label: 'ادخل كضيف',
-                      semantics: 'ادخل كضيف',
-                      tone: ButtonTone.ghost,
-                      height: 50,
-                      fontSize: 17,
-                      onPressed: _busy ? null : () => setState(() => _pickProfile = true),
-                    ),
-                    const SizedBox(height: 6),
-                    const Text(
-                      'تقدر تربط حسابك بعدين من «ملفي»',
-                      style: TextStyle(color: AppColors.muted, fontSize: 12),
-                    ),
-                  ],
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -108,10 +163,10 @@ class _Faces extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const size = 58.0, step = 44.0;
+    const size = 56.0, step = 52.0;
     return SizedBox(
-      height: size + 28,
-      width: step * (_ids.length - 1) + size + 24,
+      height: size * 1.14 + 24,
+      width: step * (_ids.length - 1) + size * 1.14 + 20,
       child: Stack(
         children: [
           // الملثّم في النص يترسم آخر شي عشان يطلع فوق الباقين.
@@ -119,11 +174,13 @@ class _Faces extends StatelessWidget {
               in _ids.indexed.toList()..sort((a, b) => (a.$2 == 'masked' ? 1 : 0) - (b.$2 == 'masked' ? 1 : 0)))
             Positioned(
               left: i * step,
-              top: id == 'masked' ? 0 : 10,
-              child: PlayerAvatar(
+              top: id == 'masked' ? 0 : 12,
+              child: SocAvatar(
                 avatar: id,
                 size: id == 'masked' ? size + 10 : size,
-                frame: id == 'masked' ? AppColors.traitor : AppColors.gold,
+                ring: SocRing.gold,
+                animate: false,
+                gems: id == 'masked',
               ),
             ),
         ],

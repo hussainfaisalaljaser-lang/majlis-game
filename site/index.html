@@ -18,16 +18,16 @@
 <link rel="icon" href="/icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Marhey:wght@700&family=Tajawal:wght@500;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=El+Messiri:wght@400;700&family=Readex+Pro:wght@400;500;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/style.css">
 </head>
 <body>
 <main>
   <img class="hero" src="/og.png" alt="مجلس الخونة">
   <p class="sub">لعبة خيانة وذكاء مع أصحابك: بينكم أوفياء… وبينكم خونة متخبّين. من ٥ إلى ١٠ لاعبين.</p>
-  <div class="code hidden" id="codeBox"><span>بعد ما تحمّلها، ادخل الروم بهالكود</span><b id="code"></b></div>
+  <div class="code hidden" id="codeBox"><span>بعد ما تحمّلها، ادخل الطاولة بهالرمز</span><b id="code"></b></div>
   <a class="btn green" id="apk" href="https://github.com/hussainfaisalaljaser-lang/majlis-game/releases/latest/download/majlis.apk">حمّل اللعبة (أندرويد)</a>
-  <a class="btn gold hidden" id="open" href="#">ادخل الروم</a>
+  <a class="btn gold hidden" id="open" href="#">ادخل الطاولة</a>
   <ol>
     <li>حمّل الملف وافتحه من الإشعارات أو من التنزيلات.</li>
     <li>لو طلب منك، اسمح بتثبيت التطبيقات من هذا المصدر.</li>
@@ -37,7 +37,7 @@
   <nav class="links"><a href="/privacy">سياسة الخصوصية</a><a href="/terms">شروط الاستخدام</a><a href="/delete">حذف الحساب</a></nav>
 </main>
 <script>
-  // جاي من رابط دعوة واللعبة مو محمّلة: نعرض الكود عشان يدخل الروم بعد التثبيت.
+  // جاي من رابط دعوة واللعبة مو محمّلة: نعرض الرمز عشان يدخل الطاولة بعد التثبيت.
   var code = (new URLSearchParams(location.search).get('room') || '').toUpperCase();
   if (/^[A-Z0-9]{5}$/.test(code)) {
     document.getElementById('codeBox').classList.remove('hidden');

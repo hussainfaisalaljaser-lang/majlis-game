@@ -52,6 +52,27 @@ String clanKey(String name) => name
     .replaceAll(RegExp(r'\s+'), '');
 
 /// اللي يطلع عن ديوان اللاعب في ملفه وبطاقته.
+/// رموز شعار الديوان (بدل الشخصيات): تتخزن «sym:اسم» وتنرسم من أيقونات اللعبة (assets/icons/gfx_اسم.png).
+/// نفس قائمة functions/src/clan_emblems.ts → CLAN_SYMBOLS (واختبار يتأكد).
+const clanSymbols = [
+  'crown',
+  'shield',
+  'dagger',
+  'fire',
+  'eye',
+  'skull',
+  'scales',
+  'trophy',
+  'bolt',
+  'card_moon',
+  'card_wolf',
+  'card_dragon',
+];
+const clanSymbolPrefix = 'sym:';
+
+/// اسم الرمز لو الشعار رمز، وإلا null (شخصية).
+String? clanSymbolOf(String emblem) => emblem.startsWith(clanSymbolPrefix) ? emblem.substring(clanSymbolPrefix.length) : null;
+
 class ClanTag {
   const ClanTag({required this.id, required this.name, required this.color, required this.emblem});
 

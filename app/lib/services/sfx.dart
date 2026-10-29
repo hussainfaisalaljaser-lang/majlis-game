@@ -12,6 +12,10 @@ import 'music.dart';
 abstract final class Sfx {
   static final muted = ValueNotifier<bool>(false);
   static const _key = 'sfx_muted';
+  static const _volumeKey = 'sfx_volume';
+
+  /// مستوى صوت الراوي (٠–١).
+  static final volume = ValueNotifier<double>(1);
 
   /// مشغّل الجملة اللي تنقال الحين. كل جملة لها مشغّل جديد: لو نفس المشغّل يوقف جملة ويبدأ اللي بعدها
   /// على طول، أمر الإيقاف ينضيع على أندرويد (تكمل الجملة القديمة لما تقلب صفحة في الشرح).
@@ -26,11 +30,22 @@ abstract final class Sfx {
     try {
       final prefs = await SharedPreferences.getInstance();
       muted.value = prefs.getBool(_key) ?? false;
+      volume.value = (prefs.getDouble(_volumeKey) ?? 1).clamp(0.0, 1.0);
     } catch (_) {}
     // لما يطلع من التطبيق يسكت الراوي على طول.
     Music.visible.addListener(() {
       if (!Music.visible.value) hush();
     });
+  }
+
+  /// يغيّر مستوى الراوي. [save] false وهو يسحب الشريط، وبعدها يحفظ مرة وحدة.
+  static Future<void> setVolume(double v, {bool save = true}) async {
+    volume.value = v.clamp(0.0, 1.0);
+    _player?.setVolume(volume.value).catchError((_) {});
+    if (!save) return;
+    try {
+      (await SharedPreferences.getInstance()).setDouble(_volumeKey, volume.value);
+    } catch (_) {}
   }
 
   static Future<void> toggle() async {
@@ -81,7 +96,7 @@ abstract final class Sfx {
     StreamSubscription<void>? sub;
     try {
       sub = player.onPlayerComplete.listen((_) => _finish(done));
-      await player.play(AssetSource('voice/$line.mp3'));
+      await player.play(AssetSource('voice/$line.mp3'), volume: volume.value);
       // جمل الشرح أطول شوي (لين ١٠ ثواني).
       await done.future.timeout(const Duration(seconds: 12));
     } catch (_) {}

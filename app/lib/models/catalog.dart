@@ -14,7 +14,7 @@ const catalog = <ShopItem>[
     name: 'جليد',
     rarity: Rarity.rare,
     coins: 3000,
-    frame: FrameStyle('ice', motion: FrameMotion.glint),
+    frame: FrameStyle('ice', motion: FrameMotion.live),
     desc: 'بلور ثلج مقطّع، وأصابع ثلج معلقة تحت صورتك',
   ),
   ShopItem(
@@ -23,7 +23,7 @@ const catalog = <ShopItem>[
     name: 'رمل',
     rarity: Rarity.rare,
     coins: 4000,
-    frame: FrameStyle('sand', motion: FrameMotion.glint),
+    frame: FrameStyle('sand', motion: FrameMotion.live),
     desc: 'طبقات حجر رملي، وكثبان ناعمة تحت صورتك',
   ),
   ShopItem(
@@ -32,7 +32,7 @@ const catalog = <ShopItem>[
     name: 'واحة',
     rarity: Rarity.rare,
     coins: 5000,
-    frame: FrameStyle('oasis', motion: FrameMotion.glint),
+    frame: FrameStyle('oasis', motion: FrameMotion.live),
     desc: 'نخلتين حول صورتك بعذوق التمر، وحلقة ماي صافي',
   ),
   ShopItem(
@@ -41,7 +41,7 @@ const catalog = <ShopItem>[
     name: 'لؤلؤ',
     rarity: Rarity.rare,
     coins: 6000,
-    frame: FrameStyle('pearl', motion: FrameMotion.glint),
+    frame: FrameStyle('pearl', motion: FrameMotion.live),
     desc: 'عقد لؤلؤ أبيض، وحبة لؤلؤ كبيرة معلقة تحت',
   ),
   ShopItem(
@@ -50,7 +50,7 @@ const catalog = <ShopItem>[
     name: 'ليل نجد',
     rarity: Rarity.rare,
     coins: 7000,
-    frame: FrameStyle('night', motion: FrameMotion.glint),
+    frame: FrameStyle('night', motion: FrameMotion.live),
     desc: 'بيوت طين نجدية تحت صورتك، ونوافذها تضوي بالليل',
   ),
   ShopItem(
@@ -78,7 +78,7 @@ const catalog = <ShopItem>[
     rarity: Rarity.epic,
     coins: 10000,
     frame: FrameStyle('lightning', motion: FrameMotion.live),
-    desc: 'شرارات كهربا تنط على الحلقة، وبرق يضرب كل شوي',
+    desc: 'شرارات كهربا تنط على الحلقة، وبرق يضرب من حين لآخر',
   ),
   ShopItem(
     id: 'frame_comet',
@@ -186,7 +186,7 @@ const catalog = <ShopItem>[
     rarity: Rarity.epic,
     level: 20,
     frame: FrameStyle('elite', motion: FrameMotion.live),
-    desc: 'فضة مصقولة ينعكس عليها الضو، ولمعات صغيرة حولها',
+    desc: 'لوحة ياقوت أزرق بفضة وخرز ذهبي، ولمعات الياقوت تضوي حولها',
   ),
   ShopItem(
     id: 'frame_lv30',
@@ -288,6 +288,7 @@ const catalog = <ShopItem>[
       border: Color(0xFFC9A86A),
       text: Color(0xFF3A2A12),
       fx: [],
+      look: BubbleLook.parchment,
     ),
   ),
   ShopItem(
@@ -301,6 +302,7 @@ const catalog = <ShopItem>[
       border: Color(0xFF8A5A08),
       text: Color(0xFF3A2400),
       fx: [BubbleFx.shimmer],
+      look: BubbleLook.gold,
     ),
   ),
   ShopItem(
@@ -314,6 +316,7 @@ const catalog = <ShopItem>[
       border: Color(0xFF7B8794),
       text: Color(0xFF1F2933),
       fx: [BubbleFx.shimmer],
+      look: BubbleLook.silver,
     ),
   ),
   ShopItem(
@@ -327,6 +330,7 @@ const catalog = <ShopItem>[
       border: Color(0xFF8E6534),
       text: Color(0xFF3B2410),
       fx: [BubbleFx.sand],
+      look: BubbleLook.desert,
     ),
   ),
   ShopItem(
@@ -340,6 +344,7 @@ const catalog = <ShopItem>[
       border: Color(0xFFCCFBF1),
       text: Color(0xFFFFFFFF),
       fx: [BubbleFx.bubbles],
+      look: BubbleLook.sea,
     ),
   ),
   ShopItem(
@@ -353,6 +358,7 @@ const catalog = <ShopItem>[
       border: Color(0xFFD7A86E),
       text: Color(0xFFFFF3E0),
       fx: [BubbleFx.steam],
+      look: BubbleLook.coffee,
     ),
   ),
   ShopItem(
@@ -366,6 +372,7 @@ const catalog = <ShopItem>[
       border: Color(0xFF93C5FD),
       text: Color(0xFFE0E7FF),
       fx: [BubbleFx.stars],
+      look: BubbleLook.night,
     ),
   ),
   ShopItem(
@@ -379,6 +386,7 @@ const catalog = <ShopItem>[
       border: Color(0xFFA7F3D0),
       text: Color(0xFFFFFFFF),
       fx: [BubbleFx.glow, BubbleFx.leaves],
+      look: BubbleLook.emerald,
     ),
   ),
   ShopItem(
@@ -392,6 +400,7 @@ const catalog = <ShopItem>[
       border: Color(0xFFFFD180),
       text: Color(0xFFFFFFFF),
       fx: [BubbleFx.flame],
+      look: BubbleLook.fire,
     ),
   ),
   ShopItem(
@@ -405,6 +414,7 @@ const catalog = <ShopItem>[
       border: Color(0xFFFFFFFF),
       text: Color(0xFF0C4A6E),
       fx: [BubbleFx.snow, BubbleFx.shimmer],
+      look: BubbleLook.ice,
     ),
   ),
   ShopItem(
@@ -418,6 +428,7 @@ const catalog = <ShopItem>[
       border: Color(0xFF00F5FF),
       text: Color(0xFF00F5FF),
       fx: [BubbleFx.neon],
+      look: BubbleLook.neon,
     ),
   ),
   ShopItem(
@@ -431,6 +442,7 @@ const catalog = <ShopItem>[
       border: Color(0xFFFCE7F3),
       text: Color(0xFFFFFFFF),
       fx: [BubbleFx.glow, BubbleFx.sparkle],
+      look: BubbleLook.rose,
     ),
   ),
   ShopItem(
@@ -444,6 +456,7 @@ const catalog = <ShopItem>[
       border: Color(0xFF60A5FA),
       text: Color(0xFFFFFFFF),
       fx: [BubbleFx.electric],
+      look: BubbleLook.lightning,
     ),
   ),
   ShopItem(
@@ -457,6 +470,7 @@ const catalog = <ShopItem>[
       border: Color(0xFFEF4444),
       text: Color(0xFFFECACA),
       fx: [BubbleFx.glow, BubbleFx.smoke],
+      look: BubbleLook.blood,
     ),
   ),
   ShopItem(
@@ -470,6 +484,7 @@ const catalog = <ShopItem>[
       border: Color(0xFFFCD34D),
       text: Color(0xFFFFFFFF),
       fx: [BubbleFx.sparkle, BubbleFx.shimmer],
+      look: BubbleLook.royal,
     ),
   ),
   ShopItem(
@@ -483,6 +498,7 @@ const catalog = <ShopItem>[
       border: Color(0xFFFFFFFF),
       text: Color(0xFF111827),
       fx: [BubbleFx.rainbow],
+      look: BubbleLook.rainbow,
     ),
   ),
   ShopItem(
@@ -496,6 +512,7 @@ const catalog = <ShopItem>[
       border: Color(0xFFE9D5FF),
       text: Color(0xFFFFFFFF),
       fx: [BubbleFx.spin, BubbleFx.sparkle],
+      look: BubbleLook.galaxy,
     ),
   ),
   ShopItem(
@@ -509,6 +526,7 @@ const catalog = <ShopItem>[
       border: Color(0xFFFCD34D),
       text: Color(0xFFFDE68A),
       fx: [BubbleFx.stars],
+      look: BubbleLook.crescent,
     ),
   ),
   ShopItem(
@@ -522,6 +540,7 @@ const catalog = <ShopItem>[
       border: Color(0xFFFCD34D),
       text: Color(0xFFFFFFFF),
       fx: [BubbleFx.shimmer, BubbleFx.stars],
+      look: BubbleLook.lanterns,
     ),
   ),
   ShopItem(
@@ -535,6 +554,7 @@ const catalog = <ShopItem>[
       border: Color(0xFF7DD3FC),
       text: Color(0xFFE0F2FE),
       fx: [BubbleFx.electric, BubbleFx.glow],
+      look: BubbleLook.storm,
     ),
   ),
   ShopItem(
@@ -548,6 +568,7 @@ const catalog = <ShopItem>[
       border: Color(0xFFFFFBEB),
       text: Color(0xFF451A03),
       fx: [BubbleFx.sparkle],
+      look: BubbleLook.starter,
     ),
   ),
   ShopItem(
@@ -561,6 +582,7 @@ const catalog = <ShopItem>[
       border: Color(0xFFFFFFFF),
       text: Color(0xFFFFFFFF),
       fx: [BubbleFx.shimmer, BubbleFx.sparkle],
+      look: BubbleLook.diamond,
     ),
   ),
   ShopItem(
@@ -574,6 +596,7 @@ const catalog = <ShopItem>[
       border: Color(0xFFFFD54F),
       text: Color(0xFFFFD54F),
       fx: [BubbleFx.shimmer, BubbleFx.glow],
+      look: BubbleLook.elite,
     ),
   ),
   ShopItem(
@@ -797,7 +820,7 @@ const catalog = <ShopItem>[
     diamonds: 20,
     avatar: 'wolf',
     avatarArt: AvatarArt([Color(0xFF1E3A8A), Color(0xFF020617)], AvatarFx.stars, anim: 'wolf'),
-    desc: 'يحرك أذونه، وكل شوي يعوي',
+    desc: 'يحرك أذونه، ومن حين لآخر يعوي',
   ),
   ShopItem(
     id: 'avatar_falcon_bird',
@@ -1163,7 +1186,7 @@ const catalog = <ShopItem>[
   ShopItem(
     id: 'stk_traitor',
     slot: ShopSlot.reactions,
-    name: 'الخاين',
+    name: 'الخائن',
     rarity: Rarity.epic,
     coins: 6000,
     stickers: ['tr_evil', 'tr_dagger', 'tr_poker', 'tr_plan', 'tr_mask', 'tr_laugh'],
@@ -1367,8 +1390,8 @@ const achievements = <Achievement>[
     'traitor',
     stat: 'winsTraitor',
     tiers: [5, 25, 100],
-    name: 'خاين محترف',
-    desc: 'افز {n} مرة وأنت خاين',
+    name: 'خائن محترف',
+    desc: 'افز {n} مرة وأنت خائن',
     icon: 'liar',
   ),
   Achievement(
@@ -1384,7 +1407,7 @@ const achievements = <Achievement>[
     stat: 'caught',
     tiers: [1, 10, 30],
     name: 'صياد الخونة',
-    desc: 'اطرد {n} خاين وأنت الرئيس',
+    desc: 'اطرد {n} خائن وأنت الرئيس',
     icon: 'skull',
   ),
   Achievement(
@@ -1392,7 +1415,7 @@ const achievements = <Achievement>[
     stat: 'found',
     tiers: [1, 10, 30],
     name: 'المحقق',
-    desc: 'اكشف {n} خاين بالتحقيق',
+    desc: 'اكشف {n} خائن بالتحقيق',
     icon: 'search',
   ),
   Achievement(

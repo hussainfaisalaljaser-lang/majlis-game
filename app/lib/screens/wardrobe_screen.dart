@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import '../models/game_view.dart';
@@ -7,45 +9,58 @@ import '../services/backend.dart';
 import '../theme.dart';
 import '../widgets/bubble.dart';
 import '../widgets/common.dart';
+import '../widgets/design.dart';
+import '../widgets/design_shop.dart';
+import '../widgets/design_stickers.dart';
 import '../widgets/game/policy_card.dart';
 import '../widgets/item_preview.dart';
 import '../widgets/majlis.dart';
 import '../widgets/ui.dart';
 import 'shop_screen.dart';
 
-/// أقسام غرفة التبديل، ورقم تبويبها في المتجر (للخانة الأخيرة «المتجر»).
+/// أقسام غرفة التبديل (بنفس ترتيب المتجر)، ورقم تبويبها في المتجر (لزر «المزيد من المتجر»).
 const _tabs = [
-  (name: 'الشخصيات', slot: ShopSlot.avatar, shop: ShopScreen.avatarsTab),
-  (name: 'الإطارات', slot: ShopSlot.frame, shop: 0),
-  (name: 'الطاولات', slot: ShopSlot.table, shop: 4),
-  (name: 'الكروت', slot: ShopSlot.cards, shop: 5),
-  (name: 'الفقاعات', slot: ShopSlot.bubble, shop: 2),
-  (name: 'افكت الموت', slot: ShopSlot.death, shop: ShopScreen.deathsTab),
-  (name: 'الملصقات', slot: ShopSlot.reactions, shop: ShopScreen.stickersTab),
+  (icon: 'avatar', name: 'الشخصيات', slot: ShopSlot.avatar, shop: ShopScreen.avatarsTab),
+  (icon: 'frame', name: 'الإطارات', slot: ShopSlot.frame, shop: ShopScreen.framesTab),
+  (icon: 'death', name: 'الطرد', slot: ShopSlot.death, shop: ShopScreen.deathsTab),
+  (icon: 'cards', name: 'الأوراق', slot: ShopSlot.cards, shop: ShopScreen.cardsTab),
+  (icon: 'table', name: 'الطاولات', slot: ShopSlot.table, shop: ShopScreen.tablesTab),
+  (icon: 'bubble', name: 'الفقاعات', slot: ShopSlot.bubble, shop: ShopScreen.bubblesTab),
+  (icon: 'sticker', name: 'الملصقات', slot: ShopSlot.reactions, shop: ShopScreen.stickersTab),
 ];
 
-/// غرفة التبديل: كل اللي تملكه بمكان واحد (الشخصيات، الإطارات، الطاولات، الكروت، الفقاعات، افكت الموت، الملصقات)،
-/// ومعاينة شكلك على اليسار تتغير على طول لما تلبس شي.
+/// غرفة التبديل: كل اللي تملكه بمكان واحد (الإطارات، الشخصيات، الفقاعات، الملصقات، الطاولات، الكروت، تأثير الموت)،
+/// واضغط «البس» وتتغير على طول. وزر «شكلك» يفتح معاينة شكلك الحين.
 class WardrobeScreen extends StatefulWidget {
-  const WardrobeScreen({super.key});
+  const WardrobeScreen({super.key, this.initialTab = 0});
+
+  /// القسم اللي يفتح عليه (للتصوير).
+  final int initialTab;
 
   @override
   State<WardrobeScreen> createState() => _WardrobeScreenState();
 }
 
 class _WardrobeScreenState extends State<WardrobeScreen> {
-  int _tab = 0;
+  late int _tab = widget.initialTab;
 
   /// الغرض اللي ننتظر السيرفر يلبسه.
   String? _busy;
 
-  Future<void> _wear(String id, Future<void> Function() call) async {
+  Future<void> _wear(
+    String id,
+    Future<void> Function() call, {
+    required String title,
+    required Widget art,
+    required String message,
+  }) async {
     if (_busy != null || !Backend.instance.isReady) return;
     setState(() => _busy = id);
     try {
       await call();
+      if (mounted) await showShopReveal(context, title: title, art: art, message: message);
     } on BackendException catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+      if (mounted) showShopToast(context, e.message);
     } finally {
       if (mounted) setState(() => _busy = null);
     }
@@ -53,74 +68,77 @@ class _WardrobeScreenState extends State<WardrobeScreen> {
 
   void _openShop(int tab) => Navigator.of(context).push(MaterialPageRoute(builder: (_) => ShopScreen(initialTab: tab)));
 
+  /// معاينة شكلك الحين (تتغير على طول لو لبست وهي مفتوحة).
+  void _showLook() => showGeneralDialog<void>(
+    context: context,
+    barrierDismissible: true,
+    barrierLabel: 'شكلك',
+    barrierColor: Colors.black.withValues(alpha: .7),
+    transitionDuration: const Duration(milliseconds: 260),
+    transitionBuilder: (context, a, _, child) => ScaleTransition(
+      scale: CurvedAnimation(parent: a, curve: Curves.easeOutBack),
+      child: FadeTransition(opacity: a, child: child),
+    ),
+    pageBuilder: (context, _, _) => Center(
+      child: Material(
+        color: Colors.transparent,
+        child: ShopDialogCard(
+          title: 'شكلك',
+          width: 340,
+          sun: false,
+          child: SizedBox(
+            height: 300,
+            child: ValueListenableBuilder(
+              valueListenable: Backend.instance.profile,
+              builder: (context, p, _) => _Preview(profile: p),
+            ),
+          ),
+        ),
+      ),
+    ),
+  );
+
   @override
   Widget build(BuildContext context) {
     return NightScaffold(
-      appBar: AppBar(
-        title: const Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [Gfx('cat_frame', size: 30), SizedBox(width: 8), Text('غرفة التبديل')],
-        ),
-      ),
       body: SafeArea(
-        top: false,
         child: ValueListenableBuilder(
           valueListenable: Backend.instance.profile,
-          builder: (context, p, _) => Padding(
-            padding: const EdgeInsets.fromLTRB(14, 0, 14, 12),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                // اللي تملكه
-                Expanded(
-                  child: Container(
-                    padding: const EdgeInsets.fromLTRB(10, 10, 10, 6),
-                    decoration: BoxDecoration(
-                      color: AppColors.panel.withValues(alpha: .92),
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: AppColors.gold.withValues(alpha: .35), width: 1.5),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        SizedBox(
-                          height: 34,
-                          child: ListView(
-                            scrollDirection: Axis.horizontal,
-                            children: [
-                              for (final (i, t) in _tabs.indexed)
-                                Padding(
-                                  padding: const EdgeInsetsDirectional.only(end: 6),
-                                  child: _TabChip(
-                                    label: t.name,
-                                    selected: i == _tab,
-                                    onTap: () => setState(() => _tab = i),
-                                  ),
-                                ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Expanded(
-                          child: _tabs[_tab].slot == ShopSlot.reactions
-                              ? _StickersTab(profile: p, onShop: () => _openShop(_tabs[_tab].shop))
-                              : _grid(p),
-                        ),
-                        Text(
-                          _tabs[_tab].slot == ShopSlot.reactions
-                              ? 'اضغط مطوّل على ملصق تحطه بالمفضلة، وتطلع لك جنب زر التفاعل في اللعب'
-                              : 'كل اللي تملكه هنا، اضغطه وتلبسه على طول',
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(color: AppColors.muted, fontSize: 11.5, fontWeight: FontWeight.w700),
-                        ),
-                      ],
-                    ),
+          builder: (context, p, _) => Column(
+            children: [
+              // نفس شريط المتجر: العنوان بأيقونته على اليمين، وزر الشاشة التانية وشكلك والعدادات على اليسار
+              ShopTopBar(
+                title: 'غرفة التبديل',
+                icon: const HangerBadge(size: 34),
+                trailing: [
+                  ShopTitleChip(
+                    label: 'المتجر',
+                    icon: const Gfx('shop', size: 24),
+                    onTap: () => _openShop(ShopScreen.avatarsTab),
                   ),
+                  ShopTitleChip(label: 'شكلك', icon: null, onTap: _showLook),
+                  ShopCurrency(icon: 'coin', amount: p.coins, infinite: p.dev),
+                  ShopCurrency(icon: 'gem', amount: p.diamonds, infinite: p.dev),
+                ],
+              ),
+              Expanded(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    ShopRail(
+                      items: [for (final t in _tabs) ShopCategory(t.icon, t.name)],
+                      selected: _tab,
+                      onSelect: (i) => setState(() => _tab = i),
+                    ),
+                    Expanded(
+                      child: _tabs[_tab].slot == ShopSlot.reactions
+                          ? _StickersTab(profile: p, onShop: () => _openShop(_tabs[_tab].shop))
+                          : _grid(p),
+                    ),
+                  ],
                 ),
-                const SizedBox(width: 12),
-                SizedBox(width: 280, child: _Preview(profile: p)),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),
@@ -130,149 +148,109 @@ class _WardrobeScreenState extends State<WardrobeScreen> {
   Widget _grid(Profile p) {
     final tab = _tabs[_tab];
     final cells = <Widget>[];
+    final wide = tab.slot == ShopSlot.table;
     if (tab.slot == ShopSlot.avatar) {
       final mine = [
         ...freeAvatars,
-        for (final i in catalog)
-          if (i.slot == ShopSlot.avatar && p.owns(i.id)) i.avatar!,
+        for (final i in shopItemsOrdered(ShopSlot.avatar))
+          if (p.owns(i.id) && !freeAvatars.contains(i.avatar)) i.avatar!,
       ];
+      // من الأقل ندرة للأندر: عادي، نادر، ملحمي، أسطوري (وبنفس الندرة ترتيبهم الأصلي)
+      final at = {for (final (n, a) in mine.indexed) a: n};
+      int rank(String a) => (avatarItem(a)?.rarity ?? Rarity.common).index;
+      mine.sort((a, b) {
+        final c = rank(a).compareTo(rank(b));
+        return c != 0 ? c : at[a]!.compareTo(at[b]!);
+      });
       for (final a in mine) {
+        final item = avatarItem(a);
+        final on = p.avatar == a;
         cells.add(
-          _Cell(
-            on: p.avatar == a,
-            busy: _busy == 'avatar_$a',
-            label: avatarItem(a)?.name,
-            onTap: () => _wear('avatar_$a', () => Backend.instance.updateProfile(name: p.name, avatar: a)),
-            child: PlayerAvatar(avatar: a, size: 58, animate: false),
+          ShopItemCard(
+            key: ValueKey('avatar_$a'),
+            semantics: item?.name ?? 'شخصية',
+            art: PlayerAvatar(avatar: a, style: frameStyle(p.frame), size: 62, animate: false),
+            rarity: item?.rarity ?? Rarity.common,
+            name: item?.name,
+            selected: on,
+            onTap: on ? null : () => _equipAvatar(p, a, item),
+            onPreview: item == null ? null : () => showItemPreview(context, item),
+            action: ShopActionButton(
+              state: on ? ShopItemState.equipped : ShopItemState.owned,
+              busy: _busy == 'avatar_$a',
+              onTap: () => _equipAvatar(p, a, item),
+              ownedLabel: 'استخدمها',
+              equippedLabel: 'صورتك',
+            ),
           ),
         );
       }
     } else {
-      for (final item in catalog) {
-        if (item.slot != tab.slot || !p.owns(item.id)) continue;
-        final equipped = switch (tab.slot) {
-          ShopSlot.frame => p.frame == item.id,
-          ShopSlot.cards => p.cards == item.id,
-          ShopSlot.table => p.table == item.id,
-          ShopSlot.death => p.death == item.id,
-          _ => p.bubble == item.id,
-        };
+      for (final item in shopItemsOrdered(tab.slot)) {
+        if (!p.owns(item.id)) continue;
+        final on = shopStateOf(item, p) == ShopItemState.equipped;
         cells.add(
-          _Cell(
-            on: equipped,
-            busy: _busy == item.id,
-            label: item.name,
-            onTap: () => _wear(item.id, () => Backend.instance.equipItem(item.id)),
-            child: FittedBox(
-              fit: BoxFit.scaleDown,
-              child: ItemPreview(item: item, profile: p),
+          ShopItemCard(
+            key: ValueKey(item.id),
+            semantics: item.name,
+            art: shopCardArt(item, p),
+            rarity: item.rarity,
+            name: item.name,
+            dark: shopDarkCard(item),
+            selected: on,
+            wide: wide,
+            onTap: on ? null : () => _equip(item, p),
+            onPreview: () => showItemPreview(context, item),
+            action: ShopActionButton(
+              state: on ? ShopItemState.equipped : ShopItemState.owned,
+              busy: _busy == item.id,
+              onTap: () => _equip(item, p),
+              ownedLabel: item.id == 'frame_none' ? 'تجهيز' : 'البس',
             ),
           ),
         );
       }
     }
-    cells.add(_ShopCell(onTap: () => _openShop(tab.shop)));
-    final wide = tab.slot == ShopSlot.table || tab.slot == ShopSlot.bubble;
-    return GridView.extent(
-      maxCrossAxisExtent: wide ? 190 : 118,
-      mainAxisSpacing: 8,
-      crossAxisSpacing: 8,
-      childAspectRatio: wide ? 1.45 : .9,
-      children: cells,
+    cells.add(_ShopCell(wide: wide, onTap: () => _openShop(tab.shop)));
+    return LayoutBuilder(
+      builder: (context, box) {
+        // نفس شبكة المتجر بالضبط
+        final cols = math.max(2, ((box.maxWidth - 8) / (wide ? 190 : 124)).floor());
+        return GridView.count(
+          padding: const EdgeInsets.fromLTRB(10, 8, 10, 14),
+          crossAxisCount: wide ? math.max(1, cols) : cols,
+          mainAxisSpacing: 11,
+          crossAxisSpacing: 11,
+          childAspectRatio: (wide ? shopCardWideW : shopCardW) / shopCardH,
+          children: cells,
+        );
+      },
     );
   }
-}
 
-class _TabChip extends StatelessWidget {
-  const _TabChip({required this.label, required this.selected, required this.onTap});
-
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) => Semantics(
-    button: true,
-    selected: selected,
-    label: label,
-    excludeSemantics: true,
-    child: GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 160),
-        padding: const EdgeInsets.symmetric(horizontal: 10),
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          color: selected ? AppColors.gold.withValues(alpha: .2) : AppColors.card,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: selected ? AppColors.gold : AppColors.line, width: selected ? 1.6 : 1),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontSize: 12.5,
-            fontWeight: FontWeight.w800,
-            color: selected ? AppColors.goldLight : AppColors.muted,
-          ),
-        ),
-      ),
-    ),
+  void _equip(ShopItem item, Profile p) => _wear(
+    item.id,
+    () => Backend.instance.equipItem(item.id),
+    title: shopRevealTitle(item.slot),
+    art: shopRevealArt(item, p),
+    message: item.id == 'frame_none' ? 'شلت الإطار!' : 'لبست ${shopItemPhrase(item)}!',
   );
-}
 
-/// خانة غرض: اللي لابسه عليه علامة خضرا، وتنضغط تلبسه.
-class _Cell extends StatelessWidget {
-  const _Cell({required this.on, required this.busy, required this.onTap, required this.child, this.label});
-
-  final bool on;
-  final bool busy;
-  final VoidCallback onTap;
-  final Widget child;
-  final String? label;
-
-  @override
-  Widget build(BuildContext context) => Semantics(
-    button: true,
-    selected: on,
-    label: label ?? 'غرض',
-    excludeSemantics: true,
-    child: GestureDetector(
-      onTap: on ? null : onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 160),
-        padding: const EdgeInsets.all(6),
-        decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: on ? .08 : .04),
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: on ? AppColors.green : AppColors.line, width: on ? 2.4 : 1),
-        ),
-        child: Stack(
-          clipBehavior: Clip.none,
-          children: [
-            Positioned.fill(child: Center(child: child)),
-            if (on) const PositionedDirectional(top: -12, end: -10, child: Gfx('check', size: 24)),
-            if (busy)
-              const Positioned.fill(
-                child: Center(
-                  child: SizedBox(
-                    width: 26,
-                    height: 26,
-                    child: CircularProgressIndicator(strokeWidth: 3, color: AppColors.gold),
-                  ),
-                ),
-              ),
-          ],
-        ),
-      ),
-    ),
+  void _equipAvatar(Profile p, String a, ShopItem? item) => _wear(
+    'avatar_$a',
+    () => Backend.instance.updateProfile(name: p.name, avatar: a),
+    title: shopRevealTitle(ShopSlot.avatar),
+    art: PlayerAvatar(avatar: a, style: frameStyle(p.frame), size: 104),
+    message: item == null ? 'غيّرت صورتك!' : 'صارت صورتك ${item.name}!',
   );
 }
 
 /// آخر خانة: المزيد من المتجر.
 class _ShopCell extends StatelessWidget {
-  const _ShopCell({required this.onTap});
+  const _ShopCell({required this.onTap, this.wide = false});
 
   final VoidCallback onTap;
+  final bool wide;
 
   @override
   Widget build(BuildContext context) => Semantics(
@@ -280,24 +258,45 @@ class _ShopCell extends StatelessWidget {
     label: 'المزيد من المتجر',
     excludeSemantics: true,
     child: GestureDetector(
+      behavior: HitTestBehavior.opaque,
       onTap: onTap,
-      child: Container(
-        decoration: BoxDecoration(
-          color: AppColors.gold.withValues(alpha: .06),
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: AppColors.gold.withValues(alpha: .45)),
-        ),
-        child: const Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Gfx('shop', size: 34),
-            SizedBox(height: 4),
-            Text(
-              'المزيد من المتجر',
-              textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: AppColors.goldLight),
+      child: FittedBox(
+        child: SizedBox(
+          width: wide ? shopCardWideW : shopCardW,
+          height: shopCardH,
+          child: ShopCardFrame(
+            child: Stack(
+              children: [
+                const Positioned(left: 6, right: 6, top: 14, height: 80, child: Center(child: Gfx('shop', size: 66))),
+                const Positioned(
+                  left: 6,
+                  right: 6,
+                  top: 100,
+                  height: 22,
+                  child: Center(
+                    child: Text(
+                      'المزيد من المتجر',
+                      maxLines: 1,
+                      style: TextStyle(
+                        fontFamily: kufi,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w800,
+                        color: AppColors.ink,
+                        height: 1.25,
+                      ),
+                    ),
+                  ),
+                ),
+                Positioned(
+                  left: 7,
+                  right: 7,
+                  top: 122,
+                  height: 36,
+                  child: ShopButton.label('المتجر', onPressed: onTap, height: 33, fontSize: 16),
+                ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     ),
@@ -344,7 +343,7 @@ class _StickersTabState extends State<_StickersTab> {
     } on BackendException catch (e) {
       if (!mounted) return;
       setState(() => _favorites = before);
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+      showShopToast(context, e.message);
     }
   }
 
@@ -363,17 +362,7 @@ class _StickersTabState extends State<_StickersTab> {
             Positioned.fill(
               child: StickerView(sticker: stickerById(id)!, size: size, pop: false),
             ),
-            if (_favorites.contains(id))
-              const PositionedDirectional(
-                top: -4,
-                end: -2,
-                child: Icon(
-                  Icons.star_rounded,
-                  color: AppColors.gold,
-                  size: 20,
-                  shadows: [Shadow(color: Colors.black, blurRadius: 4)],
-                ),
-              ),
+            if (_favorites.contains(id)) const PositionedDirectional(top: -5, end: -3, child: ShopStar(size: 21)),
           ],
         ),
       ),
@@ -387,76 +376,132 @@ class _StickersTabState extends State<_StickersTab> {
       for (final i in catalog)
         if (i.stickers != null && p.owns(i.id)) i,
     ];
+    final favs = [
+      for (final id in _favorites)
+        if (stickerById(id) != null) id,
+    ];
     return ListView(
+      padding: const EdgeInsets.fromLTRB(10, 8, 10, 14),
       children: [
         // المفضلة
-        Container(
-          padding: const EdgeInsets.fromLTRB(10, 6, 10, 8),
-          decoration: BoxDecoration(
-            color: AppColors.gold.withValues(alpha: .07),
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: AppColors.gold.withValues(alpha: .4)),
-          ),
+        PlankBar(
+          gold: true,
+          radius: 16,
+          padding: const EdgeInsets.fromLTRB(14, 10, 14, 12),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
                 children: [
-                  const Icon(Icons.star_rounded, color: AppColors.gold, size: 20),
-                  const SizedBox(width: 4),
-                  Text(
+                  const ShopStar(size: 24),
+                  const SizedBox(width: 6),
+                  GoldTitle(
                     'مفضلتك (${arabicNumber(_favorites.length)} من ${arabicNumber(Profile.maxFavorites)})',
-                    style: const TextStyle(fontFamily: kufi, fontWeight: FontWeight.w700, fontSize: 14),
+                    size: 19,
+                    align: TextAlign.start,
                   ),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: 10),
                   if (_note != null)
                     Flexible(
                       child: Text(
                         _note!,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(color: AppColors.goldLight, fontSize: 12, fontWeight: FontWeight.w700),
+                        style: const TextStyle(
+                          fontFamily: kufi,
+                          color: Color(0xFFFFEBCB),
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
                     ),
                 ],
               ),
-              const SizedBox(height: 6),
-              SizedBox(
-                height: 58,
-                child: _favorites.isEmpty
-                    ? const Align(
-                        alignment: AlignmentDirectional.centerStart,
-                        child: Text(
-                          'ما عندك مفضلة للحين: اضغط مطوّل على أي ملصق تحت',
-                          style: TextStyle(color: AppColors.muted, fontSize: 12.5),
+              const SizedBox(height: 4),
+              Text(
+                'اضغط مطوّل على ملصق تحطه بالمفضلة، وتطلع لك جنب زر التفاعل في اللعب',
+                style: TextStyle(
+                  fontFamily: kufi,
+                  color: const Color(0xFFFFEBCB).withValues(alpha: .75),
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  for (var i = 0; i < Profile.maxFavorites; i++)
+                    Padding(
+                      padding: const EdgeInsetsDirectional.only(end: 10),
+                      child: Container(
+                        width: 62,
+                        height: 62,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF1B0F08).withValues(alpha: .7),
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(
+                            color: i < favs.length ? const Color(0xFFE8B54E) : const Color(0xFF5A3A22),
+                            width: 2,
+                          ),
                         ),
-                      )
-                    : Row(
-                        children: [
-                          for (final id in _favorites)
-                            if (stickerById(id) != null)
-                              Padding(padding: const EdgeInsetsDirectional.only(end: 8), child: _sticker(id, size: 56)),
-                        ],
+                        child: i < favs.length ? _sticker(favs[i], size: 52) : null,
                       ),
+                    ),
+                ],
               ),
             ],
           ),
         ),
-        for (final pack in packs) ...[
-          const SizedBox(height: 10),
-          Text(
-            pack.name,
-            style: const TextStyle(fontFamily: kufi, fontWeight: FontWeight.w700, fontSize: 14),
-          ),
-          const SizedBox(height: 4),
-          Wrap(spacing: 6, runSpacing: 6, children: [for (final id in pack.stickers!) _sticker(id)]),
-        ],
         const SizedBox(height: 12),
-        Align(
-          alignment: AlignmentDirectional.centerStart,
-          child: TextButton.icon(
-            onPressed: widget.onShop,
-            icon: const Gfx('shop', size: 22),
-            label: const Text('باقات ملصقات أكثر في المتجر'),
+        LayoutBuilder(
+          builder: (context, box) {
+            final two = box.maxWidth >= 560;
+            final w = two ? (box.maxWidth - 12) / 2 : box.maxWidth;
+            return Wrap(
+              spacing: 12,
+              runSpacing: 12,
+              children: [
+                for (final pack in packs)
+                  // نفس كرت المتجر بس بملصقات الباقة كلها (ضغطة مطوّلة على الملصق للمفضلة)
+                  StickerPackCard(
+                    key: ValueKey(pack.id),
+                    semantics: pack.name,
+                    name: pack.name,
+                    rarity: pack.rarity,
+                    stickers: pack.stickers,
+                    width: w,
+                    shown: pack.stickers!.length,
+                    perRow: pack.stickers!.length,
+                    onPreview: () => showItemPreview(context, pack),
+                    stickerBuilder: (id, size) => _sticker(id, size: size),
+                  ),
+              ],
+            );
+          },
+        ),
+        const SizedBox(height: 14),
+        Center(
+          child: SizedBox(
+            width: 290,
+            child: ShopButton(
+              height: 44,
+              semantics: 'باقات ملصقات أكثر في المتجر',
+              onPressed: widget.onShop,
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  OutlinedText(
+                    'باقات ملصقات أكثر في المتجر',
+                    size: 16,
+                    maxLines: 1,
+                    stroke: Color(0xFF143A0B),
+                    strokeWidth: 3.2,
+                  ),
+                  SizedBox(width: 8),
+                  Gfx('shop', size: 26),
+                ],
+              ),
+            ),
           ),
         ),
       ],
@@ -474,7 +519,7 @@ class _Preview extends StatelessWidget {
   Widget build(BuildContext context) {
     final p = profile;
     return ClipRRect(
-      borderRadius: BorderRadius.circular(20),
+      borderRadius: BorderRadius.circular(16),
       child: Stack(
         children: [
           const Positioned.fill(child: MajlisRoom()),
@@ -482,7 +527,7 @@ class _Preview extends StatelessWidget {
           Positioned.fill(
             child: LayoutBuilder(
               builder: (context, c) {
-                final avatar = (c.maxHeight * .34).clamp(70.0, 112.0);
+                final avatar = (c.maxHeight * .29).clamp(56.0, 112.0);
                 return Column(
                   children: [
                     const SizedBox(height: 10),

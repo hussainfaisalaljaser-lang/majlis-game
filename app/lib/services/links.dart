@@ -33,7 +33,7 @@ abstract final class Links {
   static String roomUrl(String code) => 'https://$host/r/$code';
 
   static String inviteText(String code) =>
-      'تعال العب معي «مجلس الخونة»! مين الخاين فينا؟\nادخل الروم بالكود $code أو من الرابط:\n${roomUrl(code)}';
+      'تعال العب معي «مجلس الخونة»! من الخائن فينا؟\nادخل الطاولة بالرمز $code أو من الرابط:\n${roomUrl(code)}';
 
   /// نسمع للروابط من أول ما تفتح اللعبة (الرابط اللي فتحها وأي رابط بعده). في الويب: رابط الصفحة نفسها.
   static void init() {
@@ -130,13 +130,13 @@ class _LinkWatcherState extends State<LinkWatcher> {
             Expanded(child: Text('${inv.name} يدعوك')),
           ],
         ),
-        content: const Text('يبيك تلعب معه في المجلس. تدخل رومه؟'),
+        content: const Text('يبيك تلعب معه في المجلس. تدخل طاولته؟'),
         actions: [
           Row(
             children: [
               Expanded(
                 child: GameButton(
-                  label: 'مو الحين',
+                  label: 'ليس الآن',
                   tone: ButtonTone.ghost,
                   height: 44,
                   fontSize: 15,
@@ -186,7 +186,7 @@ class _LinkWatcherState extends State<LinkWatcher> {
           children: [
             const CircularProgressIndicator(color: AppColors.gold),
             const SizedBox(width: 16),
-            Text('ندخلك روم $code…'),
+            Text('ندخلك طاولة $code…'),
           ],
         ),
       ),

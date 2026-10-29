@@ -256,7 +256,7 @@ class GovernmentRecord {
 }
 
 extension Governments on GameView {
-  /// كل حكومة مررت قرار (مو الفوضى ولا الفيتو)، بالترتيب، ومعها الحقيقة والادعاءات.
+  /// كل حكومة مررت قرار (مو الفوضى ولا النقض)، بالترتيب، ومعها الحقيقة والادعاءات.
   List<GovernmentRecord> get governments {
     final said = <(int, bool), List<Policy>>{for (final c in claims) (c.round, c.president): c.policies};
     return [

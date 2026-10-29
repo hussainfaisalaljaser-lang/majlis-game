@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../models/room.dart';
+import '../widgets/curtain_route.dart';
 import '../screens/chat_screen.dart';
 import '../screens/clans_screen.dart';
 import '../screens/friends_screen.dart';
@@ -115,6 +116,6 @@ abstract final class Push {
     if (code is! String || _isOnGame(code)) return;
     final room = await Backend.instance.watchRoom(code).first;
     if (room?.status != RoomStatus.playing) return;
-    navigatorKey.currentState?.push(MaterialPageRoute(builder: (_) => GameScreen(code: code)));
+    navigatorKey.currentState?.push(curtainRoute<void>((_) => GameScreen(code: code)));
   }
 }

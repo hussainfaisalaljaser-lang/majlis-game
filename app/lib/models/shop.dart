@@ -34,16 +34,46 @@ enum BubbleFx {
   smoke,
 }
 
+/// رسمة الفقاعة المصورة (widgets/design_bubbles.dart): لكل فقاعة شكلها وزخارفها وحركتها.
+enum BubbleLook {
+  parchment,
+  gold,
+  silver,
+  desert,
+  sea,
+  ice,
+  fire,
+  emerald,
+  night,
+  coffee,
+  royal,
+  blood,
+  neon,
+  galaxy,
+  rose,
+  lightning,
+  rainbow,
+  crescent,
+  lanterns,
+  storm,
+  starter,
+  diamond,
+  elite,
+}
+
 /// شكل فقاعة الكلام اللي يشوفها الكل فوق راسك.
+/// [look] الرسمة المصورة؛ لو null ترسم بالألوان والحركات القديمة ([bg] و[border] و[fx]).
 class BubbleStyle {
-  const BubbleStyle({required this.bg, required this.border, required this.text, this.fx = const []});
+  const BubbleStyle({required this.bg, required this.border, required this.text, this.fx = const [], this.look});
 
   final List<Color> bg;
   final Color border;
   final Color text;
   final List<BubbleFx> fx;
+  final BubbleLook? look;
 
-  bool get animated => fx.isNotEmpty;
+  /// الرق ثابت، وباقي الرسمات تتحرك.
+  bool get animated => look == null ? fx.isNotEmpty : look != BubbleLook.parchment;
 }
 
 /// خلفية الشخصيات المميزة المتحركة.
@@ -178,7 +208,7 @@ class ShopItem {
   String get source => switch (this) {
     ShopItem(level: final int l) => 'هدية مستوى $l',
     ShopItem(champion: final int c) => c == 1 ? 'لبطل الأسبوع' : (c == 2 ? 'لوصيف الأسبوع' : 'لثالث الأسبوع'),
-    ShopItem(season: final String _) => 'من الباتل باس',
+    ShopItem(season: final String _) => 'من تذكرة الموسم',
     _ => '',
   };
 }

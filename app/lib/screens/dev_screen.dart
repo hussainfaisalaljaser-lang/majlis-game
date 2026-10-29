@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../services/backend.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
+import '../widgets/curtain_route.dart';
 import '../widgets/ui.dart';
 import 'game_screen.dart';
 import 'moderation_screen.dart';
@@ -109,7 +110,7 @@ class _DevScreenState extends State<DevScreen> {
         await backend.devTool('forceRole', {'code': code, 'role': ?_role, 'special': ?_special});
       }
     });
-    if (code != null && mounted) navigator.push(MaterialPageRoute(builder: (_) => GameScreen(code: code!)));
+    if (code != null && mounted) navigator.push(curtainRoute<void>((_) => GameScreen(code: code!)));
   }
 
   /// صاحب اللعبة: الحماية من الغش. السيرفر يقبل بس اللي جاي من التطبيق الأصلي (من قوقل بلاي) لما تتفعّل.
@@ -125,12 +126,12 @@ class _DevScreenState extends State<DevScreen> {
             children: [
               Text(switch (_enforce) {
                 true => 'الحماية من الغش: مفعّلة',
-                false => 'الحماية من الغش: مراقبة بس',
+                false => 'الحماية من الغش: مراقبة فقط',
                 null => 'الحماية من الغش',
               }, style: const TextStyle(fontFamily: kufi, fontSize: 16, fontWeight: FontWeight.w700)),
               const Text(
                 'فعّلها بعد ما تنزل اللعبة على قوقل بلاي: أي طلب من نسخة معدّلة أو من برا المتجر ينرفض. '
-                'أنت تقدر تدخل دايم.',
+                'أنت تستطيع أن تدخل دائماً.',
                 style: TextStyle(color: AppColors.muted, fontSize: 12),
               ),
             ],
@@ -188,7 +189,7 @@ class _DevScreenState extends State<DevScreen> {
         if (_devs == null)
           const SizedBox.shrink()
         else if (_devs!.isEmpty)
-          const Text('ما فيه مطورين غيرك.', style: TextStyle(color: AppColors.muted, fontSize: 12.5))
+          const Text('لا يوجد مطورين غيرك.', style: TextStyle(color: AppColors.muted, fontSize: 12.5))
         else
           for (final d in _devs!)
             Row(
@@ -284,7 +285,7 @@ class _DevScreenState extends State<DevScreen> {
                     children: [
                       Expanded(
                         child: tool(
-                          '+٣ درجات بالباتل باس',
+                          '+٣ درجات بتذكرة الموسم',
                           'انضافت نقاط الموسم',
                           () => backend.devTool('passPoints', {'points': 450}),
                           tone: ButtonTone.green,
@@ -293,7 +294,7 @@ class _DevScreenState extends State<DevScreen> {
                       const SizedBox(width: 8),
                       Expanded(
                         child: tool(
-                          'توّج أبطال الأسبوع الحين',
+                          'توّج أبطال الأسبوع الآن',
                           'تتوّجوا الأبطال',
                           () => backend.devTool('crown'),
                           tone: ButtonTone.purple,
@@ -323,7 +324,7 @@ class _DevScreenState extends State<DevScreen> {
                       Expanded(
                         child: tool(
                           'صفّر الهدية اليومية',
-                          'تقدر تستلم الهدية',
+                          'تستطيع أن تستلم الهدية',
                           () => backend.devTool('resetDaily'),
                           tone: ButtonTone.ghost,
                         ),
@@ -358,7 +359,7 @@ class _DevScreenState extends State<DevScreen> {
                   const SizedBox(height: 10),
                   chips(
                     'دورك',
-                    const [(null, 'عشوائي'), ('loyal', 'وفي'), ('traitor', 'خاين'), ('leader', 'زعيم')],
+                    const [(null, 'عشوائي'), ('loyal', 'وفي'), ('traitor', 'خائن'), ('leader', 'زعيم')],
                     _role,
                     (v) => _role = v,
                   ),

@@ -14,8 +14,8 @@ import '../theme.dart';
 import 'badges.dart';
 import 'common.dart';
 import 'fx.dart';
+import 'design_social.dart';
 import 'item_preview.dart';
-import 'ui.dart';
 
 /// محتوى مكافأة: الذهب والجواهر والأغراض (كل غرض بمعاينته واسمه).
 class RewardView extends StatelessWidget {
@@ -30,31 +30,45 @@ class RewardView extends StatelessWidget {
   Widget build(BuildContext context) {
     final p = Backend.instance.profile.value;
     final s = big ? 1.0 : .7;
-    Widget chip(Widget child, String label, Color color) => Container(
-      width: 120 * s,
-      padding: EdgeInsets.symmetric(vertical: 10 * s, horizontal: 6),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: .1),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: color.withValues(alpha: .5)),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          SizedBox(
-            height: 70 * s,
-            child: Center(child: FittedBox(child: child)),
+    Widget chip(Widget child, String label, Color color) {
+      final edge = Color.lerp(color, const Color(0xFF3A230F), .35)!;
+      return Container(
+        width: 120 * s,
+        padding: EdgeInsets.symmetric(vertical: 10 * s, horizontal: 6),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [Color(0xFFF4E4BE), Color(0xFFDCBF88)],
           ),
-          SizedBox(height: 6 * s),
-          Text(
-            label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13 * (big ? 1 : .9)),
-          ),
-        ],
-      ),
-    );
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: edge, width: 2.4),
+          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: .3), blurRadius: 4, offset: const Offset(0, 2))],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SizedBox(
+              height: 70 * s,
+              child: Center(child: FittedBox(child: child)),
+            ),
+            SizedBox(height: 6 * s),
+            Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontFamily: kufi,
+                fontWeight: FontWeight.w800,
+                fontSize: 14 * (big ? 1 : .9),
+                color: socInk,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
     return Wrap(
       alignment: WrapAlignment.center,
       spacing: 10,
@@ -77,7 +91,7 @@ Future<void> showGiftDialog(BuildContext context, Gift g) {
   if (!g.tutorial && ach == null) Sfx.say(g.champion ? 'win_loyal' : 'enact_loyal');
   final from = g.passFrom;
   final title = from != null
-      ? (g.n == 1 ? 'هدية من $from: الباتل باس كامل!' : 'هدية من $from: الباتل باس!')
+      ? (g.n == 1 ? 'هدية من $from: تذكرة الموسم كاملة!' : 'هدية من $from: تذكرة الموسم!')
       : rank != null
       ? 'وصلت رتبة ${rank.name}!'
       : ach != null
@@ -91,19 +105,19 @@ Future<void> showGiftDialog(BuildContext context, Gift g) {
       : 'هدية المستوى ${arabicNumber(g.n)}!';
   final note = from != null
       ? (g.n == 1
-            ? 'كل درجات الموسم انفتحت لك. استلم مكافآتها من الباتل باس.'
-            : 'انفتح لك المسار المدفوع ومعه ${arabicNumber(season.bonusTiers)} درجات هدية. استلمها من الباتل باس.')
+            ? 'كل درجات الموسم انفتحت لك. استلم مكافآتها من تذكرة الموسم.'
+            : 'انفتح لك المسار المدفوع ومعه ${arabicNumber(season.bonusTiers)} درجات هدية. استلمها من تذكرة الموسم.')
       : rank != null
-      ? 'هذي مكافأة أول وصول للرتبة هالموسم. كمّل في الطاولات العامة عشان تطلع أكثر.'
+      ? 'هذه مكافأة أول وصول للرتبة هالموسم. كمّل في الطاولات العامة عشان تطلع أكثر.'
       : ach != null
       ? 'وصلت الدرجة ${tierNames[g.n.clamp(0, 3)]}: ${ach.descFor(g.n - 1)}. تطلع في ملفك للكل.'
       : g.tutorial
-      ? 'هذي هديتك على أول لعبة. الحين أنت جاهز تلعب مع الناس!'
+      ? 'هذه هديتك على أول لعبة. الآن أنت جاهز تلعب مع الناس!'
       : g.tour
-      ? 'فزت بالنهائي! هذي جائزة البطل، واسمك بلوحة أبطال الأسبوع.'
+      ? 'فزت بالنهائي! هذه جائزة البطل، واسمك بلوحة أبطال الأسبوع.'
       : g.champion
-      ? 'الإطار والشخصية لك لين التتويج الجاي (أسبوع). لابسها الحين!'
-      : 'وصلت ملفك، تقدر تلبسها من المتجر أو ملفك.';
+      ? 'الإطار والشخصية لك لين التتويج الجاي (أسبوع). لابسها الآن!'
+      : 'وصلت ملفك، تستطيع أن تلبسها من المتجر أو ملفك.';
   return showGeneralDialog<void>(
     context: context,
     barrierDismissible: false,
@@ -117,64 +131,47 @@ Future<void> showGiftDialog(BuildContext context, Gift g) {
     pageBuilder: (context, _, _) => Stack(
       children: [
         const Positioned.fill(child: IgnorePointer(child: Confetti())),
-        Center(
-          child: Material(
-            color: Colors.transparent,
-            child: Container(
-              width: 600,
-              constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(context).height * .92),
-              padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
-              decoration: BoxDecoration(
-                gradient: const RadialGradient(
-                  center: Alignment(0, -.6),
-                  radius: 1.2,
-                  colors: [Color(0xFF6B4BC9), AppColors.panel],
-                ),
-                borderRadius: BorderRadius.circular(28),
-                border: Border.all(color: AppColors.gold, width: 2),
-                boxShadow: [BoxShadow(color: AppColors.gold.withValues(alpha: .35), blurRadius: 40)],
-              ),
-              child: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        if (rank != null)
-                          RankEmblem(tier: rank, size: 54)
-                        else if (ach != null)
-                          BadgeMedal(achievement: ach, tier: g.n, size: 50)
-                        else
-                          Gfx(
-                            from != null
-                                ? 'pass'
-                                : (g.tutorial || g.tour ? 'trophy' : (g.champion ? 'medal${g.n}' : 'gift')),
-                            size: 46,
-                          ),
-                        const SizedBox(width: 10),
-                        GoldText(title, size: 28),
-                      ],
-                    ),
-                    const SizedBox(height: 14),
-                    RewardView(coins: g.coins, diamonds: g.diamonds, items: g.items, big: true),
-                    const SizedBox(height: 12),
-                    Text(
-                      note,
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(color: AppColors.muted, fontSize: 13),
-                    ),
-                    const SizedBox(height: 12),
-                    SizedBox(
-                      width: 240,
-                      child: GameButton(
+        SafeArea(
+          child: Center(
+            child: Material(
+              color: Colors.transparent,
+              child: SocPopupCard(
+                title: title,
+                width: 620,
+                rays: true,
+                raysAt: const Alignment(0, -.62),
+                titleSize: 21,
+                padding: const EdgeInsets.fromLTRB(22, 30, 22, 18),
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (rank != null)
+                        RankEmblem(tier: rank, size: 66)
+                      else if (ach != null)
+                        BadgeMedal(achievement: ach, tier: g.n, size: 62)
+                      else
+                        Gfx(
+                          from != null
+                              ? 'pass'
+                              : (g.tutorial || g.tour ? 'trophy' : (g.champion ? 'medal${g.n}' : 'gift')),
+                          size: 62,
+                        ),
+                      const SizedBox(height: 12),
+                      RewardView(coins: g.coins, diamonds: g.diamonds, items: g.items, big: true),
+                      const SizedBox(height: 12),
+                      SocPopupText(note, size: 14, muted: true),
+                      const SizedBox(height: 14),
+                      SocButton(
                         label: 'استلمت',
-                        height: 48,
-                        fontSize: 18,
+                        tone: SocTone.green,
+                        height: 50,
+                        fontSize: 21,
+                        width: 240,
                         onPressed: () => Navigator.pop(context),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ),

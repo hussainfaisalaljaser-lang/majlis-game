@@ -318,7 +318,8 @@ Path bubblePath(Size size, {double tail = 7}) {
     ..close();
 }
 
-/// رسام فقاعة الكلام بحركاتها (لمعة، نار، ثلج، نيون…).
+/// رسام فقاعة الكلام القديم بالألوان والحركات (لمعة، نار، ثلج، نيون…): احتياط لأي فقاعة بدون رسمة مصورة،
+/// والفقاعات اللي بالمتجر ترسمها widgets/design_bubbles.dart.
 class BubblePainter extends CustomPainter {
   BubblePainter(this.style, this.time, {this.tail = 7}) : super(repaint: time);
 

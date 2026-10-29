@@ -8,6 +8,8 @@ import '../../models/shop.dart';
 import '../../theme.dart';
 import '../bubble.dart';
 import '../common.dart';
+import '../design.dart';
+import '../design_game.dart';
 import '../ui.dart';
 
 /// «مين كذب؟»: بعد اللعبة، كل حكومة مررت قرار: وش وصل الرئيس والوزير فعلاً، ووش قال كل واحد،
@@ -15,7 +17,7 @@ import '../ui.dart';
 Future<void> showLiesReveal(BuildContext context, GameView view, Room? room) => showGeneralDialog<void>(
   context: context,
   barrierDismissible: true,
-  barrierLabel: 'مين كذب؟',
+  barrierLabel: 'من كذب؟',
   barrierColor: Colors.black.withValues(alpha: .82),
   transitionDuration: const Duration(milliseconds: 240),
   transitionBuilder: (context, a, _, child) => FadeTransition(opacity: a, child: child),
@@ -75,87 +77,122 @@ class _LiesRevealState extends State<_LiesReveal> with SingleTickerProviderState
     return (liar: liar?.key, lies: liar?.value ?? 0, honest: honest?.key, truths: honest?.value ?? 0);
   }
 
+  /// ارتفاع التصميم كله (العنوان + البطاقات + الجوائز).
+  static const _designHeight = 376.0;
+
   @override
   Widget build(BuildContext context) {
     final awards = _awards;
     return Material(
       type: MaterialType.transparency,
-      child: SafeArea(
-        // ضغطة تخلّص الحركة على طول (للي ما يبي ينتظر).
-        child: GestureDetector(
-          behavior: HitTestBehavior.opaque,
-          onTap: () => _c.value = 1,
-          child: LayoutBuilder(
-            builder: (context, box) {
-              // على قد الشاشة: البطاقات تصغر لو الطول ما يكفي.
-              final scale = math.min(1.0, (box.maxHeight - 8) / 336);
-              return Center(
-                child: Transform.scale(
-                  scale: scale,
-                  child: SizedBox(
-                    width: box.maxWidth / scale,
-                    height: 336,
-                    child: AnimatedBuilder(
-                      animation: _c,
-                      builder: (context, _) {
-                        final t = _c.value * _total;
-                        return Column(
-                          children: [
-                            Row(
+      child: Stack(
+        children: [
+          // أشعة خفيفة ورا النافذة (مثل نوافذ التصميم)
+          const Positioned.fill(child: RepaintBoundary(child: SunRays(opacity: .07, rays: 16))),
+          SafeArea(
+            // ضغطة تخلّص الحركة على طول (للي ما يبي ينتظر).
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: () => _c.value = 1,
+              child: LayoutBuilder(
+                builder: (context, box) {
+                  // على قد الشاشة: البطاقات تصغر لو الطول ما يكفي.
+                  final scale = math.min(1.0, (box.maxHeight - 8) / _designHeight);
+                  return Center(
+                    child: Transform.scale(
+                      scale: scale,
+                      // الارتفاع ثابت بالتصميم، وبعدها يصغر بالمقياس (بدون ما يشتكي من الحجم)
+                      child: OverflowBox(
+                        minWidth: box.maxWidth / scale,
+                        maxWidth: box.maxWidth / scale,
+                        minHeight: _designHeight,
+                        maxHeight: _designHeight,
+                        child: AnimatedBuilder(
+                          animation: _c,
+                          builder: (context, _) {
+                            final t = _c.value * _total;
+                            return Column(
                               children: [
-                                const SizedBox(width: 48),
-                                const Expanded(child: Center(child: GoldText('مين كذب؟', size: 28))),
-                                IconButton(
-                                  onPressed: () => Navigator.pop(context),
-                                  icon: const Icon(Icons.close_rounded, color: AppColors.muted, size: 28),
-                                  tooltip: 'سكّر',
+                                SizedBox(
+                                  height: 50,
+                                  child: Row(
+                                    children: [
+                                      const SizedBox(width: 56),
+                                      const Expanded(
+                                        child: Center(
+                                          child: SizedBox(width: 280, child: RibbonTitle('من كذب؟', size: 21)),
+                                        ),
+                                      ),
+                                      SizedBox(
+                                        width: 56,
+                                        child: Center(
+                                          child: GameRoundButton(
+                                            size: 42,
+                                            semantics: 'سكّر',
+                                            onTap: () => Navigator.pop(context),
+                                            child: const Icon(Icons.close_rounded, color: Color(0xFFFFF3DA), size: 26),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(height: 6),
+                                SizedBox(
+                                  height: 240,
+                                  child: _govs.isEmpty
+                                      ? const Center(
+                                          child: GamePlank(
+                                            child: Text(
+                                              'ما تمرر ولا قرار بحكومة، فما فيه أحد يكذب!',
+                                              style: TextStyle(
+                                                fontFamily: kufi,
+                                                fontSize: 16,
+                                                fontWeight: FontWeight.w800,
+                                                color: Color(0xFFFFF3DA),
+                                              ),
+                                            ),
+                                          ),
+                                        )
+                                      : Center(
+                                          child: ListView.separated(
+                                            shrinkWrap: true,
+                                            scrollDirection: Axis.horizontal,
+                                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+                                            itemCount: _govs.length,
+                                            separatorBuilder: (_, _) => const SizedBox(width: 12),
+                                            itemBuilder: (context, i) => _GovCard(
+                                              index: i,
+                                              gov: _govs[i],
+                                              t: t - (.4 + i * _step),
+                                              name: _name,
+                                              avatar: _avatar,
+                                            ),
+                                          ),
+                                        ),
+                                ),
+                                const SizedBox(height: 10),
+                                _AwardsRow(
+                                  t: t - (.4 + _govs.length * _step),
+                                  liar: awards.liar,
+                                  lies: awards.lies,
+                                  honest: awards.honest,
+                                  truths: awards.truths,
+                                  name: _name,
+                                  avatar: _avatar,
                                 ),
                               ],
-                            ),
-                            const SizedBox(height: 4),
-                            SizedBox(
-                              height: 222,
-                              child: _govs.isEmpty
-                                  ? const Center(
-                                      child: Text(
-                                        'ما تمرر ولا قرار بحكومة، فما فيه أحد يكذب!',
-                                        style: TextStyle(fontFamily: kufi, fontSize: 16),
-                                      ),
-                                    )
-                                  : ListView.separated(
-                                      scrollDirection: Axis.horizontal,
-                                      padding: const EdgeInsets.symmetric(horizontal: 14),
-                                      itemCount: _govs.length,
-                                      separatorBuilder: (_, _) => const SizedBox(width: 10),
-                                      itemBuilder: (context, i) => _GovCard(
-                                        index: i,
-                                        gov: _govs[i],
-                                        t: t - (.4 + i * _step),
-                                        name: _name,
-                                        avatar: _avatar,
-                                      ),
-                                    ),
-                            ),
-                            const SizedBox(height: 10),
-                            _AwardsRow(
-                              t: t - (.4 + _govs.length * _step),
-                              liar: awards.liar,
-                              lies: awards.lies,
-                              honest: awards.honest,
-                              truths: awards.truths,
-                              name: _name,
-                              avatar: _avatar,
-                            ),
-                          ],
-                        );
-                      },
+                            );
+                          },
+                        ),
+                      ),
                     ),
-                  ),
-                ),
-              );
-            },
+                  );
+                },
+              ),
+            ),
           ),
-        ),
+        ],
       ),
     );
   }
@@ -188,97 +225,129 @@ class _GovCard extends StatelessWidget {
       opacity: appear,
       child: Transform.translate(
         offset: Offset(shake, 24 * (1 - appear)),
-        child: Container(
-          width: 236,
-          padding: const EdgeInsets.fromLTRB(8, 6, 8, 6),
-          decoration: BoxDecoration(
-            color: AppColors.panel.withValues(alpha: .96),
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(
-              color: lied && stamp > 0 ? AppColors.traitorLight : AppColors.gold.withValues(alpha: .7),
-              width: 1.8,
+        child: SizedBox(
+          width: 244,
+          // الحكومة اللي فيها كذب يتوهج كرتها بالأحمر لما ينختم
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(21),
+              boxShadow: lied && stamp > 0
+                  ? [
+                      BoxShadow(
+                        color: const Color(0xFFE0382B).withValues(alpha: .7 * stamp),
+                        blurRadius: 16,
+                        spreadRadius: 1,
+                      ),
+                    ]
+                  : null,
             ),
-          ),
-          child: Column(
-            children: [
-              Text(
-                'الحكومة ${arabicNumber(index + 1)}',
-                style: const TextStyle(
-                  fontFamily: kufi,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.gold,
-                  fontSize: 14,
-                ),
-              ),
-              Expanded(
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _side(
-                      gov.president,
-                      'الرئيس',
-                      gov.presidentDrew,
-                      gov.presidentSaid,
-                      gov.presidentLied,
-                      3,
-                      real,
-                      said,
-                      stamp,
+            child: ParchmentCard(
+              radius: 16,
+              padding: const EdgeInsets.fromLTRB(6, 5, 6, 7),
+              child: Column(
+                children: [
+                  GoldRibbonLabel('الحكومة ${arabicNumber(index + 1)}', size: 13),
+                  const SizedBox(height: 2),
+                  Expanded(
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _side(
+                          gov.president,
+                          'الرئيس',
+                          gov.presidentDrew,
+                          gov.presidentSaid,
+                          gov.presidentLied,
+                          real,
+                          said,
+                          stamp,
+                        ),
+                        Container(
+                          width: 1.5,
+                          margin: const EdgeInsets.symmetric(vertical: 8),
+                          color: const Color(0xFF8E6A3C).withValues(alpha: .45),
+                        ),
+                        _side(
+                          gov.chancellor,
+                          'الوزير',
+                          gov.chancellorGot,
+                          gov.chancellorSaid,
+                          gov.chancellorLied,
+                          real,
+                          said,
+                          stamp,
+                        ),
+                      ],
                     ),
-                    Container(width: 1, margin: const EdgeInsets.symmetric(vertical: 6), color: Colors.white12),
-                    _side(
-                      gov.chancellor,
-                      'الوزير',
-                      gov.chancellorGot,
-                      gov.chancellorSaid,
-                      gov.chancellorLied,
-                      2,
-                      real,
-                      said,
-                      stamp,
+                  ),
+                  // القرار اللي تمرر: شريط غامق مثل أسماء اللاعبين
+                  Opacity(
+                    opacity: said,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF21140B).withValues(alpha: .94),
+                        borderRadius: BorderRadius.circular(40),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Text(
+                            'تمرر ',
+                            style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800, color: Color(0xFFFFF3DA)),
+                          ),
+                          Seal(loyal: gov.enacted == Policy.loyal, size: 22),
+                        ],
+                      ),
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
-              Opacity(
-                opacity: said,
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Text('تمرر ', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
-                    Seal(loyal: gov.enacted == Policy.loyal, size: 20),
-                  ],
-                ),
-              ),
-            ],
+            ),
           ),
         ),
       ),
     );
   }
 
-  Widget _seals(List<Policy>? cards, int count, double k) {
-    if (cards == null) {
-      return const SizedBox(
-        height: 22,
-        child: Text('؟', style: TextStyle(color: AppColors.muted, fontSize: 14)),
-      );
-    }
-    return SizedBox(
-      height: 22,
+  /// سطر: كلمة («وصله» أو «قال») وجنبها الأختام.
+  Widget _line(String label, Widget content) => SizedBox(
+    height: 24,
+    child: FittedBox(
+      fit: BoxFit.scaleDown,
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          for (final (j, c) in ([...cards]..sort((a, b) => a.index.compareTo(b.index))).indexed)
-            Transform.scale(
-              scale: _seg(k, j * .25, j * .25 + .6, Curves.easeOutBack),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 1),
-                child: Seal(loyal: c == Policy.loyal, size: 20),
-              ),
-            ),
+          Text(
+            label,
+            style: const TextStyle(fontSize: 11, color: Color(0xFF8A5A0A), fontWeight: FontWeight.w800),
+          ),
+          const SizedBox(width: 4),
+          content,
         ],
       ),
+    ),
+  );
+
+  Widget _seals(List<Policy>? cards, double k) {
+    if (cards == null) {
+      return const Text(
+        '؟',
+        style: TextStyle(color: Color(0xFF7A5A3A), fontSize: 15, fontWeight: FontWeight.w800),
+      );
+    }
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        for (final (j, c) in ([...cards]..sort((a, b) => a.index.compareTo(b.index))).indexed)
+          Transform.scale(
+            scale: _seg(k, j * .25, j * .25 + .6, Curves.easeOutBack),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 1),
+              child: Seal(loyal: c == Policy.loyal, size: 22),
+            ),
+          ),
+      ],
     );
   }
 
@@ -288,40 +357,42 @@ class _GovCard extends StatelessWidget {
     List<Policy>? truth,
     List<Policy>? claim,
     bool? lied,
-    int count,
     double real,
     double said,
     double stamp,
   ) {
-    const label = TextStyle(fontSize: 11, color: AppColors.goldLight, fontWeight: FontWeight.w700);
     return Expanded(
       child: Column(
         children: [
-          PlayerAvatar(avatar: avatar(id), size: 34, animate: false),
+          TableAvatar(avatar: avatar(id), size: 44, animate: false),
           Text(
             name(id),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 12.5),
+            style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 12.5, color: AppColors.ink, height: 1.15),
           ),
-          Text(role, style: const TextStyle(color: AppColors.muted, fontSize: 10.5)),
+          Text(
+            role,
+            style: const TextStyle(color: Color(0xFF7A5A3A), fontSize: 10.5, fontWeight: FontWeight.w700, height: 1.1),
+          ),
           const SizedBox(height: 2),
-          const Text('وصله', style: label),
-          _seals(truth, count, real),
+          _line('وصله', _seals(truth, real)),
           const SizedBox(height: 2),
-          const Text('قال', style: label),
-          claim == null
-              ? SizedBox(
-                  height: 22,
-                  child: Opacity(
+          _line(
+            'قال',
+            claim == null
+                ? Opacity(
                     opacity: said,
-                    child: const Text('ما قال شي', style: TextStyle(color: AppColors.muted, fontSize: 11.5)),
-                  ),
-                )
-              : _seals(claim, count, said),
-          const SizedBox(height: 4),
+                    child: const Text(
+                      'ما قال شي',
+                      style: TextStyle(color: Color(0xFF7A5A3A), fontSize: 11.5, fontWeight: FontWeight.w700),
+                    ),
+                  )
+                : _seals(claim, said),
+          ),
+          const SizedBox(height: 3),
           SizedBox(
-            height: 26,
+            height: 28,
             child: lied == null || stamp == 0
                 ? null
                 : Transform.rotate(
@@ -330,28 +401,36 @@ class _GovCard extends StatelessWidget {
                       scale: 1 + (1 - stamp) * 1.6,
                       child: Opacity(
                         opacity: stamp,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6),
-                          decoration: BoxDecoration(
-                            color: (lied ? AppColors.traitor : AppColors.green).withValues(alpha: .25),
-                            borderRadius: BorderRadius.circular(6),
-                            border: Border.all(color: lied ? AppColors.traitorLight : AppColors.green, width: 2),
-                          ),
-                          child: Text(
-                            lied ? 'كذاب' : 'صادق',
-                            style: TextStyle(
-                              fontFamily: kufi,
-                              fontWeight: FontWeight.w700,
-                              fontSize: 14,
-                              color: lied ? AppColors.traitorLight : const Color(0xFF6DE3A0),
-                            ),
-                          ),
-                        ),
+                        child: _Stamp(lied: lied),
                       ),
                     ),
                   ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// ختم «كذاب» (أحمر) أو «صادق» (أخضر) مثل ختم الحبر على الرق.
+class _Stamp extends StatelessWidget {
+  const _Stamp({required this.lied});
+
+  final bool lied;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = lied ? const Color(0xFFB3261E) : const Color(0xFF2B7A2A);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: .12),
+        borderRadius: BorderRadius.circular(7),
+        border: Border.all(color: color, width: 2.4),
+      ),
+      child: Text(
+        lied ? 'كذاب' : 'صادق',
+        style: TextStyle(fontFamily: kufi, fontWeight: FontWeight.w800, fontSize: 15, color: color, height: 1.15),
       ),
     );
   }
@@ -379,52 +458,59 @@ class _AwardsRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (t <= 0) return const SizedBox(height: 64);
+    if (t <= 0) return const SizedBox(height: 70);
     Widget award(int i, String? id, String title, String sub, Color color, String sticker) {
       final s = Curves.elasticOut.transform(_seg(t, i * .3, i * .3 + .8));
       return Transform.scale(
         scale: s,
-        child: Container(
-          width: 270,
-          height: 60,
-          padding: const EdgeInsets.symmetric(horizontal: 10),
-          decoration: BoxDecoration(
-            color: AppColors.panel.withValues(alpha: .96),
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: color, width: 2),
-            boxShadow: [BoxShadow(color: color.withValues(alpha: .35), blurRadius: 16)],
-          ),
-          child: Row(
-            children: [
-              if (id != null) PlayerAvatar(avatar: avatar(id), size: 42, frame: color, animate: false),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      style: TextStyle(fontFamily: kufi, fontWeight: FontWeight.w700, color: color, fontSize: 15),
+        child: SizedBox(
+          width: 276,
+          height: 70,
+          // لوح خشب بحافة ذهبية، وتوهج بلون الجائزة
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(19),
+              boxShadow: [BoxShadow(color: color.withValues(alpha: .4), blurRadius: 18)],
+            ),
+            child: GameHudPlank(
+              gold: true,
+              radius: 16,
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+              child: Row(
+                children: [
+                  if (id != null) TableAvatar(avatar: avatar(id), size: 50, ring: color, animate: false),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        OutlinedText(title, size: 16, color: color, align: TextAlign.start, maxLines: 1),
+                        Text(
+                          sub,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w800,
+                            fontSize: 12.5,
+                            color: Color(0xFFFFF3DA),
+                            height: 1.2,
+                          ),
+                        ),
+                      ],
                     ),
-                    Text(
-                      sub,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 12.5),
-                    ),
-                  ],
-                ),
+                  ),
+                  if (stickerById(sticker) case final st?) StickerView(sticker: st, size: 44, pop: false),
+                ],
               ),
-              if (stickerById(sticker) case final st?) StickerView(sticker: st, size: 44, pop: false),
-            ],
+            ),
           ),
         ),
       );
     }
 
     return SizedBox(
-      height: 64,
+      height: 70,
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
@@ -440,7 +526,7 @@ class _AwardsRow extends StatelessWidget {
           ),
           if (honest != null) ...[
             const SizedBox(width: 12),
-            award(1, honest, 'أصدق واحد', '${name(honest!)}: ما كذب ولا مرة', AppColors.green, 'inn_halo'),
+            award(1, honest, 'أصدق واحد', '${name(honest!)}: ما كذب ولا مرة', const Color(0xFF6DE3A0), 'inn_halo'),
           ],
         ],
       ),

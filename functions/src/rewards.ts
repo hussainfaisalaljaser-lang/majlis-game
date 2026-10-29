@@ -99,6 +99,14 @@ export function passPrice(s: PassState, full: boolean): number {
   return s.premium ? SEASON.full_price - SEASON.price : SEASON.full_price;
 }
 
+/**
+ * عنده VIP (طاولة النخبة)؟ لو اشترى الباتل باس المدفوع للموسم الشغال. لما يخلص الموسم أو يجي موسم جديد
+ * ما اشتراه، ينقفل عليه من جديد لين يشتري. العلامة اليدوية `vip` يعطيها المطوّر لنفسه أو لأحد (للتجربة والدعم).
+ */
+export function hasVip(p: Profile, now: number): boolean {
+  return p.vip === true || (seasonActive(now) && passOf(p).premium);
+}
+
 /** عنده الباتل باس كامل (كل الدرجات مفتوحة)؟ */
 export const passComplete = (s: PassState) => s.premium && s.points >= SEASON.tiers * SEASON.tier_points;
 

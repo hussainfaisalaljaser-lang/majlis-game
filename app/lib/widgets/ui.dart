@@ -4,34 +4,18 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../theme.dart';
+import 'design.dart';
 import 'fx.dart';
 
-/// خلفية اللعبة: ليل متدرج مع زخرفة عربية خفيفة تتكرر.
+/// خلفية اللعبة: جدار ألواح خشب دافي (التصميم الجديد)، وفوقه ضو خفيف بلون [glow].
 class NightBackground extends StatelessWidget {
-  const NightBackground({super.key, required this.child, this.glow = const Color(0xFF3A2A78)});
+  const NightBackground({super.key, required this.child, this.glow});
 
   final Widget child;
-  final Color glow;
+  final Color? glow;
 
   @override
-  Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        gradient: RadialGradient(
-          center: const Alignment(0, -1.2),
-          radius: 1.4,
-          colors: [glow, AppColors.bg],
-          stops: const [0, .65],
-        ),
-      ),
-      child: DecoratedBox(
-        decoration: const BoxDecoration(
-          image: DecorationImage(image: AssetImage('assets/images/pattern.png'), repeat: ImageRepeat.repeat, scale: 2),
-        ),
-        child: child,
-      ),
-    );
-  }
+  Widget build(BuildContext context) => WoodWall(glow: glow, child: child);
 }
 
 /// صفحة بخلفية الليل.
@@ -74,7 +58,7 @@ class NightScaffold extends StatelessWidget {
       );
     }
     return NightBackground(
-      glow: glow ?? const Color(0xFF3A2A78),
+      glow: glow,
       child: Scaffold(
         backgroundColor: Colors.transparent,
         appBar: appBar,
@@ -122,30 +106,31 @@ class _GameButtonState extends State<GameButton> with TickerProviderStateMixin {
   late final _ripple = AnimationController(vsync: this, duration: const Duration(milliseconds: 450));
   Offset _touch = Offset.zero;
 
+  /// (تدرج اللون، الحد الغامق، ظل العمق تحت، لون الكلام). الأساسي أحمر برتقالي مثل «البس» في التصميم.
   static const _tones = {
     ButtonTone.gold: (
-      [Color(0xFFFFE08A), Color(0xFFF2B53A), Color(0xFFD48B12)],
-      Color(0xFF8E5A07),
-      Color(0xFFFFF2C2),
-      AppColors.goldInk,
+      [Color(0xFFF36C44), Color(0xFFD6411F), Color(0xFFA7281A)],
+      Color(0xFF4C0D04),
+      Color(0xFF7A1A0C),
+      Color(0xFFFFF8E8),
     ),
     ButtonTone.green: (
-      [Color(0xFF6DE3A0), Color(0xFF2FBF71), Color(0xFF1E8E52)],
-      Color(0xFF11603A),
-      Color(0xFFC8FFE0),
-      Color(0xFF062814),
+      [Color(0xFF8BDB59), Color(0xFF4FAB31), Color(0xFF2E781D)],
+      Color(0xFF143A0B),
+      Color(0xFF1F5513),
+      Color(0xFFFFF8E8),
     ),
     ButtonTone.red: (
-      [Color(0xFFFF8C98), Color(0xFFE0314B), Color(0xFFA3172D)],
-      Color(0xFF6B0C1C),
-      Color(0xFFFFC9D0),
-      Colors.white,
+      [Color(0xFFE8584A), Color(0xFFB8231A), Color(0xFF7E140E)],
+      Color(0xFF3E0805),
+      Color(0xFF5E0E09),
+      Color(0xFFFFF8E8),
     ),
     ButtonTone.purple: (
-      [Color(0xFFA48BFF), Color(0xFF7C5CFF), Color(0xFF4B2DC2)],
-      Color(0xFF2A1680),
-      Color(0xFFDCD2FF),
-      Colors.white,
+      [Color(0xFF66B9F8), Color(0xFF2F83D9), Color(0xFF1B59A3)],
+      Color(0xFF0B2953),
+      Color(0xFF123F7A),
+      Color(0xFFFFF8E8),
     ),
   };
 
@@ -175,8 +160,9 @@ class _GameButtonState extends State<GameButton> with TickerProviderStateMixin {
     final enabled = widget.onPressed != null;
     final ghost = widget.tone == ButtonTone.ghost;
     final t = _tones[widget.tone];
-    final depth = ghost ? 0.0 : (_down ? 1.5 : 5.0);
+    final depth = ghost ? 0.0 : (_down ? 1.0 : 3.0);
     final fg = ghost ? AppColors.text : t!.$4;
+    final outline = ghost ? const Color(0xFF130B06) : t!.$2;
 
     return Semantics(
       button: true,
@@ -211,39 +197,60 @@ class _GameButtonState extends State<GameButton> with TickerProviderStateMixin {
                 height: widget.height,
                 margin: EdgeInsets.only(top: 5 - depth, bottom: depth),
                 decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(16),
+                  borderRadius: BorderRadius.circular(14),
                   gradient: ghost
                       ? null
-                      : LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: t!.$1),
-                  color: ghost ? Colors.white.withValues(alpha: .07) : null,
-                  border: Border.all(color: ghost ? Colors.white.withValues(alpha: .16) : t!.$3, width: 2),
+                      : LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: t!.$1, stops: const [0, .55, 1]),
+                  color: ghost ? const Color(0xFF2A1A10).withValues(alpha: .88) : null,
+                  border: Border.all(color: ghost ? const Color(0xFF8A6038) : outline, width: 3),
                   boxShadow: ghost
-                      ? null
+                      ? [BoxShadow(color: Colors.black.withValues(alpha: .35), blurRadius: 8, offset: const Offset(0, 3))]
                       : [
-                          BoxShadow(color: t!.$2, offset: Offset(0, depth)),
+                          BoxShadow(color: t!.$3, offset: Offset(0, depth)),
                           BoxShadow(
-                            color: Colors.black.withValues(alpha: .4),
-                            blurRadius: 14,
-                            offset: Offset(0, depth + 4),
+                            color: Colors.black.withValues(alpha: .38),
+                            blurRadius: 8,
+                            offset: Offset(0, depth + 3),
                           ),
                         ],
                 ),
                 alignment: Alignment.center,
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
+                child: Stack(
+                  fit: StackFit.expand,
                   children: [
-                    if (widget.icon != null) ...[widget.icon!, const SizedBox(width: 8)],
-                    Flexible(
-                      child: Text(
-                        widget.label,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontFamily: kufi,
-                          fontWeight: FontWeight.w700,
-                          fontSize: widget.fontSize,
-                          color: fg,
+                    // لمعة مدورة فوق الزر (مثل أزرار التصميم): شريط فاتح داخل الحد.
+                    if (!ghost)
+                      Positioned(
+                        left: 6,
+                        right: 6,
+                        top: 3,
+                        height: widget.height * .34,
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(widget.height * .2),
+                            gradient: LinearGradient(
+                              begin: Alignment.topCenter,
+                              end: Alignment.bottomCenter,
+                              colors: [Colors.white.withValues(alpha: .34), Colors.white.withValues(alpha: .12)],
+                            ),
+                          ),
                         ),
+                      ),
+                    Center(
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (widget.icon != null) ...[widget.icon!, const SizedBox(width: 8)],
+                          Flexible(
+                            child: OutlinedText(
+                              widget.label,
+                              maxLines: 1,
+                              size: widget.fontSize,
+                              color: fg,
+                              stroke: outline,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ],
@@ -272,7 +279,7 @@ class _RipplePainter extends CustomPainter {
     final v = p.value;
     if (v <= 0 || v >= 1) return;
     canvas.save();
-    canvas.clipRRect(RRect.fromRectAndRadius(Rect.fromLTWH(0, top, size.width, height), const Radius.circular(16)));
+    canvas.clipRRect(RRect.fromRectAndRadius(Rect.fromLTWH(0, top, size.width, height), const Radius.circular(14)));
     canvas.drawCircle(at, 12 + v * size.width * .9, Paint()..color = Colors.white.withValues(alpha: .35 * (1 - v)));
     canvas.restore();
   }
@@ -290,27 +297,7 @@ class GoldText extends StatelessWidget {
   final TextAlign align;
 
   @override
-  Widget build(BuildContext context) {
-    return ShaderMask(
-      shaderCallback: (r) => const LinearGradient(
-        begin: Alignment.topCenter,
-        end: Alignment.bottomCenter,
-        colors: [Color(0xFFFFE7A3), AppColors.gold, AppColors.goldDark],
-        stops: [0, .55, 1],
-      ).createShader(r),
-      child: Text(
-        text,
-        textAlign: align,
-        style: TextStyle(
-          fontFamily: kufi,
-          fontWeight: FontWeight.w700,
-          fontSize: size,
-          color: Colors.white,
-          height: 1.2,
-        ),
-      ),
-    );
-  }
+  Widget build(BuildContext context) => GoldTitle(text, size: size, align: align);
 }
 
 /// أيقونة من أيقونات اللعبة (بيضاء) بلون تختاره.
@@ -351,10 +338,18 @@ class Panel extends StatelessWidget {
     return Container(
       padding: padding,
       decoration: BoxDecoration(
-        color: gradient == null ? Colors.white.withValues(alpha: .05) : null,
+        color: gradient == null ? const Color(0xFF241509) : null,
+        image: gradient == null
+            ? DecorationImage(
+                image: const AssetImage(DesignAssets.woodPanel),
+                fit: BoxFit.cover,
+                colorFilter: ColorFilter.mode(Colors.black.withValues(alpha: .15), BlendMode.darken),
+              )
+            : null,
         gradient: gradient,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: borderColor ?? Colors.white.withValues(alpha: .1), width: 1.5),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: borderColor ?? const Color(0xFF7E5A36), width: 2),
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: .3), blurRadius: 8, offset: const Offset(0, 4))],
       ),
       child: child,
     );

@@ -1,129 +1,76 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
-import '../services/backend.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
+import '../widgets/design.dart';
 import '../widgets/fx.dart';
 import '../widgets/mode_theme.dart';
 import '../widgets/ui.dart';
 import 'private_screen.dart';
 import 'tables_screen.dart';
 
-/// وين يروح بعد ما يختار الطور.
-enum ModePurpose { random, private }
+/// اختيار الطور بعد «العب الآن»: بطاقتان كبيرتان، لكل طور خلفية تعبّر عنه وأيقونات تطفو.
+/// بعدها صفحة عدد اللاعبين والطاولات (أو صفحة الطاولة الخاصة لو جيت من «خاص»).
+class ModeScreen extends StatelessWidget {
+  const ModeScreen({super.key, this.private = false});
 
-/// أول شي قبل اللعب: يختار الطور (الكلاسيكي أو المطوّر)، وبعدها يكمل للطاولات أو الروم الخاص.
-class ModeScreen extends StatefulWidget {
-  const ModeScreen({super.key, required this.purpose});
+  /// جاي من «خاص»: يفتح صفحة الطاولة الخاصة بدل الطاولات العامة.
+  final bool private;
 
-  final ModePurpose purpose;
-
-  @override
-  State<ModeScreen> createState() => _ModeScreenState();
-}
-
-class _ModeScreenState extends State<ModeScreen> {
-  static const _lastKey = 'last_mode_roles';
-
-  /// آخر طور اختاره (عشان نعلّم عليه).
-  bool? _last;
+  void _go(BuildContext context, ModeTheme mode) => Navigator.of(context).push(
+    MaterialPageRoute(
+      builder: (_) => private ? PrivateScreen(mode: mode) : TablesScreen(mode: mode),
+    ),
+  );
 
   @override
-  void initState() {
-    super.initState();
-    _loadLast();
-  }
-
-  Future<void> _loadLast() async {
-    try {
-      final v = (await SharedPreferences.getInstance()).getBool(_lastKey);
-      if (mounted) setState(() => _last = v);
-    } catch (_) {}
-  }
-
-  Future<void> _pick(ModeTheme mode) async {
-    setState(() => _last = mode.roles);
-    try {
-      await (await SharedPreferences.getInstance()).setBool(_lastKey, mode.roles);
-    } catch (_) {}
-    if (!mounted) return;
-    final navigator = Navigator.of(context);
-    switch (widget.purpose) {
-      case ModePurpose.random:
-        navigator.push(MaterialPageRoute(builder: (_) => TablesScreen(mode: mode)));
-      case ModePurpose.private:
-        navigator.push(MaterialPageRoute(builder: (_) => PrivateScreen(mode: mode)));
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final (icon, title, cta) = switch (widget.purpose) {
-      ModePurpose.random => ('games', 'عشوائي', 'العب '),
-      // «ب» تلتصق بـ«ال»: كمّل بالكلاسيكي.
-      ModePurpose.private => ('friends', 'روم خاص', 'كمّل ب'),
-    };
-    return NightScaffold(
-      appBar: AppBar(
-        title: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [Gfx(icon, size: 30), const SizedBox(width: 8), Text('$title · اختر الطور')],
-        ),
-        actions: [
-          if (widget.purpose == ModePurpose.private)
-            Padding(
-              padding: const EdgeInsetsDirectional.only(end: 10),
-              child: TextButton.icon(
-                onPressed: Backend.instance.isReady ? () => joinRoomByCode(context) : null,
-                icon: const Gfx('key', size: 22),
-                label: const Text('عندك كود؟ ادخل روم صاحبك'),
-              ),
-            ),
-        ],
-      ),
-      body: SafeArea(
-        top: false,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 2, 16, 14),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              for (final (i, mode) in const [ModeTheme.classic, ModeTheme.advanced].indexed) ...[
-                if (i > 0) const SizedBox(width: 14),
+  Widget build(BuildContext context) => Scaffold(
+    backgroundColor: AppColors.bg,
+    body: Stack(
+      children: [
+        const Positioned.fill(child: ColoredBox(color: Color(0xFF160A05))),
+        SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(14, 8, 14, 14),
+            child: Column(
+              children: [
+                Row(
+                  children: [
+                    const BackArrow(height: 34),
+                    const SizedBox(width: 10),
+                    OutlinedText(private ? 'اختر الطور · خاص' : 'اختر الطور', size: 28, strokeWidth: 4),
+                  ],
+                ),
+                const SizedBox(height: 8),
                 Expanded(
-                  child: _ModeCard(
-                    mode: mode,
-                    cta: '$cta${mode.name}',
-                    last: _last == mode.roles,
-                    fresh: mode.roles,
-                    onTap: () => _pick(mode),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: _ModeCard(mode: ModeTheme.classic, onTap: () => _go(context, ModeTheme.classic)),
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: _ModeCard(mode: ModeTheme.advanced, onTap: () => _go(context, ModeTheme.advanced)),
+                      ),
+                    ],
                   ),
                 ),
               ],
-            ],
+            ),
           ),
         ),
-      ),
-    );
-  }
+      ],
+    ),
+  );
 }
 
-/// بطاقة الطور: خلفيته وحركته، ورسمته، واسمه، والأدوار اللي فيه، وزر يدخلك.
 class _ModeCard extends StatefulWidget {
-  const _ModeCard({required this.mode, required this.cta, required this.onTap, this.last = false, this.fresh = false});
+  const _ModeCard({required this.mode, required this.onTap});
 
   final ModeTheme mode;
-  final String cta;
   final VoidCallback onTap;
-
-  /// آخر طور لعبته.
-  final bool last;
-
-  /// شارة «جديد».
-  final bool fresh;
 
   @override
   State<_ModeCard> createState() => _ModeCardState();
@@ -132,351 +79,227 @@ class _ModeCard extends StatefulWidget {
 class _ModeCardState extends State<_ModeCard> {
   bool _down = false;
 
-  void _info() {
-    final m = widget.mode;
-    showDialog<void>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Row(
-          children: [
-            Gfx(m.icon, size: 28),
-            const SizedBox(width: 8),
-            ModeName(mode: m, size: 22),
-          ],
-        ),
-        content: SizedBox(
-          width: 440,
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  m.tagline,
-                  style: const TextStyle(color: AppColors.muted, fontWeight: FontWeight.w700),
-                ),
-                const SizedBox(height: 10),
-                for (final (icon, name, what) in m.cast)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 6),
-                    child: Row(
-                      children: [
-                        Gfx(icon, size: 28),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Text.rich(
-                            TextSpan(
-                              children: [
-                                TextSpan(
-                                  text: '$name: ',
-                                  style: const TextStyle(fontWeight: FontWeight.w900),
-                                ),
-                                TextSpan(text: what),
-                              ],
-                            ),
-                            style: const TextStyle(fontSize: 14, height: 1.5),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                if (m.roles)
-                  const Text(
-                    'الأدوار الخاصة تنعطى لبعض اللاعبين، وفوقها الزعيم والخونة والأوفياء مثل الكلاسيكي.',
-                    style: TextStyle(color: AppColors.muted, fontSize: 12.5, height: 1.5),
-                  ),
-              ],
-            ),
-          ),
-        ),
-        actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('تمام'))],
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final m = widget.mode;
     return Semantics(
       button: true,
       label: 'الطور ${m.name}: ${m.hint}',
+      excludeSemantics: true,
       child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
         onTapDown: (_) => setState(() => _down = true),
         onTapCancel: () => setState(() => _down = false),
         onTapUp: (_) => setState(() => _down = false),
         onTap: widget.onTap,
         child: AnimatedScale(
-          scale: _down ? .975 : 1,
-          duration: const Duration(milliseconds: 120),
-          child: Container(
-            clipBehavior: Clip.antiAlias,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(24),
-              border: Border.all(color: m.accentLight.withValues(alpha: .6), width: 2),
-              boxShadow: [
-                BoxShadow(color: m.glow.withValues(alpha: .5), blurRadius: 26, offset: const Offset(0, 6)),
-                const BoxShadow(color: Colors.black54, blurRadius: 12, offset: Offset(0, 8)),
-              ],
-            ),
-            child: Stack(
-              children: [
-                Positioned.fill(child: ModeBackdrop(mode: m, density: .8)),
-                // خط ذهبي رفيع جوا الحافة.
-                Positioned.fill(
-                  child: Padding(
-                    padding: const EdgeInsets.all(6),
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(19),
-                        border: Border.all(color: m.title[1].withValues(alpha: .22)),
+          scale: _down ? .965 : 1,
+          duration: const Duration(milliseconds: 140),
+          curve: Curves.easeOut,
+          child: RepaintBoundary(
+            child: FxClock(
+              builder: (context, time) => ValueListenableBuilder<double>(
+                valueListenable: time,
+                builder: (context, t, _) {
+                  final pulse = .5 + .5 * math.sin(t * 1.6);
+                  return Container(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(26),
+                      border: Border.all(color: const Color(0xFF2A1608), width: 4),
+                      boxShadow: [
+                        BoxShadow(
+                          color: m.glow.withValues(alpha: .35 + .25 * pulse),
+                          blurRadius: 18 + 8 * pulse,
+                        ),
+                      ],
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(22),
+                      child: Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          ModeBackdrop(mode: m, density: 1.4),
+                          CustomPaint(painter: _ModeArtPainter(m, t)),
+                          _content(m, t),
+                          DecoratedBox(
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(22),
+                              border: Border.all(color: m.accentLight.withValues(alpha: .55), width: 2),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 14),
-                  child: Column(
-                    children: [
-                      Expanded(
-                        child: m.roles ? _AdvancedEmblem(mode: m) : _ClassicEmblem(mode: m),
-                      ),
-                      ModeName(mode: m, size: 30),
-                      Text(
-                        m.tagline,
-                        textAlign: TextAlign.center,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: 12.5,
-                          color: Colors.white.withValues(alpha: .85),
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      _Cast(mode: m),
-                      const SizedBox(height: 10),
-                      GameButton(
-                        label: widget.cta,
-                        icon: Gfx(m.icon, size: 24),
-                        tone: m.button,
-                        height: 44,
-                        fontSize: 17,
-                        onPressed: widget.onTap,
-                      ),
-                    ],
-                  ),
-                ),
-                if (widget.fresh) const PositionedDirectional(top: 14, start: 14, child: _Pill('جديد', hot: true)),
-                if (widget.last) const PositionedDirectional(top: 14, end: 52, child: _Pill('آخر طور لعبته')),
-                PositionedDirectional(
-                  top: 6,
-                  end: 6,
-                  child: IconButton(
-                    tooltip: 'وش فيه؟',
-                    onPressed: _info,
-                    icon: Icon(Icons.info_outline_rounded, color: m.accentLight, size: 24),
-                  ),
-                ),
-              ],
+                  );
+                },
+              ),
             ),
           ),
         ),
       ),
     );
   }
-}
 
-class _Pill extends StatelessWidget {
-  const _Pill(this.text, {this.hot = false});
-
-  final String text;
-  final bool hot;
-
-  @override
-  Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 2),
-    decoration: BoxDecoration(
-      borderRadius: BorderRadius.circular(10),
-      color: hot ? AppColors.traitor : Colors.black.withValues(alpha: .45),
-      border: Border.all(color: Colors.white.withValues(alpha: hot ? .5 : .2)),
-    ),
-    child: Text(text, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800)),
-  );
-}
-
-/// الأدوار اللي في الطور: أيقونة واسم تحتها.
-class _Cast extends StatelessWidget {
-  const _Cast({required this.mode});
-
-  final ModeTheme mode;
-
-  @override
-  Widget build(BuildContext context) => Row(
-    mainAxisAlignment: MainAxisAlignment.center,
-    children: [
-      for (final (icon, name, _) in mode.cast)
-        SizedBox(
-          width: mode.cast.length > 3 ? 58 : 76,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 34,
-                height: 34,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: Colors.black.withValues(alpha: .35),
-                  border: Border.all(color: mode.accentLight.withValues(alpha: .35)),
-                ),
-                child: Gfx(icon, size: 24),
-              ),
-              const SizedBox(height: 2),
-              Text(name, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800)),
-            ],
+  /// الأيقونات تطفو فوق، والاسم والوصف وزر «العب الآن» تحت.
+  Widget _content(ModeTheme m, double t) => LayoutBuilder(
+    builder: (context, box) {
+      final s = (box.maxHeight / 290).clamp(.62, 1.3);
+      final n = m.cast.length;
+      return Column(
+        children: [
+          Expanded(
+            flex: 5,
+            child: Stack(
+              children: [
+                for (final (i, c) in m.cast.indexed)
+                  Align(
+                    alignment: Alignment(n == 1 ? 0 : -.74 + 1.48 * i / (n - 1), -.25 + (i.isOdd ? .3 : -.1)),
+                    child: Transform.translate(
+                      offset: Offset(math.sin(t * .7 + i) * 4 * s, math.sin(t * 1.25 + i * 1.7) * 7 * s),
+                      child: Transform.rotate(
+                        angle: math.sin(t * .9 + i * 1.3) * .1,
+                        child: Container(
+                          width: 64 * s,
+                          height: 64 * s,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            gradient: RadialGradient(
+                              colors: [m.accentLight.withValues(alpha: .35), m.glow.withValues(alpha: .0)],
+                            ),
+                          ),
+                          alignment: Alignment.center,
+                          child: Gfx(c.$1, size: 44 * s),
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
           ),
-        ),
-    ],
-  );
-}
-
-/// رسمة الكلاسيكي: كروت الأدوار الثلاثة (الوفي والزعيم والخاين) ووراها توهج أحمر، والزعيم يطفو بشويش.
-class _ClassicEmblem extends StatelessWidget {
-  const _ClassicEmblem({required this.mode});
-
-  final ModeTheme mode;
-
-  @override
-  Widget build(BuildContext context) => LayoutBuilder(
-    builder: (context, box) {
-      final base = math.min(box.maxHeight, 170.0);
-      final big = base * .92, side = base * .66;
-      return FxClock(
-        builder: (context, time) => AnimatedBuilder(
-          animation: time,
-          builder: (context, _) {
-            final t = time.value;
-            final float = math.sin(t * 1.6) * base * .03;
-            return Stack(
-              alignment: Alignment.center,
-              clipBehavior: Clip.none,
-              children: [
-                Container(
-                  width: base * 1.5,
-                  height: base * 1.1,
-                  decoration: BoxDecoration(
-                    gradient: RadialGradient(
-                      colors: [
-                        mode.glow.withValues(alpha: .55 + .1 * math.sin(t * 2)),
-                        mode.glow.withValues(alpha: 0),
-                      ],
-                    ),
+          Expanded(
+            flex: 4,
+            child: Padding(
+              padding: EdgeInsets.fromLTRB(14 * s, 0, 14 * s, 12 * s),
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(maxWidth: math.max(200, box.maxWidth - 28 * s)),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      OutlinedText(m.name, size: 40, strokeWidth: 5, gradient: m.title),
+                      const SizedBox(height: 2),
+                      Text(
+                        m.tagline,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          fontSize: 14.5,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFFFFF0D2),
+                          height: 1.35,
+                          shadows: [Shadow(color: Color(0xCC000000), blurRadius: 4)],
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      SizedBox(
+                        width: 200,
+                        child: GameButton(
+                          label: 'العب الآن',
+                          tone: m.button,
+                          height: 46,
+                          fontSize: 20,
+                          semantics: 'العب الآن بطور ${m.name}',
+                          onPressed: widget.onTap,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-                Transform.translate(
-                  offset: Offset(-base * .68, base * .1),
-                  child: Transform.rotate(angle: -.26, child: Gfx('card_shield', size: side)),
-                ),
-                Transform.translate(
-                  offset: Offset(base * .68, base * .1),
-                  child: Transform.rotate(angle: .26, child: Gfx('card_dagger', size: side)),
-                ),
-                Transform.translate(
-                  offset: Offset(0, -base * .04 + float),
-                  child: Gfx('card_scorpion', size: big),
-                ),
-              ],
-            );
-          },
-        ),
+              ),
+            ),
+          ),
+        ],
       );
     },
   );
 }
 
-/// رسمة المطوّر: كرة العرّاف تضوي في النص، والأدوار الثانية تلف حولها في مدار.
-class _AdvancedEmblem extends StatelessWidget {
-  const _AdvancedEmblem({required this.mode});
+/// رسمة الطور فوق الخلفية: الكلاسيكي شمس غروب وكثبان تمشي ببطء، والمطوّر هالات ملونة وحلقة تدور.
+class _ModeArtPainter extends CustomPainter {
+  _ModeArtPainter(this.mode, this.t);
 
   final ModeTheme mode;
-
-  static const _orbit = ['shield', 'scales', 'ballot', 'eye'];
-
-  @override
-  Widget build(BuildContext context) => LayoutBuilder(
-    builder: (context, box) {
-      final base = math.min(box.maxHeight, 170.0);
-      final rx = math.min(box.maxWidth / 2 - base * .22, base * 1.05), ry = base * .26;
-      final center = base * .66, small = base * .34;
-      return FxClock(
-        builder: (context, time) => AnimatedBuilder(
-          animation: time,
-          builder: (context, _) {
-            final t = time.value;
-            final pulse = .5 + .5 * math.sin(t * 2.2);
-            // كل أيقونة: زاويتها في المدار، واللي ورا تصغر وتبهت.
-            final orbiters = [for (final (i, icon) in _orbit.indexed) (icon: icon, a: t * .5 + i * math.pi / 2)]
-              ..sort((x, y) => math.sin(x.a).compareTo(math.sin(y.a)));
-            Widget orbiter(({String icon, double a}) o) {
-              final depth = (math.sin(o.a) + 1) / 2;
-              return Transform.translate(
-                offset: Offset(math.cos(o.a) * rx, math.sin(o.a) * ry + base * .02),
-                child: Opacity(
-                  opacity: .55 + .45 * depth,
-                  child: Gfx(o.icon, size: small * (.78 + .22 * depth)),
-                ),
-              );
-            }
-
-            return Stack(
-              alignment: Alignment.center,
-              clipBehavior: Clip.none,
-              children: [
-                // المدار نفسه: خط بيضاوي خفيف.
-                CustomPaint(size: Size(rx * 2, ry * 2), painter: _OrbitPainter(mode.accentLight)),
-                for (final o in orbiters.where((o) => math.sin(o.a) < 0)) orbiter(o),
-                Container(
-                  width: center * (1.7 + .15 * pulse),
-                  height: center * (1.7 + .15 * pulse),
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    gradient: RadialGradient(
-                      colors: [
-                        mode.accentLight.withValues(alpha: .45 + .2 * pulse),
-                        mode.accent.withValues(alpha: .25),
-                        mode.accent.withValues(alpha: 0),
-                      ],
-                      stops: const [0, .45, 1],
-                    ),
-                  ),
-                ),
-                Gfx('seer', size: center),
-                for (final o in orbiters.where((o) => math.sin(o.a) >= 0)) orbiter(o),
-              ],
-            );
-          },
-        ),
-      );
-    },
-  );
-}
-
-class _OrbitPainter extends CustomPainter {
-  _OrbitPainter(this.color);
-
-  final Color color;
+  final double t;
 
   @override
   void paint(Canvas canvas, Size size) {
-    canvas.drawOval(
-      Offset.zero & size,
-      Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 1.2
-        ..color = color.withValues(alpha: .28),
-    );
+    final w = size.width, h = size.height;
+    if (!mode.stars) {
+      // شمس تغرب وتتنفس
+      final sun = Offset(w * .5, h * .58);
+      final r = h * (.12 + .008 * math.sin(t * .8));
+      canvas.drawCircle(
+        sun,
+        r * 2.4,
+        Paint()
+          ..shader = RadialGradient(colors: [const Color(0xFFFFB04A).withValues(alpha: .5), const Color(0x00FFB04A)])
+              .createShader(Rect.fromCircle(center: sun, radius: r * 2.4)),
+      );
+      canvas.drawCircle(sun, r, Paint()..color = const Color(0xFFFFC46B).withValues(alpha: .85));
+      // كثبان بثلاث طبقات تمشي بسرعات مختلفة
+      for (var k = 0; k < 3; k++) {
+        final base = h * (.66 + .09 * k);
+        final path = Path()..moveTo(0, h);
+        for (var x = 0.0; x <= w; x += 8) {
+          final y =
+              base + math.sin(x * .012 + t * (.12 + .08 * k) + k * 2) * h * .035 + math.sin(x * .03 + k) * h * .012;
+          path.lineTo(x, y);
+        }
+        path
+          ..lineTo(w, h)
+          ..close();
+        canvas.drawPath(
+          path,
+          Paint()..color = Color.lerp(const Color(0xFF6A1F22), const Color(0xFF1C0709), k / 2)!.withValues(alpha: .85),
+        );
+      }
+    } else {
+      // هالات ملونة تتحرك، وحلقة تدور حول الأيقونات
+      for (var i = 0; i < 3; i++) {
+        final c = Offset(
+          w * (.25 + .25 * i) + math.sin(t * .4 + i * 2) * w * .06,
+          h * (.3 + .1 * math.cos(t * .35 + i)),
+        );
+        final col = [const Color(0xFF7C4DFF), const Color(0xFF3FD0FF), const Color(0xFFB07CFF)][i];
+        canvas.drawCircle(
+          c,
+          h * .42,
+          Paint()
+            ..shader = RadialGradient(colors: [col.withValues(alpha: .26), col.withValues(alpha: 0)])
+                .createShader(Rect.fromCircle(center: c, radius: h * .42)),
+        );
+      }
+      final c = Offset(w * .5, h * .3);
+      final ringR = math.min(w * .44, h * .27);
+      canvas.drawCircle(
+        c,
+        ringR,
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1.6
+          ..color = mode.accentLight.withValues(alpha: .22),
+      );
+      for (var i = 0; i < 5; i++) {
+        final a = t * .35 + i * 2 * math.pi / 5;
+        canvas.drawCircle(
+          c + Offset(math.cos(a), math.sin(a) * .55) * ringR,
+          2.6,
+          Paint()..color = mode.accentLight.withValues(alpha: .8),
+        );
+      }
+    }
   }
 
   @override
-  bool shouldRepaint(_OrbitPainter old) => old.color != color;
+  bool shouldRepaint(_ModeArtPainter old) => old.t != t || old.mode != mode;
 }

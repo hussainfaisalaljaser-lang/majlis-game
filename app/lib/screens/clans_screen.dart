@@ -11,46 +11,52 @@ import '../services/backend.dart';
 import '../theme.dart';
 import '../widgets/clan_crest.dart';
 import '../widgets/common.dart';
+import '../widgets/design.dart';
+import '../widgets/design_social.dart';
 import '../widgets/player_card.dart';
-import '../widgets/ui.dart';
 import 'chat_screen.dart';
 
 /// الدواوين: لو ما عندك ديوان تسوي واحد أو تدخل واحد من الترتيب (أو بدعوة)، ولو عندك تشوف ديوانك: وصفه
-/// وشروطه، والأعضاء برتبهم ومين متصل، والدردشة، والدعوات والطلبات، وهدف الأسبوع.
+/// وشروطه، والأعضاء برتبهم ومين متصل، والدردشة (تنفتح مكان الترتيب)، والدعوات والطلبات، وهدف الأسبوع.
 /// النقاط من الطاولات العامة بس: كل لعبة لعضو ١٠ نقاط، والفوز ٣٠.
-class ClansScreen extends StatelessWidget {
+class ClansScreen extends StatefulWidget {
   const ClansScreen({super.key});
 
   @override
-  Widget build(BuildContext context) => NightScaffold(
-    appBar: AppBar(
-      title: const Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [Gfx('shield', size: 30), SizedBox(width: 8), Text('الدواوين')],
-      ),
-    ),
-    body: SafeArea(
-      top: false,
-      child: ValueListenableBuilder(
-        valueListenable: Backend.instance.profile,
-        builder: (context, p, _) => Padding(
-          padding: const EdgeInsets.fromLTRB(14, 0, 14, 12),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Expanded(
-                flex: 11,
-                child: p.clan == null ? const _CreateClan() : _MyClan(key: ValueKey(p.clan!.id), id: p.clan!.id),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                flex: 10,
-                child: _Ranking(mine: p.clan?.id, canJoin: p.clan == null),
-              ),
-            ],
-          ),
-        ),
-      ),
+  State<ClansScreen> createState() => _ClansScreenState();
+}
+
+class _ClansScreenState extends State<ClansScreen> {
+  /// دردشة الديوان مفتوحة مكان الترتيب.
+  bool _chat = false;
+
+  @override
+  Widget build(BuildContext context) => SocScaffold(
+    title: 'الدواوين',
+    icon: const Gfx('shield', size: 30),
+    currency: false,
+    body: ValueListenableBuilder(
+      valueListenable: Backend.instance.profile,
+      builder: (context, p, _) {
+        final clan = p.clan;
+        // طلعت من الديوان: الدردشة ترجع مغلقة للديوان الجاي.
+        if (clan == null) _chat = false;
+        return SocTwoPanels(
+          mainFlex: clan != null && _chat ? 11 : 15,
+          sideFlex: clan != null && _chat ? 10 : 8,
+          main: clan == null
+              ? const _CreateClan()
+              : _MyClan(
+                  key: ValueKey(clan.id),
+                  id: clan.id,
+                  chatOpen: _chat,
+                  onChat: () => setState(() => _chat = !_chat),
+                ),
+          side: clan != null && _chat
+              ? ChatPanel.clan(key: ValueKey('chat_${clan.id}'), clan: clan)
+              : _Ranking(mine: clan?.id, canJoin: clan == null),
+        );
+      },
     ),
   );
 }
@@ -76,7 +82,7 @@ class _CreateClan extends StatefulWidget {
 class _CreateClanState extends State<_CreateClan> {
   final _name = TextEditingController();
   int _color = 0;
-  String _emblem = freeAvatars.first;
+  String _emblem = '$clanSymbolPrefix${clanSymbols.first}';
   bool _busy = false;
 
   @override
@@ -98,58 +104,106 @@ class _CreateClanState extends State<_CreateClan> {
   @override
   Widget build(BuildContext context) {
     final p = Backend.instance.profile.value;
+    return CreateClanView(
+      name: _name,
+      color: _color,
+      emblem: _emblem,
+      busy: _busy,
+      label: _busy ? 'لحظة…' : (p.dev ? 'سوّ الديوان' : 'سوّ الديوان بـ${arabicNumber(clanPrice)} ذهب'),
+      onName: () => setState(() {}),
+      onColor: (i) => setState(() => _color = i),
+      onEmblem: (a) => setState(() => _emblem = a),
+      onCreate: _busy || _name.text.trim().length < 3 ? null : _create,
+      inviteBanner: p.clanInvites.isEmpty ? null : _InviteBanner(invites: p.clanInvites),
+    );
+  }
+}
+
+/// شكل صفحة «سوّ ديوانك»: ما تلمس السيرفر.
+class CreateClanView extends StatelessWidget {
+  const CreateClanView({
+    super.key,
+    required this.name,
+    required this.color,
+    required this.emblem,
+    required this.busy,
+    required this.label,
+    required this.onName,
+    required this.onColor,
+    required this.onEmblem,
+    required this.onCreate,
+    this.inviteBanner,
+  });
+
+  final TextEditingController name;
+  final int color;
+  final String emblem;
+  final bool busy;
+  final String label;
+  final VoidCallback onName;
+  final ValueChanged<int> onColor;
+  final ValueChanged<String> onEmblem;
+  final VoidCallback? onCreate;
+  final Widget? inviteBanner;
+
+  @override
+  Widget build(BuildContext context) {
+    Widget caption(String t) => SizedBox(
+      width: 56,
+      child: Text(
+        t,
+        style: const TextStyle(fontFamily: kufi, fontWeight: FontWeight.w800, fontSize: 15, color: socCream),
+      ),
+    );
     // كل شي يبان بدون تمرير (الشاشة بالعرض قصيرة).
-    return Panel(
-      padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
+    return VelvetPanel(
+      padding: const EdgeInsets.fromLTRB(22, 14, 22, 14),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          if (p.clanInvites.isNotEmpty) ...[_InviteBanner(invites: p.clanInvites), const SizedBox(height: 8)],
+          ?inviteBanner,
+          if (inviteBanner != null) const SizedBox(height: 8),
           Row(
             children: [
-              ClanCrest(color: clanColors[_color], emblem: _emblem, size: 58),
-              const SizedBox(width: 12),
+              ClanCrest(color: clanColors[color], emblem: emblem, size: 72),
+              const SizedBox(width: 14),
               Expanded(
                 child: TextField(
-                  controller: _name,
+                  controller: name,
                   maxLength: 20,
-                  decoration: const InputDecoration(
-                    labelText: 'اسم ديوانك',
-                    hintText: 'مثلاً: ديوان الصقور',
-                    counterText: '',
-                    isDense: true,
-                  ),
-                  onChanged: (_) => setState(() {}),
+                  style: const TextStyle(fontFamily: kufi, fontWeight: FontWeight.w800, fontSize: 18, color: socCream),
+                  decoration: socInput(hint: 'اسم ديوانك (مثلاً: ديوان الصقور)', dense: false),
+                  onChanged: (_) => onName(),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 10),
           Row(
             children: [
-              const SizedBox(
-                width: 52,
-                child: Text('اللون', style: TextStyle(fontWeight: FontWeight.w800)),
-              ),
+              caption('اللون'),
               for (final (i, c) in clanColors.indexed)
                 Padding(
-                  padding: const EdgeInsetsDirectional.only(end: 6),
+                  padding: const EdgeInsetsDirectional.only(end: 7),
                   child: Semantics(
                     button: true,
                     label: 'لون ${i + 1}',
                     excludeSemantics: true,
                     child: GestureDetector(
-                      onTap: () => setState(() => _color = i),
+                      onTap: () => onColor(i),
                       child: Container(
-                        width: 26,
-                        height: 26,
+                        width: 28,
+                        height: 28,
                         decoration: BoxDecoration(
                           color: c,
                           shape: BoxShape.circle,
                           border: Border.all(
-                            color: i == _color ? AppColors.gold : Colors.white24,
-                            width: i == _color ? 3 : 1,
+                            color: i == color ? const Color(0xFFFFE08A) : const Color(0xFF2A1608),
+                            width: i == color ? 3 : 2,
                           ),
+                          boxShadow: i == color
+                              ? [BoxShadow(color: const Color(0xFFF2B33E).withValues(alpha: .7), blurRadius: 8)]
+                              : null,
                         ),
                       ),
                     ),
@@ -157,33 +211,44 @@ class _CreateClanState extends State<_CreateClan> {
                 ),
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 10),
           Row(
             children: [
-              const SizedBox(
-                width: 52,
-                child: Text('الشعار', style: TextStyle(fontWeight: FontWeight.w800)),
-              ),
+              caption('الشعار'),
               Expanded(
                 child: SizedBox(
-                  height: 42,
+                  height: 54,
                   child: ListView(
                     scrollDirection: Axis.horizontal,
+                    clipBehavior: Clip.none,
                     children: [
-                      for (final a in freeAvatars)
+                      for (final a in [for (final s in clanSymbols) '$clanSymbolPrefix$s', ...freeAvatars])
                         Padding(
-                          padding: const EdgeInsetsDirectional.only(end: 6),
+                          padding: const EdgeInsetsDirectional.only(end: 8),
                           child: Semantics(
                             button: true,
                             label: 'شعار $a',
                             excludeSemantics: true,
                             child: GestureDetector(
-                              onTap: () => setState(() => _emblem = a),
-                              child: PlayerAvatar(
-                                avatar: a,
-                                size: 40,
-                                animate: false,
-                                frame: a == _emblem ? AppColors.gold : null,
+                              onTap: () => onEmblem(a),
+                              child: Center(
+                                child: switch (clanSymbolOf(a)) {
+                                  final sym? => Container(
+                                    width: 40,
+                                    height: 40,
+                                    alignment: Alignment.center,
+                                    decoration: BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      color: const Color(0xFF2A1A10),
+                                      border: Border.all(
+                                        color: a == emblem ? const Color(0xFFF2C75A) : const Color(0xFF4F7FD8),
+                                        width: 2.5,
+                                      ),
+                                    ),
+                                    child: Gfx(sym, size: 24),
+                                  ),
+                                  _ => SocAvatar(avatar: a, size: 40, ring: a == emblem ? SocRing.gold : SocRing.blue),
+                                },
                               ),
                             ),
                           ),
@@ -196,17 +261,18 @@ class _CreateClanState extends State<_CreateClan> {
           ),
           const Spacer(),
           const Text(
-            'ديوان مع ربعك (بالكثير ٣٠)، وكل لعبة بطاولة عامة تزيد نقاطكم هالأسبوع. الوصف والشروط من الإعدادات بعدين',
+            'ديوان مع ربعك (بالكثير ٣٠)، وكل لعبة بطاولة عامة تزيد نقاطكم هالأسبوع. الوصف والشروط من الإعدادات لاحقاً',
             textAlign: TextAlign.center,
-            style: TextStyle(color: AppColors.muted, fontSize: 12),
+            style: TextStyle(color: socMuted, fontSize: 12.5, fontFamily: kufi, fontWeight: FontWeight.w700),
           ),
-          const SizedBox(height: 6),
-          GameButton(
-            label: _busy ? 'لحظة…' : (p.dev ? 'سوّ الديوان' : 'سوّ الديوان بـ${arabicNumber(clanPrice)} ذهب'),
+          const SizedBox(height: 8),
+          SocButton(
+            label: label,
+            tone: SocTone.orange,
             icon: const Gfx('shield', size: 26),
             height: 46,
-            fontSize: 16,
-            onPressed: _busy || _name.text.trim().length < 3 ? null : _create,
+            fontSize: 18,
+            onPressed: onCreate,
           ),
         ],
       ),
@@ -216,9 +282,11 @@ class _CreateClanState extends State<_CreateClan> {
 
 /// ديوانك: الشعار والمستوى والأعضاء، وهدف الأسبوع وصندوقه.
 class _MyClan extends StatelessWidget {
-  const _MyClan({super.key, required this.id});
+  const _MyClan({super.key, required this.id, required this.chatOpen, required this.onChat});
 
   final String id;
+  final bool chatOpen;
+  final VoidCallback onChat;
 
   @override
   Widget build(BuildContext context) => StreamBuilder<Clan?>(
@@ -226,371 +294,758 @@ class _MyClan extends StatelessWidget {
     builder: (context, snap) {
       final clan = snap.data;
       if (clan == null) {
-        return const Panel(
+        return const VelvetPanel(
           child: Center(child: CircularProgressIndicator(color: AppColors.gold)),
         );
       }
       final me = Backend.instance.uid;
-      final mine = clan.member(me);
-      final power = mine?.role.power ?? 0;
-      final reached = clan.points >= clanGoal;
-      final played = (mine?.points ?? 0) > 0;
-      final claimed = clan.claimed.contains(me);
-      return Panel(
-        padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Row(
-              children: [
-                ClanCrest.of(clan.tag, size: 66),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      GoldText(clan.name, size: 22, align: TextAlign.start),
-                      const SizedBox(height: 2),
-                      Wrap(
-                        spacing: 6,
-                        runSpacing: 3,
-                        children: [
-                          _pill('المستوى ${arabicNumber(clan.level)}', AppColors.gold),
-                          _pill('${arabicNumber(clan.count)} من ${arabicNumber(clanMax)} عضو', AppColors.muted),
-                          ..._conditions(clan),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-                TextButton(
-                  onPressed: () => _leave(context, clan),
-                  child: const Text('اطلع', style: TextStyle(color: AppColors.traitorLight)),
-                ),
-              ],
-            ),
-            if (clan.desc.isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.only(top: 4),
-                child: Text(
-                  clan.desc,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(color: Color(0xFFD9CFFF), fontSize: 12.5, fontWeight: FontWeight.w600),
-                ),
-              ),
-            const SizedBox(height: 6),
-            // الدردشة، والدعوة والطلبات (الوجهاء وفوق)، والإعدادات (الشيخ ونوابه).
-            Row(
-              children: [
-                _NewMessages(
-                  clan: clan,
-                  builder: (fresh) => _Action(
-                    icon: 'chat',
-                    label: 'الدردشة',
-                    dot: fresh,
-                    onTap: () =>
-                        Navigator.of(context).push(MaterialPageRoute(builder: (_) => ChatScreen.clan(clan: clan.tag))),
-                  ),
-                ),
-                if (power >= ClanRole.elder.power) ...[
-                  const SizedBox(width: 6),
-                  _Action(icon: 'invite', label: 'دعوة', onTap: () => _invite(context, clan)),
-                  if (clan.join == ClanJoin.request || clan.requests.isNotEmpty) ...[
-                    const SizedBox(width: 6),
-                    _Action(
-                      icon: 'addfriend',
-                      label: 'الطلبات',
-                      count: clan.requests.length,
-                      onTap: () => _requests(context, clan),
-                    ),
-                  ],
-                ],
-                if (power >= ClanRole.deputy.power) ...[
-                  const SizedBox(width: 6),
-                  _Action(icon: 'tools', label: 'الإعدادات', onTap: () => _settings(context, clan)),
-                ],
-              ],
-            ),
-            const SizedBox(height: 8),
-            // هدف الأسبوع وصندوقه
-            Container(
-              padding: const EdgeInsets.fromLTRB(10, 6, 10, 8),
-              decoration: BoxDecoration(
-                color: AppColors.gold.withValues(alpha: .07),
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: AppColors.gold.withValues(alpha: .4)),
-              ),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'هدف الأسبوع: ${arabicNumber(clan.points)} من ${arabicNumber(clanGoal)} نقطة'
-                          '${reached ? '' : ' · اللعبة العامة ١٠ والفوز ٣٠'}',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 12.5),
-                        ),
-                        const SizedBox(height: 4),
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(6),
-                          child: LinearProgressIndicator(
-                            value: (clan.points / clanGoal).clamp(0.0, 1.0),
-                            minHeight: 9,
-                            backgroundColor: Colors.black38,
-                            color: AppColors.gold,
-                          ),
-                        ),
-                        if (reached) ...[
-                          const SizedBox(height: 3),
-                          Text(
-                            claimed
-                                ? 'استلمت صندوق هالأسبوع'
-                                : (played ? 'وصلتوا الهدف! استلم صندوقك' : 'العب مع ديوانك وتستلم الصندوق'),
-                            style: const TextStyle(color: AppColors.muted, fontSize: 11.5),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Column(
-                    children: [
-                      Opacity(opacity: reached && !claimed ? 1 : .45, child: const Gfx('gem_chest', size: 34)),
-                      if (reached && played && !claimed)
-                        SizedBox(
-                          height: 30,
-                          child: TextButton(
-                            onPressed: () => _run(
-                              context,
-                              Backend.instance.claimClanChest,
-                              'استلمت ${arabicNumber(clanChest.coins)} ذهب و${arabicNumber(clanChest.diamonds)} جواهر',
-                            ),
-                            child: const Text('استلم'),
-                          ),
-                        ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 8),
-            Expanded(
-              child: GridView.extent(
-                maxCrossAxisExtent: 86,
-                childAspectRatio: .78,
-                mainAxisSpacing: 6,
-                crossAxisSpacing: 6,
-                children: [for (final m in clan.members) _MemberCell(clan: clan, member: m, me: mine)],
-              ),
-            ),
-          ],
+      return _NewMessages(
+        clan: clan,
+        builder: (fresh) => ClanPanelView(
+          clan: clan,
+          myUid: me,
+          chatFresh: fresh,
+          chatOpen: chatOpen,
+          memberBuilder: (m, big) => _OnlineMember(clan: clan, member: m, big: big),
+          onLeave: () => _leave(context, clan),
+          onChat: onChat,
+          onInvite: () => _invite(context, clan),
+          onRequests: () => _requests(context, clan),
+          onSettings: () => _settings(context, clan),
+          onClaim: () => _run(
+            context,
+            Backend.instance.claimClanChest,
+            'استلمت ${arabicNumber(clanChest.coins)} ذهب و${arabicNumber(clanChest.diamonds)} جواهر',
+          ),
         ),
       );
     },
   );
 
-  static Widget _pill(String text, Color color) => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 1),
-    decoration: BoxDecoration(
-      borderRadius: BorderRadius.circular(10),
-      border: Border.all(color: color.withValues(alpha: .7)),
-    ),
-    child: Text(
-      text,
-      style: TextStyle(color: color, fontSize: 11.5, fontWeight: FontWeight.w800),
-    ),
-  );
-
-  /// شروط الدخول كشارات: الطريقة، وأقل مستوى.
-  static List<Widget> _conditions(Clan clan) => [
-    _pill('الدخول ${clan.join.label}', const Color(0xFF7FE9FF)),
-    if (clan.minLevel > 0) _pill('مستوى ${arabicNumber(clan.minLevel)}+', const Color(0xFFFFB86B)),
-  ];
-
   Future<void> _leave(BuildContext context, Clan clan) async {
     final alone = clan.count == 1;
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('تطلع من الديوان؟', textAlign: TextAlign.center),
-        content: Text(
-          alone
-              ? 'أنت آخر واحد فيه، فبينحذف الديوان.'
-              : clan.ownerId == Backend.instance.uid
-              ? 'المشيخة بتروح لنائبك (أو أقدم عضو).'
-              : 'تقدر تدخل ديوان ثاني بعدين.',
-          textAlign: TextAlign.center,
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('لا')),
-          TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('اطلع')),
-        ],
-      ),
+    final ok = await socConfirm(
+      context,
+      title: 'تطلع من الديوان؟',
+      body: alone
+          ? 'أنت آخر واحد فيه، فبينحذف الديوان.'
+          : clan.ownerId == Backend.instance.uid
+          ? 'المشيخة بتروح لنائبك (أو أقدم عضو).'
+          : 'تستطيع أن تدخل ديوان ثاني لاحقاً.',
+      yes: 'اطلع',
+      danger: true,
     );
-    if (ok == true && context.mounted) await _run(context, Backend.instance.leaveClan, 'طلعت من الديوان');
+    if (ok && context.mounted) await _run(context, Backend.instance.leaveClan, 'طلعت من الديوان');
   }
 }
 
-/// عضو في الديوان: صورته واسمه ودوره ونقاطه هالأسبوع. الشيخ (أو نائبه) يضغط عليه ويطلّعه أو يخليه نائب.
-class _MemberCell extends StatelessWidget {
-  const _MemberCell({required this.clan, required this.member, required this.me});
+/// لوحة ديوانك (مخمل): الشعار والاسم والشارات، وأزرار الدردشة والدعوة والإعدادات، وهدف الأسبوع، والأعضاء.
+/// ما تلمس السيرفر: كل شي يجيها بالمعطيات (تنشاف بالتصوير ببيانات تجريبية).
+class ClanPanelView extends StatelessWidget {
+  const ClanPanelView({
+    super.key,
+    required this.clan,
+    required this.myUid,
+    required this.chatFresh,
+    required this.chatOpen,
+    required this.memberBuilder,
+    required this.onLeave,
+    required this.onChat,
+    required this.onInvite,
+    required this.onRequests,
+    required this.onSettings,
+    required this.onClaim,
+  });
 
   final Clan clan;
-  final ClanMember member;
-  final ClanMember? me;
+  final String myUid;
 
-  /// الشيخ ونوابه يقدرون على اللي تحتهم بالرتبة.
-  bool get _canManage =>
-      member.uid != me?.uid && (me?.role.power ?? 0) >= ClanRole.deputy.power && me!.role.power > member.role.power;
+  /// فيه رسائل جديدة في دردشة الديوان.
+  final bool chatFresh;
+  final bool chatOpen;
 
-  /// الرتب اللي أقدر أعطيه: الشيخ أي رتبة (والمشيخة نفسها)، والنائب بين العضو والوجيه.
-  List<ClanRole> get _roles => [
-    if (me?.role == ClanRole.owner) ...[ClanRole.owner, ClanRole.deputy],
-    ClanRole.elder,
-    ClanRole.member,
-  ].where((r) => r != member.role).toList();
+  /// العضو: صغير في الشبكة، أو كبير تحت ([big]).
+  final Widget Function(ClanMember member, bool big) memberBuilder;
+  final VoidCallback onLeave;
+  final VoidCallback onChat;
+  final VoidCallback onInvite;
+  final VoidCallback onRequests;
+  final VoidCallback onSettings;
+  final VoidCallback onClaim;
 
-  Future<void> _manage(BuildContext context) async {
-    final action = await showModalBottomSheet<String>(
-      context: context,
-      backgroundColor: AppColors.panel,
-      builder: (context) => SafeArea(
-        child: SingleChildScrollView(
+  /// شروط الدخول كشارات: الطريقة، وأقل مستوى.
+  static List<Widget> conditions(Clan clan, {double size = 12.5}) => [
+    SocChip('الدخول ${clan.join.label}', kind: SocChipKind.green, size: size),
+    if (clan.minLevel > 0) SocChip('مستوى ${arabicNumber(clan.minLevel)}+', kind: SocChipKind.orange, size: size),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    final mine = clan.member(myUid);
+    final power = mine?.role.power ?? 0;
+    final reached = clan.points >= clanGoal;
+    final played = (mine?.points ?? 0) > 0;
+    final claimed = clan.claimed.contains(myUid);
+    return LayoutBuilder(
+      builder: (context, box) {
+        // الجوالات الصغيرة: رأس أصغر عشان يبان الأعضاء.
+        final compact = box.maxHeight < 420;
+        return VelvetPanel(
+          padding: EdgeInsets.fromLTRB(compact ? 14 : 18, compact ? 6 : 9, compact ? 14 : 18, compact ? 6 : 9),
           child: Column(
-            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              ListTile(
-                leading: PlayerAvatar(avatar: member.avatar, size: 40, animate: false),
-                title: Text(member.name),
-                subtitle: Text(member.roleName),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  ClanCrest.of(clan.tag, size: compact ? 46 : 64),
+                  SizedBox(width: compact ? 8 : 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        FittedBox(
+                          fit: BoxFit.scaleDown,
+                          alignment: AlignmentDirectional.centerStart,
+                          child: GoldTitle(clan.name, size: compact ? 19 : 26),
+                        ),
+                        SizedBox(height: compact ? 1 : 3),
+                        Text(
+                          'المستوى ${arabicNumber(clan.level)} · ${arabicNumber(clan.count)} من ${arabicNumber(clanMax)} عضو · '
+                          'الدخول ${clan.join.label}${clan.minLevel > 0 ? ' · مستوى ${arabicNumber(clan.minLevel)}+' : ''}',
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: const Color(0xFFE8D3AE),
+                            fontSize: compact ? 11 : 12.5,
+                            fontWeight: FontWeight.w700,
+                            height: 1.3,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
-              ListTile(
-                leading: const Gfx('profile', size: 26),
-                title: const Text('بطاقته'),
-                onTap: () => Navigator.pop(context, 'card'),
+              _ClanInfo(clan: clan, power: power, compact: compact),
+              SizedBox(height: compact ? 2 : 4),
+              // الدردشة، والدعوة والطلبات (الوجهاء وفوق)، والإعدادات (الشيخ ونوابه).
+              Row(
+                children: [
+                  ClanActionButton(
+                    icon: 'chat',
+                    label: 'الدردشة',
+                    tone: chatOpen ? SocTone.orange : SocTone.red,
+                    dot: chatFresh,
+                    compact: compact,
+                    onTap: onChat,
+                  ),
+                  if (power >= ClanRole.elder.power) ...[
+                    const SizedBox(width: 8),
+                    ClanActionButton(
+                      icon: 'invite',
+                      label: 'دعوة',
+                      tone: SocTone.green,
+                      compact: compact,
+                      onTap: onInvite,
+                    ),
+                    if (clan.join == ClanJoin.request || clan.requests.isNotEmpty) ...[
+                      const SizedBox(width: 8),
+                      ClanActionButton(
+                        icon: 'addfriend',
+                        label: 'الطلبات',
+                        tone: SocTone.orange,
+                        count: clan.requests.length,
+                        compact: compact,
+                        onTap: onRequests,
+                      ),
+                    ],
+                  ],
+                  if (power >= ClanRole.deputy.power) ...[
+                    const SizedBox(width: 8),
+                    ClanActionButton(
+                      icon: 'tools',
+                      label: 'الإعدادات',
+                      tone: SocTone.blue,
+                      compact: compact,
+                      onTap: onSettings,
+                    ),
+                  ],
+                  const Spacer(),
+                  _LeaveLink(compact: compact, onTap: onLeave),
+                ],
               ),
-              for (final r in _roles)
-                ListTile(
-                  leading: Gfx(r == ClanRole.owner ? 'trophy' : 'medal${r == ClanRole.member ? 3 : r.index}', size: 26),
-                  title: Text(switch (r) {
-                    ClanRole.owner => 'سلّمه المشيخة (وتصير نائب)',
-                    ClanRole.member => 'رجّعه عضو',
-                    _ => 'خله ${r.label}',
-                  }),
-                  onTap: () => Navigator.pop(context, 'role:${r.name}'),
-                ),
-              ListTile(
-                leading: const Gfx('exit', size: 26),
-                title: const Text('طلّعه من الديوان', style: TextStyle(color: AppColors.traitorLight)),
-                onTap: () => Navigator.pop(context, 'kick'),
+              SizedBox(height: compact ? 3 : 5),
+              ClanGoalBar(
+                clan: clan,
+                reached: reached,
+                played: played,
+                claimed: claimed,
+                compact: compact,
+                onClaim: onClaim,
               ),
-            ],
-          ),
-        ),
-      ),
-    );
-    if (!context.mounted || action == null) return;
-    if (action == 'card') {
-      showPlayerCard(context, uid: member.uid, name: member.name, avatar: member.avatar);
-    } else if (action == 'kick') {
-      await _run(context, () => Backend.instance.clanKick(member.uid), 'طلع من الديوان');
-    } else if (action.startsWith('role:')) {
-      final role = ClanRole.values.byName(action.substring(5));
-      if (role == ClanRole.owner) {
-        final sure = await showDialog<bool>(
-          context: context,
-          builder: (context) => AlertDialog(
-            title: const Text('تسلّمه المشيخة؟'),
-            content: Text('${member.name} بيصير شيخ الديوان، وأنت تصير نائب.'),
-            actions: [
-              TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('لا')),
-              TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('سلّمه')),
+              SizedBox(height: compact ? 4 : 6),
+              Expanded(
+                child: _Members(clan: clan, memberBuilder: memberBuilder),
+              ),
             ],
           ),
         );
-        if (sure != true || !context.mounted) return;
-      }
-      await _run(context, () => Backend.instance.clanRole(member.uid, role), 'صار ${role.label}');
-    }
+      },
+    );
   }
+}
+
+/// ألقاب الديوان وإنجازاته (تنحسب من نقاطه وأعضائه): اللقب أول وبعده الإنجازات اللي تحققت.
+List<({String label, bool title})> clanAchievements(Clan clan) {
+  final t = clan.total;
+  return [
+    (
+      label: t >= 100000
+          ? 'ديوان أسطوري'
+          : t >= 10000
+          ? 'ديوان عريق'
+          : t >= 1000
+          ? 'ديوان نشيط'
+          : 'ديوان ناشئ',
+      title: true,
+    ),
+    if (clan.points >= clanGoal) (label: 'حقق هدف الأسبوع', title: false),
+    if (clan.count >= clanMax) (label: 'ديوان مليان', title: false),
+    if (clan.members.where((m) => m.points > 0).length >= 5) (label: 'خمسة نشطين', title: false),
+    if (t >= 1000) (label: '${arabicNumber((t ~/ 1000) * 1000)} نقطة', title: false),
+  ];
+}
+
+/// وصف الديوان (يكتبه المدراء من الإعدادات) وبجنبه ألقابه وإنجازاته. بالجوال الصغير: شارات بس.
+class _ClanInfo extends StatelessWidget {
+  const _ClanInfo({required this.clan, required this.power, required this.compact});
+
+  final Clan clan;
+  final int power;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    final ach = clanAchievements(clan);
+    Widget chip(({String label, bool title}) a, double size) =>
+        SocChip(a.label, kind: a.title ? SocChipKind.gold : SocChipKind.blue, size: size);
+    if (compact) {
+      return Padding(
+        padding: const EdgeInsets.only(top: 2),
+        child: Wrap(spacing: 4, runSpacing: 2, children: [for (final a in ach.take(3)) chip(a, 10.5)]),
+      );
+    }
+    final desc = clan.desc.isNotEmpty
+        ? clan.desc
+        : power >= ClanRole.deputy.power
+        ? 'اكتب وصف ديوانك من «الإعدادات»'
+        : 'لسا ما كتب المدراء وصفاً للديوان';
+    // لوح واحد: الوصف فوق، والألقاب والإنجازات بشارات تحته
+    return Padding(
+      padding: const EdgeInsets.only(top: 8, bottom: 2),
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(12, 7, 12, 8),
+        decoration: BoxDecoration(
+          color: Colors.black.withValues(alpha: .26),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: const Color(0xFFE8B54E).withValues(alpha: .3)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              desc,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: clan.desc.isEmpty ? const Color(0xFFB9A07A) : const Color(0xFFF1DDBA),
+                fontSize: 13,
+                fontFamily: kufi,
+                fontWeight: FontWeight.w700,
+                height: 1.35,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Wrap(spacing: 5, runSpacing: 3, children: [for (final a in ach.take(4)) chip(a, 11)]),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// «اطلع» بشكل هادي (نص صغير بأيقونة) عشان ما ينضغط بالغلط، بدل زر أحمر كبير.
+class _LeaveLink extends StatelessWidget {
+  const _LeaveLink({required this.compact, required this.onTap});
+
+  final bool compact;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) => Semantics(
     button: true,
-    label: 'عضو ${member.name}',
+    label: 'اطلع',
     excludeSemantics: true,
     child: GestureDetector(
-      onTap: _canManage
-          ? () => _manage(context)
-          : () => showPlayerCard(context, uid: member.uid, name: member.name, avatar: member.avatar),
-      child: Container(
-        padding: const EdgeInsets.all(4),
-        decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: member.uid == me?.uid ? .09 : .04),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: member.role == ClanRole.owner ? AppColors.gold : AppColors.line),
-        ),
-        child: Column(
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Stack(
-              clipBehavior: Clip.none,
-              children: [
-                PlayerAvatar(
-                  avatar: member.avatar,
-                  size: 40,
-                  animate: false,
-                  frame: member.role == ClanRole.owner ? AppColors.gold : null,
-                ),
-                // متصل الحين؟
-                PositionedDirectional(
-                  bottom: -1,
-                  end: -1,
-                  child: StreamBuilder<Presence>(
-                    stream: Backend.instance.watchPresence(member.uid),
-                    builder: (context, snap) => Container(
-                      width: 12,
-                      height: 12,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: (snap.data?.online ?? false) || member.uid == me?.uid
-                            ? AppColors.green
-                            : const Color(0xFF6B6785),
-                        border: Border.all(color: AppColors.panel, width: 2),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
+            Opacity(opacity: .85, child: Gfx('exit', size: compact ? 15 : 18)),
+            const SizedBox(width: 4),
             Text(
-              member.name,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w800),
-            ),
-            if (member.role != ClanRole.member)
-              Text(
-                member.roleName,
-                style: TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.w800,
-                  color: switch (member.role) {
-                    ClanRole.owner => AppColors.gold,
-                    ClanRole.deputy => const Color(0xFFB9A4FF),
-                    _ => const Color(0xFF5EEAD4),
-                  },
-                ),
+              'اطلع',
+              style: TextStyle(
+                color: const Color(0xFFE59A92),
+                fontSize: compact ? 12 : 13.5,
+                fontWeight: FontWeight.w800,
               ),
-            Text('${arabicNumber(member.points)} نقطة', style: const TextStyle(fontSize: 10, color: AppColors.muted)),
+            ),
           ],
         ),
       ),
     ),
   );
+}
+
+/// أعضاء الديوان: شبكة بطاقات صغيرة، وتحتها لو فيه مكان أبرز الأعضاء ببطاقات كبيرة.
+class _Members extends StatelessWidget {
+  const _Members({required this.clan, required this.memberBuilder});
+
+  final Clan clan;
+  final Widget Function(ClanMember member, bool big) memberBuilder;
+
+  @override
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, box) {
+      // البطاقات الكبيرة تطلع بس لو الشبكة الصغيرة ما تاخذ مكان زيادة.
+      final perRow = ((box.maxWidth + 8) / 82).floor().clamp(1, 20);
+      final rows = (clan.members.length / perRow).ceil().clamp(1, 20);
+      final tilesHeight = rows * 94.0 + (rows - 1) * 8;
+      final big = box.maxWidth >= 250 && tilesHeight + 4 + 188 <= box.maxHeight;
+      final tiles = SingleChildScrollView(
+        child: Wrap(spacing: 8, runSpacing: 8, children: [for (final m in clan.members) memberBuilder(m, false)]),
+      );
+      if (!big) return tiles;
+      final cols = ((box.maxWidth + 10) / 128).floor().clamp(1, 3);
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Expanded(child: tiles),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              for (final (i, m) in clan.members.take(cols).indexed) ...[
+                if (i > 0) const SizedBox(width: 10),
+                memberBuilder(m, true),
+              ],
+            ],
+          ),
+        ],
+      );
+    },
+  );
+}
+
+/// زر صغير في لوحة الديوان، ومعه نقطة (جديد) أو رقم.
+class ClanActionButton extends StatelessWidget {
+  const ClanActionButton({
+    super.key,
+    required this.icon,
+    required this.label,
+    required this.tone,
+    required this.onTap,
+    this.dot = false,
+    this.count = 0,
+    this.compact = false,
+  });
+
+  final String icon;
+  final String label;
+  final SocTone tone;
+  final VoidCallback onTap;
+  final bool dot;
+  final int count;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) => Stack(
+    clipBehavior: Clip.none,
+    children: [
+      SocButton(
+        label: label,
+        tone: tone,
+        icon: Gfx(icon, size: compact ? 16 : 20),
+        height: compact ? 26 : 32,
+        fontSize: compact ? 12.5 : 14.5,
+        padding: compact ? 7 : 10,
+        onPressed: onTap,
+      ),
+      if (count > 0) PositionedDirectional(top: -3, end: -6, child: SocBadge(count, size: 18)),
+      if (dot && count == 0) PositionedDirectional(top: -3, end: -3, child: SocBadge(0, size: 12)),
+    ],
+  );
+}
+
+/// هدف الأسبوع: صندوق، وكلام التقدم، وشريط ذهب على مجرى حبل.
+class ClanGoalBar extends StatelessWidget {
+  const ClanGoalBar({
+    super.key,
+    required this.clan,
+    required this.reached,
+    required this.played,
+    required this.claimed,
+    required this.onClaim,
+    this.compact = false,
+  });
+
+  final Clan clan;
+  final bool reached;
+  final bool played;
+  final bool claimed;
+  final VoidCallback onClaim;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: EdgeInsets.fromLTRB(10, compact ? 3 : 7, 10, compact ? 4 : 8),
+    decoration: BoxDecoration(
+      color: const Color(0xFF2A0A10).withValues(alpha: .8),
+      borderRadius: BorderRadius.circular(14),
+      border: Border.all(color: const Color(0xFFB58A3C).withValues(alpha: .75), width: 1.6),
+    ),
+    child: Row(
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'هدف الأسبوع: ${arabicNumber(clan.points)} من ${arabicNumber(clanGoal)} نقطة'
+                '${reached ? '' : ' · اللعبة العامة ١٠ والفوز ٣٠'}',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontFamily: kufi,
+                  fontWeight: FontWeight.w800,
+                  fontSize: compact ? 12 : 13.5,
+                  color: socCream,
+                  height: 1.3,
+                ),
+              ),
+              SizedBox(height: compact ? 2 : 4),
+              SocBar(value: clan.points / clanGoal, height: compact ? 9 : 11),
+              if (reached) ...[
+                const SizedBox(height: 3),
+                Text(
+                  claimed
+                      ? 'استلمت صندوق هالأسبوع'
+                      : (played ? 'وصلتوا الهدف! استلم صندوقك' : 'العب مع ديوانك وتستلم الصندوق'),
+                  style: const TextStyle(color: socMuted, fontSize: 12, fontFamily: kufi, fontWeight: FontWeight.w700),
+                ),
+              ],
+            ],
+          ),
+        ),
+        const SizedBox(width: 10),
+        Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Opacity(
+              opacity: reached && !claimed ? 1 : .85,
+              child: SocChest(size: compact ? 28 : 40),
+            ),
+            if (reached && played && !claimed)
+              SocButton(label: 'استلم', tone: SocTone.green, height: 26, fontSize: 13, padding: 8, onPressed: onClaim),
+          ],
+        ),
+      ],
+    ),
+  );
+}
+
+/// العضو مع حالة اتصاله (تنتابع مباشرة).
+class _OnlineMember extends StatelessWidget {
+  const _OnlineMember({required this.clan, required this.member, required this.big});
+
+  final Clan clan;
+  final ClanMember member;
+  final bool big;
+
+  /// الشيخ ونوابه يقدرون على اللي تحتهم بالرتبة.
+  bool _canManage(ClanMember? me) =>
+      member.uid != me?.uid && (me?.role.power ?? 0) >= ClanRole.deputy.power && me!.role.power > member.role.power;
+
+  @override
+  Widget build(BuildContext context) {
+    final me = clan.member(Backend.instance.uid);
+    return StreamBuilder<Presence>(
+      stream: Backend.instance.watchPresence(member.uid),
+      builder: (context, snap) => ClanMemberTile(
+        member: member,
+        online: (snap.data?.online ?? false) || member.uid == me?.uid,
+        big: big,
+        onTap: _canManage(me)
+            ? () => _manage(context, clan, member, me)
+            : () => showPlayerCard(context, uid: member.uid, name: member.name, avatar: member.avatar),
+      ),
+    );
+  }
+}
+
+/// عضو في الديوان: صورته واسمه ودوره ونقاطه هالأسبوع. الشيخ بذهب وتاج، والباقي بأزرق.
+/// [big] بطاقة كبيرة (أبرز الأعضاء)، وبدونه بطاقة صغيرة في الشبكة.
+class ClanMemberTile extends StatelessWidget {
+  const ClanMemberTile({super.key, required this.member, required this.online, required this.big, required this.onTap});
+
+  final ClanMember member;
+  final bool online;
+  final bool big;
+  final VoidCallback onTap;
+
+  static Color roleColor(ClanRole r) => switch (r) {
+    ClanRole.owner => const Color(0xFFFFC94D),
+    ClanRole.deputy => const Color(0xFFD2B8FF),
+    _ => const Color(0xFF7FEBD6),
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    final owner = member.role == ClanRole.owner;
+    final rank = member.role != ClanRole.member;
+    final dot = online ? SocDot.online : SocDot.offline;
+    final points = Text(
+      '${arabicNumber(member.points)} نقطة',
+      style: TextStyle(
+        fontFamily: kufi,
+        fontWeight: FontWeight.w700,
+        fontSize: big ? 14 : 11,
+        color: socMuted,
+        height: 1.2,
+      ),
+    );
+    final roleLine = rank
+        ? Text(
+            member.roleName,
+            maxLines: 1,
+            style: TextStyle(
+              fontFamily: kufi,
+              fontWeight: FontWeight.w800,
+              fontSize: big ? 15 : 11.5,
+              color: roleColor(member.role),
+              height: 1.2,
+            ),
+          )
+        : null;
+    final decoration = BoxDecoration(
+      borderRadius: BorderRadius.circular(big ? 16 : 12),
+      gradient: owner
+          ? const LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [Color(0xFF6B4524), Color(0xFF4A2D18)],
+            )
+          : big
+          ? const LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [Color(0xFF3A1519), Color(0xFF260C10)],
+            )
+          : const LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [Color(0xFF2B315C), Color(0xFF1D2144)],
+            ),
+      border: Border.all(
+        color: owner
+            ? const Color(0xFFD9A84E)
+            : big
+            ? const Color(0xFF6B3A3C)
+            : const Color(0xFF4A62B0),
+        width: owner ? 2 : 1.6,
+      ),
+    );
+    final semantics = 'عضو ${member.name}';
+    if (!big) {
+      return Semantics(
+        button: true,
+        label: semantics,
+        excludeSemantics: true,
+        child: GestureDetector(
+          onTap: onTap,
+          child: Container(
+            width: 74,
+            padding: const EdgeInsets.fromLTRB(4, 8, 4, 6),
+            decoration: decoration,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                SocAvatar(avatar: member.avatar, size: 40, ring: owner ? SocRing.gold : SocRing.blue, dot: dot),
+                const SizedBox(height: 3),
+                Text(
+                  member.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontFamily: kufi,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 12.5,
+                    color: socCream,
+                    height: 1.2,
+                  ),
+                ),
+                ?roleLine,
+                points,
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+    // البطاقة الكبيرة: الصورة تطلع فوق البطاقة (وتاج للشيخ).
+    final avatar = owner ? 88.0 : 78.0;
+    return Semantics(
+      button: true,
+      label: semantics,
+      excludeSemantics: true,
+      child: GestureDetector(
+        onTap: onTap,
+        child: SizedBox(
+          width: 118,
+          height: owner ? 188 : 160,
+          child: Stack(
+            clipBehavior: Clip.none,
+            alignment: Alignment.topCenter,
+            children: [
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 0,
+                height: owner ? 122 : 108,
+                child: DecoratedBox(decoration: decoration),
+              ),
+              Positioned(
+                top: owner ? 26 : 10,
+                child: owner
+                    ? DecoratedBox(
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(
+                              color: const Color(0xFFFFB02E).withValues(alpha: .6),
+                              blurRadius: 22,
+                              spreadRadius: 2,
+                            ),
+                          ],
+                        ),
+                        child: SocAvatar(avatar: member.avatar, size: avatar, gems: true),
+                      )
+                    : SocAvatar(avatar: member.avatar, size: avatar, ring: SocRing.blue),
+              ),
+              if (owner) const Positioned(top: 0, child: SocCrown(width: 38)),
+              Positioned(
+                left: 4,
+                right: 4,
+                bottom: 6,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    FittedBox(fit: BoxFit.scaleDown, child: OutlinedText(member.name, size: 18, maxLines: 1)),
+                    ?roleLine,
+                    points,
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// الشيخ أو نائبه يضغط على عضو: بطاقته، أو يغيّر رتبته، أو يطلّعه.
+Future<void> _manage(BuildContext context, Clan clan, ClanMember member, ClanMember? me) async {
+  /// الرتب اللي أقدر أعطيه: الشيخ أي رتبة (والمشيخة نفسها)، والنائب بين العضو والوجيه.
+  final roles = [
+    if (me?.role == ClanRole.owner) ...[ClanRole.owner, ClanRole.deputy],
+    ClanRole.elder,
+    ClanRole.member,
+  ].where((r) => r != member.role).toList();
+  final action = await showSocDialog<String>(
+    context,
+    title: member.name,
+    width: 420,
+    builder: (context) => Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            SocAvatar(avatar: member.avatar, size: 44),
+            const SizedBox(width: 12),
+            SocPopupText(member.roleName, size: 16),
+          ],
+        ),
+        const SizedBox(height: 12),
+        SocButton(
+          label: 'بطاقته',
+          tone: SocTone.blue,
+          icon: const Gfx('profile', size: 22),
+          height: 40,
+          onPressed: () => Navigator.pop(context, 'card'),
+        ),
+        for (final r in roles) ...[
+          const SizedBox(height: 8),
+          SocButton(
+            label: switch (r) {
+              ClanRole.owner => 'سلّمه المشيخة (وتصير نائب)',
+              ClanRole.member => 'رجّعه عضو',
+              _ => 'خله ${r.label}',
+            },
+            tone: SocTone.orange,
+            icon: Gfx(r == ClanRole.owner ? 'trophy' : 'medal${r == ClanRole.member ? 3 : r.index}', size: 22),
+            height: 40,
+            onPressed: () => Navigator.pop(context, 'role:${r.name}'),
+          ),
+        ],
+        const SizedBox(height: 8),
+        SocButton(
+          label: 'طلّعه من الديوان',
+          tone: SocTone.red,
+          icon: const Gfx('exit', size: 22),
+          height: 40,
+          onPressed: () => Navigator.pop(context, 'kick'),
+        ),
+      ],
+    ),
+  );
+  if (!context.mounted || action == null) return;
+  if (action == 'card') {
+    showPlayerCard(context, uid: member.uid, name: member.name, avatar: member.avatar);
+  } else if (action == 'kick') {
+    await _run(context, () => Backend.instance.clanKick(member.uid), 'طلع من الديوان');
+  } else if (action.startsWith('role:')) {
+    final role = ClanRole.values.byName(action.substring(5));
+    if (role == ClanRole.owner) {
+      final sure = await socConfirm(
+        context,
+        title: 'تسلّمه المشيخة؟',
+        body: '${member.name} بيصير شيخ الديوان، وأنت تصير نائب.',
+        yes: 'سلّمه',
+      );
+      if (!sure || !context.mounted) return;
+    }
+    await _run(context, () => Backend.instance.clanRole(member.uid, role), 'صار ${role.label}');
+  }
 }
 
 /// ترتيب الدواوين هالأسبوع، والبحث بالاسم. اللي ما عنده ديوان يقدر يدخل من هنا.
@@ -642,77 +1097,140 @@ class _RankingState extends State<_Ranking> {
   }
 
   @override
-  Widget build(BuildContext context) => Panel(
-    padding: const EdgeInsets.fromLTRB(12, 10, 12, 8),
+  Widget build(BuildContext context) => ClanRankingView(
+    search: _search,
+    onSearch: _onSearch,
+    clans: _found ?? const [],
+    ranked: _found == null,
+    stream: _found == null ? _top : null,
+    mine: widget.mine,
+    canJoin: widget.canJoin,
+    joining: _joining,
+    labelOf: (c) => joinLabel(c, Backend.instance.profile.value),
+    onJoin: _join,
+    onDetails: (c) => _details(context, c, canJoin: widget.canJoin, onJoin: () => _join(c)),
+  );
+}
+
+/// لوحة الترتيب (خشب): عنوان، وبحث، وقائمة الدواوين. [stream] للترتيب المباشر، و[clans] لنتيجة البحث.
+class ClanRankingView extends StatelessWidget {
+  const ClanRankingView({
+    super.key,
+    required this.search,
+    required this.onSearch,
+    required this.clans,
+    required this.ranked,
+    required this.mine,
+    required this.canJoin,
+    required this.labelOf,
+    required this.onJoin,
+    required this.onDetails,
+    this.stream,
+    this.joining,
+  });
+
+  final TextEditingController search;
+  final ValueChanged<String> onSearch;
+  final List<Clan> clans;
+  final Stream<List<Clan>>? stream;
+  final bool ranked;
+  final String? mine;
+  final bool canJoin;
+  final String? joining;
+  final (String, bool) Function(Clan) labelOf;
+  final ValueChanged<Clan> onJoin;
+  final ValueChanged<Clan> onDetails;
+
+  @override
+  Widget build(BuildContext context) => WoodPanel(
+    padding: const EdgeInsets.fromLTRB(16, 14, 16, 10),
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const Text(
-          'ترتيب الدواوين هالأسبوع',
-          textAlign: TextAlign.center,
-          style: TextStyle(fontFamily: kufi, fontSize: 16, fontWeight: FontWeight.w700),
-        ),
-        const SizedBox(height: 6),
-        SizedBox(
-          height: 40,
-          child: TextField(
-            controller: _search,
-            onChanged: _onSearch,
-            decoration: const InputDecoration(
-              hintText: 'دوّر ديوان بالاسم',
-              prefixIcon: Padding(padding: EdgeInsets.all(8), child: Gfx('search', size: 20)),
-              isDense: true,
-            ),
+        const SocPanelTitle('ترتيب الدواوين هالأسبوع'),
+        const SizedBox(height: 8),
+        SocPlankRow(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+          child: Row(
+            children: [
+              const Gfx('search', size: 24),
+              const SizedBox(width: 8),
+              Expanded(
+                child: TextField(
+                  controller: search,
+                  onChanged: onSearch,
+                  style: const TextStyle(fontFamily: kufi, fontWeight: FontWeight.w700, fontSize: 15, color: socCream),
+                  decoration: const InputDecoration(
+                    hintText: 'دوّر ديوان بالاسم',
+                    hintStyle: TextStyle(
+                      fontFamily: kufi,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 15,
+                      color: Color(0xFFD9C3A0),
+                    ),
+                    isDense: true,
+                    filled: false,
+                    border: InputBorder.none,
+                    enabledBorder: InputBorder.none,
+                    focusedBorder: InputBorder.none,
+                    contentPadding: EdgeInsets.symmetric(vertical: 10),
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
-        const SizedBox(height: 6),
+        const SizedBox(height: 8),
         Expanded(
-          child: _found != null
-              ? _list(_found!, ranked: false)
+          child: stream == null
+              ? _list(context, clans)
               : StreamBuilder<List<Clan>>(
-                  stream: _top,
+                  stream: stream,
                   builder: (context, snap) => snap.data == null
                       ? const Center(child: CircularProgressIndicator(color: AppColors.gold))
-                      : _list(snap.data!, ranked: true),
+                      : _list(context, snap.data!),
                 ),
         ),
       ],
     ),
   );
 
-  Widget _list(List<Clan> clans, {required bool ranked}) {
-    if (clans.isEmpty) {
+  Widget _list(BuildContext context, List<Clan> list) {
+    if (list.isEmpty) {
       return Center(
         child: Text(
-          ranked ? 'ما فيه دواوين لعبت هالأسبوع للحين' : 'ما لقينا ديوان بهالاسم',
-          style: const TextStyle(color: AppColors.muted),
+          ranked ? 'لا يوجد دواوين لعبت هالأسبوع حتى الآن' : 'ما لقينا ديوان بهالاسم',
+          style: const TextStyle(color: socMuted, fontFamily: kufi, fontWeight: FontWeight.w700),
         ),
       );
     }
     return ListView.separated(
-      itemCount: clans.length,
-      separatorBuilder: (_, _) => const SizedBox(height: 6),
+      itemCount: list.length,
+      separatorBuilder: (_, _) => const SizedBox(height: 7),
       itemBuilder: (context, i) {
-        final c = clans[i];
-        final mine = c.id == widget.mine;
-        final row = Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-          decoration: BoxDecoration(
-            color: mine ? AppColors.gold.withValues(alpha: .16) : Colors.white.withValues(alpha: .04),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: mine ? AppColors.gold : Colors.transparent, width: 1.4),
-          ),
+        final c = list[i];
+        final isMine = c.id == mine;
+        return SocPlankRow(
+          selected: isMine,
+          semantics: 'تفاصيل ${c.name}',
+          onTap: () => onDetails(c),
+          padding: const EdgeInsets.fromLTRB(10, 5, 10, 5),
           child: Row(
             children: [
               if (ranked)
                 SizedBox(
-                  width: 24,
+                  width: 22,
                   child: Text(
                     arabicNumber(i + 1),
-                    style: const TextStyle(fontFamily: kufi, fontWeight: FontWeight.w700, color: AppColors.gold),
+                    style: const TextStyle(
+                      fontFamily: kufi,
+                      fontWeight: FontWeight.w800,
+                      fontSize: 17,
+                      color: socCream,
+                    ),
                   ),
                 ),
-              ClanCrest.of(c.tag, size: 34),
+              ClanCrest.of(c.tag, size: 32),
               const SizedBox(width: 8),
               Expanded(
                 child: Column(
@@ -722,7 +1240,13 @@ class _RankingState extends State<_Ranking> {
                       c.name,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontWeight: FontWeight.w800),
+                      style: const TextStyle(
+                        fontFamily: kufi,
+                        fontWeight: FontWeight.w800,
+                        fontSize: 15,
+                        color: socCream,
+                        height: 1.2,
+                      ),
                     ),
                     Row(
                       children: [
@@ -731,14 +1255,25 @@ class _RankingState extends State<_Ranking> {
                             '${arabicNumber(c.count)} عضو · مستوى ${arabicNumber(c.level)}',
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(color: AppColors.muted, fontSize: 11),
+                            style: const TextStyle(
+                              color: socMuted,
+                              fontSize: 11.5,
+                              fontFamily: kufi,
+                              fontWeight: FontWeight.w700,
+                              height: 1.2,
+                            ),
                           ),
                         ),
                         if (c.join == ClanJoin.invite) ...[const SizedBox(width: 4), const Gfx('lock', size: 13)],
                         if (c.minLevel > 0)
                           Text(
                             '، ${arabicNumber(c.minLevel)}+',
-                            style: const TextStyle(color: Color(0xFFFFB86B), fontSize: 11, fontWeight: FontWeight.w800),
+                            style: const TextStyle(
+                              color: socOrangeText,
+                              fontSize: 12,
+                              fontFamily: kufi,
+                              fontWeight: FontWeight.w800,
+                            ),
                           ),
                       ],
                     ),
@@ -747,32 +1282,30 @@ class _RankingState extends State<_Ranking> {
               ),
               Text(
                 arabicNumber(c.points),
-                style: const TextStyle(fontWeight: FontWeight.w800, color: AppColors.goldLight),
+                style: const TextStyle(
+                  fontFamily: kufi,
+                  fontWeight: FontWeight.w800,
+                  fontSize: 16,
+                  color: Color(0xFFFFD27A),
+                ),
               ),
-              if (widget.canJoin) ...[
-                const SizedBox(width: 6),
+              if (canJoin) ...[
+                const SizedBox(width: 8),
                 Builder(
                   builder: (context) {
-                    final (label, ok) = joinLabel(c, Backend.instance.profile.value);
-                    return SizedBox(
-                      height: 32,
-                      child: TextButton(
-                        onPressed: !ok || _joining != null ? null : () => _join(c),
-                        child: Text(_joining == c.id ? '…' : label),
-                      ),
+                    final (label, ok) = labelOf(c);
+                    return SocButton(
+                      label: joining == c.id ? '…' : label,
+                      tone: ok ? SocTone.green : SocTone.grey,
+                      height: 30,
+                      fontSize: 13.5,
+                      padding: 8,
+                      onPressed: !ok || joining != null ? null : () => onJoin(c),
                     );
                   },
                 ),
               ],
             ],
-          ),
-        );
-        return Semantics(
-          button: true,
-          label: 'تفاصيل ${c.name}',
-          child: GestureDetector(
-            onTap: () => _details(context, c, canJoin: widget.canJoin, onJoin: () => _join(c)),
-            child: row,
           ),
         );
       },
@@ -793,67 +1326,6 @@ class _RankingState extends State<_Ranking> {
   };
 }
 
-/// زر صغير في لوحة الديوان، ومعه نقطة (جديد) أو رقم.
-class _Action extends StatelessWidget {
-  const _Action({required this.icon, required this.label, required this.onTap, this.dot = false, this.count = 0});
-
-  final String icon;
-  final String label;
-  final VoidCallback onTap;
-  final bool dot;
-  final int count;
-
-  @override
-  Widget build(BuildContext context) => Semantics(
-    button: true,
-    label: label,
-    excludeSemantics: true,
-    child: GestureDetector(
-      onTap: onTap,
-      child: Stack(
-        clipBehavior: Clip.none,
-        children: [
-          Container(
-            padding: const EdgeInsetsDirectional.fromSTEB(8, 4, 10, 4),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(14),
-              color: Colors.white.withValues(alpha: .07),
-              border: Border.all(color: dot || count > 0 ? AppColors.gold : Colors.white.withValues(alpha: .16)),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Gfx(icon, size: 20),
-                const SizedBox(width: 4),
-                Text(label, style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800)),
-              ],
-            ),
-          ),
-          if (count > 0 || dot)
-            PositionedDirectional(
-              top: -5,
-              end: -4,
-              child: Container(
-                constraints: BoxConstraints(minWidth: count > 0 ? 18 : 11),
-                height: count > 0 ? 18 : 11,
-                padding: EdgeInsets.symmetric(horizontal: count > 0 ? 4 : 0),
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: AppColors.traitor,
-                  borderRadius: BorderRadius.circular(9),
-                  border: Border.all(color: AppColors.panel, width: 1.5),
-                ),
-                child: count > 0
-                    ? Text(arabicNumber(count), style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w900))
-                    : null,
-              ),
-            ),
-        ],
-      ),
-    ),
-  );
-}
-
 /// فيه رسائل في دردشة الديوان ما شفتها؟ (نقارن آخر رسالة بآخر مرة فتحتها).
 class _NewMessages extends StatelessWidget {
   const _NewMessages({required this.clan, required this.builder});
@@ -869,100 +1341,121 @@ class _NewMessages extends StatelessWidget {
   );
 }
 
+/// عنوان صغير فوق حقل داخل النافذة.
+Widget _fieldLabel(String t) => Padding(padding: const EdgeInsets.only(bottom: 4), child: SocPopupText(t, size: 14.5));
+
 /// إعدادات الديوان (الشيخ ونوابه): الوصف، وأقل مستوى، وطريقة الدخول.
 Future<void> _settings(BuildContext context, Clan clan) async {
   final desc = TextEditingController(text: clan.desc);
   var level = clan.minLevel;
   var join = clan.join;
-  final save = await showDialog<bool>(
-    context: context,
+  final save = await showSocDialog<bool>(
+    context,
+    title: 'إعدادات الديوان',
+    width: 500,
     builder: (context) => StatefulBuilder(
-      builder: (context, set) => AlertDialog(
-        title: const Row(children: [Gfx('tools', size: 28), SizedBox(width: 8), Text('إعدادات الديوان')]),
-        content: SizedBox(
-          width: 480,
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                TextField(
-                  controller: desc,
-                  maxLength: clanDescMax,
-                  maxLines: 2,
-                  decoration: const InputDecoration(
-                    labelText: 'وصف الديوان',
-                    hintText: 'مثلاً: ديوان للي يحبون اللعب الجاد، نلعب كل ليلة',
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+      builder: (context, set) => Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          TextField(
+            controller: desc,
+            maxLength: clanDescMax,
+            maxLines: 2,
+            style: const TextStyle(fontFamily: kufi, fontWeight: FontWeight.w700, color: socInk),
+            decoration: socParchInput(
+              label: 'وصف الديوان',
+              hint: 'مثلاً: ديوان للي يحبون اللعب الجاد، نلعب كل ليلة',
+              dense: false,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SizedBox(
+                width: 130,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    SizedBox(
-                      width: 120,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text('أقل مستوى', style: TextStyle(fontWeight: FontWeight.w800)),
-                          const SizedBox(height: 4),
-                          DropdownButtonFormField<int>(
-                            initialValue: level,
-                            isDense: true,
-                            decoration: const InputDecoration(isDense: true),
-                            items: [
-                              for (final n in clanLevelSteps)
-                                DropdownMenuItem(value: n, child: Text(n == 0 ? 'أي أحد' : '${arabicNumber(n)} وفوق')),
-                            ],
-                            onChanged: (v) => set(() => level = v ?? 0),
-                          ),
-                        ],
+                    _fieldLabel('أقل مستوى'),
+                    DropdownButtonFormField<int>(
+                      initialValue: level,
+                      isDense: true,
+                      dropdownColor: const Color(0xFFF1DFB8),
+                      style: const TextStyle(
+                        fontFamily: kufi,
+                        fontWeight: FontWeight.w800,
+                        color: socInk,
+                        fontSize: 14,
                       ),
-                    ),
-                    const SizedBox(width: 14),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text('الدخول', style: TextStyle(fontWeight: FontWeight.w800)),
-                          const SizedBox(height: 4),
-                          SegmentedButton<ClanJoin>(
-                            showSelectedIcon: false,
-                            style: const ButtonStyle(visualDensity: VisualDensity.compact),
-                            segments: [for (final j in ClanJoin.values) ButtonSegment(value: j, label: Text(j.label))],
-                            selected: {join},
-                            onSelectionChanged: (v) => set(() => join = v.first),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(join.hint, style: const TextStyle(color: AppColors.muted, fontSize: 12)),
-                        ],
-                      ),
+                      decoration: socParchInput(),
+                      items: [
+                        for (final n in clanLevelSteps)
+                          DropdownMenuItem(value: n, child: Text(n == 0 ? 'أي أحد' : '${arabicNumber(n)} وفوق')),
+                      ],
+                      onChanged: (v) => set(() => level = v ?? 0),
                     ),
                   ],
                 ),
-              ],
-            ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    _fieldLabel('الدخول'),
+                    SocSegments<ClanJoin>(
+                      light: true,
+                      options: [for (final j in ClanJoin.values) (j, j.label)],
+                      value: join,
+                      onChanged: (v) => set(() => join = v),
+                    ),
+                    const SizedBox(height: 4),
+                    SocPopupText(join.hint, size: 12.5, muted: true),
+                  ],
+                ),
+              ),
+            ],
           ),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('إلغاء')),
-          TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('حفظ')),
+          const SizedBox(height: 12),
+          SocActions(
+            children: [
+              SocButton(
+                label: 'إلغاء',
+                tone: SocTone.grey,
+                height: 42,
+                fontSize: 16,
+                onPressed: () => Navigator.pop(context, false),
+              ),
+              SocButton(
+                label: 'حفظ',
+                tone: SocTone.green,
+                height: 42,
+                fontSize: 16,
+                onPressed: () => Navigator.pop(context, true),
+              ),
+            ],
+          ),
         ],
       ),
     ),
   );
+  final text = desc.text.trim();
   if (save == true && context.mounted) {
     await _run(
       context,
-      () => Backend.instance.clanSettings(desc: desc.text.trim(), minLevel: level, join: join),
+      () => Backend.instance.clanSettings(desc: text, minLevel: level, join: join),
       'انحفظت إعدادات الديوان',
     );
   }
 }
 
 /// دعوة للديوان (الوجهاء وفوق): من أصحابك اللي ما عندهم ديوان، أو برمز أي لاعب.
-Future<void> _invite(BuildContext context, Clan clan) => showDialog<void>(
-  context: context,
+Future<void> _invite(BuildContext context, Clan clan) => showSocDialog<void>(
+  context,
+  title: 'ادعُ لـ${clan.name}',
+  width: 520,
   builder: (_) => _InviteDialog(clan: clan),
 );
 
@@ -981,6 +1474,12 @@ class _InviteDialogState extends State<_InviteDialog> {
   final _sent = <String>{};
   LeaderboardEntry? _found;
   String? _busy;
+
+  @override
+  void dispose() {
+    _pid.dispose();
+    super.dispose();
+  }
 
   Future<List<LeaderboardEntry>> _load() async {
     final ids = Backend.instance.profile.value.friends;
@@ -1014,89 +1513,108 @@ class _InviteDialogState extends State<_InviteDialog> {
     }
   }
 
-  Widget _row(LeaderboardEntry e) => ListTile(
-    dense: true,
-    contentPadding: EdgeInsets.zero,
-    leading: PlayerAvatar(avatar: e.avatar, size: 36, animate: false),
-    title: Text(e.name, style: const TextStyle(fontWeight: FontWeight.w800)),
-    subtitle: Text(
-      e.clan != null ? 'في ديوان ${e.clan!.name}' : 'مستوى ${arabicNumber(e.level)}',
-      style: const TextStyle(color: AppColors.muted, fontSize: 12),
-    ),
-    trailing: SizedBox(
-      width: 92,
-      child: GameButton(
-        label: _sent.contains(e.uid) ? 'انرسلت' : (_busy == e.uid ? '…' : 'ادعُه'),
-        tone: _sent.contains(e.uid) ? ButtonTone.ghost : ButtonTone.gold,
-        height: 36,
-        fontSize: 13.5,
-        onPressed: _sent.contains(e.uid) || _busy != null || e.clan != null ? null : () => _send(e),
-      ),
+  Widget _row(LeaderboardEntry e) => Padding(
+    padding: const EdgeInsets.symmetric(vertical: 4),
+    child: Row(
+      children: [
+        SocAvatar(avatar: e.avatar, size: 36),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                e.name,
+                style: const TextStyle(
+                  fontFamily: kufi,
+                  fontWeight: FontWeight.w800,
+                  fontSize: 16,
+                  color: socInk,
+                  height: 1.2,
+                ),
+              ),
+              Text(
+                e.clan != null ? 'في ديوان ${e.clan!.name}' : 'مستوى ${arabicNumber(e.level)}',
+                style: const TextStyle(
+                  color: Color(0xFF7A5A3A),
+                  fontSize: 12.5,
+                  fontFamily: kufi,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+        ),
+        SocButton(
+          label: _sent.contains(e.uid) ? 'انرسلت' : (_busy == e.uid ? '…' : 'ادعُه'),
+          tone: _sent.contains(e.uid) ? SocTone.grey : SocTone.green,
+          height: 34,
+          fontSize: 14,
+          width: 92,
+          onPressed: _sent.contains(e.uid) || _busy != null || e.clan != null ? null : () => _send(e),
+        ),
+      ],
     ),
   );
 
   @override
-  Widget build(BuildContext context) => AlertDialog(
-    title: Row(
+  Widget build(BuildContext context) => SizedBox(
+    height: 290,
+    child: Column(
       children: [
-        const Gfx('invite', size: 28),
-        const SizedBox(width: 8),
-        Flexible(child: Text('ادعُ لـ${widget.clan.name}', overflow: TextOverflow.ellipsis)),
+        Row(
+          children: [
+            Expanded(
+              child: TextField(
+                controller: _pid,
+                keyboardType: TextInputType.number,
+                textDirection: TextDirection.ltr,
+                style: const TextStyle(fontFamily: kufi, fontWeight: FontWeight.w800, color: socInk),
+                decoration: socParchInput(hint: 'رمز اللاعب'),
+                onSubmitted: (_) => _search(),
+              ),
+            ),
+            const SizedBox(width: 8),
+            SocButton(label: 'دوّر', tone: SocTone.blue, height: 40, width: 80, onPressed: _search),
+          ],
+        ),
+        if (_found case final f?) _row(f),
+        const Divider(color: Color(0xFFB59560)),
+        Expanded(
+          child: FutureBuilder<List<LeaderboardEntry>>(
+            future: _friends,
+            builder: (context, snap) {
+              final list = snap.data;
+              if (list == null) return const Center(child: CircularProgressIndicator(color: AppColors.goldDark));
+              if (list.isEmpty) {
+                return const Center(
+                  child: SocPopupText('كل أصحابك في دواوين (أو ليس لديك أصحاب)، دوّر لاعب برمزه', size: 14, muted: true),
+                );
+              }
+              return ListView(children: [for (final e in list) _row(e)]);
+            },
+          ),
+        ),
+        const SizedBox(height: 8),
+        SocButton(
+          label: 'تمام',
+          tone: SocTone.green,
+          height: 42,
+          fontSize: 16,
+          onPressed: () => Navigator.pop(context),
+        ),
       ],
     ),
-    content: SizedBox(
-      width: 480,
-      height: 300,
-      child: Column(
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: TextField(
-                  controller: _pid,
-                  keyboardType: TextInputType.number,
-                  textDirection: TextDirection.ltr,
-                  decoration: const InputDecoration(hintText: 'رمز اللاعب', isDense: true),
-                  onSubmitted: (_) => _search(),
-                ),
-              ),
-              const SizedBox(width: 8),
-              TextButton(onPressed: _search, child: const Text('دوّر')),
-            ],
-          ),
-          if (_found case final f?) _row(f),
-          const Divider(),
-          Expanded(
-            child: FutureBuilder<List<LeaderboardEntry>>(
-              future: _friends,
-              builder: (context, snap) {
-                final list = snap.data;
-                if (list == null) return const Center(child: CircularProgressIndicator(color: AppColors.gold));
-                if (list.isEmpty) {
-                  return const Center(
-                    child: Text(
-                      'كل أصحابك في دواوين (أو ما عندك أصحاب)، دوّر لاعب برمزه',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(color: AppColors.muted),
-                    ),
-                  );
-                }
-                return ListView(children: [for (final e in list) _row(e)]);
-              },
-            ),
-          ),
-        ],
-      ),
-    ),
-    actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('تمام'))],
   );
 }
 
 /// طلبات الدخول (الوجهاء وفوق): قبول أو رفض.
 Future<void> _requests(BuildContext context, Clan clan) async {
   final handled = <String>{};
-  await showDialog<void>(
-    context: context,
+  await showSocDialog<void>(
+    context,
+    title: 'طلبات الدخول',
+    width: 520,
     builder: (context) => StatefulBuilder(
       builder: (context, set) {
         final list = clan.requests.where((r) => !handled.contains(r.uid)).toList();
@@ -1109,58 +1627,81 @@ Future<void> _requests(BuildContext context, Clan clan) async {
           set(() => handled.add(r.uid));
         }
 
-        return AlertDialog(
-          title: const Row(children: [Gfx('addfriend', size: 28), SizedBox(width: 8), Text('طلبات الدخول')]),
-          content: SizedBox(
-            width: 480,
-            height: 260,
-            child: list.isEmpty
-                ? const Center(
-                    child: Text('ما فيه طلبات', style: TextStyle(color: AppColors.muted)),
-                  )
-                : ListView(
-                    children: [
-                      for (final r in list)
-                        ListTile(
-                          dense: true,
-                          contentPadding: EdgeInsets.zero,
-                          leading: PlayerAvatar(avatar: r.avatar, size: 36, animate: false),
-                          title: Text(r.name, style: const TextStyle(fontWeight: FontWeight.w800)),
-                          subtitle: Text(
-                            'مستوى ${arabicNumber(r.level)}، ${agoText(DateTime.now().difference(r.at))}',
-                            style: const TextStyle(color: AppColors.muted, fontSize: 12),
-                          ),
-                          trailing: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              SizedBox(
-                                width: 76,
-                                child: GameButton(
-                                  label: 'قبول',
-                                  tone: ButtonTone.green,
-                                  height: 34,
-                                  fontSize: 13,
-                                  onPressed: () => respond(r, true),
-                                ),
+        return SizedBox(
+          height: 270,
+          child: Column(
+            children: [
+              Expanded(
+                child: list.isEmpty
+                    ? const Center(child: SocPopupText('لا يوجد طلبات', muted: true))
+                    : ListView(
+                        children: [
+                          for (final r in list)
+                            Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 4),
+                              child: Row(
+                                children: [
+                                  SocAvatar(avatar: r.avatar, size: 36),
+                                  const SizedBox(width: 10),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          r.name,
+                                          style: const TextStyle(
+                                            fontFamily: kufi,
+                                            fontWeight: FontWeight.w800,
+                                            fontSize: 16,
+                                            color: socInk,
+                                            height: 1.2,
+                                          ),
+                                        ),
+                                        Text(
+                                          'مستوى ${arabicNumber(r.level)}، ${agoText(DateTime.now().difference(r.at))}',
+                                          style: const TextStyle(
+                                            color: Color(0xFF7A5A3A),
+                                            fontSize: 12.5,
+                                            fontFamily: kufi,
+                                            fontWeight: FontWeight.w700,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  SocButton(
+                                    label: 'قبول',
+                                    tone: SocTone.green,
+                                    height: 34,
+                                    fontSize: 14,
+                                    width: 76,
+                                    onPressed: () => respond(r, true),
+                                  ),
+                                  const SizedBox(width: 6),
+                                  SocButton(
+                                    label: 'رفض',
+                                    tone: SocTone.grey,
+                                    height: 34,
+                                    fontSize: 14,
+                                    width: 66,
+                                    onPressed: () => respond(r, false),
+                                  ),
+                                ],
                               ),
-                              const SizedBox(width: 6),
-                              SizedBox(
-                                width: 66,
-                                child: GameButton(
-                                  label: 'رفض',
-                                  tone: ButtonTone.ghost,
-                                  height: 34,
-                                  fontSize: 13,
-                                  onPressed: () => respond(r, false),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                    ],
-                  ),
+                            ),
+                        ],
+                      ),
+              ),
+              const SizedBox(height: 8),
+              SocButton(
+                label: 'تمام',
+                tone: SocTone.green,
+                height: 42,
+                fontSize: 16,
+                onPressed: () => Navigator.pop(context),
+              ),
+            ],
           ),
-          actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('تمام'))],
         );
       },
     ),
@@ -1168,87 +1709,81 @@ Future<void> _requests(BuildContext context, Clan clan) async {
 }
 
 /// تفاصيل ديوان من الترتيب: وصفه وشروطه وأعضاؤه، وزر الدخول (أو الطلب).
-Future<void> _details(BuildContext context, Clan c, {required bool canJoin, required VoidCallback onJoin}) =>
-    showDialog<void>(
-      context: context,
-      builder: (context) {
-        final (label, ok) = joinLabel(c, Backend.instance.profile.value);
-        return AlertDialog(
-          content: SizedBox(
-            width: 480,
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
+Future<void> _details(BuildContext context, Clan c, {required bool canJoin, required VoidCallback onJoin}) {
+  final (label, ok) = joinLabel(c, Backend.instance.profile.value);
+  return showSocDialog<void>(
+    context,
+    title: c.name,
+    width: 520,
+    builder: (context) => Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          children: [
+            ClanCrest.of(c.tag, size: 64),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Wrap(
+                spacing: 6,
+                runSpacing: 4,
                 children: [
-                  Row(
-                    children: [
-                      ClanCrest.of(c.tag, size: 64),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            GoldText(c.name, size: 22, align: TextAlign.start),
-                            Wrap(
-                              spacing: 6,
-                              runSpacing: 3,
-                              children: [
-                                _MyClan._pill('المستوى ${arabicNumber(c.level)}', AppColors.gold),
-                                _MyClan._pill(
-                                  '${arabicNumber(c.count)} من ${arabicNumber(clanMax)} عضو',
-                                  AppColors.muted,
-                                ),
-                                ..._MyClan._conditions(c),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-                  Text(
-                    c.desc.isEmpty ? 'ما كتبوا وصف للديوان' : c.desc,
-                    style: TextStyle(color: c.desc.isEmpty ? AppColors.muted : AppColors.text, height: 1.5),
-                  ),
-                  const SizedBox(height: 10),
-                  Wrap(
-                    spacing: 6,
-                    runSpacing: 6,
-                    children: [
-                      for (final m in c.members.take(16))
-                        Tooltip(
-                          message: '${m.name} · ${m.roleName}',
-                          child: PlayerAvatar(
-                            avatar: m.avatar,
-                            size: 34,
-                            animate: false,
-                            frame: m.role == ClanRole.owner ? AppColors.gold : null,
-                          ),
-                        ),
-                    ],
-                  ),
+                  SocChip('المستوى ${arabicNumber(c.level)}', kind: SocChipKind.gold),
+                  SocChip('${arabicNumber(c.count)} من ${arabicNumber(clanMax)} عضو', kind: SocChipKind.blue),
+                  ...ClanPanelView.conditions(c),
                 ],
               ),
             ),
-          ),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(context), child: const Text('سكّر')),
+          ],
+        ),
+        const SizedBox(height: 10),
+        SocPopupText(c.desc.isEmpty ? 'ما كتبوا وصف للديوان' : c.desc, size: 14.5, muted: c.desc.isEmpty),
+        const SizedBox(height: 10),
+        Wrap(
+          spacing: 6,
+          runSpacing: 6,
+          alignment: WrapAlignment.center,
+          children: [
+            for (final m in c.members.take(16))
+              Tooltip(
+                message: '${m.name} · ${m.roleName}',
+                child: SocAvatar(
+                  avatar: m.avatar,
+                  size: 34,
+                  ring: m.role == ClanRole.owner ? SocRing.gold : SocRing.blue,
+                ),
+              ),
+          ],
+        ),
+        const SizedBox(height: 14),
+        SocActions(
+          children: [
+            SocButton(
+              label: 'سكّر',
+              tone: SocTone.grey,
+              height: 42,
+              fontSize: 16,
+              onPressed: () => Navigator.pop(context),
+            ),
             if (canJoin)
-              TextButton(
+              SocButton(
+                label: label,
+                tone: SocTone.green,
+                height: 42,
+                fontSize: 16,
                 onPressed: ok
                     ? () {
                         Navigator.pop(context);
                         onJoin();
                       }
                     : null,
-                child: Text(label),
               ),
           ],
-        );
-      },
-    );
+        ),
+      ],
+    ),
+  );
+}
 
 /// دعوات الدواوين اللي وصلتك (لو ما عندك ديوان).
 class _InviteBanner extends StatelessWidget {
@@ -1263,12 +1798,12 @@ class _InviteBanner extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(10, 6, 8, 6),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(14),
-        color: AppColors.gold.withValues(alpha: .1),
-        border: Border.all(color: AppColors.gold.withValues(alpha: .6)),
+        color: Colors.black.withValues(alpha: .28),
+        border: Border.all(color: const Color(0xFFD9A84E), width: 1.8),
       ),
       child: Row(
         children: [
-          ClanCrest.of(inv.tag, size: 36),
+          ClanCrest.of(inv.tag, size: 38),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
@@ -1276,17 +1811,32 @@ class _InviteBanner extends StatelessWidget {
                   ? '${inv.fromName} يدعوك تدخل ${inv.tag.name} (و${arabicNumber(invites.length - 1)} دعوات ثانية)'
                   : '${inv.fromName} يدعوك تدخل ${inv.tag.name}',
               maxLines: 2,
-              style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800),
+              style: const TextStyle(
+                fontSize: 13,
+                fontFamily: kufi,
+                fontWeight: FontWeight.w800,
+                color: socCream,
+                height: 1.3,
+              ),
             ),
           ),
-          TextButton(
+          SocButton(
+            label: 'ادخل',
+            tone: SocTone.green,
+            height: 32,
+            fontSize: 14,
+            width: 66,
             onPressed: () =>
                 _run(context, () => Backend.instance.clanInviteRespond(inv.id, accept: true), 'دخلت ${inv.tag.name}!'),
-            child: const Text('ادخل'),
           ),
-          TextButton(
+          const SizedBox(width: 6),
+          SocButton(
+            label: 'لا',
+            tone: SocTone.grey,
+            height: 32,
+            fontSize: 14,
+            width: 50,
             onPressed: () => _run(context, () => Backend.instance.clanInviteRespond(inv.id, accept: false)),
-            child: const Text('لا', style: TextStyle(color: AppColors.muted)),
           ),
         ],
       ),

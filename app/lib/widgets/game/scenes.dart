@@ -5,19 +5,33 @@ import 'package:flutter/material.dart';
 import '../../models/game_view.dart';
 import '../../models/room.dart';
 import '../../models/shop.dart';
+import '../../services/sounds.dart';
 import '../../theme.dart';
 import '../common.dart';
+import '../death_fx.dart';
+import '../design.dart';
+import '../design_game.dart';
 import '../fx.dart';
 import '../majlis.dart';
 import '../ui.dart';
 import 'game_table.dart';
 import 'policy_card.dart';
+import 'table_art.dart';
 
 /// المشاهد اللي تطلع فوق الطاولة بعد الأحداث: كشف التصويت، الختم، الطرد، وكشف الأقنعة بالنهاية.
-/// كل مشهد يرسم نفسه حسب الوقت من بدايته، ويعرف وين كل لاعب قاعد (نفس حساب الطاولة).
+/// كل مشهد يرسم نفسه حسب الوقت من بدايته، ويعرف وين كل لاعب قاعد (نفس حساب الطاولة، على [Stage]).
 
 /// هزة الشاشة من المشاهد (القرار الأحمر): ٠ ثابت، ١ أقوى هزة. الطاولة تسمعها وتهتز معها.
 final sceneShake = ValueNotifier<double>(0);
+
+/// مؤثر صوتي يشتغل لما يوصل المشهد [at] ثانية من بدايته (الأسماء في assets/sfx، انظر Sounds).
+class SceneCue {
+  const SceneCue(this.at, this.sound, [this.volume = 1]);
+
+  final double at;
+  final String sound;
+  final double volume;
+}
 
 abstract class GameScene {
   const GameScene();
@@ -34,30 +48,63 @@ abstract class GameScene {
   /// قد إيش الشاشة تهتز بهاللحظة.
   double shakeAt(double t) => 0;
 
-  /// [size] مقاس المشهد (نفس الطاولة مع حوافها: [tablePadding]).
+  /// أصوات المشهد بترتيب أوقاتها.
+  List<SceneCue> get cues => const [];
+
+  /// تعتيم الأطراف (٠–١) بلون [vignetteColor]: يشد الأعصاب قبل اللحظة الكبيرة.
+  double vignetteAt(double t) => 0;
+  Color get vignetteColor => const Color(0xFF000000);
+
+  /// وميض يغطي الشاشة (٠–١) بلون [flashColor] لحظة الضربة.
+  double flashAt(double t) => 0;
+  Color get flashColor => const Color(0xFFFFFFFF);
+
+  /// [size] مقاس المشهد (نفس الطاولة: المسرح ١٦:٩ يتوسطه).
   Widget build(BuildContext context, double t, Size size);
 }
 
 /// يشغّل مشهد فوق الطاولة ويخلّصه لحاله بعد مدته، أو بضغطة.
 class SceneOverlay extends StatefulWidget {
-  const SceneOverlay({super.key, required this.scene, required this.onDone});
+  const SceneOverlay({super.key, required this.scene, required this.onDone, this.freezeAt});
 
   final GameScene scene;
   final VoidCallback onDone;
+
+  /// للتصوير: يوقف المشهد على هاللحظة (ثواني من بدايته) بدون صوت ولا حركة.
+  final double? freezeAt;
 
   @override
   State<SceneOverlay> createState() => _SceneOverlayState();
 }
 
 class _SceneOverlayState extends State<SceneOverlay> with SingleTickerProviderStateMixin {
-  late final _c = AnimationController(vsync: this, duration: widget.scene.duration)
-    ..addListener(_shake)
-    ..forward().then((_) => _done());
+  late final _c = AnimationController(vsync: this, duration: widget.scene.duration)..addListener(_tick);
+  late final _cues = [...widget.scene.cues]..sort((a, b) => a.at.compareTo(b.at));
+  int _cue = 0;
   bool _finished = false;
 
   double get _seconds => _c.value * widget.scene.duration.inMicroseconds / 1e6;
 
-  void _shake() => sceneShake.value = FxClock.lite.value ? 0 : widget.scene.shakeAt(_seconds);
+  @override
+  void initState() {
+    super.initState();
+    if (widget.freezeAt case final at?) {
+      _c.value = (at * 1e6 / widget.scene.duration.inMicroseconds).clamp(0.0, 1.0);
+    } else {
+      _c.forward().then((_) => _done());
+    }
+  }
+
+  void _tick() {
+    if (widget.freezeAt != null) return;
+    final s = _seconds;
+    sceneShake.value = FxClock.lite.value ? 0 : widget.scene.shakeAt(s);
+    // الأصوات تشتغل بوقتها (حتى لو الشاشة بالوضع الخفيف)
+    while (_cue < _cues.length && _cues[_cue].at <= s) {
+      final cue = _cues[_cue++];
+      Sounds.play(cue.sound, volume: cue.volume);
+    }
+  }
 
   void _done() {
     if (_finished) return;
@@ -83,26 +130,28 @@ class _SceneOverlayState extends State<SceneOverlay> with SingleTickerProviderSt
         builder: (context, _) {
           final s = _seconds;
           final fade = (s / .2).clamp(0.0, 1.0) * ((total - s) / .3).clamp(0.0, 1.0);
-          final t = FxClock.lite.value ? widget.scene.settle : s;
           return Opacity(
             opacity: fade,
             child: Stack(
               clipBehavior: Clip.none,
               children: [
                 Positioned.fill(
-                  child: ColoredBox(color: Colors.black.withValues(alpha: widget.scene.dim)),
+                  child: SceneFrame(scene: widget.scene, seconds: s),
                 ),
-                Positioned.fill(
-                  child: LayoutBuilder(builder: (context, box) => widget.scene.build(context, t, box.biggest)),
-                ),
-                const Positioned(
-                  top: 12,
+                Positioned(
+                  top: 6,
                   left: 0,
                   right: 0,
-                  child: Text(
-                    'اضغط بأي مكان عشان تكمل',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(color: AppColors.muted, fontSize: 12.5),
+                  child: IgnorePointer(
+                    child: Text(
+                      'اضغط بأي مكان عشان تكمل',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: AppColors.muted.withValues(alpha: .8),
+                        fontSize: 11.5,
+                        shadows: const [Shadow(color: Colors.black, blurRadius: 4)],
+                      ),
+                    ),
                   ),
                 ),
               ],
@@ -110,6 +159,55 @@ class _SceneOverlayState extends State<SceneOverlay> with SingleTickerProviderSt
           );
         },
       ),
+    );
+  }
+}
+
+/// طبقات المشهد عند لحظة [seconds] من بدايته: تعتيم الطاولة، تعتيم الأطراف، المشهد نفسه، والوميض.
+/// (مفصولة عشان اللقطات تصور أي لحظة بدون ما تشغّل المشهد.)
+class SceneFrame extends StatelessWidget {
+  const SceneFrame({super.key, required this.scene, required this.seconds});
+
+  final GameScene scene;
+  final double seconds;
+
+  @override
+  Widget build(BuildContext context) {
+    final lite = FxClock.lite.value;
+    final t = lite ? scene.settle : seconds;
+    final vignette = lite ? 0.0 : scene.vignetteAt(seconds).clamp(0.0, 1.0);
+    final flash = lite ? 0.0 : scene.flashAt(seconds).clamp(0.0, 1.0);
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        Positioned.fill(
+          child: ColoredBox(color: Colors.black.withValues(alpha: scene.dim)),
+        ),
+        if (vignette > 0)
+          Positioned.fill(
+            child: IgnorePointer(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: RadialGradient(
+                    radius: .95,
+                    colors: [
+                      scene.vignetteColor.withValues(alpha: 0),
+                      scene.vignetteColor.withValues(alpha: vignette),
+                    ],
+                    stops: const [.45, 1],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        Positioned.fill(child: LayoutBuilder(builder: (context, box) => scene.build(context, t, box.biggest))),
+        if (flash > 0)
+          Positioned.fill(
+            child: IgnorePointer(
+              child: ColoredBox(color: scene.flashColor.withValues(alpha: flash)),
+            ),
+          ),
+      ],
     );
   }
 }
@@ -122,15 +220,9 @@ Offset _bezier(Offset a, Offset c, Offset b, double t) => a * ((1 - t) * (1 - t)
 Widget _at(Offset c, double w, double h, Widget child) =>
     Positioned(left: c.dx - w / 2, top: c.dy - h / 2, width: w, height: h, child: child);
 
-/// مكان كل لاعب ومكان السجادة بإحداثيات المشهد.
-({Map<String, Offset> seats, Rect rug, Size table}) _layout(GameView view, Size size) {
-  final table = Size(size.width - tablePadding.horizontal, size.height - tablePadding.vertical);
-  final o = Offset(tablePadding.left, tablePadding.top);
-  return (
-    seats: {for (final MapEntry(:key, :value) in seatCenters(view, table).entries) key: value + o},
-    rug: rugRect(table).shift(o),
-    table: table,
-  );
+/// مكان كل لاعب والسجادة والبيضاوي بإحداثيات المشهد (المسرح).
+({Map<String, Offset> seats, Rect rug, Size table, Stage stage}) _layout(GameView view, Size size) {
+  return (seats: seatCenters(view, size), rug: rugRect(size), table: size, stage: Stage(size));
 }
 
 /// كرت ينقلب: [angle] صفر يبين الوجه، وπ يبين الظهر.
@@ -154,73 +246,52 @@ class _Flip extends StatelessWidget {
   }
 }
 
-/// ظهر الكرت (نفس الكومة على الطاولة).
-class _Back extends StatelessWidget {
-  const _Back({required this.width, required this.height});
-
-  final double width, height;
-
-  @override
-  Widget build(BuildContext context) => Container(
-    width: width,
-    height: height,
-    padding: EdgeInsets.all(width * .08),
-    decoration: BoxDecoration(
-      borderRadius: BorderRadius.circular(width * .12),
-      gradient: const LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-        colors: [Color(0xFF4A3592), Color(0xFF1C1638)],
+/// لوح الرسالة تحت الطاولة (نفس مكانه وشكله في الشاشة)، يطلع فيه نتيجة المشهد.
+Widget _scenePlank(Stage st, String text, {Widget? icon, Color color = const Color(0xFFFFF6E6)}) {
+  final s = st.s;
+  final fs = gameFont(34, s, min: 13);
+  final r = TablePos.plank;
+  final w = math.max(r.width * s, math.min(996 * s - 8, 330.0));
+  final h = math.max(r.height * s, fs * 1.4 + 14);
+  final c = st.at(r.center.dx, r.center.dy);
+  return Positioned(
+    left: c.dx - w / 2,
+    top: c.dy - h / 2,
+    width: w,
+    height: h,
+    child: GamePlank(
+      radius: math.max(10, 16 * s),
+      padding: EdgeInsets.symmetric(horizontal: math.max(10, 18 * s), vertical: 2),
+      child: Row(
+        children: [
+          if (icon != null) ...[icon, SizedBox(width: math.max(6, 10 * s))],
+          Expanded(
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                text,
+                textAlign: TextAlign.center,
+                maxLines: 1,
+                style: TextStyle(
+                  fontFamily: kufi,
+                  fontWeight: FontWeight.w800,
+                  fontSize: fs,
+                  height: 1.3,
+                  color: color,
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
-      border: Border.all(color: AppColors.gold, width: 2),
-      boxShadow: const [BoxShadow(color: Colors.black54, blurRadius: 10, offset: Offset(0, 5))],
     ),
-    child: Container(
-      alignment: Alignment.center,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(width * .08),
-        border: Border.all(color: AppColors.gold.withValues(alpha: .5)),
-      ),
-      child: CustomPaint(size: Size.square(width * .42), painter: _StarPainter()),
-    ),
-  );
-}
-
-class _StarPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final c = size.center(Offset.zero);
-    canvas.drawPath(star4(c, size.width / 2), Paint()..color = AppColors.gold);
-    canvas.drawCircle(c, size.width * .09, Paint()..color = AppColors.goldLight);
-  }
-
-  @override
-  bool shouldRepaint(_StarPainter old) => false;
-}
-
-/// لوحة نتيجة داكنة بحافة ملونة.
-class _Plate extends StatelessWidget {
-  const _Plate({required this.color, required this.child});
-
-  final Color color;
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-    decoration: BoxDecoration(
-      color: const Color(0xF00B0818),
-      borderRadius: BorderRadius.circular(18),
-      border: Border.all(color: color, width: 2),
-      boxShadow: [BoxShadow(color: color.withValues(alpha: .45), blurRadius: 24)],
-    ),
-    child: child,
   );
 }
 
 // ───────── كشف التصويت
 
-/// كشف التصويت: كرت مقلوب جنب كل لاعب صوّت، يرجف مع دق الطبول، وبعدها كلهم ينقلبون مرة وحدة.
+/// كشف التصويت: كرت بنفسجي مقلوب جنب كل لاعب صوّت، يرجف مع دق الطبول، وبعدها كلهم ينقلبون مرة وحدة
+/// على ورقة «موافق» أو «رافض» (مثل التصميم)، ولوح النتيجة تحت.
 class VoteScene extends GameScene {
   const VoteScene({
     required this.view,
@@ -246,12 +317,39 @@ class VoteScene extends GameScene {
   @override
   double get settle => 3.0;
 
+  /// التصميم ما يعتّم الطاولة وقت الكشف.
   @override
-  double get dim => .3;
+  double get dim => 0;
+
+  /// دقات الطبل: العصيان تسرع من ٤ لـ١٤ ضربة بالثانية بين ٠٫٢ و١٫٥ (نفس سرعة رسمة الطبل)، فنحسب وقت كل ضربة.
+  static final _drumHits = [
+    for (var k = 1; k <= 11; k++) .2 + (-4 + math.sqrt(16 + 4 * (10 / 2.6) * k)) / (2 * (10 / 2.6)),
+  ];
+
+  @override
+  List<SceneCue> get cues => [
+    const SceneCue(.05, 'whoosh', .45),
+    for (final (i, at) in _drumHits.indexed) SceneCue(at, i.isEven ? 'drum' : 'drum2', .35 + .5 * i / _drumHits.length),
+    const SceneCue(1.55, 'flip', .8),
+    SceneCue(1.95, cancelledBy == null && passed ? 'yes' : 'no', .9),
+    const SceneCue(2.2, 'tick', .6),
+  ];
+
+  /// الأطراف تعتم وتشد مع الطبل، وتنفك لما ينقلبون.
+  @override
+  double vignetteAt(double t) => .5 * seg(t, .2, 1.5) * (1 - seg(t, 1.5, 1.75));
+
+  /// ولعة وقت النتيجة: ذهبي لو مشت، أحمر لو سقطت.
+  @override
+  double flashAt(double t) => .3 * bump(t, 1.95, 2.4);
+
+  @override
+  Color get flashColor => cancelledBy == null && passed ? AppColors.goldLight : AppColors.traitor;
 
   @override
   Widget build(BuildContext context, double t, Size size) {
-    final (:seats, :rug, :table) = _layout(view, size);
+    final (:seats, :rug, :table, :stage) = _layout(view, size);
+    final s = stage.s;
     final appear = seg(t, 0, .35, Curves.easeOutBack);
     final drum = seg(t, .2, .45) * (1 - seg(t, 1.5, 1.7));
     final roll = seg(t, .2, 1.5);
@@ -262,25 +360,38 @@ class VoteScene extends GameScene {
     final no = votes.entries.where((e) => !e.value).fold(0, (n, e) => n + weight(e.key));
     final judge = cancelledBy;
     final mid = size.width / 2;
+    final cw = (96 * s).clamp(50.0, 110.0);
+    final ch = cw * 1.28;
+    final d = seatDiameter * s;
+    final oval = stage.at(TablePos.oval.dx, TablePos.oval.dy);
+    final k = (s * 1.6).clamp(.7, 1.4);
     return Stack(
       clipBehavior: Clip.none,
       children: [
         if (drum > 0)
           _at(
-            rug.center,
-            130,
-            120,
+            oval,
+            130 * k,
+            120 * k,
             Opacity(
               opacity: drum,
-              child: CustomPaint(painter: _DrumPainter(t, roll)),
+              child: Transform.scale(
+                scale: k,
+                child: CustomPaint(painter: _DrumPainter(t, roll)),
+              ),
             ),
           ),
         for (final (i, MapEntry(key: id, value: ja)) in votes.entries.indexed)
           if (seats[id] case final c?)
             _at(
-              c + Offset(c.dx <= mid + 1 ? 52 : -52, -2),
-              42,
-              58,
+              // الكرت جنب الصورة من جهة نص الطاولة، والمقاعد التحت ترفعه عشان ما يغطي لوح الرسالة.
+              c +
+                  Offset(
+                    (c.dx < mid - 1 ? 1 : -1) * (d / 2 + cw / 2 + 6 * s),
+                    c.dy > stage.box.top + 700 * s && c.dy < stage.box.top + 900 * s ? -62 * s : 12 * s,
+                  ),
+              cw,
+              ch,
               Transform.translate(
                 offset: Offset(0, math.sin(t * 37 + i * 2) * 3 * roll * (1 - flip)),
                 child: Transform.rotate(
@@ -289,11 +400,14 @@ class VoteScene extends GameScene {
                     scale: appear * (1 + .2 * pop),
                     child: Stack(
                       clipBehavior: Clip.none,
+                      alignment: Alignment.center,
                       children: [
                         _Flip(
                           angle: (1 - flip) * math.pi,
-                          front: id == judge ? const _JudgeFace() : _VoteFace(ja),
-                          back: const _VoteBack(),
+                          front: id == judge
+                              ? VoteBadgeCard(yes: false, width: cw, label: 'ألغى', icon: const Gfx('scales', size: 40))
+                              : VoteBadgeCard(yes: ja, width: cw),
+                          back: GameCardFace(kind: GameCardKind.discard, width: cw * .9),
                         ),
                         // الشيخ: صوته بصوتين (شارة فوق كرته).
                         if (weight(id) > 1 && flip > .5)
@@ -305,19 +419,20 @@ class VoteScene extends GameScene {
                               child: Transform.scale(
                                 scale: Curves.elasticOut.transform(seg(t, 1.9, 2.4)),
                                 child: Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 1),
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 1),
                                   decoration: BoxDecoration(
                                     color: const Color(0xFF2A1B0A),
-                                    borderRadius: BorderRadius.circular(10),
-                                    border: Border.all(color: AppColors.gold, width: 1.5),
-                                    boxShadow: [BoxShadow(color: AppColors.gold.withValues(alpha: .5), blurRadius: 8)],
+                                    borderRadius: BorderRadius.circular(40),
+                                    border: Border.all(color: AppColors.gold, width: 2),
                                   ),
                                   child: Text(
                                     weight(id) == 2 ? 'صوتين' : '×${arabicNumber(weight(id))}',
                                     style: const TextStyle(
+                                      fontFamily: kufi,
                                       color: AppColors.goldLight,
-                                      fontWeight: FontWeight.w900,
+                                      fontWeight: FontWeight.w800,
                                       fontSize: 12.5,
+                                      height: 1.3,
                                     ),
                                   ),
                                 ),
@@ -331,165 +446,25 @@ class VoteScene extends GameScene {
               ),
             ),
         if (t > 2.2)
-          _at(
-            rug.center,
-            320,
-            60,
-            Center(
-              child: Opacity(
-                opacity: seg(t, 2.2, 2.45),
-                child: Transform.scale(
-                  scale: seg(t, 2.2, 2.55, Curves.easeOutBack),
-                  child: judge != null
-                      ? _Plate(
-                          color: const Color(0xFFA48BFF),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Gfx('scales', size: 28),
-                              const SizedBox(width: 8),
-                              Flexible(
-                                child: Text(
-                                  'القاضي ${judge == view.you && !view.spectator ? '(أنت)' : view.player(judge).name} ألغى التصويت',
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
-                                    fontFamily: kufi,
-                                    fontSize: 19,
-                                    fontWeight: FontWeight.w700,
-                                    color: Color(0xFFD9CFFF),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        )
-                      : _Plate(
-                          color: passed ? AppColors.green : AppColors.traitor,
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Gfx(passed ? 'check' : 'cross', size: 28),
-                              const SizedBox(width: 8),
-                              Text(
-                                passed ? 'الحكومة انتخبت' : 'الحكومة انرفضت',
-                                style: TextStyle(
-                                  fontFamily: kufi,
-                                  fontSize: 21,
-                                  fontWeight: FontWeight.w700,
-                                  color: passed ? AppColors.green : AppColors.traitorLight,
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Text(
-                                '${arabicNumber(yes)} – ${arabicNumber(no)}',
-                                style: const TextStyle(fontFamily: kufi, fontSize: 21, fontWeight: FontWeight.w700),
-                              ),
-                            ],
-                          ),
-                        ),
-                ),
+          Positioned.fill(
+            child: Opacity(
+              opacity: seg(t, 2.2, 2.45),
+              child: Stack(
+                children: [
+                  _scenePlank(
+                    stage,
+                    judge != null
+                        ? 'القاضي ${judge == view.you && !view.spectator ? '(أنت)' : view.player(judge).name} ألغى التصويت'
+                        : '${passed ? 'مشت' : 'سقطت'} الحكومة: ${arabicNumber(yes)} موافق و${arabicNumber(no)} رافض',
+                    icon: judge != null ? const Gfx('scales', size: 30) : null,
+                  ),
+                ],
               ),
             ),
           ),
       ],
     );
   }
-}
-
-class _VoteFace extends StatelessWidget {
-  const _VoteFace(this.yes);
-
-  final bool yes;
-
-  @override
-  Widget build(BuildContext context) => Container(
-    width: 42,
-    height: 58,
-    decoration: BoxDecoration(
-      borderRadius: BorderRadius.circular(8),
-      gradient: LinearGradient(
-        begin: Alignment.topCenter,
-        end: Alignment.bottomCenter,
-        colors: yes ? const [Color(0xFF6DE3A0), Color(0xFF1E8E52)] : const [Color(0xFFFF8C98), Color(0xFFA3172D)],
-      ),
-      border: Border.all(color: Colors.white.withValues(alpha: .85), width: 2),
-      boxShadow: [BoxShadow(color: (yes ? AppColors.green : AppColors.traitor).withValues(alpha: .7), blurRadius: 12)],
-    ),
-    child: Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Gfx(yes ? 'check' : 'cross', size: 22),
-        Text(
-          yes ? 'نعم' : 'لا',
-          style: TextStyle(
-            fontFamily: kufi,
-            fontWeight: FontWeight.w700,
-            fontSize: 13,
-            height: 1.3,
-            color: yes ? const Color(0xFF062814) : Colors.white,
-          ),
-        ),
-      ],
-    ),
-  );
-}
-
-/// ورقة القاضي: ميزان وكلمة «ألغى» بدال نعم أو لا.
-class _JudgeFace extends StatelessWidget {
-  const _JudgeFace();
-
-  @override
-  Widget build(BuildContext context) => Container(
-    width: 42,
-    height: 58,
-    decoration: BoxDecoration(
-      borderRadius: BorderRadius.circular(8),
-      gradient: const LinearGradient(
-        begin: Alignment.topCenter,
-        end: Alignment.bottomCenter,
-        colors: [Color(0xFFC4B5FD), Color(0xFF5B21B6)],
-      ),
-      border: Border.all(color: Colors.white.withValues(alpha: .85), width: 2),
-      boxShadow: [BoxShadow(color: const Color(0xFF7C3AED).withValues(alpha: .7), blurRadius: 12)],
-    ),
-    child: const Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Gfx('scales', size: 22),
-        Text(
-          'ألغى',
-          style: TextStyle(
-            fontFamily: kufi,
-            fontWeight: FontWeight.w700,
-            fontSize: 12,
-            height: 1.3,
-            color: Colors.white,
-          ),
-        ),
-      ],
-    ),
-  );
-}
-
-class _VoteBack extends StatelessWidget {
-  const _VoteBack();
-
-  @override
-  Widget build(BuildContext context) => Container(
-    width: 42,
-    height: 58,
-    alignment: Alignment.center,
-    decoration: BoxDecoration(
-      borderRadius: BorderRadius.circular(8),
-      gradient: const LinearGradient(colors: [Color(0xFF4A2775), Color(0xFF1A0F33)]),
-      border: Border.all(color: AppColors.gold, width: 2),
-      boxShadow: const [BoxShadow(color: Colors.black54, blurRadius: 8, offset: Offset(0, 3))],
-    ),
-    child: const Text(
-      '؟',
-      style: TextStyle(fontFamily: kufi, fontSize: 26, fontWeight: FontWeight.w700, color: AppColors.goldLight),
-    ),
-  );
 }
 
 /// طبل وعصيه تضرب بالتناوب، وتسرع مع [roll].
@@ -558,7 +533,7 @@ class _DrumPainter extends CustomPainter {
 
 // ───────── تمرير القرار
 
-/// تمرير القرار: الكرت يطير من الوزير (أو من الكومة وقت الفوضى) لنص الطاولة، ينقلب، والختم ينزل
+/// تمرير القرار: الكرت يطير من الوزير (أو من الكومة وقت الفوضى) لنص البيضاوي، ينقلب، والختم ينزل
 /// عليه مع شرار. الأحمر يهز الشاشة.
 class EnactScene extends GameScene {
   const EnactScene({required this.view, required this.loyal, required this.chaos, this.from, this.skin});
@@ -578,25 +553,48 @@ class EnactScene extends GameScene {
   double get settle => 2.4;
 
   @override
-  double get dim => .45;
+  double get dim => .3;
 
   @override
   double shakeAt(double t) => !loyal && t >= 1.3 ? 1 - seg(t, 1.3, 1.85) : 0;
 
   @override
+  List<SceneCue> get cues => [
+    const SceneCue(.1, 'whoosh', .55),
+    const SceneCue(.75, 'flip', .8),
+    // نزول الختم: الأوفياء ختم خفيف وبريق، والخونة ضربة تقيلة تهز الشاشة
+    if (loyal) ...const [SceneCue(1.3, 'stamp', .8), SceneCue(1.36, 'sparkle', .5)] else ...[
+      const SceneCue(1.3, 'thud_red'),
+      if (chaos) const SceneCue(1.3, 'drum', .8),
+    ],
+  ];
+
+  /// الأطراف تحمر بعد ضربة الخونة.
+  @override
+  double vignetteAt(double t) => loyal ? 0 : .55 * seg(t, 1.3, 1.45) * (1 - seg(t, 1.5, 2.4));
+
+  @override
+  Color get vignetteColor => AppColors.traitor;
+
+  @override
+  double flashAt(double t) => (loyal ? .22 : .38) * bump(t, 1.3, 1.6);
+
+  @override
   Widget build(BuildContext context, double t, Size size) {
-    final (:seats, :rug, :table) = _layout(view, size);
-    final start = seats[from] ?? Offset(rug.right - rug.width * .14, rug.center.dy);
-    final cardW = (rug.height * .42).clamp(72.0, 112.0);
-    final cardH = cardW * 1.45;
-    final end = Offset(rug.center.dx, math.max(cardH / 2 + 8, rug.center.dy - cardH * .12));
+    final (:seats, :rug, :table, :stage) = _layout(view, size);
+    final s = stage.s;
+    final draw = stage.at(TablePos.draw.dx, TablePos.draw.dy);
+    final start = seats[from] ?? draw;
+    final cardW = (170 * s).clamp(66.0, 190.0);
+    final cardH = cardW * 1.46;
+    final end = stage.at(TablePos.oval.dx, TablePos.oval.dy);
     final fly = seg(t, .1, .75, Curves.easeOutCubic);
-    final pos = _bezier(start, Offset((start.dx + end.dx) / 2, math.min(start.dy, end.dy) - 90), end, fly);
+    final pos = _bezier(start, Offset((start.dx + end.dx) / 2, math.min(start.dy, end.dy) - 90 * s), end, fly);
     final flip = seg(t, .75, 1.0, Curves.easeInOut);
     final stamp = seg(t, 1.0, 1.3, Curves.easeInCubic);
     final squash = bump(t, 1.3, 1.5) * .07;
     final shake = shakeAt(t);
-    final color = loyal ? AppColors.loyalLight : AppColors.traitorLight;
+    final classic = skin == null || skin!.border == null;
     return Stack(
       clipBehavior: Clip.none,
       children: [
@@ -619,32 +617,28 @@ class EnactScene extends GameScene {
                   width: cardW,
                   stamp: stamp,
                 ),
-                back: _Back(width: cardW, height: cardH),
+                back: GameCardFace(
+                  kind: GameCardKind.draw,
+                  width: cardW,
+                  colors: classic ? null : (skin!.border!, skin!.loyal.first, skin!.loyal.last),
+                ),
               ),
             ),
           ),
         ),
         if (t > 1.4)
-          Positioned(
-            left: 0,
-            right: 0,
-            top: end.dy + cardH / 2 + 10,
-            child: Center(
-              child: Opacity(
-                opacity: seg(t, 1.4, 1.7),
-                child: _Plate(
-                  color: loyal ? AppColors.loyal : AppColors.traitor,
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      if (chaos) ...[const Gfx('chaos', size: 28), const SizedBox(width: 6)],
-                      Text(
-                        chaos ? 'فوضى! تمرر تلقائياً' : 'تمرر قرار ${loyal ? 'للأوفياء' : 'للخونة'}',
-                        style: TextStyle(fontFamily: kufi, fontSize: 21, fontWeight: FontWeight.w700, color: color),
-                      ),
-                    ],
+          Positioned.fill(
+            child: Opacity(
+              opacity: seg(t, 1.4, 1.7),
+              child: Stack(
+                children: [
+                  _scenePlank(
+                    stage,
+                    chaos ? 'فوضى! تمرر تلقائياً' : 'مشى قرار ${loyal ? 'للأوفياء' : 'للخونة'}!',
+                    icon: chaos ? const Gfx('chaos', size: 30) : const Gfx('log', size: 30),
+                    color: loyal ? const Color(0xFFD6E6FF) : const Color(0xFFFFD3D0),
                   ),
-                ),
+                ],
               ),
             ),
           ),
@@ -704,20 +698,64 @@ class _BurstPainter extends CustomPainter {
 
 /// الطرد: الصورة ترجف وتتشقق وتتكسر قطع، وفانوسه ينطفي ويطلع منه دخان. الحارس: درع يحميه والشقوق تختفي.
 class DeathScene extends GameScene {
-  const DeathScene({required this.name, required this.avatar, required this.guarded});
+  const DeathScene({required this.name, required this.avatar, required this.guarded, this.fx = DeathFx.cloth});
 
   final String name;
   final String avatar;
   final bool guarded;
 
+  /// افكت موته من المتجر: غير الغطا الرمادي يلعب كبير بوسط المشهد مكان تكسر الصورة.
+  final DeathFx fx;
+
+  bool get _custom => !guarded && fx != DeathFx.cloth;
+
+  /// الافكت يبدأ (deathFxStart) على ١٫٥ ثانية من المشهد، بعد الارتجاف والشقوق.
+  static const _fxAt = 1.5;
+
   @override
   Duration get duration => const Duration(milliseconds: 3800);
 
   @override
-  double get settle => guarded ? 2.6 : 3.2;
+  double get settle => guarded ? 2.6 : (_custom ? 3.4 : 3.2);
 
   @override
   double get dim => .62;
+
+  /// صوت كل افكت.
+  static String _fxSound(DeathFx fx) => switch (fx) {
+    DeathFx.lightning => 'thunder',
+    DeathFx.fire => 'fire',
+    DeathFx.ice => 'ice',
+    DeathFx.bats => 'wings',
+    DeathFx.ghost => 'ghost',
+    DeathFx.gold => 'gong',
+    DeathFx.petals => 'airy',
+    DeathFx.smoke || DeathFx.sand => 'puff',
+    DeathFx.cloth => 'shatter',
+  };
+
+  @override
+  List<SceneCue> get cues => [
+    const SceneCue(.2, 'heartbeat', .8),
+    const SceneCue(.85, 'heartbeat', .9),
+    const SceneCue(.9, 'crack', .8),
+    if (guarded)
+      const SceneCue(1.2, 'shield')
+    else ...[
+      SceneCue(_custom ? _fxAt : 1.55, _fxSound(fx)),
+      const SceneCue(1.6, 'lamp_out', .8),
+    ],
+  ];
+
+  /// الأطراف تحمر (أو تخضر مع الحارس) وهو يرتجف، وتنفك لما ينكسر.
+  @override
+  double vignetteAt(double t) => .65 * seg(t, .2, 1.4) * (1 - seg(t, 1.5, 2.0));
+
+  @override
+  Color get vignetteColor => guarded ? AppColors.loyal : AppColors.traitor;
+
+  @override
+  double flashAt(double t) => guarded ? .25 * bump(t, 1.2, 1.5) : .35 * bump(t, 1.5, 1.85);
 
   @override
   Widget build(BuildContext context, double t, Size size) {
@@ -725,7 +763,9 @@ class DeathScene extends GameScene {
     final c = Offset(size.width / 2, size.height * .42);
     final shake = seg(t, .2, 1.0) * (1 - seg(t, guarded ? 1.2 : 1.5, guarded ? 1.3 : 1.6));
     final crack = guarded ? seg(t, .9, 1.2) * (1 - seg(t, 1.4, 1.8)) : seg(t, .9, 1.35, Curves.easeOut);
-    final shatter = guarded ? 0.0 : seg(t, 1.55, 2.6, Curves.easeIn);
+    final shatter = guarded || _custom ? 0.0 : seg(t, 1.55, 2.6, Curves.easeIn);
+    // وقت الافكت (يبدأ على deathFxStart لما نوصل _fxAt)
+    final fxT = t - (_fxAt - deathFxStart);
     final shield = guarded ? seg(t, 1.2, 1.5, Curves.easeOutBack) : 0.0;
     final out = guarded ? 0.0 : seg(t, 1.6, 2.1);
     final lampOn = out == 0 ? 1.0 : (1 - out) * (.5 + .5 * math.sin(t * 50).abs());
@@ -752,12 +792,15 @@ class DeathScene extends GameScene {
             ),
           ),
           if (shatter == 0) ...[
-            PlayerAvatar(avatar: avatar, size: r),
+            if (_custom) _deathFxAvatar(fx, avatar, r * 1.2, fxT) else TableAvatar(avatar: avatar, size: r * 1.2),
             if (crack > 0)
-              SizedBox(
-                width: r,
-                height: r,
-                child: ClipOval(child: CustomPaint(painter: _CracksPainter(crack))),
+              Opacity(
+                opacity: _custom ? 1 - seg(t, _fxAt, _fxAt + .4) : 1,
+                child: SizedBox(
+                  width: r,
+                  height: r,
+                  child: ClipOval(child: CustomPaint(painter: _CracksPainter(crack))),
+                ),
               ),
           ] else
             _Shatter(avatar: avatar, size: r, p: shatter),
@@ -797,19 +840,19 @@ class DeathScene extends GameScene {
           if (t > 2.0)
             Positioned.fill(child: CustomPaint(painter: _SmokePainter(lamp - Offset(0, r * .2), seg(t, 2.0, 3.8)))),
         ],
-        if (t > (guarded ? 1.8 : 2.6))
+        if (t > (guarded ? 1.8 : (_custom ? 2.8 : 2.6)))
           Positioned(
             left: 0,
             right: 0,
             top: c.dy + r * .62,
             child: Opacity(
-              opacity: seg(t, guarded ? 1.8 : 2.6, guarded ? 2.2 : 3.0),
+              opacity: seg(t, guarded ? 1.8 : (_custom ? 2.8 : 2.6), guarded ? 2.2 : (_custom ? 3.2 : 3.0)),
               child: Column(
                 children: [
                   GoldText(guarded ? '$name نجا! طلع حارس' : '$name انطرد', size: 28),
                   if (!guarded)
                     const Text(
-                      'ما يقدر يلعب بعد الحين',
+                      'لا يستطيع أن يلعب بعد الآن',
                       style: TextStyle(color: AppColors.muted, fontWeight: FontWeight.w700),
                     ),
                 ],
@@ -819,6 +862,35 @@ class DeathScene extends GameScene {
       ],
     );
   }
+}
+
+/// صورة المطرود بافكت موته (نفس اللي يبان بالطاولة): تحزن وتترمد، وبعدها المسند والافكت مكانها.
+Widget _deathFxAvatar(DeathFx fx, String avatar, double size, double fxT) {
+  final look = deathLook(fx, math.max(0, fxT));
+  return SizedBox(
+    width: size,
+    height: size,
+    child: Stack(
+      clipBehavior: Clip.none,
+      children: [
+        if (!deathHidesAvatar(fx, fxT))
+          Positioned.fill(
+            child: Opacity(
+              opacity: look.opacity.clamp(0.0, 1.0),
+              child: look.matrix == null
+                  ? TableAvatar(avatar: avatar, size: size)
+                  : ColorFiltered(
+                      colorFilter: ColorFilter.matrix(look.matrix!),
+                      child: TableAvatar(avatar: avatar, size: size),
+                    ),
+            ),
+          ),
+        Positioned.fill(
+          child: DeathLayer(fx: fx, t: fxT),
+        ),
+      ],
+    ),
+  );
 }
 
 /// شقوق تمشي من نقطة الضربة لأطراف الصورة.
@@ -876,7 +948,7 @@ class _Shatter extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final img = PlayerAvatar(avatar: avatar, size: size, animate: false);
+    final img = TableAvatar(avatar: avatar, size: size * 1.2, animate: false);
     final c = Offset(size * .43, size * .4);
     return SizedBox(
       width: size,
@@ -982,6 +1054,34 @@ class UnmaskScene extends GameScene {
   double get dim => .84;
 
   @override
+  List<SceneCue> get cues {
+    final loyalWon = view.winnerLoyal ?? false;
+    return [
+      const SceneCue(_loyalAt, 'whoosh', .5),
+      for (final (i, _) in traitors.indexed) ...[
+        SceneCue(_firstTraitor + i * _gap, 'mask_drop'),
+        // الزعيم آخر واحد: ضربة تقيلة
+        if (i == traitors.length - 1) SceneCue(_firstTraitor + i * _gap + .05, 'thud_red', .8),
+      ],
+      SceneCue(_winAt, loyalWon ? 'win' : 'sting_traitor'),
+      SceneCue(_winAt + .2, 'sparkle', .6),
+    ];
+  }
+
+  /// وميض أحمر خفيف مع كل قناع يطيح، وذهبي كبير لما يعلن الفايز.
+  @override
+  double flashAt(double t) {
+    var f = .3 * bump(t, _winAt, _winAt + .5);
+    for (var i = 0; i < traitors.length; i++) {
+      f = math.max(f, .14 * bump(t, _firstTraitor + i * _gap, _firstTraitor + i * _gap + .35));
+    }
+    return f;
+  }
+
+  @override
+  Color get flashColor => (view.winnerLoyal ?? false) ? AppColors.goldLight : AppColors.traitor;
+
+  @override
   Widget build(BuildContext context, double t, Size size) {
     final loyalWon = view.winnerLoyal ?? false;
     final n = view.players.length;
@@ -989,7 +1089,7 @@ class UnmaskScene extends GameScene {
     final perRow = (n / rows).ceil();
     final cell = math.min(118.0, (size.width - 40) / perRow);
     final av = math.min(84.0, cell * .72);
-    final rowH = av + 62;
+    final rowH = av + 70;
     final top = size.height / 2 - rows * rowH / 2 + (rows == 1 ? 20 : 34);
     final win = seg(t, _winAt, _winAt + .6, Curves.easeOutBack);
     final players = [...view.players]..sort((a, b) => a.seat.compareTo(b.seat));
@@ -1099,7 +1199,7 @@ class _Unmask extends StatelessWidget {
                 offset: Offset(0, hop),
                 child: ColorFiltered(
                   colorFilter: ColorFilter.matrix(greyMatrix(.6 * lost)),
-                  child: PlayerAvatar(avatar: avatar, size: size, frame: shown ? color : null),
+                  child: TableAvatar(avatar: avatar, size: size * 1.14, ring: shown ? color : null),
                 ),
               ),
               Transform.translate(
@@ -1108,7 +1208,7 @@ class _Unmask extends StatelessWidget {
                   angle: wobble + (traitor ? off * 1.3 : -off * .4),
                   child: Opacity(
                     opacity: (1 - off).clamp(0.0, 1.0),
-                    child: PlayerAvatar(avatar: 'masked', size: size, animate: false),
+                    child: TableAvatar(avatar: 'masked', size: size * 1.14, animate: false),
                   ),
                 ),
               ),
@@ -1127,13 +1227,8 @@ class _Unmask extends StatelessWidget {
             ],
           ),
         ),
-        const SizedBox(height: 4),
-        Text(
-          name,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14, color: shown ? light : AppColors.text),
-        ),
+        const SizedBox(height: 10),
+        NamePill(name, size: 14, color: shown ? light : const Color(0xFFFFF6E6)),
         Opacity(
           opacity: seg(off, .3, 1),
           child: Text(switch (role) {

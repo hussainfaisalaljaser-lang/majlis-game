@@ -61,23 +61,24 @@ flutter:
     - assets/avatars/anim/tycoon/
     - assets/avatars/anim/wolf/
     - assets/images/
+    - assets/design/
     - assets/icons/
     - assets/voice/
+    - assets/sfx/
     - assets/music/
     - assets/tables/
     - assets/stickers/
 
   fonts:
-    - family: Tajawal
+    - family: ElMessiri
       fonts:
-        - asset: assets/fonts/Tajawal-Regular.ttf
-        - asset: assets/fonts/Tajawal-Medium.ttf
-          weight: 500
-        - asset: assets/fonts/Tajawal-Bold.ttf
+        - asset: assets/fonts/ElMessiri-Regular.ttf
+        - asset: assets/fonts/ElMessiri-Bold.ttf
           weight: 700
-        - asset: assets/fonts/Tajawal-ExtraBold.ttf
-          weight: 800
-    - family: Marhey
+    - family: ReadexPro
       fonts:
-        - asset: assets/fonts/Marhey-Bold.ttf
+        - asset: assets/fonts/ReadexPro-Regular.ttf
+        - asset: assets/fonts/ReadexPro-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/ReadexPro-Bold.ttf
           weight: 700

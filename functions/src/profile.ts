@@ -250,7 +250,7 @@ export function nameKey(name: string): string {
 export function cleanName(raw: unknown): string {
   const name = typeof raw === 'string' ? raw.trim().replace(/\s+/g, ' ') : '';
   if (!/^[\p{L}\p{N}_ ]{2,16}$/u.test(name)) {
-    throw new HttpsError('invalid-argument', 'الاسم لازم يكون من ٢ إلى ١٦ حرف، بدون رموز');
+    throw new HttpsError('invalid-argument', 'الاسم يجب أن يكون من ٢ إلى ١٦ حرف، بدون رموز');
   }
   return name;
 }
@@ -262,7 +262,7 @@ export function cleanAvatar(raw: unknown, p?: Profile): string {
   if (typeof raw !== 'string') throw new HttpsError('invalid-argument', 'صورة مو معروفة');
   if (AVATARS.includes(raw)) return raw;
   if (!PREMIUM_AVATARS.includes(raw)) throw new HttpsError('invalid-argument', 'صورة مو معروفة');
-  if (!p || !owns(p, `avatar_${raw}`)) throw new HttpsError('permission-denied', 'هذي الشخصية ما تملكها للحين');
+  if (!p || !owns(p, `avatar_${raw}`)) throw new HttpsError('permission-denied', 'هذه الشخصية ما تملكها حتى الآن');
   return raw;
 }
 

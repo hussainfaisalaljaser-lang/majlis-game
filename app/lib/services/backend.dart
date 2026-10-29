@@ -211,7 +211,7 @@ class Backend {
       throw BackendException((e.message ?? 'صار خطأ، جرّب مرة ثانية').replaceAll(RegExp(r'\s*\[\d{3}\]$'), ''));
     } catch (e) {
       debugPrint('$name failed: $e');
-      throw BackendException('ما قدرنا نوصل للسيرفر، تأكد من النت وجرّب مرة ثانية');
+      throw BackendException('ما قدرنا نوصل للخادم، تأكد من النت وجرّب مرة ثانية');
     }
   }
 

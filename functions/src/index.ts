@@ -102,6 +102,7 @@ import {
   claimPass,
   grant,
   passComplete,
+  hasVip,
   passOf,
   passPrice,
   seasonActive,
@@ -243,7 +244,7 @@ async function newRoomCode(): Promise<string> {
     const code = Array.from({ length: 5 }, () => CODE_ALPHABET[randomInt(CODE_ALPHABET.length)]).join('');
     if (!(await db.doc(`rooms/${code}`).get()).exists) return code;
   }
-  throw new HttpsError('resource-exhausted', 'ما قدرنا نسوي كود، جرّب مرة ثانية');
+  throw new HttpsError('resource-exhausted', 'ما قدرنا نسوي رمز، جرّب مرة ثانية');
 }
 
 const asPlayer = (uid: string, p: Profile): RoomPlayer => {
@@ -259,7 +260,9 @@ const modernRoom = (room: Room) => room.players.every((p) => p.bot || (p.proto ?
 
 /** يتأكد إن اللاعب يقدر يدخل الطاولة (المستوى والذهب والـ VIP). */
 function checkTier(p: Profile, tier: TableTier): void {
-  if (tier.vipOnly && !p.vip) throw new HttpsError('permission-denied', 'هذي الطاولة لأعضاء VIP بس');
+  if (tier.vipOnly && !hasVip(p, Date.now())) {
+    throw new HttpsError('permission-denied', 'هذه الطاولة لأعضاء النخبة فقط. اشتر تذكرة الموسم الحالي وتنفتح لك');
+  }
   if (p.level < tier.requiredLevel) {
     throw new HttpsError('permission-denied', `هذي الطاولة تفتح في مستوى ${tier.requiredLevel}`);
   }
@@ -268,7 +271,7 @@ function checkTier(p: Profile, tier: TableTier): void {
 /** يخصم رسوم الدخول ويحفظ الملف (يسويه لو جديد). المطور ذهبه ما يخلص. */
 function chargeEntry(tx: Transaction, uid: string, p: Profile, fee: number): void {
   if (p.dev) return void tx.set(userRef(uid), p);
-  if (p.coins < fee) throw new HttpsError('failed-precondition', 'ما عندك ذهب كافي');
+  if (p.coins < fee) throw new HttpsError('failed-precondition', 'ليس لديك ذهب كافي');
   tx.set(userRef(uid), { ...p, coins: p.coins - fee });
 }
 
@@ -297,10 +300,6 @@ const isBot = (id: string) => id.startsWith('bot_');
 
 /** يلعب عنه البوت: بوت أصلاً، أو لاعب طلع أو انطرد من اللعبة. */
 const botPlays = (s: GameState) => (id: string) => isBot(id) || (s.autopilot ?? []).includes(id);
-
-/** كم دور يفوّته اللاعب ورا بعض قبل ما ينطرد، وكم يتعاقب (ما يدخل ألعاب). */
-const MAX_MISSES = 2;
-const AFK_BAN_MS = 5 * 60_000;
 
 /**
  * آخر وقت للدور الحالي (بالملي ثانية). [waitMs] وقت ننتظره قبل ما يبدأ الدور (الترحيب، أو مشاهد
@@ -420,11 +419,11 @@ export const devTool = onCall(async (req) => {
   const uid = requireAuth(req);
   const owner = isOwner(req);
   if (!isDev(req, (await userRef(uid).get()).data() as Profile | undefined)) {
-    throw new HttpsError('permission-denied', 'هذي للمطور بس');
+    throw new HttpsError('permission-denied', 'هذه للمطور فقط');
   }
   const action = String(req.data?.action ?? '');
   if (action === 'setDev' || action === 'devs') {
-    if (!owner) throw new HttpsError('permission-denied', 'بس صاحب اللعبة يقدر يخلي أحد مطوّر');
+    if (!owner) throw new HttpsError('permission-denied', 'فقط صاحب اللعبة يستطيع أن يخلي أحد مطوّر');
     return action === 'devs' ? { devs: await listDevs() } : setDev(String(req.data?.pid ?? '').trim(), req.data?.on !== false);
   }
   if (action === 'forceRole') return forceRole(uid, String(req.data?.code ?? ''), req.data?.role, req.data?.special);
@@ -432,7 +431,7 @@ export const devTool = onCall(async (req) => {
   if (action === 'appCheck') {
     const mode = req.data?.mode;
     if (mode === 'monitor' || mode === 'enforce') {
-      if (!owner) throw new HttpsError('permission-denied', 'بس صاحب اللعبة يغيّر الحماية');
+      if (!owner) throw new HttpsError('permission-denied', 'فقط صاحب اللعبة يغيّر الحماية');
       await setAppCheckMode(mode);
     }
     return { mode: await appCheckMode() };
@@ -485,7 +484,7 @@ export const devTool = onCall(async (req) => {
 
 /** يخلي لاعب مطوّر برمزه (أو يشيله). صاحب اللعبة نفسه يبقى مطوّر دايماً. */
 async function setDev(pid: string, on: boolean): Promise<{ name: string; pid: string }> {
-  if (!validPid(pid)) throw new HttpsError('invalid-argument', 'الرمز أرقام بس، من ٣ إلى ٨');
+  if (!validPid(pid)) throw new HttpsError('invalid-argument', 'الرمز أرقام فقط، من ٣ إلى ٨');
   const target = (await db.doc(`ids/${pid}`).get()).data()?.uid as string | undefined;
   if (!target) throw new HttpsError('not-found', 'ما لقينا لاعب بهالرمز');
   return db.runTransaction(async (tx) => {
@@ -514,7 +513,7 @@ async function forceRole(uid: string, code: string, role: unknown, special: unkn
     const { state, deadline } = splitGame(snap.data() as StoredGame);
     const players = state.players.map((p) => ({ ...p }));
     const me = players.find((p) => p.id === uid);
-    if (!me) throw new HttpsError('permission-denied', 'أنت مو في هذي اللعبة');
+    if (!me) throw new HttpsError('permission-denied', 'أنت لست في هذه اللعبة');
     const known = ['seer', 'guardian', 'judge', 'elder', 'spy'] as const;
     const wanted = known.find((k) => k === special) ?? null;
     // العرّاف والحارس للأوفياء بس، والأدوار الجديدة لأي فريق (إلا الزعيم).
@@ -623,11 +622,11 @@ export const createRoom = onCall(async (req) => {
 async function joinTx(tx: Transaction, code: string, uid: string): Promise<GameState | null> {
   const ref = db.doc(`rooms/${code}`);
   const snap = await tx.get(ref);
-  if (!snap.exists) throw new HttpsError('not-found', 'ما فيه روم بهذا الكود');
+  if (!snap.exists) throw new HttpsError('not-found', 'لا يوجد طاولة بهذا الرمز');
   const room = snap.data() as Room;
   if (room.players.some((p) => p.uid === uid)) return null;
   if (room.status !== 'waiting') throw new HttpsError('failed-precondition', 'اللعبة بدأت');
-  if (room.players.length >= room.maxPlayers) throw new HttpsError('failed-precondition', 'الروم مليان');
+  if (room.players.length >= room.maxPlayers) throw new HttpsError('failed-precondition', 'الطاولة مليانة');
   const p = await readProfile(db, tx, uid);
   requireNotBanned(p);
   const tier = tierById(room.tierId);
@@ -641,7 +640,7 @@ async function joinTx(tx: Transaction, code: string, uid: string): Promise<GameS
 export const joinRoom = onCall(async (req) => {
   const uid = requireAuth(req);
   const code = String(req.data?.code ?? '').trim().toUpperCase();
-  if (!/^[A-Z0-9]{5}$/.test(code)) throw new HttpsError('invalid-argument', 'الكود لازم يكون ٥ حروف');
+  if (!/^[A-Z0-9]{5}$/.test(code)) throw new HttpsError('invalid-argument', 'الرمز يجب أن يكون ٥ حروف');
   const started = await db.runTransaction((tx) => joinTx(tx, code, uid));
   if (started) await sendPush(code, whoToNotify(null, started));
   return { code };
@@ -659,7 +658,7 @@ export const rematch = onCall(async (req) => {
     const ref = db.doc(`rooms/${code}`);
     const room = (await tx.get(ref)).data() as Room | undefined;
     if (!room || room.status !== 'finished') throw new HttpsError('failed-precondition', 'اللعبة ما خلصت');
-    if (!room.players.some((p) => p.uid === uid)) throw new HttpsError('permission-denied', 'أنت مو في هذي الطاولة');
+    if (!room.players.some((p) => p.uid === uid)) throw new HttpsError('permission-denied', 'أنت لست في هذه الطاولة');
     if (room.tutorial) throw new HttpsError('failed-precondition', 'لعبة الشرح ما تنعاد');
     if (room.tour != null) throw new HttpsError('failed-precondition', 'جولات البطولة ما تنعاد، العب جولتك الجاية من البطولة');
     // فيه روم جاهز من واحد ضغط قبلك: تدخله.
@@ -832,13 +831,13 @@ export const addBots = onCall(async (req) => {
   const started = await db.runTransaction(async (tx): Promise<GameState | null> => {
     const ref = db.doc(`rooms/${code}`);
     const room = (await tx.get(ref)).data() as Room | undefined;
-    if (!room || room.status !== 'waiting') throw new HttpsError('failed-precondition', 'الروم مو في الانتظار');
-    if (!room.players.some((p) => p.uid === uid)) throw new HttpsError('permission-denied', 'أنت مو في هذا الروم');
+    if (!room || room.status !== 'waiting') throw new HttpsError('failed-precondition', 'الطاولة مو في الانتظار');
+    if (!room.players.some((p) => p.uid === uid)) throw new HttpsError('permission-denied', 'أنت لست في هذه الطاولة');
     const free = room.maxPlayers - room.players.length;
-    if (free <= 0) throw new HttpsError('failed-precondition', 'الروم مليان');
-    if (room.isPrivate && room.hostId !== uid) throw new HttpsError('permission-denied', 'بس صاحب الروم يضيف بوتات');
+    if (free <= 0) throw new HttpsError('failed-precondition', 'الطاولة مليانة');
+    if (room.isPrivate && room.hostId !== uid) throw new HttpsError('permission-denied', 'فقط صاحب الطاولة يضيف بوتات');
     if (!room.isPrivate && Date.now() - (room.createdAtMs ?? 0) < BOT_FILL_AFTER_MS) {
-      throw new HttpsError('failed-precondition', 'ننتظر لاعبين شوي قبل البوتات');
+      throw new HttpsError('failed-precondition', 'ننتظر لاعبين قليلاً قبل البوتات');
     }
     const taken = new Set(room.players.map((p) => p.name));
     const available = BOTS.filter((b) => !taken.has(b.name));
@@ -863,7 +862,7 @@ export const removeBot = onCall(async (req) => {
     const ref = db.doc(`rooms/${code}`);
     const room = (await tx.get(ref)).data() as Room | undefined;
     if (!room || room.status !== 'waiting' || room.hostId !== uid || !isBot(botId)) {
-      throw new HttpsError('permission-denied', 'ما تقدر تشيله');
+      throw new HttpsError('permission-denied', 'لا تستطيع أن تشيله');
     }
     tx.update(ref, { players: room.players.filter((p) => p.uid !== botId) });
   });
@@ -894,8 +893,8 @@ export const startGame = onCall(async (req) => {
   const started = await db.runTransaction(async (tx) => {
     const snap = await tx.get(db.doc(`rooms/${code}`));
     const room = snap.data() as Room | undefined;
-    if (!room) throw new HttpsError('not-found', 'الروم مو موجود');
-    if (room.hostId !== uid) throw new HttpsError('permission-denied', 'بس صاحب الروم يقدر يبدأ');
+    if (!room) throw new HttpsError('not-found', 'الطاولة مو موجودة');
+    if (room.hostId !== uid) throw new HttpsError('permission-denied', 'فقط صاحب الطاولة يستطيع أن يبدأ');
     if (room.status !== 'waiting') throw new HttpsError('failed-precondition', 'اللعبة بدأت');
     if (room.players.length < MIN_PLAYERS) {
       throw new HttpsError('failed-precondition', `لازم ${MIN_PLAYERS} لاعبين على الأقل`);
@@ -1008,7 +1007,7 @@ export const act = onCall(async (req) => {
     if (!snap.exists) throw new HttpsError('not-found', 'اللعبة مو موجودة');
     const prev = splitGame(snap.data() as StoredGame);
     if ((prev.state.autopilot ?? []).includes(uid)) {
-      throw new HttpsError('failed-precondition', 'طلعت من هذي اللعبة، والبوت يكمل عنك');
+      throw new HttpsError('failed-precondition', 'طلعت من هذه اللعبة، والبوت يكمل عنك');
     }
     let next: GameState;
     try {
@@ -1087,7 +1086,7 @@ async function finishTurn(
     return whoToNotify(prev.state, next);
   }
 
-  if (!room) throw new HttpsError('not-found', 'الروم مو موجود');
+  if (!room) throw new HttpsError('not-found', 'الطاولة مو موجودة');
   // البوتات ما يدفعون، فالجائزة من رسوم البشر بس. ونصيب البوت الفايز ما يروح لأحد.
   const winners = next.players.filter((p) => teamOf(p.role) === next.winner);
   const pot = room.entryFee * humans.length;
@@ -1231,7 +1230,7 @@ export const leaveGame = onCall(async (req) => {
     const snap = await tx.get(db.doc(`games/${code}`));
     if (!snap.exists) throw new HttpsError('not-found', 'اللعبة مو موجودة');
     const prev = splitGame(snap.data() as StoredGame);
-    if (!prev.state.players.some((p) => p.id === uid)) throw new HttpsError('permission-denied', 'أنت مو في هذي اللعبة');
+    if (!prev.state.players.some((p) => p.id === uid)) throw new HttpsError('permission-denied', 'أنت لست في هذه اللعبة');
     const room = (await tx.get(db.doc(`rooms/${code}`))).data() as Room;
     if (prev.state.phase === 'gameOver') {
       if (!(room.gone ?? []).includes(uid)) tx.update(db.doc(`rooms/${code}`), { gone: [...(room.gone ?? []), uid] });
@@ -1258,31 +1257,26 @@ export const timeout = onCall(async (req) => {
     const snap = await tx.get(db.doc(`games/${code}`));
     if (!snap.exists) throw new HttpsError('not-found', 'اللعبة مو موجودة');
     const prev = splitGame(snap.data() as StoredGame);
-    if (!prev.state.players.some((p) => p.id === uid)) throw new HttpsError('permission-denied', 'أنت مو في هذي اللعبة');
+    if (!prev.state.players.some((p) => p.id === uid)) throw new HttpsError('permission-denied', 'أنت لست في هذه اللعبة');
     if (prev.deadline === null || Date.now() < prev.deadline) return null;
-    const room = (await tx.get(db.doc(`rooms/${code}`))).data() as Room;
-
     let next = prev.state;
-    let kicked: string[] = [];
     const actors = currentActors(prev.state);
     const plays = botPlays(prev.state);
     if (actors.length > 0 && actors.every(plays)) {
       for (const id of actors) next = applyAction(next, id, botAction(next, id)!);
     } else {
-      for (const [id, a] of timeoutActions(prev.state, Math.random)) next = applyAction(next, id, a);
-      // اللي خلص وقته وهو ما لعب: نعدّ عليه، ولو فوّت دورين ورا بعض يلعب عنه بوت ويتعاقب.
-      const missed = prev.state.tutorial ? [] : actors.filter((id) => !plays(id));
-      if (missed.length) {
-        const misses = { ...(next.misses ?? {}) };
-        for (const id of missed) {
-          misses[id] = (misses[id] ?? 0) + 1;
-          if (misses[id] >= MAX_MISSES) kicked.push(id);
+      // اللي خلص وقته وهو ما لعب: نلعب عنه حركة على حسب دوره (مثل البوت: الخائن يتصرف كخائن والوفي كوفي)،
+      // وما نطرده ولا نعاقبه، ويكمل لعبته عادي. لو ما قدر البوت يختار، نرجع للحركة الافتراضية.
+      for (const [id, fallback] of timeoutActions(prev.state, Math.random)) {
+        const move = plays(id) ? fallback : (botAction(next, id) ?? fallback);
+        try {
+          next = applyAction(next, id, move);
+        } catch {
+          next = applyAction(next, id, fallback);
         }
-        next = { ...next, misses, autopilot: [...(next.autopilot ?? []), ...kicked] };
       }
     }
     const notes = await finishTurn(tx, code, prev, next, new Map());
-    if (kicked.length) handOver(tx, room, kicked, Date.now() + AFK_BAN_MS);
     return notes;
   });
   if (notes) await sendPush(code, notes);
@@ -1301,17 +1295,17 @@ export const spectate = onCall(async (req) => {
   const target = String(req.data?.uid ?? '');
   return db.runTransaction(async (tx) => {
     const me = await readProfile(db, tx, uid);
-    if (!target || !(me.friends ?? []).includes(target)) throw new HttpsError('permission-denied', 'تقدر تتفرج على أصحابك بس');
+    if (!target || !(me.friends ?? []).includes(target)) throw new HttpsError('permission-denied', 'تستطيع أن تتفرج على أصحابك فقط');
     const them = (await tx.get(userRef(target))).data() as Profile | undefined;
     const code = them?.playing?.code;
-    if (!code) throw new HttpsError('failed-precondition', 'صاحبك ما يلعب الحين');
+    if (!code) throw new HttpsError('failed-precondition', 'صاحبك ما يلعب الآن');
     const ref = db.doc(`rooms/${code}`);
     const room = (await tx.get(ref)).data() as Room | undefined;
     if (!room || room.status !== 'playing') throw new HttpsError('failed-precondition', 'لعبة صاحبك خلصت');
     if (room.players.some((p) => p.uid === uid)) throw new HttpsError('failed-precondition', 'أنت معه في نفس اللعبة!');
     const watchers = room.watchers ?? [];
     if (!watchers.includes(uid)) {
-      if (watchers.length >= MAX_WATCHERS) throw new HttpsError('resource-exhausted', 'المتفرجين كثير، جرّب بعدين');
+      if (watchers.length >= MAX_WATCHERS) throw new HttpsError('resource-exhausted', 'المتفرجين كثير، جرّب لاحقاً');
       tx.update(ref, { watchers: [...watchers, uid] });
     }
     return { code };
@@ -1347,7 +1341,7 @@ export const buyItem = onCall(async (req) => {
     // المطور يشتري ببلاش عشان يجرب كل شي.
     const price = p.dev ? 0 : item.price;
     if (balance < price) {
-      throw new HttpsError('failed-precondition', item.currency === 'coins' ? 'ما عندك ذهب كافي' : 'ما عندك جواهر كافية');
+      throw new HttpsError('failed-precondition', item.currency === 'coins' ? 'ليس لديك ذهب كافي' : 'ليس لديك جواهر كافية');
     }
     // الإطار والكروت والطاولة تنلبس على طول، والشخصية تصير صورته.
     const slot = slotOf(item.id);
@@ -1412,13 +1406,13 @@ export const buyPass = onCall(async (req) => {
   const full = req.data?.full === true;
   return db.runTransaction(async (tx) => {
     const p = await readProfile(db, tx, uid);
-    if (!seasonActive(Date.now())) throw new HttpsError('failed-precondition', 'الموسم مو شغال الحين');
+    if (!seasonActive(Date.now())) throw new HttpsError('failed-precondition', 'الموسم غير متاح الآن');
     const s = passOf(p);
     if (full ? passComplete(s) : s.premium) {
-      throw new HttpsError('already-exists', full ? 'عندك الباتل باس كامل' : 'عندك الباتل باس');
+      throw new HttpsError('already-exists', full ? 'عندك تذكرة الموسم كاملة' : 'عندك تذكرة الموسم');
     }
     const price = p.dev ? 0 : passPrice(s, full);
-    if (p.diamonds < price) throw new HttpsError('failed-precondition', 'ما عندك جواهر كافية');
+    if (p.diamonds < price) throw new HttpsError('failed-precondition', 'ليس لديك جواهر كافية');
     tx.set(userRef(uid), { ...p, diamonds: p.diamonds - price, pass: upgradePass(s, full) });
     return { price };
   });
@@ -1432,15 +1426,15 @@ export const giftPass = onCall(async (req) => {
   if (!target || target === uid || target.includes('/')) throw new HttpsError('invalid-argument', 'اختار صاحب');
   return db.runTransaction(async (tx) => {
     const p = await readProfile(db, tx, uid);
-    if (!seasonActive(Date.now())) throw new HttpsError('failed-precondition', 'الموسم مو شغال الحين');
-    if (!(p.friends ?? []).includes(target)) throw new HttpsError('permission-denied', 'تقدر تهدي أصحابك بس');
+    if (!seasonActive(Date.now())) throw new HttpsError('failed-precondition', 'الموسم غير متاح الآن');
+    if (!(p.friends ?? []).includes(target)) throw new HttpsError('permission-denied', 'تستطيع أن تهدي أصحابك فقط');
     const snap = await tx.get(userRef(target));
     if (!snap.exists) throw new HttpsError('not-found', 'صاحبك مو موجود');
     const them = snap.data() as Profile;
     const s = passOf(them);
-    if (s.premium) throw new HttpsError('already-exists', 'صاحبك عنده الباتل باس');
+    if (s.premium) throw new HttpsError('already-exists', 'صاحبك عنده تذكرة الموسم');
     const price = p.dev ? 0 : passPrice(s, full);
-    if (p.diamonds < price) throw new HttpsError('failed-precondition', 'ما عندك جواهر كافية');
+    if (p.diamonds < price) throw new HttpsError('failed-precondition', 'ليس لديك جواهر كافية');
     const gift = { kind: 'passGift' as const, n: full ? 1 : 0, coins: 0, diamonds: 0, items: [], from: p.name };
     tx.set(userRef(uid), { ...p, diamonds: p.diamonds - price });
     tx.set(userRef(target), { ...them, pass: upgradePass(s, full), gifts: [...(them.gifts ?? []), gift].slice(-10) });
@@ -1458,12 +1452,12 @@ export const claimPassMission = onCall(async (req) => {
   return db.runTransaction(async (tx) => {
     const p = await readProfile(db, tx, uid);
     const now = Date.now();
-    if (!seasonActive(now)) throw new HttpsError('failed-precondition', 'الموسم مو شغال الحين');
+    if (!seasonActive(now)) throw new HttpsError('failed-precondition', 'الموسم غير متاح الآن');
     const m = currentPassMissions(p.passMissions, SEASON.id, now);
     const claimed = weekly ? m.weeklyClaimed : m.seasonClaimed;
     if (claimed.includes(id)) throw new HttpsError('failed-precondition', 'استلمتها من قبل');
     if (((weekly ? m.weekly : m.total)[mission.stat] ?? 0) < mission.target) {
-      throw new HttpsError('failed-precondition', 'ما خلصت المهمة للحين');
+      throw new HttpsError('failed-precondition', 'ما خلصت المهمة حتى الآن');
     }
     const next = weekly ? { ...m, weeklyClaimed: [...claimed, id] } : { ...m, seasonClaimed: [...claimed, id] };
     tx.set(userRef(uid), addPassPoints({ ...p, passMissions: next }, mission.points, now));
@@ -1578,7 +1572,7 @@ export const claimMission = onCall(async (req) => {
     const today = todaysMissions(p.missions, Date.now());
     if (today.claimed.includes(mission.id)) throw new HttpsError('failed-precondition', 'استلمتها من قبل');
     if ((today.progress[mission.id] ?? 0) < mission.target) {
-      throw new HttpsError('failed-precondition', 'ما خلصت المهمة للحين');
+      throw new HttpsError('failed-precondition', 'ما خلصت المهمة حتى الآن');
     }
     const claimed = { ...p, coins: p.coins + mission.coins, missions: { ...today, claimed: [...today.claimed, mission.id] } };
     tx.set(userRef(uid), addPassPoints(claimed, MISSION_PASS_POINTS, Date.now()));
@@ -1625,7 +1619,7 @@ export const clearOpinion = onCall(async (req) => {
   await db.runTransaction(async (tx) => {
     const ref = db.doc(`rooms/${code}`);
     const room = (await tx.get(ref)).data() as Room | undefined;
-    if (!room || !room.players.some((p) => p.uid === uid)) throw new HttpsError('permission-denied', 'أنت مو في هذي الطاولة');
+    if (!room || !room.players.some((p) => p.uid === uid)) throw new HttpsError('permission-denied', 'أنت لست في هذه الطاولة');
     tx.update(ref, { [`opinions.${uid}.${target}`]: FieldValue.delete() });
   });
   return {};
@@ -1646,7 +1640,7 @@ export const react = onCall(async (req) => {
     const game = (await tx.get(db.doc(`games/${code}`))).data() as StoredGame | undefined;
     const profile = await readProfile(db, tx, uid);
     if (!room || room.status === 'waiting') throw new HttpsError('failed-precondition', 'اللعبة مو شغالة');
-    if (!room.players.some((p) => p.uid === uid)) throw new HttpsError('permission-denied', 'أنت مو في هذي الطاولة');
+    if (!room.players.some((p) => p.uid === uid)) throw new HttpsError('permission-denied', 'أنت لست في هذه الطاولة');
     // بعد ما تخلص اللعبة الطاولة تبقى للسوالف (للكل، حتى المطرودين) لين يطلعون.
     const over = room.status === 'finished';
     if (over && ((room.gone ?? []).includes(uid) || Date.now() - (room.finishedAtMs ?? 0) > AFTER_GAME_CHAT_MS)) {
@@ -1655,17 +1649,17 @@ export const react = onCall(async (req) => {
     if (over && (kind === 'suspect' || kind === 'trust')) throw new HttpsError('failed-precondition', 'اللعبة خلصت');
     // المطرود ما يتكلم لين تخلص اللعبة.
     if (!over && game?.players.find((p) => p.id === uid)?.alive === false) {
-      throw new HttpsError('failed-precondition', 'انطردت من المجلس، ما تقدر تتكلم');
+      throw new HttpsError('failed-precondition', 'انطردت من المجلس، لا تستطيع أن تتكلم');
     }
     if (spec.pack && !owns(profile, spec.pack)) {
-      throw new HttpsError('permission-denied', 'هذا الرد من باقة ما تملكها للحين');
+      throw new HttpsError('permission-denied', 'هذا الرد من باقة ما تملكها حتى الآن');
     }
     if (target !== null && (target === uid || !room.players.some((p) => p.uid === target))) {
       throw new HttpsError('invalid-argument', 'اختار لاعب ثاني');
     }
     const now = Date.now();
     const recent = (room.reactions ?? []).filter((r) => r.from === uid && now - r.at < 1500);
-    if (recent.length > 0) throw new HttpsError('resource-exhausted', 'شوي شوي، انتظر ثانية');
+    if (recent.length > 0) throw new HttpsError('resource-exhausted', 'مهلاً، انتظر ثانية');
     const reactions = [...(room.reactions ?? []), { from: uid, kind, target, at: now }].slice(-MAX_REACTIONS);
     const update: Record<string, unknown> = { reactions };
     if (kind === 'suspect' || kind === 'trust') update[`opinions.${uid}.${target}`] = kind;
@@ -1708,7 +1702,7 @@ export const reportPlayer = onCall(async (req) => {
   // بلاغ عن رسالة في الدردشة: نحفظ نصها عشان المراجعة.
   const text = reason === 'chat' && typeof req.data?.text === 'string' ? req.data.text.slice(0, 200) : null;
   if (!REPORT_REASONS.includes(reason)) throw new HttpsError('invalid-argument', 'اختار سبب البلاغ');
-  if (!target || target === uid || target.startsWith('bot_')) throw new HttpsError('invalid-argument', 'ما تقدر تبلّغ عن هذا اللاعب');
+  if (!target || target === uid || target.startsWith('bot_')) throw new HttpsError('invalid-argument', 'لا تستطيع أن تبلّغ عن هذا اللاعب');
   const now = Date.now();
   const day = gulfDay(now);
   // بلاغ واحد في اليوم لكل لاعب وسبب (لو كرره ما ينحسب مرتين).

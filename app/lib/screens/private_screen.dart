@@ -5,8 +5,9 @@ import '../services/backend.dart';
 import '../services/telemetry.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
+import '../widgets/design.dart';
+import '../widgets/design_social.dart';
 import '../widgets/mode_theme.dart';
-import '../widgets/ui.dart';
 import 'friends_screen.dart';
 import 'waiting_screen.dart';
 
@@ -14,22 +15,44 @@ import 'waiting_screen.dart';
 Future<void> joinRoomByCode(BuildContext context) async {
   if (!Backend.instance.isReady) return;
   final controller = TextEditingController();
-  final code = await showDialog<String>(
-    context: context,
-    builder: (context) => AlertDialog(
-      title: const Row(children: [Gfx('key', size: 28), SizedBox(width: 8), Text('ادخل كود روم صاحبك')]),
-      content: TextField(
-        controller: controller,
-        autofocus: true,
-        maxLength: 5,
-        textCapitalization: TextCapitalization.characters,
-        textDirection: TextDirection.ltr,
-        textAlign: TextAlign.center,
-        style: const TextStyle(fontSize: 24, letterSpacing: 6, fontWeight: FontWeight.w800),
-      ),
-      actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('إلغاء')),
-        FilledButton(onPressed: () => Navigator.pop(context, controller.text.trim()), child: const Text('دخول')),
+  final code = await showSocDialog<String>(
+    context,
+    title: 'ادخل رمز طاولة صاحبك',
+    width: 420,
+    builder: (context) => Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        TextField(
+          controller: controller,
+          autofocus: true,
+          maxLength: 5,
+          textCapitalization: TextCapitalization.characters,
+          textDirection: TextDirection.ltr,
+          textAlign: TextAlign.center,
+          style: const TextStyle(fontSize: 28, letterSpacing: 8, fontWeight: FontWeight.w800, color: socInk),
+          decoration: socParchInput(hint: 'K7Q2M', dense: false),
+          onSubmitted: (v) => Navigator.pop(context, v.trim()),
+        ),
+        const SizedBox(height: 12),
+        SocActions(
+          children: [
+            SocButton(
+              label: 'إلغاء',
+              tone: SocTone.grey,
+              height: 44,
+              fontSize: 16,
+              onPressed: () => Navigator.pop(context),
+            ),
+            SocButton(
+              label: 'دخول',
+              tone: SocTone.green,
+              height: 44,
+              fontSize: 16,
+              onPressed: () => Navigator.pop(context, controller.text.trim()),
+            ),
+          ],
+        ),
       ],
     ),
   );
@@ -64,11 +87,7 @@ class _PrivateScreenState extends State<PrivateScreen> {
     if (!Backend.instance.isReady) return;
     setState(() => _busy = true);
     try {
-      final code = await Backend.instance.createRoom(
-        maxPlayers: _playerCount,
-        quick: _quick,
-        roles: widget.mode.roles,
-      );
+      final code = await Backend.instance.createRoom(maxPlayers: _playerCount, quick: _quick, roles: widget.mode.roles);
       if (!mounted) return;
       Navigator.of(context).push(
         MaterialPageRoute(
@@ -84,144 +103,207 @@ class _PrivateScreenState extends State<PrivateScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final ready = Backend.instance.isReady && !_busy;
     final mode = widget.mode;
-    return NightScaffold(
-      background: ModeBackdrop(mode: mode),
-      shade: .25,
-      appBar: AppBar(
-        title: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Gfx('friends', size: 30),
-            const SizedBox(width: 8),
-            const Text('خاص · روم مع أصحابك', style: TextStyle(fontWeight: FontWeight.w800)),
-            const SizedBox(width: 12),
-            ModeChip(mode: mode, onTap: () => Navigator.of(context).maybePop()),
-          ],
-        ),
+    return ValueListenableBuilder(
+      valueListenable: Backend.instance.profile,
+      builder: (context, p, _) => PrivateRoomView(
+        mode: mode,
+        playerCount: _playerCount,
+        quick: _quick,
+        busy: _busy,
+        ready: Backend.instance.isReady && !_busy,
+        friendsCount: p.friends.length,
+        onCount: (n) => setState(() => _playerCount = n),
+        onQuick: (q) => setState(() => _quick = q),
+        onCreate: _create,
+        onJoin: () => joinRoomByCode(context),
+        onFriends: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const FriendsScreen())),
       ),
-      body: SafeArea(
-        top: false,
-        child: Row(
-          children: [
-            SizedBox(
-              width: 290,
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-                child: Theme(
-                  data: mode.segmented(context),
-                  child: Column(
-                  children: [
-                    SegmentedButton<int>(
-                      showSelectedIcon: false,
-                      segments: [
-                        for (final n in playerCounts) ButtonSegment(value: n, label: Text('${arabicNumber(n)} لاعبين')),
-                      ],
-                      selected: {_playerCount},
-                      onSelectionChanged: (s) => setState(() => _playerCount = s.first),
-                    ),
-                    const SizedBox(height: 8),
-                    SegmentedButton<bool>(
-                      showSelectedIcon: false,
-                      segments: const [
-                        ButtonSegment(value: false, label: Text('عادي'), icon: Gfx('hourglass', size: 18)),
-                        ButtonSegment(value: true, label: Text('سريع'), icon: Gfx('bolt', size: 18)),
-                      ],
-                      selected: {_quick},
-                      onSelectionChanged: (s) => setState(() => _quick = s.first),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      _quick ? 'نص الوقت لكل دور، واللعبة حوالي ٥ دقايق' : 'الوقت العادي، واللعبة حوالي ١٠ دقايق',
-                      style: const TextStyle(color: AppColors.muted, fontSize: 11.5),
-                    ),
-                    const SizedBox(height: 10),
-                    ModeSummary(mode: mode),
-                    const Spacer(),
-                    GameButton(
-                      label: _busy ? 'لحظة…' : 'أنشئ روم ${mode.name}',
-                      icon: const Gfx('plus', size: 26),
-                      semantics: 'أنشئ روم خاص',
-                      tone: mode.button,
-                      onPressed: ready ? _create : null,
-                    ),
-                    const SizedBox(height: 10),
-                    GameButton(
-                      label: 'ادخل بكود صاحبك',
-                      icon: const Gfx('key', size: 26),
-                      semantics: 'ادخل بكود صديق',
-                      tone: ButtonTone.ghost,
-                      height: 46,
-                      fontSize: 16,
-                      onPressed: ready ? () => joinRoomByCode(context) : null,
-                    ),
-                  ],
-                  ),
-                ),
+    );
+  }
+}
+
+/// شكل صفحة الروم الخاص: لوحة مخمل فيها الخيارات وأزرار الإنشاء والدخول، ولوحة خشب تشرح الطريقة.
+/// ما تلمس السيرفر (تنشاف بالتصوير ببيانات تجريبية).
+class PrivateRoomView extends StatelessWidget {
+  const PrivateRoomView({
+    super.key,
+    required this.mode,
+    required this.playerCount,
+    required this.quick,
+    required this.busy,
+    required this.ready,
+    required this.friendsCount,
+    required this.onCount,
+    required this.onQuick,
+    required this.onCreate,
+    required this.onJoin,
+    required this.onFriends,
+  });
+
+  final ModeTheme mode;
+  final int playerCount;
+  final bool quick;
+  final bool busy;
+  final bool ready;
+  final int friendsCount;
+  final ValueChanged<int> onCount;
+  final ValueChanged<bool> onQuick;
+  final VoidCallback onCreate;
+  final VoidCallback onJoin;
+  final VoidCallback onFriends;
+
+  @override
+  Widget build(BuildContext context) {
+    return SocScaffold(
+      title: 'خاص · طاولة مع أصحابك',
+      icon: const Gfx('friends', size: 30),
+      currency: false,
+      glow: mode.glow,
+      trailing: ModeChip(mode: mode, onTap: () => Navigator.of(context).maybePop()),
+      body: SocTwoPanels(
+        mainFlex: 10,
+        sideFlex: 11,
+        main: VelvetPanel(
+          padding: const EdgeInsets.fromLTRB(20, 14, 20, 14),
+          child: _FitColumn(
+            children: [
+              SocSegments<int>(
+                options: [for (final n in playerCounts) (n, '${arabicNumber(n)} لاعبين')],
+                value: playerCount,
+                onChanged: onCount,
               ),
-            ),
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(12, 0, 16, 12),
-                child: Panel(
-                  padding: const EdgeInsets.fromLTRB(18, 14, 18, 14),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const GoldText('كيف يشتغل الروم الخاص؟', size: 19, align: TextAlign.start),
-                      const SizedBox(height: 10),
-                      for (final (i, (icon, text)) in const [
-                        ('plus', 'أنشئ روم، ويطلع لك كود من ٥ حروف'),
-                        ('friends', 'ادعُ أصحابك من قائمة الأصدقاء، أو أرسل لهم الكود بالواتساب'),
-                        ('bot', 'ما اكتمل العدد؟ كمّله ببوتات وابدأ'),
-                      ].indexed)
-                        Padding(
-                          padding: const EdgeInsets.only(bottom: 8),
-                          child: Row(
-                            children: [
-                              CircleAvatar(
-                                radius: 13,
-                                backgroundColor: AppColors.gold,
-                                child: Text(
-                                  arabicNumber(i + 1),
-                                  style: const TextStyle(color: AppColors.goldInk, fontWeight: FontWeight.w900),
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Gfx(icon, size: 26),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Text(text, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
-                              ),
-                            ],
+              const SizedBox(height: 8),
+              SocSegments<bool>(options: const [(false, 'عادي'), (true, 'سريع')], value: quick, onChanged: onQuick),
+              const SizedBox(height: 4),
+              Text(
+                quick ? 'نص الوقت لكل دور، واللعبة حوالي ٥ دقايق' : 'الوقت العادي، واللعبة حوالي ١٠ دقايق',
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: socMuted, fontSize: 12.5, fontFamily: kufi, fontWeight: FontWeight.w700),
+              ),
+              const SizedBox(height: 10),
+              ModeSummary(mode: mode),
+              const Spacer(),
+              SocButton(
+                label: busy ? 'لحظة…' : 'أنشئ طاولة ${mode.name}',
+                icon: const Gfx('plus', size: 26),
+                semantics: 'أنشئ طاولة خاصة',
+                tone: mode.roles ? SocTone.blue : SocTone.orange,
+                height: 50,
+                fontSize: 19,
+                onPressed: ready ? onCreate : null,
+              ),
+              const SizedBox(height: 8),
+              SocButton(
+                label: 'ادخل بكود صاحبك',
+                icon: const Gfx('key', size: 26),
+                semantics: 'ادخل بكود صديق',
+                tone: SocTone.green,
+                height: 44,
+                fontSize: 17,
+                onPressed: ready ? onJoin : null,
+              ),
+            ],
+          ),
+        ),
+        side: WoodPanel(
+          padding: const EdgeInsets.fromLTRB(18, 14, 18, 12),
+          child: _FitColumn(
+            children: [
+              const GoldTitle('كيف تشتغل الطاولة الخاصة؟', size: 22),
+              const SizedBox(height: 10),
+              for (final (i, (icon, text)) in const [
+                ('plus', 'أنشئ طاولة، ويطلع لك رمز من ٥ حروف'),
+                ('friends', 'ادعُ أصحابك من قائمة الأصدقاء، أو أرسل لهم الرمز بالواتساب'),
+                ('bot', 'ما اكتمل العدد؟ كمّله ببوتات وابدأ'),
+              ].indexed)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: SocPlankRow(
+                    padding: const EdgeInsets.fromLTRB(10, 7, 12, 7),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 28,
+                          height: 28,
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            gradient: const LinearGradient(
+                              begin: Alignment.topCenter,
+                              end: Alignment.bottomCenter,
+                              colors: goldRingColors,
+                            ),
+                            border: Border.all(color: const Color(0xFF3A1606), width: 2),
+                          ),
+                          child: Text(
+                            arabicNumber(i + 1),
+                            style: const TextStyle(
+                              color: AppColors.goldInk,
+                              fontFamily: kufi,
+                              fontWeight: FontWeight.w800,
+                              fontSize: 15,
+                              height: 1.1,
+                            ),
                           ),
                         ),
-                      const Spacer(),
-                      const Text(
-                        'الروم الخاص ما يدخله أحد غريب، وما يحسب في التصنيف.',
-                        style: TextStyle(color: AppColors.muted, fontSize: 12),
-                      ),
-                      const SizedBox(height: 6),
-                      ValueListenableBuilder(
-                        valueListenable: Backend.instance.profile,
-                        builder: (context, p, _) => TextButton.icon(
-                          onPressed: () =>
-                              Navigator.of(context).push(MaterialPageRoute(builder: (_) => const FriendsScreen())),
-                          icon: const Gfx('friends', size: 22),
-                          label: Text(
-                            p.friends.isEmpty ? 'أضف أصحابك برمزهم' : 'أصحابك (${arabicNumber(p.friends.length)})',
+                        const SizedBox(width: 10),
+                        Gfx(icon, size: 28),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            text,
+                            style: const TextStyle(
+                              fontFamily: kufi,
+                              fontSize: 15,
+                              fontWeight: FontWeight.w700,
+                              color: socCream,
+                              height: 1.35,
+                            ),
                           ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
+              const Spacer(),
+              const Text(
+                'الطاولة الخاصة ما يدخلها أحد غريب، وما يحسب في التصنيف.',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: socMuted, fontSize: 12.5, fontFamily: kufi, fontWeight: FontWeight.w700),
               ),
-            ),
-          ],
+              const SizedBox(height: 6),
+              SocButton(
+                label: friendsCount == 0 ? 'أضف أصحابك برمزهم' : 'أصحابك (${arabicNumber(friendsCount)})',
+                icon: const Gfx('friends', size: 24),
+                tone: SocTone.blue,
+                height: 40,
+                fontSize: 15,
+                onPressed: onFriends,
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
+}
+
+/// عمود يتمدد على طول اللوحة (الفراغ بين الأجزاء يتوزع)، ويتمرر لو المحتوى أطول من الشاشة.
+class _FitColumn extends StatelessWidget {
+  const _FitColumn({required this.children});
+
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, box) => SingleChildScrollView(
+      child: ConstrainedBox(
+        constraints: BoxConstraints(minHeight: box.maxHeight),
+        child: IntrinsicHeight(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: children),
+        ),
+      ),
+    ),
+  );
 }

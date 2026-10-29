@@ -251,7 +251,7 @@ describe('البوليسات', () => {
   });
 });
 
-describe('الفيتو', () => {
+describe('النقض', () => {
   function vetoReady(): GameState {
     let s = rigged(5, FIVE, ['T', 'T', 'T', 'L', 'L', 'L']);
     s.traitorPolicies = 5;
@@ -268,7 +268,7 @@ describe('الفيتو', () => {
     assert.throws(() => act(s, 'p1', { type: 'proposeVeto' }), RuleError);
   });
 
-  it('قبول الفيتو يرمي الكروت ويزيد العداد', () => {
+  it('قبول النقض يرمي الكروت ويزيد العداد', () => {
     let s = vetoReady();
     s = act(s, 'p1', { type: 'proposeVeto' });
     s = act(s, 'p0', { type: 'respondVeto', accept: true });
@@ -277,7 +277,7 @@ describe('الفيتو', () => {
     assert.equal(s.presidentId, 'p1');
   });
 
-  it('الفيتو بعد رفضتين يعتبر الرفضة الثالثة: يتمرر أول قرار تلقائياً', () => {
+  it('النقض بعد رفضتين يعتبر الرفضة الثالثة: يتمرر أول قرار تلقائياً', () => {
     let s = vetoReady();
     s.electionTracker = 2;
     s = act(s, 'p1', { type: 'proposeVeto' });
@@ -287,7 +287,7 @@ describe('الفيتو', () => {
     assert.ok(s.log.some((e) => e.type === 'enacted' && e.chaos));
   });
 
-  it('رفض الفيتو يجبر الوزير يمرر', () => {
+  it('رفض النقض يجبر الوزير يمرر', () => {
     let s = vetoReady();
     s = act(s, 'p1', { type: 'proposeVeto' });
     s = act(s, 'p0', { type: 'respondVeto', accept: false });
