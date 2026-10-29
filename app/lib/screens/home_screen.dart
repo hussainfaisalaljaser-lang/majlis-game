@@ -381,7 +381,7 @@ class _Header extends StatelessWidget {
                     ),
                     const SizedBox(width: 8),
                     _TopIcon(
-                      icon: const ChestIcon(size: 30),
+                      icon: const Gfx('gift', size: 30),
                       label: p.dailyAvailable ? 'هديتك اليومية جاهزة' : 'الهدية اليومية: تعال بكرة',
                       ready: p.dailyAvailable && Backend.instance.isReady,
                       onTap: onGift,

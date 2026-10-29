@@ -148,21 +148,27 @@ class ChestIcon extends StatelessWidget {
       ..close();
     canvas.drawPath(lid, _fill(const Rect.fromLTWH(13, 24, 74, 26), const [Color(0xFFC27A42), Color(0xFF8A4D26)]));
     canvas.drawPath(lid, _line(3.2));
+    // لمعة على الغطا (تحت الحافة بمسافة، ما تلمس الإطار)
     canvas.drawPath(
       Path()
-        ..moveTo(20, 40)
-        ..cubicTo(22, 30, 38, 25, 50, 26),
+        ..moveTo(19, 44)
+        ..cubicTo(21, 37, 33, 32.5, 46, 32),
       _line(2.6, const Color(0x55FFFFFF)),
     );
-    // أحزمة ذهبية
+    // أحزمة ذهبية: تنقص على شكل الصندوق (تتبع انحناء الغطا)، وبعدها نعيد إطاره فوقها
+    final shape = Path()
+      ..addRRect(body)
+      ..addPath(lid, Offset.zero);
+    canvas.save();
+    canvas.clipPath(shape);
     for (final x in [24.0, 76.0]) {
-      final band = RRect.fromRectAndRadius(Rect.fromLTWH(x - 5.5, 28, 11, 58), const Radius.circular(2));
-      canvas.save();
-      canvas.clipPath(Path()..addRRect(body)..addPath(lid, Offset.zero));
+      final band = RRect.fromRectAndRadius(Rect.fromLTWH(x - 5.5, 20, 11, 66), const Radius.circular(2));
       canvas.drawRRect(band, _fill(band.outerRect, _gold));
-      canvas.restore();
       canvas.drawRRect(band, _line(2.2));
     }
+    canvas.restore();
+    canvas.drawPath(lid, _line(3.2));
+    canvas.drawRRect(body, _line(3.2));
     canvas.drawLine(const Offset(13, 49), const Offset(87, 49), _line(2.6));
     // القفل
     final plate = RRect.fromRectAndRadius(const Rect.fromLTWH(40, 41, 20, 22), const Radius.circular(5));
