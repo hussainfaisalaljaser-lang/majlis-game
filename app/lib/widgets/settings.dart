@@ -35,7 +35,13 @@ class SettingsCard extends StatelessWidget {
               Expanded(
                 child: Text(
                   label,
-                  style: TextStyle(fontFamily: kufi, fontWeight: FontWeight.w800, fontSize: 15, color: color ?? socCream, height: 1.25),
+                  style: TextStyle(
+                    fontFamily: kufi,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 15,
+                    color: color ?? socCream,
+                    height: 1.25,
+                  ),
                 ),
               ),
               const Icon(Icons.chevron_left, color: Color(0xFFE8B54E), size: 22),
@@ -64,11 +70,23 @@ class SettingsCard extends StatelessWidget {
                       children: [
                         Text(
                           'حركات خفيفة',
-                          style: TextStyle(fontFamily: kufi, fontWeight: FontWeight.w800, fontSize: 15, color: socCream, height: 1.25),
+                          style: TextStyle(
+                            fontFamily: kufi,
+                            fontWeight: FontWeight.w800,
+                            fontSize: 15,
+                            color: socCream,
+                            height: 1.25,
+                          ),
                         ),
                         Text(
                           'توقف حركات الإطارات والشخصيات. للجوالات الضعيفة',
-                          style: TextStyle(color: socMuted, fontSize: 12, fontFamily: kufi, fontWeight: FontWeight.w700, height: 1.25),
+                          style: TextStyle(
+                            color: socMuted,
+                            fontSize: 12,
+                            fontFamily: kufi,
+                            fontWeight: FontWeight.w700,
+                            height: 1.25,
+                          ),
                         ),
                       ],
                     ),
@@ -122,17 +140,20 @@ Future<void> _showBlocked(BuildContext context) => showSocDialog<void>(
         const SocPopupText('ما تشوف ردودهم ولا رأيهم، وما نحطك معهم في الطاولات العامة', size: 13.5, muted: true),
         const SizedBox(height: 10),
         if (p.blocked.isEmpty)
-          const Padding(
-            padding: EdgeInsets.all(18),
-            child: SocPopupText('ما حظرت أحد'),
-          )
+          const Padding(padding: EdgeInsets.all(18), child: SocPopupText('ما حظرت أحد'))
         else
           ConstrainedBox(
             constraints: const BoxConstraints(maxHeight: 220),
             child: ListView(shrinkWrap: true, children: [for (final uid in p.blocked) _BlockedRow(uid: uid)]),
           ),
         const SizedBox(height: 10),
-        SocButton(label: 'تمام', tone: SocTone.green, height: 42, fontSize: 16, onPressed: () => Navigator.pop(context)),
+        SocButton(
+          label: 'تمام',
+          tone: SocTone.green,
+          height: 42,
+          fontSize: 16,
+          onPressed: () => Navigator.pop(context),
+        ),
       ],
     ),
   ),
@@ -215,7 +236,13 @@ Future<void> _showFeedback(BuildContext context) async {
           const SizedBox(height: 10),
           SocActions(
             children: [
-              SocButton(label: 'إلغاء', tone: SocTone.grey, height: 44, fontSize: 16, onPressed: () => Navigator.pop(context, false)),
+              SocButton(
+                label: 'إلغاء',
+                tone: SocTone.grey,
+                height: 44,
+                fontSize: 16,
+                onPressed: () => Navigator.pop(context, false),
+              ),
               SocButton(
                 label: 'أرسل',
                 tone: SocTone.green,

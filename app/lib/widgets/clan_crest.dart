@@ -106,7 +106,12 @@ class ClanBadge extends StatelessWidget {
       const SizedBox(width: 4),
       Text(
         tag.name,
-        style: TextStyle(color: Color.lerp(tag.tint, Colors.white, .45), fontFamily: kufi, fontWeight: FontWeight.w800, fontSize: 13),
+        style: TextStyle(
+          color: Color.lerp(tag.tint, Colors.white, .45),
+          fontFamily: kufi,
+          fontWeight: FontWeight.w800,
+          fontSize: 13,
+        ),
       ),
     ],
   );

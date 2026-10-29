@@ -142,7 +142,13 @@ class _SocButtonState extends State<SocButton> {
                   children: [
                     if (widget.icon != null) ...[widget.icon!, SizedBox(width: size * .35)],
                     Flexible(
-                      child: OutlinedText(widget.label, maxLines: 1, size: size, stroke: t.outline, strokeWidth: size * .2),
+                      child: OutlinedText(
+                        widget.label,
+                        maxLines: 1,
+                        size: size,
+                        stroke: t.outline,
+                        strokeWidth: size * .2,
+                      ),
                     ),
                   ],
                 ),
@@ -182,7 +188,13 @@ class SocBadge extends StatelessWidget {
         ? null
         : Text(
             arabicNumber(count),
-            style: TextStyle(fontFamily: kufi, fontWeight: FontWeight.w800, fontSize: size * .56, color: Colors.white, height: 1.05),
+            style: TextStyle(
+              fontFamily: kufi,
+              fontWeight: FontWeight.w800,
+              fontSize: size * .56,
+              color: Colors.white,
+              height: 1.05,
+            ),
           ),
   );
 }
@@ -440,7 +452,15 @@ class _ArrowPainter extends CustomPainter {
 
 /// شريط الشاشة: سهم الرجوع، وأيقونة وعنوان ذهبي، والفلوس (اختياري) على الطرف الثاني.
 class SocHeader extends StatelessWidget {
-  const SocHeader({super.key, required this.title, this.icon, this.currency = true, this.onBack, this.trailing, this.back = true});
+  const SocHeader({
+    super.key,
+    required this.title,
+    this.icon,
+    this.currency = true,
+    this.onBack,
+    this.trailing,
+    this.back = true,
+  });
 
   final String title;
   final Widget? icon;
@@ -535,7 +555,10 @@ class SocScaffold extends StatelessWidget {
       return Stack(
         children: [
           Positioned.fill(child: bg),
-          if (shade > 0) Positioned.fill(child: ColoredBox(color: Colors.black.withValues(alpha: shade))),
+          if (shade > 0)
+            Positioned.fill(
+              child: ColoredBox(color: Colors.black.withValues(alpha: shade)),
+            ),
           content,
         ],
       );
@@ -581,7 +604,13 @@ class SocPanelTitle extends StatelessWidget {
       : Text(
           text,
           textAlign: TextAlign.center,
-          style: TextStyle(fontFamily: kufi, fontWeight: FontWeight.w800, fontSize: size, color: socCream, height: 1.25),
+          style: TextStyle(
+            fontFamily: kufi,
+            fontWeight: FontWeight.w800,
+            fontSize: size,
+            color: socCream,
+            height: 1.25,
+          ),
         );
 }
 
@@ -598,7 +627,10 @@ class SocDiamondTitle extends StatelessWidget {
     children: [
       GoldTitle(text, size: size),
       const SizedBox(height: 2),
-      const SizedBox(height: 12, child: CustomPaint(size: Size.fromHeight(12), painter: _DiamondLinePainter())),
+      const SizedBox(
+        height: 12,
+        child: CustomPaint(size: Size.fromHeight(12), painter: _DiamondLinePainter()),
+      ),
     ],
   );
 }
@@ -614,9 +646,9 @@ class _DiamondLinePainter extends CustomPainter {
       Offset(inset, y),
       Offset(s.width - inset, y),
       Paint()
-        ..strokeWidth = 3
+        ..strokeWidth = 3.5
         ..strokeCap = StrokeCap.round
-        ..color = const Color(0xFF2A150A),
+        ..color = const Color(0xFF1B0E06),
     );
     final d = Path()
       ..moveTo(s.width / 2, y - 6)
@@ -668,7 +700,10 @@ class SocPlankRow extends StatelessWidget {
           colors: [Color(0xFF4F3828), Color(0xFF402819), Color(0xFF38211A)],
           stops: [0, .35, 1],
         ),
-        border: Border.all(color: selected ? const Color(0xFFE8B54E) : const Color(0xFF1B0F08), width: selected ? 2.5 : 2),
+        border: Border.all(
+          color: selected ? const Color(0xFFE8B54E) : const Color(0xFF1B0F08),
+          width: selected ? 2.5 : 2,
+        ),
         boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: .35), blurRadius: 4, offset: const Offset(0, 2))],
       ),
       child: CustomPaint(
@@ -715,7 +750,14 @@ class _GrainPainter extends CustomPainter {
 
 /// تبويب: حبة خشب غامقة، أو برتقالية لامعة لو مختار. [badge] عدّاد أحمر على الزاوية.
 class SocTabPill extends StatelessWidget {
-  const SocTabPill({super.key, required this.label, required this.selected, required this.onTap, this.badge = 0, this.height = 34});
+  const SocTabPill({
+    super.key,
+    required this.label,
+    required this.selected,
+    required this.onTap,
+    this.badge = 0,
+    this.height = 34,
+  });
 
   final String label;
   final bool selected;
@@ -840,7 +882,13 @@ class SocChip extends StatelessWidget {
 
 /// شريط التقدم: ذهب لامع على مجرى حبل (هدف الأسبوع) أو مجرى غامق ([rope] = false).
 class SocBar extends StatelessWidget {
-  const SocBar({super.key, required this.value, this.height = 11, this.rope = true, this.colors = const [Color(0xFFFFE08A), Color(0xFFF0A92B)]});
+  const SocBar({
+    super.key,
+    required this.value,
+    this.height = 11,
+    this.rope = true,
+    this.colors = const [Color(0xFFFFE08A), Color(0xFFF0A92B)],
+  });
 
   final double value;
   final double height;
@@ -927,43 +975,52 @@ class _BarPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(_BarPainter old) => old.value != value || old.rope != rope || old.colors != colors || old.dir != dir;
+  bool shouldRepaint(_BarPainter old) =>
+      old.value != value || old.rope != rope || old.colors != colors || old.dir != dir;
 }
 
 /// حقل كتابة غامق محفور (البحث، الاسم، الرسالة…).
-InputDecoration socInput({String? hint, String? label, String? error, Widget? prefix, bool dense = true}) => InputDecoration(
-  hintText: hint,
-  labelText: label,
-  errorText: error,
-  isDense: dense,
-  counterText: '',
-  prefixIcon: prefix,
-  filled: true,
-  fillColor: const Color(0xFF1B0F09),
-  hintStyle: const TextStyle(color: Color(0xFF8E7A62), fontWeight: FontWeight.w700),
-  labelStyle: const TextStyle(color: socMuted, fontWeight: FontWeight.w700),
-  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-  enabledBorder: OutlineInputBorder(
-    borderRadius: BorderRadius.circular(14),
-    borderSide: const BorderSide(color: Color(0xFF5E4029), width: 2),
-  ),
-  focusedBorder: OutlineInputBorder(
-    borderRadius: BorderRadius.circular(14),
-    borderSide: const BorderSide(color: Color(0xFFE8B54E), width: 2),
-  ),
-  errorBorder: OutlineInputBorder(
-    borderRadius: BorderRadius.circular(14),
-    borderSide: const BorderSide(color: Color(0xFFE0594A), width: 2),
-  ),
-  focusedErrorBorder: OutlineInputBorder(
-    borderRadius: BorderRadius.circular(14),
-    borderSide: const BorderSide(color: Color(0xFFE0594A), width: 2),
-  ),
-);
+InputDecoration socInput({String? hint, String? label, String? error, Widget? prefix, bool dense = true}) =>
+    InputDecoration(
+      hintText: hint,
+      labelText: label,
+      errorText: error,
+      isDense: dense,
+      counterText: '',
+      prefixIcon: prefix,
+      filled: true,
+      fillColor: const Color(0xFF1B0F09),
+      hintStyle: const TextStyle(color: Color(0xFF8E7A62), fontWeight: FontWeight.w700),
+      labelStyle: const TextStyle(color: socMuted, fontWeight: FontWeight.w700),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(14),
+        borderSide: const BorderSide(color: Color(0xFF5E4029), width: 2),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(14),
+        borderSide: const BorderSide(color: Color(0xFFE8B54E), width: 2),
+      ),
+      errorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(14),
+        borderSide: const BorderSide(color: Color(0xFFE0594A), width: 2),
+      ),
+      focusedErrorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(14),
+        borderSide: const BorderSide(color: Color(0xFFE0594A), width: 2),
+      ),
+    );
 
 /// بطاقة لوح غامق (بدل Panel) لمحتوى اللوحات الخشبية: خلفية بنية وحد رفيع.
 class SocCard extends StatelessWidget {
-  const SocCard({super.key, required this.child, this.padding = const EdgeInsets.all(12), this.gold = false, this.tint, this.radius = 14});
+  const SocCard({
+    super.key,
+    required this.child,
+    this.padding = const EdgeInsets.all(12),
+    this.gold = false,
+    this.tint,
+    this.radius = 14,
+  });
 
   final Widget child;
   final EdgeInsetsGeometry padding;
@@ -992,7 +1049,13 @@ class SocCard extends StatelessWidget {
 
 /// فقاعة دردشة على رق: حد بني غامق وظل، وذيل صغير على الزاوية الفوقية (يمين لكلام غيرك، يسار لكلامك).
 class SocBubble extends StatelessWidget {
-  const SocBubble({super.key, required this.child, this.mine = false, this.tail = true, this.padding = const EdgeInsets.fromLTRB(12, 6, 12, 7)});
+  const SocBubble({
+    super.key,
+    required this.child,
+    this.mine = false,
+    this.tail = true,
+    this.padding = const EdgeInsets.fromLTRB(12, 6, 12, 7),
+  });
 
   final Widget child;
   final bool mine;
@@ -1111,7 +1174,12 @@ class SocChatInput extends StatelessWidget {
               style: const TextStyle(fontFamily: kufi, fontWeight: FontWeight.w700, fontSize: 14.5, color: socCream),
               decoration: const InputDecoration(
                 hintText: 'اكتب رسالة…',
-                hintStyle: TextStyle(fontFamily: kufi, fontWeight: FontWeight.w700, fontSize: 14.5, color: Color(0xFF8C7860)),
+                hintStyle: TextStyle(
+                  fontFamily: kufi,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 14.5,
+                  color: Color(0xFF8C7860),
+                ),
                 counterText: '',
                 isDense: true,
                 filled: false,
@@ -1146,7 +1214,11 @@ class SocSendButton extends StatelessWidget {
   final double size;
 
   @override
-  Widget build(BuildContext context) => SizedBox(width: size, height: size, child: CustomPaint(painter: _SendPainter()));
+  Widget build(BuildContext context) => SizedBox(
+    width: size,
+    height: size,
+    child: CustomPaint(painter: _SendPainter()),
+  );
 }
 
 class _SendPainter extends CustomPainter {
@@ -1211,7 +1283,11 @@ class SocSeal extends StatelessWidget {
   final double size;
 
   @override
-  Widget build(BuildContext context) => SizedBox(width: size, height: size, child: CustomPaint(painter: _SealPainter()));
+  Widget build(BuildContext context) => SizedBox(
+    width: size,
+    height: size,
+    child: CustomPaint(painter: _SealPainter()),
+  );
 }
 
 class _SealPainter extends CustomPainter {
@@ -1368,7 +1444,10 @@ class SocPopupCard extends StatelessWidget {
                       ),
                     ),
                   ),
-                  Padding(padding: padding, child: scroll ? SingleChildScrollView(child: child) : child),
+                  Padding(
+                    padding: padding,
+                    child: scroll ? SingleChildScrollView(child: child) : child,
+                  ),
                 ],
               ),
             ),
@@ -1376,7 +1455,10 @@ class SocPopupCard extends StatelessWidget {
               top: -titleSize * 1.1,
               child: ConstrainedBox(
                 constraints: BoxConstraints(maxWidth: width - 16),
-                child: FittedBox(fit: BoxFit.scaleDown, child: RibbonTitle(title, size: titleSize)),
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: RibbonTitle(title, size: titleSize),
+                ),
               ),
             ),
           ],
@@ -1465,7 +1547,13 @@ Future<bool> socConfirm(
           if (body != null) ...[SocPopupText(body, size: 14.5), const SizedBox(height: 14)],
           SocActions(
             children: [
-              SocButton(label: no, tone: SocTone.grey, height: 42, fontSize: 16, onPressed: () => Navigator.pop(context, false)),
+              SocButton(
+                label: no,
+                tone: SocTone.grey,
+                height: 42,
+                fontSize: 16,
+                onPressed: () => Navigator.pop(context, false),
+              ),
               SocButton(
                 label: yes,
                 tone: danger ? SocTone.red : SocTone.green,
@@ -1489,10 +1577,7 @@ class SocActions extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Row(
     children: [
-      for (final (i, c) in children.indexed) ...[
-        if (i > 0) const SizedBox(width: 12),
-        Expanded(child: c),
-      ],
+      for (final (i, c) in children.indexed) ...[if (i > 0) const SizedBox(width: 12), Expanded(child: c)],
     ],
   );
 }
@@ -1567,7 +1652,14 @@ InputDecoration socParchInput({String? hint, String? label, String? error, bool 
 
 /// اختيار من عدة خيارات بحبات (بدل SegmentedButton): المختار برتقالي لامع. [light] لو على رق.
 class SocSegments<T> extends StatelessWidget {
-  const SocSegments({super.key, required this.options, required this.value, required this.onChanged, this.light = false, this.height = 34});
+  const SocSegments({
+    super.key,
+    required this.options,
+    required this.value,
+    required this.onChanged,
+    this.light = false,
+    this.height = 34,
+  });
 
   final List<(T, String)> options;
   final T value;
@@ -1621,7 +1713,11 @@ class SocCheck extends StatelessWidget {
   final double size;
 
   @override
-  Widget build(BuildContext context) => SizedBox(width: size, height: size, child: CustomPaint(painter: _CheckPainter()));
+  Widget build(BuildContext context) => SizedBox(
+    width: size,
+    height: size,
+    child: CustomPaint(painter: _CheckPainter()),
+  );
 }
 
 class _CheckPainter extends CustomPainter {
@@ -1655,14 +1751,23 @@ class _CheckPainter extends CustomPainter {
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round
       ..strokeJoin = StrokeJoin.round;
-    canvas.drawPath(tick, line..strokeWidth = r * .5..color = const Color(0xFF143A0B));
-    canvas.drawPath(tick, line..strokeWidth = r * .3..color = Colors.white);
+    canvas.drawPath(
+      tick,
+      line
+        ..strokeWidth = r * .5
+        ..color = const Color(0xFF143A0B),
+    );
+    canvas.drawPath(
+      tick,
+      line
+        ..strokeWidth = r * .3
+        ..color = Colors.white,
+    );
   }
 
   @override
   bool shouldRepaint(_CheckPainter old) => false;
 }
-
 
 /// صندوق خشب بأحزمة ذهب وقفل (صندوق هدف الأسبوع)، مرسوم بالكود.
 class SocChest extends StatelessWidget {
@@ -1671,7 +1776,11 @@ class SocChest extends StatelessWidget {
   final double size;
 
   @override
-  Widget build(BuildContext context) => SizedBox(width: size, height: size * .86, child: CustomPaint(painter: _ChestPainter()));
+  Widget build(BuildContext context) => SizedBox(
+    width: size,
+    height: size * .86,
+    child: CustomPaint(painter: _ChestPainter()),
+  );
 }
 
 class _ChestPainter extends CustomPainter {
@@ -1723,7 +1832,10 @@ class _ChestPainter extends CustomPainter {
     canvas.drawRRect(body, dark..strokeWidth = 2.2);
     canvas.drawPath(lid, dark..strokeWidth = 2.2);
     // القفل
-    final lock = RRect.fromRectAndRadius(Rect.fromCenter(center: Offset(w * .5, h * .5), width: w * .2, height: h * .26), const Radius.circular(3));
+    final lock = RRect.fromRectAndRadius(
+      Rect.fromCenter(center: Offset(w * .5, h * .5), width: w * .2, height: h * .26),
+      const Radius.circular(3),
+    );
     canvas.drawRRect(lock, gold);
     canvas.drawRRect(lock, dark..strokeWidth = 1.6);
     canvas.drawCircle(Offset(w * .5, h * .49), w * .025, Paint()..color = const Color(0xFF3A1606));

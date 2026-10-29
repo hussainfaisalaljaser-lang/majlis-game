@@ -57,12 +57,18 @@ class RewardView extends StatelessWidget {
               label,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: TextStyle(fontFamily: kufi, fontWeight: FontWeight.w800, fontSize: 14 * (big ? 1 : .9), color: socInk),
+              style: TextStyle(
+                fontFamily: kufi,
+                fontWeight: FontWeight.w800,
+                fontSize: 14 * (big ? 1 : .9),
+                color: socInk,
+              ),
             ),
           ],
         ),
       );
     }
+
     return Wrap(
       alignment: WrapAlignment.center,
       spacing: 10,
@@ -146,7 +152,9 @@ Future<void> showGiftDialog(BuildContext context, Gift g) {
                         BadgeMedal(achievement: ach, tier: g.n, size: 62)
                       else
                         Gfx(
-                          from != null ? 'pass' : (g.tutorial || g.tour ? 'trophy' : (g.champion ? 'medal${g.n}' : 'gift')),
+                          from != null
+                              ? 'pass'
+                              : (g.tutorial || g.tour ? 'trophy' : (g.champion ? 'medal${g.n}' : 'gift')),
                           size: 62,
                         ),
                       const SizedBox(height: 12),

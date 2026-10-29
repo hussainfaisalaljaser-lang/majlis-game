@@ -37,7 +37,13 @@ Future<void> joinRoomByCode(BuildContext context) async {
         const SizedBox(height: 12),
         SocActions(
           children: [
-            SocButton(label: 'إلغاء', tone: SocTone.grey, height: 44, fontSize: 16, onPressed: () => Navigator.pop(context)),
+            SocButton(
+              label: 'إلغاء',
+              tone: SocTone.grey,
+              height: 44,
+              fontSize: 16,
+              onPressed: () => Navigator.pop(context),
+            ),
             SocButton(
               label: 'دخول',
               tone: SocTone.green,
@@ -81,11 +87,7 @@ class _PrivateScreenState extends State<PrivateScreen> {
     if (!Backend.instance.isReady) return;
     setState(() => _busy = true);
     try {
-      final code = await Backend.instance.createRoom(
-        maxPlayers: _playerCount,
-        quick: _quick,
-        roles: widget.mode.roles,
-      );
+      final code = await Backend.instance.createRoom(maxPlayers: _playerCount, quick: _quick, roles: widget.mode.roles);
       if (!mounted) return;
       Navigator.of(context).push(
         MaterialPageRoute(
@@ -172,11 +174,7 @@ class PrivateRoomView extends StatelessWidget {
                 onChanged: onCount,
               ),
               const SizedBox(height: 8),
-              SocSegments<bool>(
-                options: const [(false, 'عادي'), (true, 'سريع')],
-                value: quick,
-                onChanged: onQuick,
-              ),
+              SocSegments<bool>(options: const [(false, 'عادي'), (true, 'سريع')], value: quick, onChanged: onQuick),
               const SizedBox(height: 4),
               Text(
                 quick ? 'نص الوقت لكل دور، واللعبة حوالي ٥ دقايق' : 'الوقت العادي، واللعبة حوالي ١٠ دقايق',
@@ -240,7 +238,13 @@ class PrivateRoomView extends StatelessWidget {
                           ),
                           child: Text(
                             arabicNumber(i + 1),
-                            style: const TextStyle(color: AppColors.goldInk, fontFamily: kufi, fontWeight: FontWeight.w800, fontSize: 15, height: 1.1),
+                            style: const TextStyle(
+                              color: AppColors.goldInk,
+                              fontFamily: kufi,
+                              fontWeight: FontWeight.w800,
+                              fontSize: 15,
+                              height: 1.1,
+                            ),
                           ),
                         ),
                         const SizedBox(width: 10),
@@ -249,7 +253,13 @@ class PrivateRoomView extends StatelessWidget {
                         Expanded(
                           child: Text(
                             text,
-                            style: const TextStyle(fontFamily: kufi, fontSize: 15, fontWeight: FontWeight.w700, color: socCream, height: 1.35),
+                            style: const TextStyle(
+                              fontFamily: kufi,
+                              fontSize: 15,
+                              fontWeight: FontWeight.w700,
+                              color: socCream,
+                              height: 1.35,
+                            ),
                           ),
                         ),
                       ],

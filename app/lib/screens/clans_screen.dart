@@ -39,10 +39,17 @@ class _ClansScreenState extends State<ClansScreen> {
       valueListenable: Backend.instance.profile,
       builder: (context, p, _) {
         final clan = p.clan;
+        // طلعت من الديوان: الدردشة ترجع مغلقة للديوان الجاي.
+        if (clan == null) _chat = false;
         return SocTwoPanels(
           main: clan == null
               ? const _CreateClan()
-              : _MyClan(key: ValueKey(clan.id), id: clan.id, chatOpen: _chat, onChat: () => setState(() => _chat = !_chat)),
+              : _MyClan(
+                  key: ValueKey(clan.id),
+                  id: clan.id,
+                  chatOpen: _chat,
+                  onChat: () => setState(() => _chat = !_chat),
+                ),
           side: clan != null && _chat
               ? ChatPanel.clan(key: ValueKey('chat_${clan.id}'), clan: clan)
               : _Ranking(mine: clan?.id, canJoin: clan == null),
@@ -141,7 +148,10 @@ class CreateClanView extends StatelessWidget {
   Widget build(BuildContext context) {
     Widget caption(String t) => SizedBox(
       width: 56,
-      child: Text(t, style: const TextStyle(fontFamily: kufi, fontWeight: FontWeight.w800, fontSize: 15, color: socCream)),
+      child: Text(
+        t,
+        style: const TextStyle(fontFamily: kufi, fontWeight: FontWeight.w800, fontSize: 15, color: socCream),
+      ),
     );
     // كل شي يبان بدون تمرير (الشاشة بالعرض قصيرة).
     return VelvetPanel(
@@ -153,14 +163,14 @@ class CreateClanView extends StatelessWidget {
           if (inviteBanner != null) const SizedBox(height: 8),
           Row(
             children: [
-              ClanCrest(color: clanColors[color], emblem: emblem, size: 62),
+              ClanCrest(color: clanColors[color], emblem: emblem, size: 72),
               const SizedBox(width: 14),
               Expanded(
                 child: TextField(
                   controller: name,
                   maxLength: 20,
-                  style: const TextStyle(fontFamily: kufi, fontWeight: FontWeight.w800, fontSize: 17, color: socCream),
-                  decoration: socInput(label: 'اسم ديوانك', hint: 'مثلاً: ديوان الصقور'),
+                  style: const TextStyle(fontFamily: kufi, fontWeight: FontWeight.w800, fontSize: 18, color: socCream),
+                  decoration: socInput(hint: 'اسم ديوانك (مثلاً: ديوان الصقور)', dense: false),
                   onChanged: (_) => onName(),
                 ),
               ),
@@ -185,8 +195,13 @@ class CreateClanView extends StatelessWidget {
                         decoration: BoxDecoration(
                           color: c,
                           shape: BoxShape.circle,
-                          border: Border.all(color: i == color ? const Color(0xFFFFE08A) : const Color(0xFF2A1608), width: i == color ? 3 : 2),
-                          boxShadow: i == color ? [BoxShadow(color: const Color(0xFFF2B33E).withValues(alpha: .7), blurRadius: 8)] : null,
+                          border: Border.all(
+                            color: i == color ? const Color(0xFFFFE08A) : const Color(0xFF2A1608),
+                            width: i == color ? 3 : 2,
+                          ),
+                          boxShadow: i == color
+                              ? [BoxShadow(color: const Color(0xFFF2B33E).withValues(alpha: .7), blurRadius: 8)]
+                              : null,
                         ),
                       ),
                     ),
@@ -261,7 +276,9 @@ class _MyClan extends StatelessWidget {
     builder: (context, snap) {
       final clan = snap.data;
       if (clan == null) {
-        return const VelvetPanel(child: Center(child: CircularProgressIndicator(color: AppColors.gold)));
+        return const VelvetPanel(
+          child: Center(child: CircularProgressIndicator(color: AppColors.gold)),
+        );
       }
       final me = Backend.instance.uid;
       return _NewMessages(
@@ -379,7 +396,11 @@ class ClanPanelView extends StatelessWidget {
                           spacing: compact ? 4 : 6,
                           runSpacing: compact ? 2 : 4,
                           children: [
-                            SocChip('المستوى ${arabicNumber(clan.level)}', kind: SocChipKind.gold, size: compact ? 10.5 : 12.5),
+                            SocChip(
+                              'المستوى ${arabicNumber(clan.level)}',
+                              kind: SocChipKind.gold,
+                              size: compact ? 10.5 : 12.5,
+                            ),
                             SocChip(
                               '${arabicNumber(clan.count)} من ${arabicNumber(clanMax)} عضو',
                               kind: SocChipKind.blue,
@@ -410,7 +431,12 @@ class ClanPanelView extends StatelessWidget {
                     clan.desc,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(color: Color(0xFFE9D3B5), fontSize: 13, fontFamily: kufi, fontWeight: FontWeight.w700),
+                    style: const TextStyle(
+                      color: Color(0xFFE9D3B5),
+                      fontSize: 13,
+                      fontFamily: kufi,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                 ),
               SizedBox(height: compact ? 2 : 4),
@@ -427,7 +453,13 @@ class ClanPanelView extends StatelessWidget {
                   ),
                   if (power >= ClanRole.elder.power) ...[
                     const SizedBox(width: 8),
-                    ClanActionButton(icon: 'invite', label: 'دعوة', tone: SocTone.green, compact: compact, onTap: onInvite),
+                    ClanActionButton(
+                      icon: 'invite',
+                      label: 'دعوة',
+                      tone: SocTone.green,
+                      compact: compact,
+                      onTap: onInvite,
+                    ),
                     if (clan.join == ClanJoin.request || clan.requests.isNotEmpty) ...[
                       const SizedBox(width: 8),
                       ClanActionButton(
@@ -442,14 +474,29 @@ class ClanPanelView extends StatelessWidget {
                   ],
                   if (power >= ClanRole.deputy.power) ...[
                     const SizedBox(width: 8),
-                    ClanActionButton(icon: 'tools', label: 'الإعدادات', tone: SocTone.blue, compact: compact, onTap: onSettings),
+                    ClanActionButton(
+                      icon: 'tools',
+                      label: 'الإعدادات',
+                      tone: SocTone.blue,
+                      compact: compact,
+                      onTap: onSettings,
+                    ),
                   ],
                 ],
               ),
               SizedBox(height: compact ? 3 : 5),
-              ClanGoalBar(clan: clan, reached: reached, played: played, claimed: claimed, compact: compact, onClaim: onClaim),
+              ClanGoalBar(
+                clan: clan,
+                reached: reached,
+                played: played,
+                claimed: claimed,
+                compact: compact,
+                onClaim: onClaim,
+              ),
               SizedBox(height: compact ? 4 : 6),
-              Expanded(child: _Members(clan: clan, memberBuilder: memberBuilder)),
+              Expanded(
+                child: _Members(clan: clan, memberBuilder: memberBuilder),
+              ),
             ],
           ),
         );
@@ -576,7 +623,13 @@ class ClanGoalBar extends StatelessWidget {
                 '${reached ? '' : ' · اللعبة العامة ١٠ والفوز ٣٠'}',
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: TextStyle(fontFamily: kufi, fontWeight: FontWeight.w800, fontSize: compact ? 12 : 13.5, color: socCream, height: 1.3),
+                style: TextStyle(
+                  fontFamily: kufi,
+                  fontWeight: FontWeight.w800,
+                  fontSize: compact ? 12 : 13.5,
+                  color: socCream,
+                  height: 1.3,
+                ),
               ),
               SizedBox(height: compact ? 2 : 4),
               SocBar(value: clan.points / clanGoal, height: compact ? 9 : 11),
@@ -596,7 +649,10 @@ class ClanGoalBar extends StatelessWidget {
         Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Opacity(opacity: reached && !claimed ? 1 : .85, child: SocChest(size: compact ? 28 : 40)),
+            Opacity(
+              opacity: reached && !claimed ? 1 : .85,
+              child: SocChest(size: compact ? 28 : 40),
+            ),
             if (reached && played && !claimed)
               SocButton(label: 'استلم', tone: SocTone.green, height: 26, fontSize: 13, padding: 8, onPressed: onClaim),
           ],
@@ -658,22 +714,46 @@ class ClanMemberTile extends StatelessWidget {
     final dot = online ? SocDot.online : SocDot.offline;
     final points = Text(
       '${arabicNumber(member.points)} نقطة',
-      style: TextStyle(fontFamily: kufi, fontWeight: FontWeight.w700, fontSize: big ? 14 : 11, color: socMuted, height: 1.2),
+      style: TextStyle(
+        fontFamily: kufi,
+        fontWeight: FontWeight.w700,
+        fontSize: big ? 14 : 11,
+        color: socMuted,
+        height: 1.2,
+      ),
     );
     final roleLine = rank
         ? Text(
             member.roleName,
             maxLines: 1,
-            style: TextStyle(fontFamily: kufi, fontWeight: FontWeight.w800, fontSize: big ? 15 : 11.5, color: roleColor(member.role), height: 1.2),
+            style: TextStyle(
+              fontFamily: kufi,
+              fontWeight: FontWeight.w800,
+              fontSize: big ? 15 : 11.5,
+              color: roleColor(member.role),
+              height: 1.2,
+            ),
           )
         : null;
     final decoration = BoxDecoration(
       borderRadius: BorderRadius.circular(big ? 16 : 12),
       gradient: owner
-          ? const LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Color(0xFF6B4524), Color(0xFF4A2D18)])
+          ? const LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [Color(0xFF6B4524), Color(0xFF4A2D18)],
+            )
           : big
-          ? const LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Color(0xFF3A1519), Color(0xFF260C10)])
-          : const LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Color(0xFF2B315C), Color(0xFF1D2144)]),
+          ? const LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [Color(0xFF3A1519), Color(0xFF260C10)],
+            )
+          : const LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [Color(0xFF2B315C), Color(0xFF1D2144)],
+            ),
       border: Border.all(
         color: owner
             ? const Color(0xFFD9A84E)
@@ -704,7 +784,13 @@ class ClanMemberTile extends StatelessWidget {
                   member.name,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontFamily: kufi, fontWeight: FontWeight.w800, fontSize: 12.5, color: socCream, height: 1.2),
+                  style: const TextStyle(
+                    fontFamily: kufi,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 12.5,
+                    color: socCream,
+                    height: 1.2,
+                  ),
                 ),
                 ?roleLine,
                 points,
@@ -729,14 +815,26 @@ class ClanMemberTile extends StatelessWidget {
             clipBehavior: Clip.none,
             alignment: Alignment.topCenter,
             children: [
-              Positioned(left: 0, right: 0, bottom: 0, height: owner ? 122 : 108, child: DecoratedBox(decoration: decoration)),
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 0,
+                height: owner ? 122 : 108,
+                child: DecoratedBox(decoration: decoration),
+              ),
               Positioned(
                 top: owner ? 26 : 10,
                 child: owner
                     ? DecoratedBox(
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          boxShadow: [BoxShadow(color: const Color(0xFFFFB02E).withValues(alpha: .6), blurRadius: 22, spreadRadius: 2)],
+                          boxShadow: [
+                            BoxShadow(
+                              color: const Color(0xFFFFB02E).withValues(alpha: .6),
+                              blurRadius: 22,
+                              spreadRadius: 2,
+                            ),
+                          ],
                         ),
                         child: SocAvatar(avatar: member.avatar, size: avatar, gems: true),
                       )
@@ -750,10 +848,7 @@ class ClanMemberTile extends StatelessWidget {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    FittedBox(
-                      fit: BoxFit.scaleDown,
-                      child: OutlinedText(member.name, size: 18, maxLines: 1),
-                    ),
+                    FittedBox(fit: BoxFit.scaleDown, child: OutlinedText(member.name, size: 18, maxLines: 1)),
                     ?roleLine,
                     points,
                   ],
@@ -958,7 +1053,12 @@ class ClanRankingView extends StatelessWidget {
                   style: const TextStyle(fontFamily: kufi, fontWeight: FontWeight.w700, fontSize: 15, color: socCream),
                   decoration: const InputDecoration(
                     hintText: 'دوّر ديوان بالاسم',
-                    hintStyle: TextStyle(fontFamily: kufi, fontWeight: FontWeight.w700, fontSize: 15, color: Color(0xFFD9C3A0)),
+                    hintStyle: TextStyle(
+                      fontFamily: kufi,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 15,
+                      color: Color(0xFFD9C3A0),
+                    ),
                     isDense: true,
                     filled: false,
                     border: InputBorder.none,
@@ -1013,7 +1113,12 @@ class ClanRankingView extends StatelessWidget {
                   width: 26,
                   child: Text(
                     arabicNumber(i + 1),
-                    style: const TextStyle(fontFamily: kufi, fontWeight: FontWeight.w800, fontSize: 17, color: socCream),
+                    style: const TextStyle(
+                      fontFamily: kufi,
+                      fontWeight: FontWeight.w800,
+                      fontSize: 17,
+                      color: socCream,
+                    ),
                   ),
                 ),
               ClanCrest.of(c.tag, size: 38),
@@ -1026,7 +1131,13 @@ class ClanRankingView extends StatelessWidget {
                       c.name,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontFamily: kufi, fontWeight: FontWeight.w800, fontSize: 17, color: socCream, height: 1.2),
+                      style: const TextStyle(
+                        fontFamily: kufi,
+                        fontWeight: FontWeight.w800,
+                        fontSize: 17,
+                        color: socCream,
+                        height: 1.2,
+                      ),
                     ),
                     Row(
                       children: [
@@ -1035,14 +1146,25 @@ class ClanRankingView extends StatelessWidget {
                             '${arabicNumber(c.count)} عضو · مستوى ${arabicNumber(c.level)}',
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(color: socMuted, fontSize: 12.5, fontFamily: kufi, fontWeight: FontWeight.w700, height: 1.2),
+                            style: const TextStyle(
+                              color: socMuted,
+                              fontSize: 12.5,
+                              fontFamily: kufi,
+                              fontWeight: FontWeight.w700,
+                              height: 1.2,
+                            ),
                           ),
                         ),
                         if (c.join == ClanJoin.invite) ...[const SizedBox(width: 4), const Gfx('lock', size: 13)],
                         if (c.minLevel > 0)
                           Text(
                             '، ${arabicNumber(c.minLevel)}+',
-                            style: const TextStyle(color: socOrangeText, fontSize: 12, fontFamily: kufi, fontWeight: FontWeight.w800),
+                            style: const TextStyle(
+                              color: socOrangeText,
+                              fontSize: 12,
+                              fontFamily: kufi,
+                              fontWeight: FontWeight.w800,
+                            ),
                           ),
                       ],
                     ),
@@ -1051,7 +1173,12 @@ class ClanRankingView extends StatelessWidget {
               ),
               Text(
                 arabicNumber(c.points),
-                style: const TextStyle(fontFamily: kufi, fontWeight: FontWeight.w800, fontSize: 18, color: Color(0xFFFFD27A)),
+                style: const TextStyle(
+                  fontFamily: kufi,
+                  fontWeight: FontWeight.w800,
+                  fontSize: 18,
+                  color: Color(0xFFFFD27A),
+                ),
               ),
               if (canJoin) ...[
                 const SizedBox(width: 8),
@@ -1106,10 +1233,7 @@ class _NewMessages extends StatelessWidget {
 }
 
 /// عنوان صغير فوق حقل داخل النافذة.
-Widget _fieldLabel(String t) => Padding(
-  padding: const EdgeInsets.only(bottom: 4),
-  child: SocPopupText(t, size: 14.5),
-);
+Widget _fieldLabel(String t) => Padding(padding: const EdgeInsets.only(bottom: 4), child: SocPopupText(t, size: 14.5));
 
 /// إعدادات الديوان (الشيخ ونوابه): الوصف، وأقل مستوى، وطريقة الدخول.
 Future<void> _settings(BuildContext context, Clan clan) async {
@@ -1130,7 +1254,11 @@ Future<void> _settings(BuildContext context, Clan clan) async {
             maxLength: clanDescMax,
             maxLines: 2,
             style: const TextStyle(fontFamily: kufi, fontWeight: FontWeight.w700, color: socInk),
-            decoration: socParchInput(label: 'وصف الديوان', hint: 'مثلاً: ديوان للي يحبون اللعب الجاد، نلعب كل ليلة', dense: false),
+            decoration: socParchInput(
+              label: 'وصف الديوان',
+              hint: 'مثلاً: ديوان للي يحبون اللعب الجاد، نلعب كل ليلة',
+              dense: false,
+            ),
           ),
           const SizedBox(height: 6),
           Row(
@@ -1146,7 +1274,12 @@ Future<void> _settings(BuildContext context, Clan clan) async {
                       initialValue: level,
                       isDense: true,
                       dropdownColor: const Color(0xFFF1DFB8),
-                      style: const TextStyle(fontFamily: kufi, fontWeight: FontWeight.w800, color: socInk, fontSize: 14),
+                      style: const TextStyle(
+                        fontFamily: kufi,
+                        fontWeight: FontWeight.w800,
+                        color: socInk,
+                        fontSize: 14,
+                      ),
                       decoration: socParchInput(),
                       items: [
                         for (final n in clanLevelSteps)
@@ -1179,8 +1312,20 @@ Future<void> _settings(BuildContext context, Clan clan) async {
           const SizedBox(height: 12),
           SocActions(
             children: [
-              SocButton(label: 'إلغاء', tone: SocTone.grey, height: 42, fontSize: 16, onPressed: () => Navigator.pop(context, false)),
-              SocButton(label: 'حفظ', tone: SocTone.green, height: 42, fontSize: 16, onPressed: () => Navigator.pop(context, true)),
+              SocButton(
+                label: 'إلغاء',
+                tone: SocTone.grey,
+                height: 42,
+                fontSize: 16,
+                onPressed: () => Navigator.pop(context, false),
+              ),
+              SocButton(
+                label: 'حفظ',
+                tone: SocTone.green,
+                height: 42,
+                fontSize: 16,
+                onPressed: () => Navigator.pop(context, true),
+              ),
             ],
           ),
         ],
@@ -1269,10 +1414,24 @@ class _InviteDialogState extends State<_InviteDialog> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(e.name, style: const TextStyle(fontFamily: kufi, fontWeight: FontWeight.w800, fontSize: 16, color: socInk, height: 1.2)),
+              Text(
+                e.name,
+                style: const TextStyle(
+                  fontFamily: kufi,
+                  fontWeight: FontWeight.w800,
+                  fontSize: 16,
+                  color: socInk,
+                  height: 1.2,
+                ),
+              ),
               Text(
                 e.clan != null ? 'في ديوان ${e.clan!.name}' : 'مستوى ${arabicNumber(e.level)}',
-                style: const TextStyle(color: Color(0xFF7A5A3A), fontSize: 12.5, fontFamily: kufi, fontWeight: FontWeight.w700),
+                style: const TextStyle(
+                  color: Color(0xFF7A5A3A),
+                  fontSize: 12.5,
+                  fontFamily: kufi,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
             ],
           ),
@@ -1319,14 +1478,22 @@ class _InviteDialogState extends State<_InviteDialog> {
               final list = snap.data;
               if (list == null) return const Center(child: CircularProgressIndicator(color: AppColors.goldDark));
               if (list.isEmpty) {
-                return const Center(child: SocPopupText('كل أصحابك في دواوين (أو ما عندك أصحاب)، دوّر لاعب برمزه', size: 14, muted: true));
+                return const Center(
+                  child: SocPopupText('كل أصحابك في دواوين (أو ما عندك أصحاب)، دوّر لاعب برمزه', size: 14, muted: true),
+                );
               }
               return ListView(children: [for (final e in list) _row(e)]);
             },
           ),
         ),
         const SizedBox(height: 8),
-        SocButton(label: 'تمام', tone: SocTone.green, height: 42, fontSize: 16, onPressed: () => Navigator.pop(context)),
+        SocButton(
+          label: 'تمام',
+          tone: SocTone.green,
+          height: 42,
+          fontSize: 16,
+          onPressed: () => Navigator.pop(context),
+        ),
       ],
     ),
   );
@@ -1371,17 +1538,45 @@ Future<void> _requests(BuildContext context, Clan clan) async {
                                     child: Column(
                                       crossAxisAlignment: CrossAxisAlignment.start,
                                       children: [
-                                        Text(r.name, style: const TextStyle(fontFamily: kufi, fontWeight: FontWeight.w800, fontSize: 16, color: socInk, height: 1.2)),
+                                        Text(
+                                          r.name,
+                                          style: const TextStyle(
+                                            fontFamily: kufi,
+                                            fontWeight: FontWeight.w800,
+                                            fontSize: 16,
+                                            color: socInk,
+                                            height: 1.2,
+                                          ),
+                                        ),
                                         Text(
                                           'مستوى ${arabicNumber(r.level)}، ${agoText(DateTime.now().difference(r.at))}',
-                                          style: const TextStyle(color: Color(0xFF7A5A3A), fontSize: 12.5, fontFamily: kufi, fontWeight: FontWeight.w700),
+                                          style: const TextStyle(
+                                            color: Color(0xFF7A5A3A),
+                                            fontSize: 12.5,
+                                            fontFamily: kufi,
+                                            fontWeight: FontWeight.w700,
+                                          ),
                                         ),
                                       ],
                                     ),
                                   ),
-                                  SocButton(label: 'قبول', tone: SocTone.green, height: 34, fontSize: 14, width: 76, onPressed: () => respond(r, true)),
+                                  SocButton(
+                                    label: 'قبول',
+                                    tone: SocTone.green,
+                                    height: 34,
+                                    fontSize: 14,
+                                    width: 76,
+                                    onPressed: () => respond(r, true),
+                                  ),
                                   const SizedBox(width: 6),
-                                  SocButton(label: 'رفض', tone: SocTone.grey, height: 34, fontSize: 14, width: 66, onPressed: () => respond(r, false)),
+                                  SocButton(
+                                    label: 'رفض',
+                                    tone: SocTone.grey,
+                                    height: 34,
+                                    fontSize: 14,
+                                    width: 66,
+                                    onPressed: () => respond(r, false),
+                                  ),
                                 ],
                               ),
                             ),
@@ -1389,7 +1584,13 @@ Future<void> _requests(BuildContext context, Clan clan) async {
                       ),
               ),
               const SizedBox(height: 8),
-              SocButton(label: 'تمام', tone: SocTone.green, height: 42, fontSize: 16, onPressed: () => Navigator.pop(context)),
+              SocButton(
+                label: 'تمام',
+                tone: SocTone.green,
+                height: 42,
+                fontSize: 16,
+                onPressed: () => Navigator.pop(context),
+              ),
             ],
           ),
         );
@@ -1437,14 +1638,24 @@ Future<void> _details(BuildContext context, Clan c, {required bool canJoin, requ
             for (final m in c.members.take(16))
               Tooltip(
                 message: '${m.name} · ${m.roleName}',
-                child: SocAvatar(avatar: m.avatar, size: 34, ring: m.role == ClanRole.owner ? SocRing.gold : SocRing.blue),
+                child: SocAvatar(
+                  avatar: m.avatar,
+                  size: 34,
+                  ring: m.role == ClanRole.owner ? SocRing.gold : SocRing.blue,
+                ),
               ),
           ],
         ),
         const SizedBox(height: 14),
         SocActions(
           children: [
-            SocButton(label: 'سكّر', tone: SocTone.grey, height: 42, fontSize: 16, onPressed: () => Navigator.pop(context)),
+            SocButton(
+              label: 'سكّر',
+              tone: SocTone.grey,
+              height: 42,
+              fontSize: 16,
+              onPressed: () => Navigator.pop(context),
+            ),
             if (canJoin)
               SocButton(
                 label: label,
@@ -1491,7 +1702,13 @@ class _InviteBanner extends StatelessWidget {
                   ? '${inv.fromName} يدعوك تدخل ${inv.tag.name} (و${arabicNumber(invites.length - 1)} دعوات ثانية)'
                   : '${inv.fromName} يدعوك تدخل ${inv.tag.name}',
               maxLines: 2,
-              style: const TextStyle(fontSize: 13, fontFamily: kufi, fontWeight: FontWeight.w800, color: socCream, height: 1.3),
+              style: const TextStyle(
+                fontSize: 13,
+                fontFamily: kufi,
+                fontWeight: FontWeight.w800,
+                color: socCream,
+                height: 1.3,
+              ),
             ),
           ),
           SocButton(
@@ -1500,7 +1717,8 @@ class _InviteBanner extends StatelessWidget {
             height: 32,
             fontSize: 14,
             width: 66,
-            onPressed: () => _run(context, () => Backend.instance.clanInviteRespond(inv.id, accept: true), 'دخلت ${inv.tag.name}!'),
+            onPressed: () =>
+                _run(context, () => Backend.instance.clanInviteRespond(inv.id, accept: true), 'دخلت ${inv.tag.name}!'),
           ),
           const SizedBox(width: 6),
           SocButton(

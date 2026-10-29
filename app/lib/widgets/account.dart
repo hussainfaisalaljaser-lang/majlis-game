@@ -52,7 +52,12 @@ class GoogleButton extends StatelessWidget {
                 const SizedBox(width: 12),
                 Text(
                   label,
-                  style: const TextStyle(color: Color(0xFF1F1F1F), fontSize: 17, fontWeight: FontWeight.w800, fontFamily: kufi),
+                  style: const TextStyle(
+                    color: Color(0xFF1F1F1F),
+                    fontSize: 17,
+                    fontWeight: FontWeight.w800,
+                    fontFamily: kufi,
+                  ),
                 ),
               ],
             ),
@@ -156,7 +161,13 @@ class _AccountCardState extends State<AccountCard> {
         const SizedBox(height: 4),
         const Text(
           'لو حذفت اللعبة أو غيّرت جوالك يضيع ذهبك ومستواك. اربطه بقوقل واحصل على ٥٠٠ ذهب هدية!',
-          style: TextStyle(color: Color(0xFFE9D3B5), fontSize: 13.5, fontFamily: kufi, fontWeight: FontWeight.w700, height: 1.4),
+          style: TextStyle(
+            color: Color(0xFFE9D3B5),
+            fontSize: 13.5,
+            fontFamily: kufi,
+            fontWeight: FontWeight.w700,
+            height: 1.4,
+          ),
         ),
         const SizedBox(height: 10),
         GoogleButton(
@@ -185,7 +196,13 @@ class _AccountCardState extends State<AccountCard> {
             children: [
               const Text(
                 'حسابك محفوظ',
-                style: TextStyle(fontFamily: kufi, fontWeight: FontWeight.w800, fontSize: 17, color: socCream, height: 1.2),
+                style: TextStyle(
+                  fontFamily: kufi,
+                  fontWeight: FontWeight.w800,
+                  fontSize: 17,
+                  color: socCream,
+                  height: 1.2,
+                ),
               ),
               Text(
                 email,
@@ -196,7 +213,14 @@ class _AccountCardState extends State<AccountCard> {
             ],
           ),
         ),
-        SocButton(label: 'تسجيل خروج', tone: SocTone.grey, height: 34, fontSize: 14, width: 112, onPressed: _busy ? null : _signOut),
+        SocButton(
+          label: 'تسجيل خروج',
+          tone: SocTone.grey,
+          height: 34,
+          fontSize: 14,
+          width: 112,
+          onPressed: _busy ? null : _signOut,
+        ),
       ],
     ),
   );

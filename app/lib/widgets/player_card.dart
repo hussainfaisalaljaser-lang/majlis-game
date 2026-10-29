@@ -137,11 +137,21 @@ class _PlayerCardState extends State<_PlayerCard> {
                           children: [
                             Text(
                               label,
-                              style: const TextStyle(fontFamily: kufi, fontWeight: FontWeight.w800, fontSize: 16, color: socCream),
+                              style: const TextStyle(
+                                fontFamily: kufi,
+                                fontWeight: FontWeight.w800,
+                                fontSize: 16,
+                                color: socCream,
+                              ),
                             ),
                             Text(
                               hint,
-                              style: const TextStyle(color: socMuted, fontSize: 12.5, fontFamily: kufi, fontWeight: FontWeight.w700),
+                              style: const TextStyle(
+                                color: socMuted,
+                                fontSize: 12.5,
+                                fontFamily: kufi,
+                                fontWeight: FontWeight.w700,
+                              ),
                             ),
                           ],
                         ),
@@ -320,7 +330,13 @@ class _Chip extends StatelessWidget {
         const SizedBox(width: 5),
         Text(
           text,
-          style: const TextStyle(color: socGoldHi, fontFamily: kufi, fontWeight: FontWeight.w800, fontSize: 14, height: 1.3),
+          style: const TextStyle(
+            color: socGoldHi,
+            fontFamily: kufi,
+            fontWeight: FontWeight.w800,
+            fontSize: 14,
+            height: 1.3,
+          ),
         ),
       ],
     ),
@@ -345,11 +361,23 @@ class _Stat extends StatelessWidget {
             Gfx(icon, size: 26),
             Text(
               value,
-              style: const TextStyle(fontFamily: kufi, fontWeight: FontWeight.w800, fontSize: 18, color: socCream, height: 1.15),
+              style: const TextStyle(
+                fontFamily: kufi,
+                fontWeight: FontWeight.w800,
+                fontSize: 18,
+                color: socCream,
+                height: 1.15,
+              ),
             ),
             Text(
               label,
-              style: const TextStyle(color: socMuted, fontSize: 12, fontFamily: kufi, fontWeight: FontWeight.w700, height: 1.1),
+              style: const TextStyle(
+                color: socMuted,
+                fontSize: 12,
+                fontFamily: kufi,
+                fontWeight: FontWeight.w700,
+                height: 1.1,
+              ),
             ),
           ],
         ),

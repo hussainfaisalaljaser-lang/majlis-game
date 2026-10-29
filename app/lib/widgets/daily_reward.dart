@@ -9,12 +9,7 @@ import 'design_social.dart';
 
 /// نافذة الهدية اليومية: ٧ أيام، واليوم السابع فيه جواهر.
 Future<void> showDailyReward(BuildContext context) {
-  return showSocDialog<void>(
-    context,
-    title: 'الهدية اليومية',
-    width: 620,
-    builder: (_) => const _DailyRewardBody(),
-  );
+  return showSocDialog<void>(context, title: 'الهدية اليومية', width: 620, builder: (_) => const _DailyRewardBody());
 }
 
 class _DailyRewardBody extends StatefulWidget {
@@ -52,64 +47,64 @@ class _DailyRewardBodyState extends State<_DailyRewardBody> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-        const Center(child: Gfx('gift', size: 52)),
-        const SocPopupText('ادخل كل يوم وتكبر الهدية!', muted: true),
-        const SizedBox(height: 12),
-        Wrap(
-          spacing: 7,
-          runSpacing: 10,
-          alignment: WrapAlignment.center,
-          children: [
-            for (final (i, r) in dailyRewards.indexed)
-              DailyDayTile(
-                day: i + 1,
-                coins: r.coins,
-                diamonds: r.diamonds,
-                done: i + 1 <= claimedThrough,
-                current: i + 1 == today && available,
-              ),
-          ],
-        ),
-        if (_claimed != null) ...[
+          const Center(child: Gfx('gift', size: 52)),
+          const SocPopupText('ادخل كل يوم وتكبر الهدية!', muted: true),
           const SizedBox(height: 12),
-          Center(
-            child: OutlinedText(
-              '+${arabicNumber(_claimed!.coins)} ذهب${_claimed!.diamonds > 0 ? '  +${arabicNumber(_claimed!.diamonds)} جوهرة' : ''}',
-              size: 26,
-              gradient: goldTitleColors,
-              stroke: const Color(0xFF3A1606),
-            ),
-          ),
-        ],
-        if (_error != null) ...[
-          const SizedBox(height: 10),
-          Text(
-            _error!,
-            textAlign: TextAlign.center,
-            style: const TextStyle(color: Color(0xFFB3261E), fontFamily: kufi, fontWeight: FontWeight.w800),
-          ),
-        ],
-        const SizedBox(height: 14),
-        Center(
-          child: available
-              ? SocButton(
-                  label: _claiming ? 'لحظة…' : 'استلم',
-                  tone: SocTone.green,
-                  height: 50,
-                  fontSize: 21,
-                  width: 240,
-                  onPressed: _claiming ? null : _claim,
-                )
-              : SocButton(
-                  label: _claimed != null ? 'تمام' : 'تعال بكرة',
-                  tone: _claimed != null ? SocTone.green : SocTone.orange,
-                  height: 50,
-                  fontSize: 21,
-                  width: 240,
-                  onPressed: () => Navigator.pop(context),
+          Wrap(
+            spacing: 7,
+            runSpacing: 10,
+            alignment: WrapAlignment.center,
+            children: [
+              for (final (i, r) in dailyRewards.indexed)
+                DailyDayTile(
+                  day: i + 1,
+                  coins: r.coins,
+                  diamonds: r.diamonds,
+                  done: i + 1 <= claimedThrough,
+                  current: i + 1 == today && available,
                 ),
-        ),
-      ],
+            ],
+          ),
+          if (_claimed != null) ...[
+            const SizedBox(height: 12),
+            Center(
+              child: OutlinedText(
+                '+${arabicNumber(_claimed!.coins)} ذهب${_claimed!.diamonds > 0 ? '  +${arabicNumber(_claimed!.diamonds)} جوهرة' : ''}',
+                size: 26,
+                gradient: goldTitleColors,
+                stroke: const Color(0xFF3A1606),
+              ),
+            ),
+          ],
+          if (_error != null) ...[
+            const SizedBox(height: 10),
+            Text(
+              _error!,
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: Color(0xFFB3261E), fontFamily: kufi, fontWeight: FontWeight.w800),
+            ),
+          ],
+          const SizedBox(height: 14),
+          Center(
+            child: available
+                ? SocButton(
+                    label: _claiming ? 'لحظة…' : 'استلم',
+                    tone: SocTone.green,
+                    height: 50,
+                    fontSize: 21,
+                    width: 240,
+                    onPressed: _claiming ? null : _claim,
+                  )
+                : SocButton(
+                    label: _claimed != null ? 'تمام' : 'تعال بكرة',
+                    tone: _claimed != null ? SocTone.green : SocTone.orange,
+                    height: 50,
+                    fontSize: 21,
+                    width: 240,
+                    onPressed: () => Navigator.pop(context),
+                  ),
+          ),
+        ],
       ),
     );
   }
@@ -157,7 +152,8 @@ class DailyDayTile extends StatelessWidget {
               width: current ? 3.2 : 2,
             ),
             boxShadow: [
-              if (current) BoxShadow(color: const Color(0xFFFFB02E).withValues(alpha: .75), blurRadius: 14, spreadRadius: 1),
+              if (current)
+                BoxShadow(color: const Color(0xFFFFB02E).withValues(alpha: .75), blurRadius: 14, spreadRadius: 1),
               BoxShadow(color: Colors.black.withValues(alpha: .25), blurRadius: 3, offset: const Offset(0, 2)),
             ],
           ),
@@ -165,18 +161,28 @@ class DailyDayTile extends StatelessWidget {
             children: [
               Text(
                 'يوم ${arabicNumber(day)}',
-                style: const TextStyle(fontSize: 12, color: Color(0xFF7A5A3A), fontFamily: kufi, fontWeight: FontWeight.w800),
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: Color(0xFF7A5A3A),
+                  fontFamily: kufi,
+                  fontWeight: FontWeight.w800,
+                ),
               ),
               Gfx(diamonds > 0 ? 'gem' : 'coin', size: big ? 38 : 30),
               Text(
                 diamonds > 0 ? '${arabicNumber(coins)} + ${arabicNumber(diamonds)}' : arabicNumber(coins),
-                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: socInk, fontFamily: kufi, height: 1.2),
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w800,
+                  color: socInk,
+                  fontFamily: kufi,
+                  height: 1.2,
+                ),
               ),
             ],
           ),
         ),
-        if (done)
-          const PositionedDirectional(top: -8, end: -6, child: SocCheck(size: 22)),
+        if (done) const PositionedDirectional(top: -8, end: -6, child: SocCheck(size: 22)),
       ],
     );
   }

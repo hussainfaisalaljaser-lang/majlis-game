@@ -139,7 +139,15 @@ class EditProfileView extends StatelessWidget {
                 child: DecoratedBox(
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    boxShadow: selected ? [BoxShadow(color: const Color(0xFFFFB02E).withValues(alpha: .65), blurRadius: 16, spreadRadius: 1)] : null,
+                    boxShadow: selected
+                        ? [
+                            BoxShadow(
+                              color: const Color(0xFFFFB02E).withValues(alpha: .65),
+                              blurRadius: 16,
+                              spreadRadius: 1,
+                            ),
+                          ]
+                        : null,
                   ),
                   child: SocAvatar(
                     avatar: a,
@@ -174,7 +182,9 @@ class EditProfileView extends StatelessWidget {
         DecoratedBox(
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            boxShadow: [BoxShadow(color: const Color(0xFFFFB02E).withValues(alpha: .45), blurRadius: 26, spreadRadius: 2)],
+            boxShadow: [
+              BoxShadow(color: const Color(0xFFFFB02E).withValues(alpha: .45), blurRadius: 26, spreadRadius: 2),
+            ],
           ),
           child: SocAvatar(avatar: avatar, style: frame, size: 100, animate: true, gems: true),
         ),
@@ -306,7 +316,9 @@ class ProfileIdentityPanel extends StatelessWidget {
             child: DecoratedBox(
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                boxShadow: [BoxShadow(color: const Color(0xFFFFB02E).withValues(alpha: .4), blurRadius: 24, spreadRadius: 1)],
+                boxShadow: [
+                  BoxShadow(color: const Color(0xFFFFB02E).withValues(alpha: .4), blurRadius: 24, spreadRadius: 1),
+                ],
               ),
               child: SocAvatar(avatar: p.avatar, style: style, size: 86, animate: true, gems: true),
             ),
@@ -408,7 +420,12 @@ class ProfileStatsPanel extends StatelessWidget {
                     const Spacer(),
                     Text(
                       '${arabicNumber(p.xpInLevel)} / ${arabicNumber(p.xpToNext)} خبرة',
-                      style: const TextStyle(color: socMuted, fontSize: 13.5, fontFamily: kufi, fontWeight: FontWeight.w800),
+                      style: const TextStyle(
+                        color: socMuted,
+                        fontSize: 13.5,
+                        fontFamily: kufi,
+                        fontWeight: FontWeight.w800,
+                      ),
                     ),
                   ],
                 ),
@@ -427,15 +444,25 @@ class ProfileStatsPanel extends StatelessWidget {
           const SizedBox(height: 10),
           Row(
             children: [
-              Expanded(child: _Stat(icon: 'coin', value: arabicNumber(p.coins), label: 'ذهب')),
+              Expanded(
+                child: _Stat(icon: 'coin', value: arabicNumber(p.coins), label: 'ذهب'),
+              ),
               const SizedBox(width: 8),
-              Expanded(child: _Stat(icon: 'gem', value: arabicNumber(p.diamonds), label: 'جواهر')),
+              Expanded(
+                child: _Stat(icon: 'gem', value: arabicNumber(p.diamonds), label: 'جواهر'),
+              ),
               const SizedBox(width: 8),
-              Expanded(child: _Stat(icon: 'games', value: arabicNumber(p.gamesPlayed), label: 'لعبة')),
+              Expanded(
+                child: _Stat(icon: 'games', value: arabicNumber(p.gamesPlayed), label: 'لعبة'),
+              ),
               const SizedBox(width: 8),
-              Expanded(child: _Stat(icon: 'trophy', value: arabicNumber(p.gamesWon), label: 'فوز')),
+              Expanded(
+                child: _Stat(icon: 'trophy', value: arabicNumber(p.gamesWon), label: 'فوز'),
+              ),
               const SizedBox(width: 8),
-              Expanded(child: _Stat(icon: 'winrate', value: '${arabicNumber(p.winRate)}٪', label: 'نسبة الفوز')),
+              Expanded(
+                child: _Stat(icon: 'winrate', value: '${arabicNumber(p.winRate)}٪', label: 'نسبة الفوز'),
+              ),
             ],
           ),
           if (onHistory != null) ...[
@@ -477,10 +504,25 @@ class _Stat extends StatelessWidget {
           fit: BoxFit.scaleDown,
           child: Text(
             value,
-            style: const TextStyle(fontFamily: kufi, fontSize: 20, fontWeight: FontWeight.w800, color: socCream, height: 1.2),
+            style: const TextStyle(
+              fontFamily: kufi,
+              fontSize: 20,
+              fontWeight: FontWeight.w800,
+              color: socCream,
+              height: 1.2,
+            ),
           ),
         ),
-        Text(label, style: const TextStyle(color: socMuted, fontSize: 12.5, fontFamily: kufi, fontWeight: FontWeight.w700, height: 1.1)),
+        Text(
+          label,
+          style: const TextStyle(
+            color: socMuted,
+            fontSize: 12.5,
+            fontFamily: kufi,
+            fontWeight: FontWeight.w700,
+            height: 1.1,
+          ),
+        ),
       ],
     ),
   );
@@ -546,12 +588,18 @@ class LevelRoad extends StatelessWidget {
                             : const [Color(0xFFF1E0B8), Color(0xFFD9BC86)],
                       ),
                       border: Border.all(
-                        color: isNext ? const Color(0xFFE08A12) : (got ? const Color(0xFF5E8A2E) : const Color(0xFF6B4A2C)),
+                        color: isNext
+                            ? const Color(0xFFE08A12)
+                            : (got ? const Color(0xFF5E8A2E) : const Color(0xFF6B4A2C)),
                         width: isNext ? 3 : 2,
                       ),
                       boxShadow: [
                         if (isNext) BoxShadow(color: const Color(0xFFFFB02E).withValues(alpha: .7), blurRadius: 12),
-                        BoxShadow(color: Colors.black.withValues(alpha: .35), blurRadius: 4, offset: const Offset(0, 2)),
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: .35),
+                          blurRadius: 4,
+                          offset: const Offset(0, 2),
+                        ),
                       ],
                     ),
                     child: Column(
@@ -562,7 +610,9 @@ class LevelRoad extends StatelessWidget {
                             fontSize: 12.5,
                             fontFamily: kufi,
                             fontWeight: FontWeight.w800,
-                            color: got ? const Color(0xFF2F6A12) : (isNext ? const Color(0xFFB45F08) : const Color(0xFF7A5A3A)),
+                            color: got
+                                ? const Color(0xFF2F6A12)
+                                : (isNext ? const Color(0xFFB45F08) : const Color(0xFF7A5A3A)),
                             height: 1.2,
                           ),
                         ),
@@ -578,16 +628,23 @@ class LevelRoad extends StatelessWidget {
                           ),
                         ),
                         Text(
-                          item != null ? (r.items.length > 1 ? '${item.name} +' : item.name) : '${arabicNumber(r.coins)} ذهب',
+                          item != null
+                              ? (r.items.length > 1 ? '${item.name} +' : item.name)
+                              : '${arabicNumber(r.coins)} ذهب',
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(fontSize: 12.5, fontFamily: kufi, fontWeight: FontWeight.w800, color: socInk, height: 1.2),
+                          style: const TextStyle(
+                            fontSize: 12.5,
+                            fontFamily: kufi,
+                            fontWeight: FontWeight.w800,
+                            color: socInk,
+                            height: 1.2,
+                          ),
                         ),
                       ],
                     ),
                   ),
-                  if (got)
-                    const PositionedDirectional(top: -7, end: -5, child: SocCheck(size: 20)),
+                  if (got) const PositionedDirectional(top: -7, end: -5, child: SocCheck(size: 20)),
                 ],
               );
             },

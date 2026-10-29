@@ -173,10 +173,7 @@ class _WaitingScreenState extends State<WaitingScreen> {
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            if (_room?.quick ?? false) ...[
-              const SocChip('سريع', kind: SocChipKind.orange),
-              const SizedBox(width: 8),
-            ],
+            if (_room?.quick ?? false) ...[const SocChip('سريع', kind: SocChipKind.orange), const SizedBox(width: 8)],
             // الطور (الكلاسيكي أو المطوّر) بثيمه.
             if (_room case final room?) ModeChip(mode: ModeTheme.of(room.roles)),
           ],
@@ -202,7 +199,12 @@ class _WaitingScreenState extends State<WaitingScreen> {
                               ? 'اكتملت الطاولة! اللعبة بتبدأ…'
                               : 'نبحث عن لاعبين…',
                           textAlign: TextAlign.center,
-                          style: const TextStyle(color: socCream, fontSize: 15, fontFamily: kufi, fontWeight: FontWeight.w800),
+                          style: const TextStyle(
+                            color: socCream,
+                            fontSize: 15,
+                            fontFamily: kufi,
+                            fontWeight: FontWeight.w800,
+                          ),
                         ),
                         const SizedBox(height: 8),
                         _CodeBox(code: widget.code ?? 'K7Q2M'),
@@ -220,11 +222,20 @@ class _WaitingScreenState extends State<WaitingScreen> {
                               ? '${arabicNumber(players.length)} من ${arabicNumber(max)}، لو ما اكتملت خلال ${arabicNumber(_botCountdown!)} ثانية نكمّلها ببوتات'
                               : '${arabicNumber(players.length)} من ${arabicNumber(max)}، تبدأ تلقائياً لما تكتمل',
                           textAlign: TextAlign.center,
-                          style: const TextStyle(color: socMuted, fontSize: 12.5, fontFamily: kufi, fontWeight: FontWeight.w700),
+                          style: const TextStyle(
+                            color: socMuted,
+                            fontSize: 12.5,
+                            fontFamily: kufi,
+                            fontWeight: FontWeight.w700,
+                          ),
                         ),
                         const SizedBox(height: 10),
                         if (fee > 0) ...[
-                          _PotBox(pot: (_room?.entryFee ?? tier!.entryFee) * (players.any((p) => p.bot) ? players.where((p) => !p.bot).length : max)),
+                          _PotBox(
+                            pot:
+                                (_room?.entryFee ?? tier!.entryFee) *
+                                (players.any((p) => p.bot) ? players.where((p) => !p.bot).length : max),
+                          ),
                           const SizedBox(height: 10),
                         ],
                         if (isPrivate && isHost) ...[
@@ -260,7 +271,12 @@ class _WaitingScreenState extends State<WaitingScreen> {
                               child: Text(
                                 'اضغط على البوت عشان تشيله',
                                 textAlign: TextAlign.center,
-                                style: TextStyle(color: socMuted, fontSize: 12.5, fontFamily: kufi, fontWeight: FontWeight.w700),
+                                style: TextStyle(
+                                  color: socMuted,
+                                  fontSize: 12.5,
+                                  fontFamily: kufi,
+                                  fontWeight: FontWeight.w700,
+                                ),
                               ),
                             ),
                           const SizedBox(height: 10),
@@ -280,7 +296,12 @@ class _WaitingScreenState extends State<WaitingScreen> {
                             child: Text(
                               'لو طلعت قبل ما تبدأ اللعبة يرجع لك ذهبك',
                               textAlign: TextAlign.center,
-                              style: TextStyle(color: socMuted, fontSize: 12.5, fontFamily: kufi, fontWeight: FontWeight.w700),
+                              style: TextStyle(
+                                color: socMuted,
+                                fontSize: 12.5,
+                                fontFamily: kufi,
+                                fontWeight: FontWeight.w700,
+                              ),
                             ),
                           ),
                       ],
@@ -499,29 +520,34 @@ class _Seat extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             empty
-              ? Container(
-                  width: 66,
-                  height: 66,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: Colors.black.withValues(alpha: .25),
-                    border: Border.all(color: const Color(0xFF6B4A2C), width: 2.5),
+                ? Container(
+                    width: 66,
+                    height: 66,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: Colors.black.withValues(alpha: .25),
+                      border: Border.all(color: const Color(0xFF6B4A2C), width: 2.5),
+                    ),
+                    child: const Icon(Icons.add_rounded, color: Color(0xFF8E7A62), size: 30),
+                  )
+                : Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      SocAvatar(avatar: avatar, style: style, size: 58, gems: me, animate: true),
+                      if (bot) const Positioned(bottom: -4, left: -4, child: Gfx('bot', size: 26)),
+                    ],
                   ),
-                  child: const Icon(Icons.add_rounded, color: Color(0xFF8E7A62), size: 30),
-                )
-              : Stack(
-                  clipBehavior: Clip.none,
-                  children: [
-                    SocAvatar(avatar: avatar, style: style, size: 58, gems: me, animate: true),
-                    if (bot) const Positioned(bottom: -4, left: -4, child: Gfx('bot', size: 26)),
-                  ],
-                ),
             const SizedBox(height: 5),
             empty
                 ? const Text(
                     'ينتظر…',
-                    style: TextStyle(fontFamily: kufi, fontSize: 13.5, fontWeight: FontWeight.w700, color: Color(0xFF8E7A62)),
+                    style: TextStyle(
+                      fontFamily: kufi,
+                      fontSize: 13.5,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF8E7A62),
+                    ),
                   )
                 : NamePill(name, size: 14),
           ],

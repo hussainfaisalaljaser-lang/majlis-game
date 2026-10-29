@@ -386,7 +386,10 @@ class ChatPanelView extends StatelessWidget {
           // رسائل ورا بعض من نفس الشخص (خلال ٣ دقايق): الاسم والصورة مرة وحدة.
           final older = i + 1 < list.length ? list[i + 1] : null;
           final grouped =
-              older != null && !older.system && older.uid == m.uid && m.at.difference(older.at) < const Duration(minutes: 3);
+              older != null &&
+              !older.system &&
+              older.uid == m.uid &&
+              m.at.difference(older.at) < const Duration(minutes: 3);
           return ChatMessageRow(
             message: m,
             mine: m.uid == myUid,
@@ -458,7 +461,10 @@ class ChatMessageRow extends StatelessWidget {
         child: Center(
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
-            decoration: BoxDecoration(color: Colors.black.withValues(alpha: .35), borderRadius: BorderRadius.circular(12)),
+            decoration: BoxDecoration(
+              color: Colors.black.withValues(alpha: .35),
+              borderRadius: BorderRadius.circular(12),
+            ),
             child: Text(
               m.text,
               style: const TextStyle(color: socMuted, fontSize: 12, fontFamily: kufi, fontWeight: FontWeight.w700),
@@ -471,7 +477,13 @@ class ChatMessageRow extends StatelessWidget {
     final showName = clan && !mine && !grouped;
     final time = Text(
       _time,
-      style: TextStyle(fontSize: 9.5, fontFamily: kufi, fontWeight: FontWeight.w700, color: socInk.withValues(alpha: .5), height: 1),
+      style: TextStyle(
+        fontSize: 9.5,
+        fontFamily: kufi,
+        fontWeight: FontWeight.w700,
+        color: socInk.withValues(alpha: .5),
+        height: 1,
+      ),
     );
     final bubble = GestureDetector(
       onLongPress: onLongPress,
@@ -488,14 +500,26 @@ class ChatMessageRow extends StatelessWidget {
               if (showName)
                 Text(
                   m.name,
-                  style: TextStyle(fontFamily: kufi, fontWeight: FontWeight.w800, fontSize: 13, color: roleColor(m.role), height: 1.2),
+                  style: TextStyle(
+                    fontFamily: kufi,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 13,
+                    color: roleColor(m.role),
+                    height: 1.2,
+                  ),
                 ),
               if (sticker != null)
                 StickerView(sticker: sticker, size: 84, pop: false)
               else
                 Text(
                   m.text,
-                  style: const TextStyle(fontFamily: kufi, fontWeight: FontWeight.w800, fontSize: 16.5, height: 1.35, color: socInk),
+                  style: const TextStyle(
+                    fontFamily: kufi,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 16.5,
+                    height: 1.35,
+                    color: socInk,
+                  ),
                 ),
               const SizedBox(height: 1),
               time,
@@ -505,8 +529,12 @@ class ChatMessageRow extends StatelessWidget {
       ),
     );
     final pad = EdgeInsets.only(top: grouped ? 3 : 9);
-    if (mine) return Padding(padding: pad, child: Align(alignment: AlignmentDirectional.centerEnd, child: bubble));
-    if (!clan) return Padding(padding: pad, child: Align(alignment: AlignmentDirectional.centerStart, child: bubble));
+    if (mine || !clan) {
+      return Padding(
+        padding: pad,
+        child: Align(alignment: mine ? AlignmentDirectional.centerEnd : AlignmentDirectional.centerStart, child: bubble),
+      );
+    }
     return Padding(
       padding: pad,
       child: Row(
@@ -523,7 +551,14 @@ class ChatMessageRow extends StatelessWidget {
 
 /// بطاقة «روم خاص من فلان» داخل محادثته: ادخل، أو لاحقاً.
 class ChatInviteCard extends StatelessWidget {
-  const ChatInviteCard({super.key, required this.name, required this.avatar, required this.note, required this.onJoin, required this.onLater});
+  const ChatInviteCard({
+    super.key,
+    required this.name,
+    required this.avatar,
+    required this.note,
+    required this.onJoin,
+    required this.onLater,
+  });
 
   final String name;
   final String avatar;
@@ -532,42 +567,55 @@ class ChatInviteCard extends StatelessWidget {
   final VoidCallback onLater;
 
   @override
-  Widget build(BuildContext context) => ConstrainedBox(
-    constraints: const BoxConstraints(maxWidth: 240),
-    child: VelvetPanel(
-      radius: 12,
-      padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            children: [
-              SocAvatar(avatar: avatar, size: 34),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    GoldTitle('روم خاص من $name', size: 15, align: TextAlign.start),
-                    Text(
-                      note,
-                      style: const TextStyle(color: socCream, fontFamily: kufi, fontWeight: FontWeight.w700, fontSize: 12.5, height: 1.2),
-                    ),
-                  ],
+  Widget build(BuildContext context) => Align(
+    alignment: AlignmentDirectional.centerStart,
+    child: ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: 250),
+      child: VelvetPanel(
+        radius: 12,
+        padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      GoldTitle('روم خاص من $name', size: 18, align: TextAlign.start),
+                      Text(
+                        note,
+                        style: const TextStyle(
+                          color: socCream,
+                          fontFamily: kufi,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 13,
+                          height: 1.2,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 6),
-          Row(
-            children: [
-              Expanded(child: SocButton(label: 'ادخل', tone: SocTone.green, height: 34, fontSize: 15, onPressed: onJoin)),
-              const SizedBox(width: 8),
-              Expanded(child: SocButton(label: 'لاحقاً', tone: SocTone.grey, height: 34, fontSize: 15, onPressed: onLater)),
-            ],
-          ),
-        ],
+                const SizedBox(width: 8),
+                SocAvatar(avatar: avatar, size: 34),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Row(
+              children: [
+                Expanded(
+                  child: SocButton(label: 'ادخل', tone: SocTone.green, height: 34, fontSize: 15, onPressed: onJoin),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: SocButton(label: 'لاحقاً', tone: SocTone.grey, height: 34, fontSize: 15, onPressed: onLater),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     ),
   );

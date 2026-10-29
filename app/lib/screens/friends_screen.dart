@@ -75,7 +75,7 @@ class _FriendsScreenState extends State<FriendsScreen> {
         final selected = open?.friend?.uid;
         return SocScaffold(
           title: 'الأصدقاء',
-          icon: const Gfx('friends', size: 30),
+          icon: SocAvatar(avatar: p.avatar, style: frameStyle(p.frame), size: 26),
           body: SocTwoPanels(
             main: FriendsPanelView(
               tab: _tab,
@@ -244,7 +244,13 @@ class FriendsEmpty extends StatelessWidget {
         Text(
           text,
           textAlign: TextAlign.center,
-          style: const TextStyle(color: socMuted, height: 1.6, fontFamily: kufi, fontWeight: FontWeight.w700, fontSize: 14.5),
+          style: const TextStyle(
+            color: socMuted,
+            height: 1.6,
+            fontFamily: kufi,
+            fontWeight: FontWeight.w700,
+            fontSize: 14.5,
+          ),
         ),
       ],
     ),
@@ -284,12 +290,12 @@ class FriendRowView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.only(bottom: 8),
+    padding: const EdgeInsets.only(bottom: 6),
     child: SocPlankRow(
       selected: selected,
       onTap: onTap,
       semantics: 'محادثة $name',
-      padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
+      padding: const EdgeInsets.fromLTRB(10, 5, 10, 5),
       child: Row(
         children: [
           GestureDetector(
@@ -298,7 +304,7 @@ class FriendRowView extends StatelessWidget {
             child: Stack(
               clipBehavior: Clip.none,
               children: [
-                SocAvatar(avatar: avatar, style: style, size: 44, dot: dot),
+                SocAvatar(avatar: avatar, style: style, size: 42, dot: dot),
                 if (unread > 0) PositionedDirectional(top: -4, start: -4, child: SocBadge(unread, size: 18)),
               ],
             ),
@@ -314,7 +320,13 @@ class FriendRowView extends StatelessWidget {
                   status,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: TextStyle(fontFamily: kufi, fontWeight: FontWeight.w800, fontSize: 13.5, color: statusColor, height: 1.15),
+                  style: TextStyle(
+                    fontFamily: kufi,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 13.5,
+                    color: statusColor,
+                    height: 1.15,
+                  ),
                 ),
               ],
             ),
@@ -457,7 +469,11 @@ class _FriendRowState extends State<_FriendRow> {
     try {
       final code = await Backend.instance.spectate(widget.uid);
       if (mounted) {
-        await Navigator.of(context).push(MaterialPageRoute(builder: (_) => GameScreen(code: code, watching: widget.uid)));
+        await Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => GameScreen(code: code, watching: widget.uid),
+          ),
+        );
       }
     } on BackendException catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
@@ -685,7 +701,12 @@ class ChatTileView extends StatelessWidget {
                 if (at != null)
                   Text(
                     agoText(DateTime.now().difference(at!)),
-                    style: TextStyle(color: hot ? socGoldHi : socMuted, fontSize: 12, fontFamily: kufi, fontWeight: FontWeight.w700),
+                    style: TextStyle(
+                      color: hot ? socGoldHi : socMuted,
+                      fontSize: 12,
+                      fontFamily: kufi,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                 if (unread > 0)
                   Padding(padding: const EdgeInsets.only(top: 3), child: SocBadge(unread, size: 20))
@@ -934,11 +955,22 @@ class _AddFriendState extends State<_AddFriend> {
                   children: [
                     const Text(
                       'رمزك',
-                      style: TextStyle(fontFamily: kufi, fontSize: 18, fontWeight: FontWeight.w800, color: socInk, height: 1.2),
+                      style: TextStyle(
+                        fontFamily: kufi,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800,
+                        color: socInk,
+                        height: 1.2,
+                      ),
                     ),
                     const Text(
                       'أعطه لأصدقائك عشان يضيفونك (اضغطه وينسخ)',
-                      style: TextStyle(color: Color(0xFF7A5A3A), fontSize: 12.5, fontFamily: kufi, fontWeight: FontWeight.w700),
+                      style: TextStyle(
+                        color: Color(0xFF7A5A3A),
+                        fontSize: 12.5,
+                        fontFamily: kufi,
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
                     const SizedBox(height: 6),
                     PidBadge(pid: p.pid, tier: p.pidTier, size: 17),
@@ -1017,10 +1049,24 @@ class _AddFriendState extends State<_AddFriend> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(e.name, style: const TextStyle(fontFamily: kufi, fontWeight: FontWeight.w800, fontSize: 17, color: socInk, height: 1.2)),
+                        Text(
+                          e.name,
+                          style: const TextStyle(
+                            fontFamily: kufi,
+                            fontWeight: FontWeight.w800,
+                            fontSize: 17,
+                            color: socInk,
+                            height: 1.2,
+                          ),
+                        ),
                         Text(
                           'مستوى ${arabicNumber(e.level)}',
-                          style: const TextStyle(color: Color(0xFF7A5A3A), fontSize: 12.5, fontFamily: kufi, fontWeight: FontWeight.w700),
+                          style: const TextStyle(
+                            color: Color(0xFF7A5A3A),
+                            fontSize: 12.5,
+                            fontFamily: kufi,
+                            fontWeight: FontWeight.w700,
+                          ),
                         ),
                       ],
                     ),
@@ -1030,7 +1076,13 @@ class _AddFriendState extends State<_AddFriend> {
               ),
             ),
           const SizedBox(height: 12),
-          SocButton(label: 'تمام', tone: SocTone.grey, height: 42, fontSize: 16, onPressed: () => Navigator.pop(context)),
+          SocButton(
+            label: 'تمام',
+            tone: SocTone.grey,
+            height: 42,
+            fontSize: 16,
+            onPressed: () => Navigator.pop(context),
+          ),
         ],
       ),
     );
@@ -1089,7 +1141,10 @@ class _InviteSheetState extends State<_InviteSheet> {
             fontSize: 17,
             onPressed: () {
               Navigator.pop(context);
-              Navigator.push(context, MaterialPageRoute(builder: (_) => const FriendsScreen(tab: FriendsScreen.addTab)));
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const FriendsScreen(tab: FriendsScreen.addTab)),
+              );
             },
           ),
         ] else
@@ -1110,7 +1165,13 @@ class _InviteSheetState extends State<_InviteSheet> {
                             GestureDetector(
                               onTap: e == null
                                   ? null
-                                  : () => showPlayerCard(context, uid: uid, name: e.name, avatar: e.avatar, frame: e.frame),
+                                  : () => showPlayerCard(
+                                      context,
+                                      uid: uid,
+                                      name: e.name,
+                                      avatar: e.avatar,
+                                      frame: e.frame,
+                                    ),
                               child: SocAvatar(avatar: e?.avatar ?? 'masked', style: frameStyle(e?.frame), size: 40),
                             ),
                             const SizedBox(width: 10),
@@ -1119,7 +1180,12 @@ class _InviteSheetState extends State<_InviteSheet> {
                                 e?.name ?? '…',
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(fontFamily: kufi, fontWeight: FontWeight.w800, fontSize: 17, color: socInk),
+                                style: const TextStyle(
+                                  fontFamily: kufi,
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 17,
+                                  color: socInk,
+                                ),
                               ),
                             ),
                             SocButton(

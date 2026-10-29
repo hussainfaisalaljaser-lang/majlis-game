@@ -21,18 +21,14 @@ import 'package:majlis/widgets/player_card.dart';
 import 'package:majlis/widgets/settings.dart';
 import 'package:majlis/widgets/common.dart';
 import 'package:majlis/widgets/design_social.dart';
+
 import 'shot_helper.dart';
 
 const _week = '2026-W44';
 
 /// ديوان تجريبي بعضوين مثل لقطة التصميم.
 Clan _clan({String id = 'c1', List<(String, String, String, ClanRole, int)>? members}) {
-  final list =
-      members ??
-      [
-        ('u1', 'حسين', 'sheikh', ClanRole.owner, 120),
-        ('u2', 'أحمد', 'wolf', ClanRole.member, 290),
-      ];
+  final list = members ?? [('u1', 'حسين', 'sheikh', ClanRole.owner, 120), ('u2', 'أحمد', 'wolf', ClanRole.member, 290)];
   return Clan.fromJson({
     'id': id,
     'name': 'ديوان',
@@ -44,14 +40,7 @@ Clan _clan({String id = 'c1', List<(String, String, String, ClanRole, int)>? mem
     'weekly': {_week: 430},
     'members': {
       for (final (uid, name, avatar, role, points) in list)
-        uid: {
-          'name': name,
-          'avatar': avatar,
-          'role': role.name,
-          'joined': 1,
-          'week': _week,
-          'points': points,
-        },
+        uid: {'name': name, 'avatar': avatar, 'role': role.name, 'joined': 1, 'week': _week, 'points': points},
     },
   }, _week);
 }
@@ -83,8 +72,7 @@ void main() {
   setUpAll(loadFonts);
 
   final clan = _clan();
-  Widget members(ClanMember m, bool big) =>
-      ClanMemberTile(member: m, online: m.uid == 'u1', big: big, onTap: () {});
+  Widget members(ClanMember m, bool big) => ClanMemberTile(member: m, online: m.uid == 'u1', big: big, onTap: () {});
 
   Widget clanPanel() => ClanPanelView(
     clan: clan,
@@ -103,7 +91,12 @@ void main() {
   Widget ranking() => ClanRankingView(
     search: TextEditingController(),
     onSearch: (_) {},
-    clans: [clan, _clan(id: 'c2'), _clan(id: 'c3'), _clan(id: 'c4')],
+    clans: [
+      clan,
+      _clan(id: 'c2'),
+      _clan(id: 'c3'),
+      _clan(id: 'c4'),
+    ],
     ranked: true,
     mine: 'c1',
     canJoin: false,
@@ -170,7 +163,9 @@ void main() {
           statusColor: socGreenText,
           dot: SocDot.online,
           selected: true,
-          trailing: [SocButton(label: 'ادعُ', tone: SocTone.green, height: 36, fontSize: 17, width: 86, onPressed: () {})],
+          trailing: [
+            SocButton(label: 'ادعُ', tone: SocTone.green, height: 36, fontSize: 17, width: 86, onPressed: () {}),
+          ],
         ),
         FriendRowView(
           name: 'فيصل',
@@ -178,7 +173,9 @@ void main() {
           status: 'يلعب الحين',
           statusColor: socOrangeText,
           dot: SocDot.playing,
-          trailing: [SocButton(label: 'تفرّج', tone: SocTone.blue, height: 36, fontSize: 17, width: 86, onPressed: () {})],
+          trailing: [
+            SocButton(label: 'تفرّج', tone: SocTone.blue, height: 36, fontSize: 17, width: 86, onPressed: () {}),
+          ],
         ),
         FriendRowView(
           name: 'لولوة',
@@ -187,7 +184,9 @@ void main() {
           statusColor: socGreenText,
           dot: SocDot.online,
           unread: 3,
-          trailing: [SocButton(label: 'ادعُ', tone: SocTone.green, height: 36, fontSize: 17, width: 86, onPressed: () {})],
+          trailing: [
+            SocButton(label: 'ادعُ', tone: SocTone.green, height: 36, fontSize: 17, width: 86, onPressed: () {}),
+          ],
         ),
         const FriendRowView(name: 'بدر', avatar: 'desert', status: 'قبل ساعة', dot: SocDot.offline),
         const FriendRowView(name: 'ماجد', avatar: 'youth', status: 'قبل يوم', dot: SocDot.offline),
@@ -251,7 +250,11 @@ void main() {
             onPremiumId: () {},
             settings: SettingsCard(profile: p),
           ),
-          side: ProfileStatsPanel(profile: p, levelRoad: LevelRoad(level: p.level), onHistory: () {}),
+          side: ProfileStatsPanel(
+            profile: p,
+            levelRoad: LevelRoad(level: p.level),
+            onHistory: () {},
+          ),
         ),
       ),
     );
@@ -268,7 +271,26 @@ void main() {
         name: TextEditingController(text: 'حسين'),
         error: null,
         saving: false,
-        choices: const ['falcon', 'pearl', 'desert', 'sheikh', 'rose', 'cool', 'youth', 'masked', 'wolf', 'jasmine', 'emir', 'knight', 'queen', 'poet', 'scholar', 'merchant', 'sky', 'night'],
+        choices: const [
+          'falcon',
+          'pearl',
+          'desert',
+          'sheikh',
+          'rose',
+          'cool',
+          'youth',
+          'masked',
+          'wolf',
+          'jasmine',
+          'emir',
+          'knight',
+          'queen',
+          'poet',
+          'scholar',
+          'merchant',
+          'sky',
+          'night',
+        ],
         locked: (a) => a == 'queen' || a == 'knight',
         onPick: (_) {},
         onLocked: (_) {},
@@ -290,17 +312,16 @@ void main() {
       tester,
       'popup_gift',
       popupHost(
-        (c) => showGiftDialog(c, Gift.fromJson({'kind': 'tutorial', 'n': 10, 'coins': 500, 'diamonds': 20, 'items': <String>[]})),
+        (c) => showGiftDialog(
+          c,
+          Gift.fromJson({'kind': 'tutorial', 'n': 10, 'coins': 500, 'diamonds': 20, 'items': <String>[]}),
+        ),
       ),
     );
   });
 
   testWidgets('popup_player', (tester) async {
-    await shot(
-      tester,
-      'popup_player',
-      popupHost((c) => showPlayerCard(c, uid: 'x', name: 'فيصل', avatar: 'cool')),
-    );
+    await shot(tester, 'popup_player', popupHost((c) => showPlayerCard(c, uid: 'x', name: 'فيصل', avatar: 'cool')));
   });
 
   testWidgets('private', (tester) async {
@@ -380,7 +401,11 @@ void main() {
               onPremiumId: () {},
               settings: SettingsCard(profile: p),
             ),
-            side: ProfileStatsPanel(profile: p, levelRoad: LevelRoad(level: p.level), onHistory: () {}),
+            side: ProfileStatsPanel(
+              profile: p,
+              levelRoad: LevelRoad(level: p.level),
+              onHistory: () {},
+            ),
           ),
         ),
         size: size,
@@ -410,7 +435,12 @@ void main() {
       );
     });
     testWidgets('small_welcome_$tag', (tester) async {
-      await shot(tester, 'small_welcome_$tag', WelcomeView(busy: false, onGoogle: () {}, onGuest: () {}), size: size);
+      await shot(
+        tester,
+        'small_welcome_$tag',
+        WelcomeView(busy: false, onGoogle: () {}, onGuest: () {}),
+        size: size,
+      );
     });
     testWidgets('small_edit_$tag', (tester) async {
       await shot(
@@ -423,7 +453,20 @@ void main() {
           name: TextEditingController(text: 'حسين'),
           error: null,
           saving: false,
-          choices: const ['falcon', 'pearl', 'desert', 'sheikh', 'rose', 'cool', 'youth', 'masked', 'wolf', 'jasmine', 'emir', 'knight'],
+          choices: const [
+            'falcon',
+            'pearl',
+            'desert',
+            'sheikh',
+            'rose',
+            'cool',
+            'youth',
+            'masked',
+            'wolf',
+            'jasmine',
+            'emir',
+            'knight',
+          ],
           locked: (a) => a == 'knight',
           onPick: (_) {},
           onLocked: (_) {},
@@ -440,12 +483,88 @@ void main() {
         tester,
         'small_gift_$tag',
         popupHost(
-          (c) => showGiftDialog(c, Gift.fromJson({'kind': 'tutorial', 'n': 10, 'coins': 500, 'diamonds': 20, 'items': <String>[]})),
+          (c) => showGiftDialog(
+            c,
+            Gift.fromJson({'kind': 'tutorial', 'n': 10, 'coins': 500, 'diamonds': 20, 'items': <String>[]}),
+          ),
         ),
         size: size,
       );
     });
   }
+
+  testWidgets('create_clan', (tester) async {
+    await shot(
+      tester,
+      'create_clan',
+      SocScaffold(
+        title: 'الدواوين',
+        icon: const Gfx('shield', size: 30),
+        currency: false,
+        body: SocTwoPanels(
+          main: CreateClanView(
+            name: TextEditingController(text: 'ديوان الصقور'),
+            color: 2,
+            emblem: 'falcon',
+            busy: false,
+            label: 'سوّ الديوان بـ٥٬٠٠٠ ذهب',
+            onName: () {},
+            onColor: (_) {},
+            onEmblem: (_) {},
+            onCreate: () {},
+          ),
+          side: ranking(),
+        ),
+      ),
+    );
+  });
+
+  testWidgets('friends_screen', (tester) async {
+    await shot(tester, 'friends_screen', const FriendsScreen());
+  });
+
+  testWidgets('friends_requests', (tester) async {
+    await shot(
+      tester,
+      'friends_requests',
+      SocScaffold(
+        title: 'الأصدقاء',
+        icon: const Gfx('friends', size: 30),
+        body: SocTwoPanels(
+          main: FriendsPanelView(
+            tab: 2,
+            onTab: (_) {},
+            chatsBadge: 1,
+            requestsBadge: 2,
+            onAdd: () {},
+            child: ListView(
+              padding: const EdgeInsets.only(top: 6),
+              children: [
+                FriendRowView(
+                  name: 'بدر',
+                  avatar: 'desert',
+                  status: 'يبي يصير صديقك · مستوى ١٢',
+                  dot: null,
+                  trailing: [
+                    SocButton(
+                      label: 'قبول',
+                      tone: SocTone.green,
+                      height: 36,
+                      fontSize: 16,
+                      width: 80,
+                      onPressed: () {},
+                    ),
+                    SocButton(label: 'رفض', tone: SocTone.grey, height: 36, fontSize: 16, width: 70, onPressed: () {}),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          side: dmChat(),
+        ),
+      ),
+    );
+  });
 
   testWidgets('popup_addfriend', (tester) async {
     await shot(tester, 'popup_addfriend', popupHost((c) => showAddFriend(c)));

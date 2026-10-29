@@ -233,8 +233,20 @@ class _HowToPlayScreenState extends State<HowToPlayScreen> {
           const SizedBox(height: 14),
           SocActions(
             children: [
-              SocButton(label: 'تخطّي', tone: SocTone.grey, height: 44, fontSize: 16, onPressed: () => Navigator.pop(context, true)),
-              SocButton(label: 'أكمل الشرح', tone: SocTone.green, height: 44, fontSize: 16, onPressed: () => Navigator.pop(context, false)),
+              SocButton(
+                label: 'تخطّي',
+                tone: SocTone.grey,
+                height: 44,
+                fontSize: 16,
+                onPressed: () => Navigator.pop(context, true),
+              ),
+              SocButton(
+                label: 'أكمل الشرح',
+                tone: SocTone.green,
+                height: 44,
+                fontSize: 16,
+                onPressed: () => Navigator.pop(context, false),
+              ),
             ],
           ),
         ],
@@ -297,23 +309,29 @@ class _HowToPlayScreenState extends State<HowToPlayScreen> {
                         ),
                     ],
                   ),
-                Expanded(
-                  child: PageView(
-                    controller: _pages,
-                    onPageChanged: (i) {
-                      setState(() => _page = i);
-                      _say(i);
-                    },
-                    children: [for (final s in _slides) _SlideView(slide: s)],
+                  Expanded(
+                    child: PageView(
+                      controller: _pages,
+                      onPageChanged: (i) {
+                        setState(() => _page = i);
+                        _say(i);
+                      },
+                      children: [for (final s in _slides) _SlideView(slide: s)],
+                    ),
                   ),
-                ),
                   Row(
                     children: [
                       SizedBox(
                         width: 130,
                         child: _page == 0
                             ? null
-                            : SocButton(label: 'السابق', tone: SocTone.grey, height: 42, fontSize: 16, onPressed: () => _go(_page - 1)),
+                            : SocButton(
+                                label: 'السابق',
+                                tone: SocTone.grey,
+                                height: 42,
+                                fontSize: 16,
+                                onPressed: () => _go(_page - 1),
+                              ),
                       ),
                       Expanded(
                         child: Row(
@@ -349,7 +367,13 @@ class _HowToPlayScreenState extends State<HowToPlayScreen> {
                                   startTutorialGame(context, replace: onboarding);
                                 },
                               )
-                            : SocButton(label: 'التالي', tone: SocTone.orange, height: 42, fontSize: 17, onPressed: () => _go(_page + 1)),
+                            : SocButton(
+                                label: 'التالي',
+                                tone: SocTone.orange,
+                                height: 42,
+                                fontSize: 17,
+                                onPressed: () => _go(_page + 1),
+                              ),
                       ),
                     ],
                   ),
@@ -364,7 +388,12 @@ class _HowToPlayScreenState extends State<HowToPlayScreen> {
                                 'coin',
                                 'خلّص لعبة الشرح وخذ ${arabicNumber(tutorialReward)} ذهب',
                                 size: 18,
-                                style: const TextStyle(color: socGoldHi, fontFamily: kufi, fontWeight: FontWeight.w800, fontSize: 14),
+                                style: const TextStyle(
+                                  color: socGoldHi,
+                                  fontFamily: kufi,
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 14,
+                                ),
                               ),
                             )
                           : const SizedBox(width: double.infinity),
@@ -385,7 +414,13 @@ class _SlideView extends StatelessWidget {
 
   final _Slide slide;
 
-  static const _text = TextStyle(fontFamily: kufi, fontSize: 15.5, height: 1.6, fontWeight: FontWeight.w700, color: socCream);
+  static const _text = TextStyle(
+    fontFamily: kufi,
+    fontSize: 15.5,
+    height: 1.6,
+    fontWeight: FontWeight.w700,
+    color: socCream,
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -453,7 +488,10 @@ class _SlideView extends StatelessWidget {
                               const Gfx('warning', size: 24),
                               const SizedBox(width: 8),
                               Expanded(
-                                child: Text(note, style: _text.copyWith(color: socGoldHi, fontWeight: FontWeight.w800)),
+                                child: Text(
+                                  note,
+                                  style: _text.copyWith(color: socGoldHi, fontWeight: FontWeight.w800),
+                                ),
                               ),
                             ],
                           ),

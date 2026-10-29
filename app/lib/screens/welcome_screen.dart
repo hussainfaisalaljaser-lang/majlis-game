@@ -67,8 +67,16 @@ class WelcomeView extends StatelessWidget {
                             borderRadius: BorderRadius.circular(30),
                             border: Border.all(color: const Color(0xFFD9A84E), width: 3),
                             boxShadow: [
-                              BoxShadow(color: const Color(0xFFFFB02E).withValues(alpha: .4), blurRadius: 26, spreadRadius: 1),
-                              BoxShadow(color: Colors.black.withValues(alpha: .5), blurRadius: 10, offset: const Offset(0, 5)),
+                              BoxShadow(
+                                color: const Color(0xFFFFB02E).withValues(alpha: .4),
+                                blurRadius: 26,
+                                spreadRadius: 1,
+                              ),
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: .5),
+                                blurRadius: 10,
+                                offset: const Offset(0, 5),
+                              ),
                             ],
                           ),
                           child: ClipRRect(
@@ -83,7 +91,12 @@ class WelcomeView extends StatelessWidget {
                       const Text(
                         'بينكم خونة… اكشفهم قبل لا يحكمون المجلس',
                         textAlign: TextAlign.center,
-                        style: TextStyle(color: Color(0xFFE9D3B5), fontSize: 15, fontFamily: kufi, fontWeight: FontWeight.w700),
+                        style: TextStyle(
+                          color: Color(0xFFE9D3B5),
+                          fontSize: 15,
+                          fontFamily: kufi,
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
                       const SizedBox(height: 14),
                       const _Faces(),
@@ -121,7 +134,12 @@ class WelcomeView extends StatelessWidget {
                           const Text(
                             'تقدر تربط حسابك بعدين من «ملفي»',
                             textAlign: TextAlign.center,
-                            style: TextStyle(color: socMuted, fontSize: 13, fontFamily: kufi, fontWeight: FontWeight.w700),
+                            style: TextStyle(
+                              color: socMuted,
+                              fontSize: 13,
+                              fontFamily: kufi,
+                              fontWeight: FontWeight.w700,
+                            ),
                           ),
                         ],
                       ),
@@ -157,7 +175,13 @@ class _Faces extends StatelessWidget {
             Positioned(
               left: i * step,
               top: id == 'masked' ? 0 : 12,
-              child: SocAvatar(avatar: id, size: id == 'masked' ? size + 10 : size, ring: SocRing.gold, animate: false, gems: id == 'masked'),
+              child: SocAvatar(
+                avatar: id,
+                size: id == 'masked' ? size + 10 : size,
+                ring: SocRing.gold,
+                animate: false,
+                gems: id == 'masked',
+              ),
             ),
         ],
       ),

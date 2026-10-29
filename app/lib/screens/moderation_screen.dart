@@ -38,7 +38,8 @@ class _ModerationScreenState extends State<ModerationScreen> {
     try {
       final r = await _backend.devData('deleteUser', {'request': id, 'confirm': confirm});
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(r['deleted'] == true ? 'انحذف الحساب' : 'انقفل الطلب')));
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(r['deleted'] == true ? 'انحذف الحساب' : 'انقفل الطلب')));
       }
       setState(() => _data = _load());
     } on BackendException catch (e) {
@@ -60,8 +61,20 @@ class _ModerationScreenState extends State<ModerationScreen> {
     }
   }
 
-  static const _title = TextStyle(fontFamily: kufi, fontWeight: FontWeight.w800, fontSize: 16, color: socCream, height: 1.3);
-  static const _sub = TextStyle(color: socMuted, fontSize: 12.5, fontFamily: kufi, fontWeight: FontWeight.w700, height: 1.3);
+  static const _title = TextStyle(
+    fontFamily: kufi,
+    fontWeight: FontWeight.w800,
+    fontSize: 16,
+    color: socCream,
+    height: 1.3,
+  );
+  static const _sub = TextStyle(
+    color: socMuted,
+    fontSize: 12.5,
+    fontFamily: kufi,
+    fontWeight: FontWeight.w700,
+    height: 1.3,
+  );
 
   Widget _row({required Widget info, List<Widget> actions = const []}) => Padding(
     padding: const EdgeInsets.only(bottom: 8),
@@ -173,7 +186,10 @@ class _ModerationScreenState extends State<ModerationScreen> {
                                       info: Column(
                                         crossAxisAlignment: CrossAxisAlignment.start,
                                         children: [
-                                          Text('${r['name']}، ${arabicNumber((r['count'] as num).toInt())} بلاغ', style: _title),
+                                          Text(
+                                            '${r['name']}، ${arabicNumber((r['count'] as num).toInt())} بلاغ',
+                                            style: _title,
+                                          ),
                                           Text(
                                             [
                                               for (final MapEntry(:key, :value) in (r['reasons'] as Map).entries)
