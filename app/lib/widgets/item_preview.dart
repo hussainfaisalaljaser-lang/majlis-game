@@ -10,16 +10,25 @@ import 'game/policy_card.dart';
 
 /// معاينة الغرض حسب نوعه.
 class ItemPreview extends StatelessWidget {
-  const ItemPreview({super.key, required this.item, required this.profile, this.big = false});
+  const ItemPreview({super.key, required this.item, required this.profile, this.big = false, this.scale = 1});
 
   final ShopItem item;
   final Profile profile;
   final bool big;
 
+  /// تكبير أو تصغير المعاينة (بدون [big]): الكروت بالشبكة تصغرها شوي، ونافذة الغرض الجديد تكبرها.
+  final double scale;
+
   @override
   Widget build(BuildContext context) {
-    final k = big ? 1.7 : 1.0;
+    final k = big ? 1.7 : scale;
     return switch (item.slot) {
+      // «بدون إطار»: حلقة بنية سادة مثل التصميم
+      ShopSlot.frame when item.frame == null => PlayerAvatar(
+        avatar: profile.avatar,
+        frame: const Color(0xFF4A2E1B),
+        size: 70 * k,
+      ),
       ShopSlot.frame => PlayerAvatar(avatar: profile.avatar, style: item.frame, size: 70 * k),
       ShopSlot.avatar => PlayerAvatar(avatar: item.avatar!, style: frameStyle(profile.frame), size: 74 * k),
       ShopSlot.bubble => ChatBubble(
