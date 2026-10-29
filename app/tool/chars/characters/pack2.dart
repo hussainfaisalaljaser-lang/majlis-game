@@ -9,15 +9,6 @@ import '../parts/b_common.dart';
 import '../parts/b_falcon.dart';
 import '../parts/b_props.dart';
 
-const Skin _leather = Skin(
-  base: Color(0xFFA9703F),
-  shade: Color(0xFF7A4B27),
-  hi: Color(0xFFC98F58),
-  blush: Color(0xFFA9703F),
-  lip: Color(0xFF7A4B27),
-  deep: Color(0xFF5A3416),
-);
-
 final List<CharSpec> pack2 = [
   // ── detective: white ghutra, thick mustache, one huge eye behind a magnifier ──
   CharSpec(
@@ -172,33 +163,7 @@ final List<CharSpec> pack2 = [
     },
   ),
 
-  // ── falconer: red shemagh, proud grin at the falcon on his gloved fist ──
-  CharSpec(
-    id: 'falconer',
-    cutout: true,
-    skin: Skin.tan,
-    head: const HeadSpec(x: 80, y: 90, scale: 0.86, yaw: 0.55, roll: 0.04, shape: FaceShape.square),
-    expr: const Expr(
-      eyes: EyeSpec(ew: 11.5, eh: 10.5, gap: 20, lookX: 0.95, lookY: -0.3, irisR: 0.5, pupilR: 0.58, lidTop: 0.03, lidBottom: 0.22, iris: Color(0xFF3B2A1C)),
-      brows: BrowSpec(lift: 7, inner: -1.0, outer: 0.0, arch: 3.6, thick: 7),
-      mouth: MouthSpec(kind: MouthKind.grin, w: 11, y: 47, amount: 0.5),
-    ),
-    nose: const NoseSpec(len: 24, proj: 14, width: 9, bulb: 1.0),
-    beard: const BeardSpec(style: BeardStyle.full, color: HairColor.inkBlack, mouthY: 47, mouthW: 11, mouthH: 4.5, length: 1),
-    headwear: const Ghutra(check: Color(0xFFC8262E), hem: -35, agalTilt: 0, agalSag: 6, width: 0.95, dropY: 84),
-    body: const Thobe(color: Cloth.cream),
-    behind: (pen, h) => bClipOpen(pen),
-    front: (pen, h) {
-      const at = Offset(158, 170);
-      const rot = 0.04;
-      const sz = 1.0;
-      final perch = bHandPoint(at, rot, sz, const Offset(0, -14));
-      bFalconTail(pen, perch, 1.0);
-      bGripHand(pen, at, rot, sz, _leather, sleeve: Cloth.cream);
-      bFalcon(pen, perch, 1.0);
-      bClipClose(pen);
-    },
-  ),
+  _falconer(rig: false),
 
   // ── camel: cheeky camel, half-lidded eyes, buck teeth, red-gold headband ──
   CharSpec(
@@ -273,3 +238,32 @@ final List<CharSpec> pack2 = [
     },
   ),
 ];
+
+/// The falconer: red shemagh, proud grin at the falcon on his gloved fist. With [rig] = true it is the man
+/// only (no clip, no glove / falcon) for the animation layers.
+CharSpec _falconer({required bool rig}) =>
+    CharSpec(
+    id: 'falconer',
+    cutout: true,
+    skin: Skin.tan,
+    head: const HeadSpec(x: 80, y: 90, scale: 0.86, yaw: 0.55, roll: 0.04, shape: FaceShape.square),
+    expr: const Expr(
+      eyes: EyeSpec(ew: 11.5, eh: 10.5, gap: 20, lookX: 0.95, lookY: -0.3, irisR: 0.5, pupilR: 0.58, lidTop: 0.03, lidBottom: 0.22, iris: Color(0xFF3B2A1C)),
+      brows: BrowSpec(lift: 7, inner: -1.0, outer: 0.0, arch: 3.6, thick: 7),
+      mouth: MouthSpec(kind: MouthKind.grin, w: 11, y: 47, amount: 0.5),
+    ),
+    nose: const NoseSpec(len: 24, proj: 14, width: 9, bulb: 1.0),
+    beard: const BeardSpec(style: BeardStyle.full, color: HairColor.inkBlack, mouthY: 47, mouthW: 11, mouthH: 4.5, length: 1),
+    headwear: const Ghutra(check: Color(0xFFC8262E), hem: -35, agalTilt: 0, agalSag: 6, width: 0.95, dropY: 84),
+    body: const Thobe(color: Cloth.cream),
+    behind: rig ? null : (pen, h) => bClipOpen(pen),
+    front: rig ? null : (pen, h) {
+      bFalconerTail(pen);
+      bFalconerGlove(pen);
+      bFalconerBird(pen);
+      bClipClose(pen);
+    },
+  );
+
+/// The man of the falconer without the bird, for the rig layers (body / head / blink).
+final CharSpec falconerManSpec = _falconer(rig: true);
