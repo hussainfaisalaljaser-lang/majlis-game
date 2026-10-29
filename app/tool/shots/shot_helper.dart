@@ -13,6 +13,52 @@ import 'package:majlis/theme.dart';
 
 final _outDir = Platform.environment['SHOT_DIR'] ?? 'build/shots';
 
+/// فحص محاذاة الكلام: كل نص بسطر واحد جوا مربع بخلفية (زر، شريط، كبسولة) لازم يكون بنصه عمودياً.
+/// يطبع سطر «ALIGN» لكل نص ينحرف أكثر من ١٫٣ بكسل عن نص مربعه (بالوحدات المنطقية).
+void auditAlign(String screen) {
+  final seen = <String>{};
+  void check(RenderParagraph p, String text) {
+    final fs = p.text.style?.fontSize;
+    if (fs == null || p.size.height >= fs * 1.9 || p.size.height < 8) return;
+    final textCenter = p.localToGlobal(p.size.center(Offset.zero));
+    RenderObject? a = p.parent;
+    while (a != null) {
+      if (a is RenderDecoratedBox && a.hasSize) {
+        final d = a.decoration;
+        final painted = d is BoxDecoration && (d.color != null || d.gradient != null || d.image != null);
+        if (painted &&
+            a.position == DecorationPosition.background &&
+            a.size.height > p.size.height * 1.12 &&
+            a.size.height < p.size.height * 3.2 &&
+            a.size.width >= p.size.width) {
+          final boxCenter = a.localToGlobal(a.size.center(Offset.zero));
+          final dy = textCenter.dy - boxCenter.dy;
+          if (dy.abs() > 1.3) {
+            final key = '$text@${textCenter.dx.round()},${textCenter.dy.round()}';
+            if (seen.add(key)) {
+              // ignore: avoid_print
+              print('ALIGN|$screen|$text|dy=${dy.toStringAsFixed(1)}|box=${a.size.height.toStringAsFixed(0)}|text=${p.size.height.toStringAsFixed(0)}');
+            }
+          }
+          return;
+        }
+      }
+      a = a.parent;
+    }
+  }
+
+  void walk(Element e) {
+    final ro = e.renderObject;
+    if (ro is RenderParagraph && ro.attached && ro.hasSize) {
+      final text = ro.text.toPlainText().trim();
+      if (text.isNotEmpty) check(ro, text);
+    }
+    e.visitChildren(walk);
+  }
+
+  WidgetsBinding.instance.rootElement?.visitChildren(walk);
+}
+
 /// الخطوط ما تنحمل تلقائياً في الاختبار، فنحملها من مجلد الخطوط.
 Future<void> loadFonts() async {
   Sounds.silent = true;
@@ -68,6 +114,7 @@ Future<void> shot(
       await tester.pump(const Duration(milliseconds: 250));
     }
   }
+  auditAlign(name);
   await tester.runAsync(() async {
     final boundary = key.currentContext!.findRenderObject()! as RenderRepaintBoundary;
     final image = await boundary.toImage(pixelRatio: 2);

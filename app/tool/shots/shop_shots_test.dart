@@ -101,6 +101,7 @@ Future<void> shotHi(
       await tester.pump(const Duration(milliseconds: 300));
     }
   }
+  auditAlign(name);
   await tester.runAsync(() async {
     final boundary = key.currentContext!.findRenderObject()! as RenderRepaintBoundary;
     final image = await boundary.toImage(pixelRatio: 2);

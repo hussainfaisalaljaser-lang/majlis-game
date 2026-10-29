@@ -441,18 +441,23 @@ class _RoleCard extends StatelessWidget {
                       ),
                     ),
                   ),
+                  // اسم الدور بنص المساحة اللي تحت الختم، بحجم هادي وبهوامش من الأطراف (يصغر لو ما اتسع)
                   Positioned(
-                    left: 0,
-                    right: 0,
-                    top: (special != null ? 342 : 352) * s,
+                    left: 30 * s,
+                    right: 30 * s,
+                    top: 352 * s,
+                    bottom: (special != null ? 74 : 30) * s,
                     child: Center(
-                      child: OutlinedText(
-                        name,
-                        size: (role == Role.leader ? 64 : special != null ? 78 : 92) * s,
-                        color: nameColor,
-                        stroke: nameEdge,
-                        strokeWidth: math.max(3, 8 * s),
-                        shadow: false,
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: OutlinedText(
+                          name,
+                          size: (role == Role.leader ? 58 : 72) * s,
+                          color: nameColor,
+                          stroke: nameEdge,
+                          strokeWidth: math.max(3, 6 * s),
+                          shadow: false,
+                        ),
                       ),
                     ),
                   ),

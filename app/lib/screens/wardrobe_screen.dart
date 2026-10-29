@@ -106,28 +106,17 @@ class _WardrobeScreenState extends State<WardrobeScreen> {
           valueListenable: Backend.instance.profile,
           builder: (context, p, _) => Column(
             children: [
+              // نفس شريط المتجر: العنوان بأيقونته على اليمين، وزر الشاشة التانية وشكلك والعدادات على اليسار
               ShopTopBar(
-                title: 'المتجر',
-                icon: const Gfx('shop', size: 34),
-                center: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Flexible(
-                      child: OutlinedText(
-                        'غرفة التبديل',
-                        size: 23,
-                        maxLines: 1,
-                        gradient: goldTitleColors,
-                        stroke: Color(0xFF3A1606),
-                        strokeWidth: 4.5,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    HangerBadge(size: 34),
-                  ],
-                ),
+                title: 'غرفة التبديل',
+                icon: const HangerBadge(size: 34),
                 trailing: [
-                  ShopTitleChip(label: 'شكلك', crystal: false, onTap: _showLook),
+                  ShopTitleChip(
+                    label: 'المتجر',
+                    icon: const Gfx('shop', size: 24),
+                    onTap: () => _openShop(ShopScreen.avatarsTab),
+                  ),
+                  ShopTitleChip(label: 'شكلك', icon: null, onTap: _showLook),
                   ShopCurrency(icon: 'coin', amount: p.coins, infinite: p.dev),
                   ShopCurrency(icon: 'gem', amount: p.diamonds, infinite: p.dev),
                 ],
@@ -164,8 +153,15 @@ class _WardrobeScreenState extends State<WardrobeScreen> {
       final mine = [
         ...freeAvatars,
         for (final i in shopItemsOrdered(ShopSlot.avatar))
-          if (p.owns(i.id)) i.avatar!,
+          if (p.owns(i.id) && !freeAvatars.contains(i.avatar)) i.avatar!,
       ];
+      // من الأقل ندرة للأندر: عادي، نادر، ملحمي، أسطوري (وبنفس الندرة ترتيبهم الأصلي)
+      final at = {for (final (n, a) in mine.indexed) a: n};
+      int rank(String a) => (avatarItem(a)?.rarity ?? Rarity.common).index;
+      mine.sort((a, b) {
+        final c = rank(a).compareTo(rank(b));
+        return c != 0 ? c : at[a]!.compareTo(at[b]!);
+      });
       for (final a in mine) {
         final item = avatarItem(a);
         final on = p.avatar == a;
@@ -218,10 +214,11 @@ class _WardrobeScreenState extends State<WardrobeScreen> {
     cells.add(_ShopCell(wide: wide, onTap: () => _openShop(tab.shop)));
     return LayoutBuilder(
       builder: (context, box) {
-        final cols = math.max(2, ((box.maxWidth - 8) / (wide ? 215 : 150)).floor());
+        // نفس شبكة المتجر بالضبط
+        final cols = math.max(2, ((box.maxWidth - 8) / (wide ? 190 : 124)).floor());
         return GridView.count(
           padding: const EdgeInsets.fromLTRB(10, 8, 10, 14),
-          crossAxisCount: cols,
+          crossAxisCount: wide ? math.max(1, cols) : cols,
           mainAxisSpacing: 11,
           crossAxisSpacing: 11,
           childAspectRatio: (wide ? shopCardWideW : shopCardW) / shopCardH,

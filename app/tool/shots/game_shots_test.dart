@@ -205,6 +205,7 @@ Future<void> _hiRes(
     await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 120)));
     await tester.pump(const Duration(milliseconds: 250));
   }
+  auditAlign(name);
   await tester.runAsync(() async {
     final boundary = key.currentContext!.findRenderObject()! as RenderRepaintBoundary;
     final image = await boundary.toImage(pixelRatio: 2);

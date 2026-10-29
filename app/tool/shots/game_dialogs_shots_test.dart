@@ -315,7 +315,12 @@ Future<void> _settle(WidgetTester tester, int frames) async {
   }
 }
 
-Future<void> _save(WidgetTester tester, GlobalKey key, String name) => tester.runAsync(() async {
+Future<void> _save(WidgetTester tester, GlobalKey key, String name) async {
+  auditAlign(name);
+  await _saveImage(tester, key, name);
+}
+
+Future<void> _saveImage(WidgetTester tester, GlobalKey key, String name) => tester.runAsync(() async {
   final boundary = key.currentContext!.findRenderObject()! as RenderRepaintBoundary;
   final image = await boundary.toImage(pixelRatio: 2);
   final bytes = (await image.toByteData(format: ui.ImageByteFormat.png))!;

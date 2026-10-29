@@ -552,9 +552,13 @@ class RibbonTitle extends StatelessWidget {
       height: h + 10,
       child: CustomPaint(
         painter: _RibbonPainter(),
+        // جسم الشريط فوق والأذيال تنزل ١٠ تحت، فالكلام يتوسط الجسم (مو الارتفاع كله)
         child: Padding(
-          padding: EdgeInsets.symmetric(horizontal: size * 2.2, vertical: 4),
-          child: Center(child: GoldTitle(text, size: size)),
+          padding: EdgeInsets.fromLTRB(size * 1.1, 0, size * 1.1, 10),
+          // يصغر لو الشريط ضاق (الشاشات الصغيرة) بدل ما ينقطع
+          child: Center(
+            child: FittedBox(fit: BoxFit.scaleDown, child: GoldTitle(text, size: size)),
+          ),
         ),
       ),
     );

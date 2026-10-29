@@ -550,11 +550,13 @@ class ShopTopBar extends StatelessWidget {
 
 /// زر «غرفة التبديل» بالشريط: الاسم بالذهبي وأيقونة المشجب.
 class ShopTitleChip extends StatelessWidget {
-  const ShopTitleChip({super.key, required this.label, required this.onTap, this.crystal = true});
+  const ShopTitleChip({super.key, required this.label, required this.onTap, this.icon = const HangerBadge(size: 26)});
 
   final String label;
   final VoidCallback onTap;
-  final bool crystal;
+
+  /// الأيقونة جنب الاسم (المشجب افتراضياً، وnull بدون أيقونة).
+  final Widget? icon;
 
   @override
   Widget build(BuildContext context) => ShopChip(
@@ -571,7 +573,7 @@ class ShopTitleChip extends StatelessWidget {
           strokeWidth: 3,
           shadow: false,
         ),
-        if (crystal) ...[const SizedBox(width: 7), const HangerBadge(size: 26)],
+        if (icon != null) ...[const SizedBox(width: 7), icon!],
       ],
     ),
   );

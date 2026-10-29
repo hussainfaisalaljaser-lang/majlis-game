@@ -278,8 +278,8 @@ Widget _shopCard(BuildContext context, ShopItem item, Profile p, {required Strin
   );
 }
 
-/// ترتيب أغراض قسم (للمتجر وغرفة التبديل): اللي ينشرى أول (وبعده هدايا المستويات والموسم والأبطال)،
-/// وفي كل مجموعة الأقل ندرة أول: عادي، نادر، ملحمي، أسطوري. وبنفس الندرة الذهب قبل الجواهر والأرخص أول.
+/// ترتيب أغراض قسم (للمتجر وغرفة التبديل): من الأقل ندرة للأندر (عادي، نادر، ملحمي، أسطوري)، وبنفس الندرة
+/// اللي ينشرى أول (وبعده هدايا المستويات والموسم والأبطال)، والذهب قبل الجواهر، والأرخص أول.
 /// باقات الملصقات تبقى بترتيبها.
 List<ShopItem> shopItemsOrdered(ShopSlot slot) {
   final items = [
@@ -292,8 +292,8 @@ List<ShopItem> shopItemsOrdered(ShopSlot slot) {
   int price(ShopItem i) => i.coins ?? i.diamonds ?? 0;
   final byRarity = slot != ShopSlot.reactions;
   items.sort((a, b) {
-    var c = group(a).compareTo(group(b));
-    if (c == 0 && byRarity) c = a.rarity.index.compareTo(b.rarity.index);
+    var c = byRarity ? a.rarity.index.compareTo(b.rarity.index) : 0;
+    if (c == 0) c = group(a).compareTo(group(b));
     if (c == 0 && byRarity) c = currency(a).compareTo(currency(b));
     if (c == 0 && byRarity) c = price(a).compareTo(price(b));
     return c != 0 ? c : at[a.id]!.compareTo(at[b.id]!);
