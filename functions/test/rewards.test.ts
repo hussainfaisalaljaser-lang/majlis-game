@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { avatarOf, equippedOf, owns, type Profile } from '../src/profile.js';
-import { applyLevelRewards, claimPass, levelRewardsBetween, passTier } from '../src/rewards.js';
+import { applyLevelRewards, claimPass, hasVip, levelRewardsBetween, passTier, seasonWindow, upgradePass, passOf } from '../src/rewards.js';
 
 const base = (extra: Partial<Profile> = {}): Profile =>
   ({ name: 'x', avatar: 'falcon', setupDone: true, coins: 0, diamonds: 0, xp: 0, level: 1, vip: false,
@@ -61,4 +61,17 @@ test('الباتل باس العادي معه ١٠ درجات هدية، وال�
   // الهدية ما تعدّي آخر درجة.
   const near = upgradePass({ ...fresh, points: SEASON.tiers * SEASON.tier_points - 10 }, false);
   assert.equal(near.points, SEASON.tiers * SEASON.tier_points);
+});
+
+test('VIP: باتل الموسم الشغال المدفوع يفتحه، وبعد الموسم أو بدون شراء ينقفل', () => {
+  const { start, end } = seasonWindow();
+  const inSeason = start + 1000;
+  const free = base();
+  assert.equal(hasVip(free, inSeason), false, 'بدون باتل باس');
+  const bought = base({ pass: upgradePass(passOf(free), false) });
+  assert.equal(hasVip(bought, inSeason), true, 'اشترى باتل الموسم');
+  assert.equal(hasVip(bought, end + 1000), false, 'الموسم خلص');
+  const oldSeason = base({ pass: { ...upgradePass(passOf(free), false), season: 'old' } });
+  assert.equal(hasVip(oldSeason, inSeason), false, 'اشتراه في موسم قديم وما جدد');
+  assert.equal(hasVip(base({ vip: true }), end + 1000), true, 'العلامة اليدوية من المطور تبقى');
 });

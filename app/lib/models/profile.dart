@@ -146,6 +146,10 @@ class Profile {
   final int xp;
   final int level;
   final bool vip;
+
+  /// عنده VIP (طاولة النخبة)؟ لو اشترى الباتل باس المدفوع للموسم الشغال، وينقفل عليه لما يخلص الموسم أو يجي
+  /// موسم جديد ما جدده. العلامة اليدوية [vip] تبقى (المطوّر يعطيها). نفس القاعدة في functions/src/rewards.ts → hasVip.
+  bool get hasVip => vip || (season.active && pass.premium);
   final int gamesPlayed;
   final int gamesWon;
   final String? lastDaily;

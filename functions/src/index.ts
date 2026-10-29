@@ -102,6 +102,7 @@ import {
   claimPass,
   grant,
   passComplete,
+  hasVip,
   passOf,
   passPrice,
   seasonActive,
@@ -259,7 +260,9 @@ const modernRoom = (room: Room) => room.players.every((p) => p.bot || (p.proto ?
 
 /** يتأكد إن اللاعب يقدر يدخل الطاولة (المستوى والذهب والـ VIP). */
 function checkTier(p: Profile, tier: TableTier): void {
-  if (tier.vipOnly && !p.vip) throw new HttpsError('permission-denied', 'هذي الطاولة لأعضاء VIP بس');
+  if (tier.vipOnly && !hasVip(p, Date.now())) {
+    throw new HttpsError('permission-denied', 'هذي الطاولة لأعضاء VIP بس. اشتر باتل الموسم الحالي وتنفتح لك');
+  }
   if (p.level < tier.requiredLevel) {
     throw new HttpsError('permission-denied', `هذي الطاولة تفتح في مستوى ${tier.requiredLevel}`);
   }

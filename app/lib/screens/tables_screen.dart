@@ -12,6 +12,7 @@ import '../widgets/mode_theme.dart';
 import '../widgets/ui.dart';
 import '../widgets/venues.dart';
 import '../widgets/weekend.dart';
+import 'pass_screen.dart';
 import 'waiting_screen.dart';
 
 /// اللعب العشوائي: تختار عدد اللاعبين ومستوى الطاولة، وندخلك مع لاعبين من كل مكان (مثل يلا لودو).
@@ -111,7 +112,20 @@ class TablesView extends StatelessWidget {
   final bool busy;
   final VoidCallback onPlay;
 
-  bool _locked(TableTier t) => t.requiredLevel > profile.level || (t.vipOnly && !profile.vip);
+  /// طاولة النخبة تنفتح بباتل الموسم الحالي (المسار المدفوع).
+  void _vipHint(BuildContext context) => ScaffoldMessenger.of(context)
+    ..hideCurrentSnackBar()
+    ..showSnackBar(
+      SnackBar(
+        content: const Text('طاولة النخبة تنفتح بباتل الموسم الحالي، وتنقفل لما يخلص الموسم لو ما جددته'),
+        action: SnackBarAction(
+          label: 'افتح الباتل',
+          onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const PassScreen())),
+        ),
+      ),
+    );
+
+  bool _locked(TableTier t) => t.requiredLevel > profile.level || (t.vipOnly && !profile.hasVip);
 
   @override
   Widget build(BuildContext context) {
@@ -163,7 +177,12 @@ class TablesView extends StatelessWidget {
                                   locked: locked,
                                   poor: poor,
                                   selected: t == tier,
-                                  onTap: locked || poor ? null : () => onTier(t),
+                                  // طاولة النخبة المقفلة: الضغطة تشرح كيف تنفتح وتوديك للباتل
+                                  onTap: locked && t.vipOnly
+                                      ? () => _vipHint(context)
+                                      : locked || poor
+                                      ? null
+                                      : () => onTier(t),
                                 ),
                               );
                             },
@@ -278,7 +297,7 @@ class _TierTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final hint = locked
-        ? (tier.vipOnly ? 'لأعضاء VIP فقط' : 'يفتح في مستوى ${arabicNumber(tier.requiredLevel)}')
+        ? (tier.vipOnly ? 'يفتح بباتل الموسم' : 'يفتح في مستوى ${arabicNumber(tier.requiredLevel)}')
         : poor
         ? 'ما عندك ذهب كافي'
         : null;
