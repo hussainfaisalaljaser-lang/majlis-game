@@ -411,6 +411,64 @@ void main() {
     await screen(tester, 'game_traitor', GamePreview(view: traitor, room: _room()));
   });
 
+  testWidgets('phones_more', (tester) async {
+    FxClock.lite.value = true;
+    addTearDown(() => FxClock.lite.value = false);
+    final over = _view(_viewJson(over: true, winner: 'loyal', loyal: 5, traitor: 2));
+    final votes = {
+      'me': true,
+      'lulwa': false,
+      'badr': true,
+      'turki': true,
+      'faisal': true,
+      'majed': false,
+      'jood': true,
+    };
+    final view = _view(_viewJson(phase: 'presidentDiscard', nominee: 'faisal'));
+    for (final size in const [Size(800, 360), Size(700, 320)]) {
+      final tag = '${size.width.toInt()}';
+      await screen(
+        tester,
+        'game_over_results_$tag',
+        GamePreview(view: over, room: _room(finished: true), resultsOpen: true),
+        size: size,
+      );
+      await screen(
+        tester,
+        'game_over_table_$tag',
+        GamePreview(view: over, room: _room(finished: true)),
+        size: size,
+      );
+      await screen(
+        tester,
+        'game_unmask_$tag',
+        GamePreview(
+          view: over,
+          room: _room(finished: true),
+          scene: UnmaskScene(view: over, room: _room(finished: true)),
+        ),
+        size: size,
+      );
+      await screen(
+        tester,
+        'game_vote_$tag',
+        GamePreview(
+          view: view,
+          room: _room(),
+          scene: VoteScene(view: view, votes: votes, passed: true),
+        ),
+        size: size,
+      );
+      final claim = _view(_viewJson(president: 'faisal', claim: ['L', 'T', 'L']));
+      await screen(
+        tester,
+        'game_claim_$tag',
+        GamePreview(view: claim, room: _room()),
+        size: size,
+      );
+    }
+  });
+
   testWidgets('scene_venues', (tester) async {
     for (final v in [Venue.city, Venue.palace, Venue.kings, Venue.vip]) {
       await shot(tester, 'game_scene_${v.name}', MajlisRoom(venue: v));

@@ -93,7 +93,9 @@ class _RoleRevealState extends State<_RoleReveal> with TickerProviderStateMixin 
     final v = widget.view;
     final (name, goal, color, dark) = roleInfo[v.yourRole]!;
     // ربعك الخونة (والزعيم): آخر اللعبة كل الأدوار تنكشف، فالأوفياء ما يدخلون هنا.
-    final mates = v.players.where((p) => p.id != v.you && p.knownRole != null && p.knownRole != Role.loyal && p.id != v.seerSees).toList();
+    final mates = v.players
+        .where((p) => p.id != v.you && p.knownRole != null && p.knownRole != Role.loyal && p.id != v.seerSees)
+        .toList();
     final special = v.yourSpecial;
     final seerTarget = v.seerSees == null ? null : v.player(v.seerSees!);
     final hasExtra = special != null || v.spySaw != null || seerTarget != null || mates.isNotEmpty;
@@ -107,7 +109,11 @@ class _RoleRevealState extends State<_RoleReveal> with TickerProviderStateMixin 
             final s = st.s;
             final cardW = 375 * s, cardH = 520 * s;
             final c = st.at(960, 485);
-            Widget at(Offset p, Widget child) => Positioned(left: p.dx, top: p.dy, child: FractionalTranslation(translation: const Offset(-.5, -.5), child: child));
+            Widget at(Offset p, Widget child) => Positioned(
+              left: p.dx,
+              top: p.dy,
+              child: FractionalTranslation(translation: const Offset(-.5, -.5), child: child),
+            );
             return AnimatedBuilder(
               animation: _flip,
               builder: (context, _) {
@@ -119,7 +125,16 @@ class _RoleRevealState extends State<_RoleReveal> with TickerProviderStateMixin 
                 final lift = math.sin(_flip.value * math.pi) * 18 * s;
                 final front = AnimatedBuilder(
                   animation: _shine,
-                  builder: (context, _) => _RoleCard(role: v.yourRole, name: name, color: color, dark: dark, special: special, width: cardW, height: cardH, shine: _shine.value),
+                  builder: (context, _) => _RoleCard(
+                    role: v.yourRole,
+                    name: name,
+                    color: color,
+                    dark: dark,
+                    special: special,
+                    width: cardW,
+                    height: cardH,
+                    shine: _shine.value,
+                  ),
                 );
                 final extraW = math.max(210.0, 330 * s);
                 return Stack(
@@ -128,7 +143,10 @@ class _RoleRevealState extends State<_RoleReveal> with TickerProviderStateMixin 
                     Positioned.fill(
                       child: Opacity(
                         opacity: .35 + .65 * shown,
-                        child: Transform.translate(offset: Offset(0, c.dy - box.maxHeight / 2), child: const SunRays(opacity: .17)),
+                        child: Transform.translate(
+                          offset: Offset(0, c.dy - box.maxHeight / 2),
+                          child: const SunRays(opacity: .17),
+                        ),
                       ),
                     ),
                     at(st.at(960, 112), GoldTitle('دورك سري… غطّ الشاشة!', size: gameFont(52, s, min: 18))),
@@ -139,7 +157,13 @@ class _RoleRevealState extends State<_RoleReveal> with TickerProviderStateMixin 
                         transform: Matrix4.identity()
                           ..setEntry(3, 2, .0012)
                           ..rotateY(angle),
-                        child: showFront ? Transform(alignment: Alignment.center, transform: Matrix4.rotationY(math.pi), child: front) : _RoleBack(width: cardW, height: cardH),
+                        child: showFront
+                            ? Transform(
+                                alignment: Alignment.center,
+                                transform: Matrix4.rotationY(math.pi),
+                                child: front,
+                              )
+                            : _RoleBack(width: cardW, height: cardH),
                       ),
                     ),
                     // هدفك على لوح، ومعلوماتك الخاصة (قدرتك، خونتك) على رق جنب البطاقة
@@ -155,7 +179,13 @@ class _RoleRevealState extends State<_RoleReveal> with TickerProviderStateMixin 
                             child: Text(
                               goal,
                               textAlign: TextAlign.center,
-                              style: TextStyle(fontFamily: kufi, color: const Color(0xFFFFF6E6), fontSize: gameFont(36, s, min: 13), fontWeight: FontWeight.w800, height: 1.3),
+                              style: TextStyle(
+                                fontFamily: kufi,
+                                color: const Color(0xFFFFF6E6),
+                                fontSize: gameFont(36, s, min: 13),
+                                fontWeight: FontWeight.w800,
+                                height: 1.3,
+                              ),
                             ),
                           ),
                         ),
@@ -166,7 +196,16 @@ class _RoleRevealState extends State<_RoleReveal> with TickerProviderStateMixin 
                         left: math.max(8, c.dx - cardW / 2 - 18 - extraW),
                         top: c.dy - cardH / 2,
                         width: extraW,
-                        child: Opacity(opacity: shown, child: _RoleExtra(view: v, room: widget.room, special: special, seerTarget: seerTarget, mates: mates)),
+                        child: Opacity(
+                          opacity: shown,
+                          child: _RoleExtra(
+                            view: v,
+                            room: widget.room,
+                            special: special,
+                            seerTarget: seerTarget,
+                            mates: mates,
+                          ),
+                        ),
                       ),
                     at(
                       st.at(960, 958),
@@ -195,7 +234,13 @@ class _RoleRevealState extends State<_RoleReveal> with TickerProviderStateMixin 
 
 /// معلوماتك الخاصة جنب البطاقة: قدرتك، وكرت الجاسوس، والخونة اللي تعرفهم.
 class _RoleExtra extends StatelessWidget {
-  const _RoleExtra({required this.view, required this.room, required this.special, required this.seerTarget, required this.mates});
+  const _RoleExtra({
+    required this.view,
+    required this.room,
+    required this.special,
+    required this.seerTarget,
+    required this.mates,
+  });
 
   final GameView view;
   final Room? room;
@@ -215,13 +260,20 @@ class _RoleExtra extends StatelessWidget {
           if (special != null) ...[
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
-              decoration: BoxDecoration(color: const Color(0xFF3A2314), borderRadius: BorderRadius.circular(40), border: Border.all(color: const Color(0xFFD9A84E), width: 2)),
+              decoration: BoxDecoration(
+                color: const Color(0xFF3A2314),
+                borderRadius: BorderRadius.circular(40),
+                border: Border.all(color: const Color(0xFFD9A84E), width: 2),
+              ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Gfx(specialInfo[special]!.$3, size: 22),
                   const SizedBox(width: 5),
-                  Text(specialInfo[special]!.$1, style: const TextStyle(fontFamily: kufi, fontWeight: FontWeight.w800, color: Color(0xFFFFF3DA))),
+                  Text(
+                    specialInfo[special]!.$1,
+                    style: const TextStyle(fontFamily: kufi, fontWeight: FontWeight.w800, color: Color(0xFFFFF3DA)),
+                  ),
                 ],
               ),
             ),
@@ -257,7 +309,13 @@ class _RoleExtra extends StatelessWidget {
               alignment: WrapAlignment.center,
               children: [
                 if (seerTarget != null) _Known(room: room, player: seerTarget!, label: 'خائن: ${seerTarget!.name}'),
-                for (final m in mates) _Known(room: room, player: m, label: '${m.knownRole == Role.leader ? 'الزعيم' : 'خائن'}: ${m.name}', leader: m.knownRole == Role.leader),
+                for (final m in mates)
+                  _Known(
+                    room: room,
+                    player: m,
+                    label: '${m.knownRole == Role.leader ? 'الزعيم' : 'خائن'}: ${m.name}',
+                    leader: m.knownRole == Role.leader,
+                  ),
               ],
             ),
           ],
@@ -308,20 +366,47 @@ class _RoleCard extends StatelessWidget {
                     child: Padding(
                       padding: EdgeInsets.all(10 * s),
                       child: DecoratedBox(
-                        decoration: BoxDecoration(borderRadius: BorderRadius.circular(16 * s), border: Border.all(color: const Color(0xFFD9A84E), width: math.max(1.5, 4 * s))),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(16 * s),
+                          border: Border.all(color: const Color(0xFFD9A84E), width: math.max(1.5, 4 * s)),
+                        ),
                         child: Padding(
                           padding: EdgeInsets.all(7 * s),
-                          child: DecoratedBox(decoration: BoxDecoration(borderRadius: BorderRadius.circular(10 * s), border: Border.all(color: const Color(0xFFD9A84E).withValues(alpha: .7), width: math.max(1, 2 * s)))),
+                          child: DecoratedBox(
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(10 * s),
+                              border: Border.all(
+                                color: const Color(0xFFD9A84E).withValues(alpha: .7),
+                                width: math.max(1, 2 * s),
+                              ),
+                            ),
+                          ),
                         ),
                       ),
                     ),
                   ),
-                  Positioned(left: 0, right: 0, top: 78 * s, child: Center(child: RoleShield(role: role, width: 215 * s))),
+                  Positioned(
+                    left: 0,
+                    right: 0,
+                    top: 78 * s,
+                    child: Center(
+                      child: RoleShield(role: role, width: 215 * s),
+                    ),
+                  ),
                   Positioned(
                     left: 0,
                     right: 0,
                     top: 360 * s,
-                    child: Center(child: OutlinedText(name, size: (role == Role.leader ? 66 : 94) * s, color: nameColor, stroke: nameEdge, strokeWidth: math.max(3, 8 * s), shadow: false)),
+                    child: Center(
+                      child: OutlinedText(
+                        name,
+                        size: (role == Role.leader ? 66 : 94) * s,
+                        color: nameColor,
+                        stroke: nameEdge,
+                        strokeWidth: math.max(3, 8 * s),
+                        shadow: false,
+                      ),
+                    ),
                   ),
                   if (special != null)
                     Positioned(
@@ -329,7 +414,11 @@ class _RoleCard extends StatelessWidget {
                       top: 70 * s,
                       child: Container(
                         padding: EdgeInsets.all(5 * s),
-                        decoration: BoxDecoration(shape: BoxShape.circle, color: const Color(0xFF3A2314), border: Border.all(color: AppColors.gold, width: 2)),
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: const Color(0xFF3A2314),
+                          border: Border.all(color: AppColors.gold, width: 2),
+                        ),
                         child: Gfx(specialInfo[special]!.$3, size: 40 * s),
                       ),
                     ),
@@ -341,16 +430,32 @@ class _RoleCard extends StatelessWidget {
                       child: Text(
                         specialInfo[special]!.$1,
                         textAlign: TextAlign.center,
-                        style: TextStyle(fontFamily: kufi, fontSize: 30 * s, fontWeight: FontWeight.w800, color: AppColors.ink),
+                        style: TextStyle(
+                          fontFamily: kufi,
+                          fontSize: 30 * s,
+                          fontWeight: FontWeight.w800,
+                          color: AppColors.ink,
+                        ),
                       ),
                     ),
-                  if (shine > 0 && shine < 1) Positioned.fill(child: ClipRRect(borderRadius: BorderRadius.circular(20 * s), child: CustomPaint(painter: _ShinePainter(shine)))),
+                  if (shine > 0 && shine < 1)
+                    Positioned.fill(
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(20 * s),
+                        child: CustomPaint(painter: _ShinePainter(shine)),
+                      ),
+                    ),
                 ],
               ),
             ),
           ),
           // الشريط الأحمر فوق، يطلع من أطراف البطاقة
-          Positioned(left: -14 * s, right: -14 * s, top: -34 * s, child: Center(child: RibbonTitle('دورك', size: math.max(14, 34 * s)))),
+          Positioned(
+            left: -14 * s,
+            right: -14 * s,
+            top: -34 * s,
+            child: Center(child: RibbonTitle('دورك', size: math.max(14, 34 * s))),
+          ),
         ],
       ),
     );
@@ -365,7 +470,11 @@ class RoleShield extends StatelessWidget {
   final double width;
 
   @override
-  Widget build(BuildContext context) => SizedBox(width: width, height: width * 1.16, child: CustomPaint(painter: _ShieldPainter(role)));
+  Widget build(BuildContext context) => SizedBox(
+    width: width,
+    height: width * 1.16,
+    child: CustomPaint(painter: _ShieldPainter(role)),
+  );
 }
 
 class _ShieldPainter extends CustomPainter {
@@ -393,14 +502,35 @@ class _ShieldPainter extends CustomPainter {
       Role.leader => (const Color(0xFF8E2A30), const Color(0xFF2A0A0E)),
     };
     final outer = shield(0);
-    canvas.drawPath(outer.shift(Offset(0, h * .03)), Paint()..color = Colors.black.withValues(alpha: .3)..maskFilter = MaskFilter.blur(BlurStyle.normal, w * .03));
+    canvas.drawPath(
+      outer.shift(Offset(0, h * .03)),
+      Paint()
+        ..color = Colors.black.withValues(alpha: .3)
+        ..maskFilter = MaskFilter.blur(BlurStyle.normal, w * .03),
+    );
     canvas.drawPath(outer, Paint()..color = gameInk);
     final rim = shield(w * .018);
-    canvas.drawPath(rim, Paint()..shader = const LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Color(0xFFFFE9A0), Color(0xFFE5A92E), Color(0xFFB8761A)]).createShader(Offset.zero & size));
+    canvas.drawPath(
+      rim,
+      Paint()
+        ..shader = const LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [Color(0xFFFFE9A0), Color(0xFFE5A92E), Color(0xFFB8761A)],
+        ).createShader(Offset.zero & size),
+    );
     final inner = shield(w * .075);
     canvas.drawPath(inner, Paint()..color = gameInk);
     final body = shield(w * .088);
-    canvas.drawPath(body, Paint()..shader = LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [light, deep]).createShader(Offset.zero & size));
+    canvas.drawPath(
+      body,
+      Paint()
+        ..shader = LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [light, deep],
+        ).createShader(Offset.zero & size),
+    );
     // لمعة زجاجية
     canvas.save();
     canvas.clipPath(body);
@@ -443,7 +573,15 @@ void paintStar5(Canvas canvas, double r) {
   }
   p.close();
   canvas.drawPath(p.shift(Offset(0, r * .06)), Paint()..color = Colors.black.withValues(alpha: .3));
-  canvas.drawPath(p, Paint()..shader = const LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Color(0xFFFFE08A), Color(0xFFE8A62E)]).createShader(Rect.fromCircle(center: Offset.zero, radius: r)));
+  canvas.drawPath(
+    p,
+    Paint()
+      ..shader = const LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [Color(0xFFFFE08A), Color(0xFFE8A62E)],
+      ).createShader(Rect.fromCircle(center: Offset.zero, radius: r)),
+  );
   canvas.drawPath(
     p,
     Paint()
@@ -475,7 +613,10 @@ class _RoleBack extends StatelessWidget {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                ClipRRect(borderRadius: BorderRadius.circular(22), child: Image.asset('assets/logo.png', width: width * .48, height: width * .48)),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(22),
+                  child: Image.asset('assets/logo.png', width: width * .48, height: width * .48),
+                ),
                 const SizedBox(height: 12),
                 GoldTitle('دورك السري', size: math.max(14, width * .12)),
               ],
@@ -564,7 +705,10 @@ class _Known extends StatelessWidget {
         children: [
           leader ? const LeaderSeal(size: 20) : const Seal(loyal: false, size: 18),
           const SizedBox(width: 3),
-          Text(label, style: const TextStyle(color: AppColors.ink, fontSize: 12, fontWeight: FontWeight.w800)),
+          Text(
+            label,
+            style: const TextStyle(color: AppColors.ink, fontSize: 12, fontWeight: FontWeight.w800),
+          ),
         ],
       ),
     ],

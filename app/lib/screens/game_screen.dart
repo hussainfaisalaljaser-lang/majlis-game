@@ -2912,6 +2912,8 @@ class _GameOver extends StatelessWidget {
   Widget build(BuildContext context) {
     final loyalWon = view.winnerLoyal ?? false;
     final iWon = (view.yourRole == Role.loyal) == loyalWon;
+    // الجوال الصغير (٣٦٠ بالطول): كل شي أصغر شوي عشان تنحشر الأزرار كلها.
+    final compact = MediaQuery.sizeOf(context).height < 430;
     final roles = [
       for (final p in view.players)
         InkWell(
@@ -2981,17 +2983,25 @@ class _GameOver extends StatelessWidget {
                                 child: Column(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    FittedBox(
-                                      fit: BoxFit.scaleDown,
-                                      child: RibbonTitle(loyalWon ? 'فاز الأوفياء!' : 'فاز الخونة!', size: 22),
-                                    ),
-                                    const SizedBox(height: 4),
+                                    // على الشاشة القصيرة جداً نوفّر مكانه (النتيجة تحته تقول من فاز).
+                                    if (MediaQuery.sizeOf(context).height >= 340) ...[
+                                      FittedBox(
+                                        fit: BoxFit.scaleDown,
+                                        child: RibbonTitle(
+                                          loyalWon ? 'فاز الأوفياء!' : 'فاز الخونة!',
+                                          size: compact ? 16 : 22,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                    ],
                                     Row(
                                       mainAxisAlignment: MainAxisAlignment.center,
                                       children: [
-                                        iWon ? const Gfx('trophy', size: 44) : Seal(loyal: loyalWon, size: 44),
+                                        iWon
+                                            ? Gfx('trophy', size: compact ? 34 : 44)
+                                            : Seal(loyal: loyalWon, size: compact ? 34 : 44),
                                         const SizedBox(width: 6),
-                                        GoldText(iWon ? 'فزت!' : 'خسرت', size: 34),
+                                        GoldText(iWon ? 'فزت!' : 'خسرت', size: compact ? 28 : 34),
                                       ],
                                     ),
                                     Text(
@@ -3046,7 +3056,7 @@ class _GameOver extends StatelessWidget {
                                         ),
                                       ),
                                     ],
-                                    const SizedBox(height: 10),
+                                    SizedBox(height: compact ? 6 : 10),
                                     if (!view.tutorial && room?.tour == null) ...[
                                       GameButton(
                                         label: rematchReady > 0
@@ -3055,8 +3065,8 @@ class _GameOver extends StatelessWidget {
                                         icon: const Gfx('games', size: 26),
                                         semantics: 'العب مرة ثانية',
                                         tone: ButtonTone.green,
-                                        height: 46,
-                                        fontSize: 16,
+                                        height: compact ? 38 : 46,
+                                        fontSize: compact ? 14 : 16,
                                         onPressed: onRematch,
                                       ),
                                       const SizedBox(height: 6),
@@ -3069,8 +3079,8 @@ class _GameOver extends StatelessWidget {
                                             icon: const Gfx('liar', size: 22),
                                             semantics: 'مين كذب؟',
                                             tone: ButtonTone.purple,
-                                            height: 40,
-                                            fontSize: 14,
+                                            height: compact ? 34 : 40,
+                                            fontSize: 13,
                                             onPressed: onLies,
                                           ),
                                         ),
@@ -3081,8 +3091,8 @@ class _GameOver extends StatelessWidget {
                                             icon: const Gfx('link', size: 22),
                                             semantics: 'شارك',
                                             tone: ButtonTone.gold,
-                                            height: 40,
-                                            fontSize: 14,
+                                            height: compact ? 34 : 40,
+                                            fontSize: 13,
                                             onPressed: onShare,
                                           ),
                                         ),
@@ -3097,8 +3107,8 @@ class _GameOver extends StatelessWidget {
                                             icon: const Gfx('chat', size: 22),
                                             semantics: 'ارجع للطاولة',
                                             tone: ButtonTone.ghost,
-                                            height: 40,
-                                            fontSize: 14,
+                                            height: compact ? 34 : 40,
+                                            fontSize: 13,
                                             onPressed: onClose,
                                           ),
                                         ),
@@ -3109,8 +3119,8 @@ class _GameOver extends StatelessWidget {
                                             icon: const Gfx('exit', size: 22),
                                             semantics: 'خروج',
                                             tone: ButtonTone.ghost,
-                                            height: 40,
-                                            fontSize: 14,
+                                            height: compact ? 34 : 40,
+                                            fontSize: 13,
                                             onPressed: onLeave,
                                           ),
                                         ),

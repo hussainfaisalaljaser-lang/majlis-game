@@ -71,8 +71,13 @@ class PolicyTracks extends StatelessWidget {
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   color: i < view.electionTracker ? AppColors.gold : const Color(0xFF2B190E),
-                  border: Border.all(color: i < view.electionTracker ? AppColors.goldLight : const Color(0xFF8A5E3B), width: 2),
-                  boxShadow: i < view.electionTracker ? [BoxShadow(color: AppColors.gold.withValues(alpha: .7), blurRadius: 8)] : null,
+                  border: Border.all(
+                    color: i < view.electionTracker ? AppColors.goldLight : const Color(0xFF8A5E3B),
+                    width: 2,
+                  ),
+                  boxShadow: i < view.electionTracker
+                      ? [BoxShadow(color: AppColors.gold.withValues(alpha: .7), blurRadius: 8)]
+                      : null,
                 ),
               ),
             const Spacer(),
@@ -123,10 +128,25 @@ class _Track extends StatelessWidget {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Text(label, style: TextStyle(fontFamily: kufi, fontSize: 12.5, fontWeight: FontWeight.w800, color: light, height: 1.2)),
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontFamily: kufi,
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w800,
+                    color: light,
+                    height: 1.2,
+                  ),
+                ),
                 Text(
                   '${arabicNumber(filled)}/${arabicNumber(total)}',
-                  style: const TextStyle(fontFamily: kufi, fontSize: 17, fontWeight: FontWeight.w800, height: 1.1, color: Color(0xFFFFF3DA)),
+                  style: const TextStyle(
+                    fontFamily: kufi,
+                    fontSize: 17,
+                    fontWeight: FontWeight.w800,
+                    height: 1.1,
+                    color: Color(0xFFFFF3DA),
+                  ),
                 ),
               ],
             ),
@@ -144,7 +164,8 @@ class _Track extends StatelessWidget {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    for (var i = 0; i < total; i++) _Socket(filled: i < filled, loyal: loyal, icon: icons[i], last: i == total - 1, color: main),
+                    for (var i = 0; i < total; i++)
+                      _Socket(filled: i < filled, loyal: loyal, icon: icons[i], last: i == total - 1, color: main),
                   ],
                 ),
               ],
@@ -218,8 +239,8 @@ class MiniTracks extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final sc = scale;
-    final dot = math.max(11.0, 27 * sc);
-    final fs = math.max(12.0, 24 * sc);
+    final dot = math.max(10.0, 23 * sc);
+    final fs = math.max(12.0, 22 * sc);
     Widget row(bool loyal, int filled, int total) {
       final color = loyal ? const Color(0xFF3F78E0) : const Color(0xFFE0485A);
       return Row(
@@ -229,21 +250,34 @@ class MiniTracks extends StatelessWidget {
             width: fs * 2.6,
             child: Text(
               '${arabicNumber(filled)}/${arabicNumber(total)}',
-              style: TextStyle(fontFamily: kufi, fontSize: fs, fontWeight: FontWeight.w800, color: loyal ? const Color(0xFF8FB4FF) : const Color(0xFFFF9FB0), height: 1.25),
+              style: TextStyle(
+                fontFamily: kufi,
+                fontSize: fs,
+                fontWeight: FontWeight.w800,
+                color: loyal ? const Color(0xFF8FB4FF) : const Color(0xFFFF9FB0),
+                height: 1.25,
+              ),
             ),
           ),
           for (var i = 0; i < total; i++)
             Container(
               width: dot,
               height: dot,
-              margin: EdgeInsetsDirectional.only(end: math.max(3.0, 7 * sc)),
+              margin: EdgeInsetsDirectional.only(end: math.max(3.0, 6 * sc)),
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 color: i < filled ? null : const Color(0xFF1E120B).withValues(alpha: .35),
                 gradient: i < filled
-                    ? RadialGradient(center: const Alignment(-.3, -.4), colors: [Color.lerp(color, Colors.white, .5)!, color, Color.lerp(color, Colors.black, .35)!], stops: const [0, .5, 1])
+                    ? RadialGradient(
+                        center: const Alignment(-.3, -.4),
+                        colors: [Color.lerp(color, Colors.white, .5)!, color, Color.lerp(color, Colors.black, .35)!],
+                        stops: const [0, .5, 1],
+                      )
                     : null,
-                border: Border.all(color: i == total - 1 ? const Color(0xFFF2C14E) : color, width: math.max(1.6, 2.6 * sc)),
+                border: Border.all(
+                  color: i == total - 1 ? const Color(0xFFF2C14E) : color,
+                  width: math.max(1.6, 2.6 * sc),
+                ),
                 boxShadow: i < filled ? [BoxShadow(color: color.withValues(alpha: .6), blurRadius: 5)] : null,
               ),
             ),
@@ -353,7 +387,9 @@ class _LeaderDangerState extends State<_LeaderDanger> with SingleTickerProviderS
         color: Color.lerp(const Color(0xFF4A1018), const Color(0xFF7A1420), _c.value),
         borderRadius: BorderRadius.circular(40),
         border: Border.all(color: AppColors.traitor.withValues(alpha: .6 + _c.value * .4), width: 1.6),
-        boxShadow: widget.active ? [BoxShadow(color: AppColors.traitor.withValues(alpha: .2 + _c.value * .4), blurRadius: 8)] : null,
+        boxShadow: widget.active
+            ? [BoxShadow(color: AppColors.traitor.withValues(alpha: .2 + _c.value * .4), blurRadius: 8)]
+            : null,
       ),
       child: child,
     ),
@@ -369,7 +405,10 @@ class _LeaderDangerState extends State<_LeaderDanger> with SingleTickerProviderS
                 text: widget.mine ? 'لو صرت وزير ' : 'الزعيم وزير ',
                 style: const TextStyle(color: AppColors.goldLight),
               ),
-              const TextSpan(text: '= ', style: TextStyle(color: Color(0xFFFFF3DA))),
+              const TextSpan(
+                text: '= ',
+                style: TextStyle(color: Color(0xFFFFF3DA)),
+              ),
               const TextSpan(
                 text: 'فوز الخونة',
                 style: TextStyle(color: Color(0xFFFF9A9A)),
@@ -415,7 +454,10 @@ void showTracksBoard(BuildContext context, GameView view) {
                       children: [
                         Gfx(powerIcon[p]!, size: 22),
                         const SizedBox(width: 3),
-                        Text(powerName[p]!, style: const TextStyle(color: Color(0xFFFFF3DA), fontSize: 12.5, fontWeight: FontWeight.w800)),
+                        Text(
+                          powerName[p]!,
+                          style: const TextStyle(color: Color(0xFFFFF3DA), fontSize: 12.5, fontWeight: FontWeight.w800),
+                        ),
                       ],
                     ),
                 ],
@@ -447,13 +489,19 @@ class _DeckSum extends StatelessWidget {
           arabicNumber(n),
           style: const TextStyle(fontFamily: kufi, fontSize: 19, fontWeight: FontWeight.w800, color: Color(0xFFFFF3DA)),
         ),
-        Text(label, style: const TextStyle(color: Color(0xFFE2CBA4), fontSize: 11, fontWeight: FontWeight.w700)),
+        Text(
+          label,
+          style: const TextStyle(color: Color(0xFFE2CBA4), fontSize: 11, fontWeight: FontWeight.w700),
+        ),
       ],
     );
     const plus = Text('+', style: TextStyle(color: Color(0xFFE2CBA4), fontSize: 16));
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(color: const Color(0xFF241209).withValues(alpha: .85), borderRadius: BorderRadius.circular(14)),
+      decoration: BoxDecoration(
+        color: const Color(0xFF241209).withValues(alpha: .85),
+        borderRadius: BorderRadius.circular(14),
+      ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [

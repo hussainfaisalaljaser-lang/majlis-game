@@ -52,7 +52,9 @@ class PolicyCard extends StatelessWidget {
             width: width,
             stamp: stamp,
             glow: highlight,
-            colors: classic ? null : (skin.border!, (loyal ? skin.loyal : skin.traitor).first, (loyal ? skin.loyal : skin.traitor).last),
+            colors: classic
+                ? null
+                : (skin.border!, (loyal ? skin.loyal : skin.traitor).first, (loyal ? skin.loyal : skin.traitor).last),
             emblem: classic ? null : (loyal ? skin.loyalIcon : skin.traitorIcon),
           ),
         ),

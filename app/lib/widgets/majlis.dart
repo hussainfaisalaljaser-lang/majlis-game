@@ -55,7 +55,9 @@ class MajlisRoom extends StatelessWidget {
         ),
       Positioned.fill(
         child: RepaintBoundary(
-          child: FxClock(builder: (context, time) => CustomPaint(painter: venueLights(venue, time, tension, safe: safe))),
+          child: FxClock(
+            builder: (context, time) => CustomPaint(painter: venueLights(venue, time, tension, safe: safe)),
+          ),
         ),
       ),
     ],
@@ -316,4 +318,3 @@ class _ClothPainter extends CustomPainter {
   @override
   bool shouldRepaint(_ClothPainter old) => old.k != k;
 }
-

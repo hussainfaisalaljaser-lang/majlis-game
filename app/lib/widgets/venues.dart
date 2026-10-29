@@ -166,7 +166,12 @@ _Ext _enter(Canvas canvas, Size size, EdgeInsets safe) {
   canvas.save();
   canvas.translate(st.box.left, st.box.top);
   canvas.scale(st.s);
-  return (l: -st.box.left / st.s, t: -st.box.top / st.s, r: (size.width - st.box.left) / st.s, b: (size.height - st.box.top) / st.s);
+  return (
+    l: -st.box.left / st.s,
+    t: -st.box.top / st.s,
+    r: (size.width - st.box.left) / st.s,
+    b: (size.height - st.box.top) / st.s,
+  );
 }
 
 class TentBackdropPainter extends CustomPainter {
@@ -182,7 +187,12 @@ class TentBackdropPainter extends CustomPainter {
     // السما
     canvas.drawRect(
       Rect.fromLTRB(e.l, e.t, e.r, 640),
-      Paint()..shader = LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [th.skyTop, th.skyBottom]).createShader(Rect.fromLTRB(e.l, 172, e.r, 560)),
+      Paint()
+        ..shader = LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [th.skyTop, th.skyBottom],
+        ).createShader(Rect.fromLTRB(e.l, 172, e.r, 560)),
     );
     if (th.stars) _stars(canvas, e);
     if (th.moon) _moon(canvas);
@@ -210,7 +220,13 @@ class TentBackdropPainter extends CustomPainter {
     // تعتيم خفيف على الأطراف
     canvas.drawRect(
       Rect.fromLTRB(e.l, e.t, e.r, e.b),
-      Paint()..shader = RadialGradient(center: const Alignment(0, .1), radius: 1.1, colors: [Colors.transparent, Colors.black.withValues(alpha: .28)], stops: const [.6, 1]).createShader(Rect.fromLTRB(e.l, e.t, e.r, e.b)),
+      Paint()
+        ..shader = RadialGradient(
+          center: const Alignment(0, .1),
+          radius: 1.1,
+          colors: [Colors.transparent, Colors.black.withValues(alpha: .28)],
+          stops: const [.6, 1],
+        ).createShader(Rect.fromLTRB(e.l, e.t, e.r, e.b)),
     );
     canvas.restore();
   }
@@ -245,12 +261,38 @@ class TentBackdropPainter extends CustomPainter {
       Path()..addOval(Rect.fromCircle(center: c, radius: 52)),
       Path()..addOval(Rect.fromCircle(center: c + const Offset(24, -16), radius: 46)),
     );
-    canvas.drawCircle(c, 100, Paint()..shader = RadialGradient(colors: [const Color(0xFFFFE9A0).withValues(alpha: .18), const Color(0x00FFE9A0)]).createShader(Rect.fromCircle(center: c, radius: 100)));
-    canvas.drawPath(moon, Paint()..shader = const LinearGradient(begin: Alignment.topRight, end: Alignment.bottomLeft, colors: [Color(0xFFFFF4B0), Color(0xFFF0CF63)]).createShader(Rect.fromCircle(center: c, radius: 54)));
+    canvas.drawCircle(
+      c,
+      100,
+      Paint()
+        ..shader = RadialGradient(colors: [const Color(0xFFFFE9A0).withValues(alpha: .18), const Color(0x00FFE9A0)])
+            .createShader(Rect.fromCircle(center: c, radius: 100)),
+    );
+    canvas.drawPath(
+      moon,
+      Paint()
+        ..shader = const LinearGradient(
+          begin: Alignment.topRight,
+          end: Alignment.bottomLeft,
+          colors: [Color(0xFFFFF4B0), Color(0xFFF0CF63)],
+        ).createShader(Rect.fromCircle(center: c, radius: 54)),
+    );
     canvas.drawPath(moon, _stroke(const Color(0xFF6B4F14).withValues(alpha: .55), 2));
     // وجه نعسان: عين مغمضة وابتسامة
-    canvas.drawArc(Rect.fromCenter(center: const Offset(1395, 240), width: 20, height: 12), .15, math.pi * .75, false, _stroke(const Color(0xFF7A5A1A), 2.6));
-    canvas.drawArc(Rect.fromCenter(center: const Offset(1403, 255), width: 14, height: 8), .2, math.pi * .6, false, _stroke(const Color(0xFF7A5A1A), 2.2));
+    canvas.drawArc(
+      Rect.fromCenter(center: const Offset(1395, 240), width: 20, height: 12),
+      .15,
+      math.pi * .75,
+      false,
+      _stroke(const Color(0xFF7A5A1A), 2.6),
+    );
+    canvas.drawArc(
+      Rect.fromCenter(center: const Offset(1403, 255), width: 14, height: 8),
+      .2,
+      math.pi * .6,
+      false,
+      _stroke(const Color(0xFF7A5A1A), 2.2),
+    );
   }
 
   void _dunes(Canvas canvas, _Ext e, TentTheme th) {
@@ -316,19 +358,39 @@ class TentBackdropPainter extends CustomPainter {
       // نوافذ مضيئة
       for (var wy = rect.top + 14; wy < 560; wy += 26) {
         for (var wx = rect.left + 10; wx < rect.right - 12; wx += 22) {
-          if (rnd((wy * 31 + wx).toInt(), 23) > .55) canvas.drawRect(Rect.fromLTWH(wx, wy, 9, 12), _fill(const Color(0xFFFFD27A).withValues(alpha: .85)));
+          if (rnd((wy * 31 + wx).toInt(), 23) > .55) {
+            canvas.drawRect(Rect.fromLTWH(wx, wy, 9, 12), _fill(const Color(0xFFFFD27A).withValues(alpha: .85)));
+          }
         }
       }
       // قبة ومنارة على بعض المباني
       if (rnd(i, 24) > .7) {
-        canvas.drawArc(Rect.fromLTWH(x + bw * .2, rect.top - bw * .3, bw * .6, bw * .6), math.pi, math.pi, true, _fill(th.farLit));
-        canvas.drawLine(Offset(x + bw / 2, rect.top - bw * .3), Offset(x + bw / 2, rect.top - bw * .3 - 26), _stroke(const Color(0xFFE5B04E), 3));
+        canvas.drawArc(
+          Rect.fromLTWH(x + bw * .2, rect.top - bw * .3, bw * .6, bw * .6),
+          math.pi,
+          math.pi,
+          true,
+          _fill(th.farLit),
+        );
+        canvas.drawLine(
+          Offset(x + bw / 2, rect.top - bw * .3),
+          Offset(x + bw / 2, rect.top - bw * .3 - 26),
+          _stroke(const Color(0xFFE5B04E), 3),
+        );
       }
       x += bw + 6;
       i++;
     }
     // توهج الأفق
-    canvas.drawRect(Rect.fromLTRB(e.l, 470, e.r, 600), Paint()..shader = LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Colors.transparent, const Color(0xFFFFA45A).withValues(alpha: .22)]).createShader(Rect.fromLTRB(e.l, 470, e.r, 600)));
+    canvas.drawRect(
+      Rect.fromLTRB(e.l, 470, e.r, 600),
+      Paint()
+        ..shader = LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [Colors.transparent, const Color(0xFFFFA45A).withValues(alpha: .22)],
+        ).createShader(Rect.fromLTRB(e.l, 470, e.r, 600)),
+    );
     assert(w > 0);
   }
 
@@ -345,7 +407,15 @@ class TentBackdropPainter extends CustomPainter {
         ..quadraticBezierTo(cx + 70, 340, cx + 70, 440)
         ..lineTo(cx + 70, 600)
         ..close();
-      canvas.drawPath(arch, Paint()..shader = LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [th.skyTop, th.skyBottom]).createShader(Rect.fromLTRB(cx - 70, 320, cx + 70, 600)));
+      canvas.drawPath(
+        arch,
+        Paint()
+          ..shader = LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [th.skyTop, th.skyBottom],
+          ).createShader(Rect.fromLTRB(cx - 70, 320, cx + 70, 600)),
+      );
       canvas.drawPath(arch, _stroke(th.trim.withValues(alpha: .8), 5));
       canvas.drawPath(arch, _stroke(Colors.black.withValues(alpha: .4), 1.5));
     }
@@ -358,19 +428,36 @@ class TentBackdropPainter extends CustomPainter {
     for (var cx = 130.0 - 10 * step; cx < e.r + step; cx += step) {
       if (cx < e.l - step) continue;
       final col = Rect.fromLTWH(cx - 34, 330, 68, 270);
-      canvas.drawRect(col, Paint()..shader = LinearGradient(colors: [th.farShade, th.farLit, th.farShade]).createShader(col));
+      canvas.drawRect(
+        col,
+        Paint()..shader = LinearGradient(colors: [th.farShade, th.farLit, th.farShade]).createShader(col),
+      );
       canvas.drawRect(col, _stroke(Colors.black.withValues(alpha: .4), 2));
       for (final dx in [-14.0, 0.0, 14.0]) {
         canvas.drawLine(Offset(cx + dx, 350), Offset(cx + dx, 590), _stroke(Colors.black.withValues(alpha: .18), 3));
       }
-      canvas.drawRRect(RRect.fromRectAndRadius(Rect.fromLTWH(cx - 46, 316, 92, 26), const Radius.circular(6)), _fill(th.trim));
-      canvas.drawRRect(RRect.fromRectAndRadius(Rect.fromLTWH(cx - 46, 316, 92, 26), const Radius.circular(6)), _stroke(Colors.black.withValues(alpha: .45), 2));
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(Rect.fromLTWH(cx - 46, 316, 92, 26), const Radius.circular(6)),
+        _fill(th.trim),
+      );
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(Rect.fromLTWH(cx - 46, 316, 92, 26), const Radius.circular(6)),
+        _stroke(Colors.black.withValues(alpha: .45), 2),
+      );
     }
   }
 
   void _ground(Canvas canvas, _Ext e, TentTheme th) {
     final rect = Rect.fromLTRB(e.l, 586, e.r, e.b);
-    canvas.drawRect(rect, Paint()..shader = LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [th.groundTop, th.groundBottom]).createShader(Rect.fromLTRB(e.l, 586, e.r, 1080)));
+    canvas.drawRect(
+      rect,
+      Paint()
+        ..shader = LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [th.groundTop, th.groundBottom],
+        ).createShader(Rect.fromLTRB(e.l, 586, e.r, 1080)),
+    );
     canvas.drawRect(Rect.fromLTRB(e.l, 586, e.r, 594), _fill(Colors.white.withValues(alpha: .12)));
     canvas.drawLine(Offset(e.l, 586), Offset(e.r, 586), _stroke(Colors.black.withValues(alpha: .3), 2));
     // تموجات الرمل
@@ -417,7 +504,12 @@ class TentBackdropPainter extends CustomPainter {
         ..close(),
       _fill(th.roof),
     );
-    canvas.drawPath(Path()..moveTo(e.l, 180)..quadraticBezierTo(960, 190, e.r, 180), _stroke(Colors.black.withValues(alpha: .5), 2));
+    canvas.drawPath(
+      Path()
+        ..moveTo(e.l, 180)
+        ..quadraticBezierTo(960, 190, e.r, 180),
+      _stroke(Colors.black.withValues(alpha: .5), 2),
+    );
   }
 
   /// ستارة الجهة اليسار بإحداثيات التصميم (اليمين نفسها مقلوبة). [l] أقصى امتداد للشمال.
@@ -438,8 +530,20 @@ class TentBackdropPainter extends CustomPainter {
       ..close();
     final box = Rect.fromLTRB(l - 40, 0, 260, 760);
     canvas.save();
-    canvas.drawPath(body.shift(const Offset(6, 6)), Paint()..color = Colors.black.withValues(alpha: .35)..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8));
-    canvas.drawPath(body, Paint()..shader = LinearGradient(colors: [far, mid, near, mid, near], stops: const [0, .3, .55, .8, 1]).createShader(Rect.fromLTRB(0, 0, 260, 0)));
+    canvas.drawPath(
+      body.shift(const Offset(6, 6)),
+      Paint()
+        ..color = Colors.black.withValues(alpha: .35)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8),
+    );
+    canvas.drawPath(
+      body,
+      Paint()
+        ..shader = LinearGradient(
+          colors: [far, mid, near, mid, near],
+          stops: const [0, .3, .55, .8, 1],
+        ).createShader(Rect.fromLTRB(0, 0, 260, 0)),
+    );
     canvas.clipPath(body);
     // طيات من الأعلى لنقطة الربط
     const tie = Offset(30, 446);
@@ -468,25 +572,33 @@ class TentBackdropPainter extends CustomPainter {
       final t = m.getTangentForOffset(d)!;
       final n = Offset(-t.vector.dy, t.vector.dx); // يمين المسار = داخل الستارة (للشمال)
       final wave = math.sin(d / 16) * 11;
-      final p = t.position - n * (26 + wave);
+      final p = t.position + n * (26 + wave);
       d == 0 ? vine.moveTo(p.dx, p.dy) : vine.lineTo(p.dx, p.dy);
-      final q = t.position - n * 50;
+      final q = t.position + n * 50;
       d == 0 ? band.moveTo(q.dx, q.dy) : band.lineTo(q.dx, q.dy);
     }
-    canvas.drawPath(edge.shift(const Offset(-10, 0)), _stroke(dark.withValues(alpha: .55), 40));
+    canvas.drawPath(edge.shift(const Offset(-24, 0)), _stroke(dark.withValues(alpha: .5), 58));
     canvas.drawPath(vine, _stroke(th.trim.withValues(alpha: .95), 3.6));
     canvas.drawPath(band, _stroke(th.trim.withValues(alpha: .8), 2.6));
     canvas.drawPath(edge.shift(const Offset(-4, 0)), _stroke(th.trim.withValues(alpha: .85), 2.6));
     for (var d = 8.0; d < m.length; d += 32) {
       final t = m.getTangentForOffset(d)!;
       final n = Offset(-t.vector.dy, t.vector.dx);
-      canvas.drawCircle(t.position - n * (26 + math.sin(d / 16) * 11), 3.4, _fill(th.trim));
+      canvas.drawCircle(t.position + n * (26 + math.sin(d / 16) * 11), 3.4, _fill(th.trim));
     }
     canvas.restore();
     canvas.drawPath(body, _stroke(const Color(0xFF200806), 4));
     // شريط الربط الذهبي
     final band2 = RRect.fromRectAndRadius(Rect.fromLTRB(l - 40, 426, 46, 462), const Radius.circular(10));
-    canvas.drawRRect(band2, Paint()..shader = LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [const Color(0xFFFFE9A0), th.trim, const Color(0xFF9A6418)]).createShader(band2.outerRect));
+    canvas.drawRRect(
+      band2,
+      Paint()
+        ..shader = LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [const Color(0xFFFFE9A0), th.trim, const Color(0xFF9A6418)],
+        ).createShader(band2.outerRect),
+    );
     canvas.drawRRect(band2, _stroke(const Color(0xFF4A2A08), 3));
     canvas.drawLine(const Offset(0, 436), const Offset(40, 436), _stroke(Colors.white.withValues(alpha: .5), 2));
     assert(box.width > 0);
@@ -521,10 +633,21 @@ class TentLightsPainter extends CustomPainter {
 
   /// فانوس معلق بحبل من فوق الشاشة.
   void _lantern(Canvas canvas, Offset c, double top, double t, int i, Color warm, double tension) {
-    final flick = 1 - (.1 + .5 * tension) * (.5 + .25 * math.sin(t * 9.1 + i * 2.3) + .25 * math.sin(t * 23.7 + i * 1.1));
+    final flick =
+        1 - (.1 + .5 * tension) * (.5 + .25 * math.sin(t * 9.1 + i * 2.3) + .25 * math.sin(t * 23.7 + i * 1.1));
     final sway = math.sin(t * 1.3 + i * 1.7) * 2.2;
     // الهالة
-    canvas.drawCircle(c, 170, Paint()..shader = RadialGradient(colors: [warm.withValues(alpha: .42 * flick), warm.withValues(alpha: 0)]).createShader(Rect.fromCircle(center: c, radius: 170)));
+    canvas.drawCircle(
+      c,
+      170,
+      Paint()
+        ..shader = RadialGradient(
+          colors: [
+            warm.withValues(alpha: .42 * flick),
+            warm.withValues(alpha: 0),
+          ],
+        ).createShader(Rect.fromCircle(center: c, radius: 170)),
+    );
     final rope = Path()
       ..moveTo(c.dx, top)
       ..lineTo(c.dx + sway * .3, c.dy - 62);
@@ -551,7 +674,18 @@ class TentLightsPainter extends CustomPainter {
       ..lineTo(-22, 90)
       ..quadraticBezierTo(-32, 56, -24, 22)
       ..close();
-    canvas.drawPath(glass, Paint()..shader = RadialGradient(center: const Alignment(0, .1), colors: [Color.lerp(warm, Colors.white, .75)!.withValues(alpha: flick), warm.withValues(alpha: flick), Color.lerp(warm, const Color(0xFFB8600A), .6)!]).createShader(const Rect.fromLTWH(-32, 22, 64, 68)));
+    canvas.drawPath(
+      glass,
+      Paint()
+        ..shader = RadialGradient(
+          center: const Alignment(0, .1),
+          colors: [
+            Color.lerp(warm, Colors.white, .75)!.withValues(alpha: flick),
+            warm.withValues(alpha: flick),
+            Color.lerp(warm, const Color(0xFFB8600A), .6)!,
+          ],
+        ).createShader(const Rect.fromLTWH(-32, 22, 64, 68)),
+    );
     // شعلة صغيرة
     canvas.drawPath(
       Path()
@@ -576,8 +710,16 @@ class TentLightsPainter extends CustomPainter {
   /// نار مخيم: حجار حواليها وألسنة لهب وشرار طاير.
   void _campfire(Canvas canvas, Offset c, double t, int i, Color fire) {
     // ضو على الرمل
-    canvas.drawOval(Rect.fromCenter(center: c + const Offset(0, 24), width: 460, height: 150), Paint()..shader = RadialGradient(colors: [fire.withValues(alpha: .38), fire.withValues(alpha: 0)]).createShader(Rect.fromCenter(center: c + const Offset(0, 24), width: 460, height: 150)));
-    canvas.drawOval(Rect.fromCenter(center: c + const Offset(0, 46), width: 220, height: 40), _fill(Colors.black.withValues(alpha: .3)));
+    canvas.drawOval(
+      Rect.fromCenter(center: c + const Offset(0, 24), width: 460, height: 150),
+      Paint()
+        ..shader = RadialGradient(colors: [fire.withValues(alpha: .38), fire.withValues(alpha: 0)])
+            .createShader(Rect.fromCenter(center: c + const Offset(0, 24), width: 460, height: 150)),
+    );
+    canvas.drawOval(
+      Rect.fromCenter(center: c + const Offset(0, 46), width: 220, height: 40),
+      _fill(Colors.black.withValues(alpha: .3)),
+    );
     // الحجار الخلفية
     void stone(Offset p, double w, double h, Color col) {
       final r = Rect.fromCenter(center: c + p, width: w, height: h);
@@ -586,13 +728,21 @@ class TentLightsPainter extends CustomPainter {
       canvas.drawArc(r.deflate(5), math.pi * 1.1, math.pi * .5, false, _stroke(Colors.white.withValues(alpha: .25), 3));
     }
 
-    for (final (dx, dy, w, h) in const [(-62.0, 18.0, 46.0, 30.0), (-20.0, 8.0, 46.0, 28.0), (28.0, 8.0, 46.0, 28.0), (66.0, 18.0, 44.0, 30.0)]) {
+    for (final (dx, dy, w, h) in const [
+      (-62.0, 18.0, 46.0, 30.0),
+      (-20.0, 8.0, 46.0, 28.0),
+      (28.0, 8.0, 46.0, 28.0),
+      (66.0, 18.0, 44.0, 30.0),
+    ]) {
       stone(Offset(dx, dy), w, h, const Color(0xFF6E6862));
     }
     // الجمر
     final embers = Rect.fromCenter(center: c + const Offset(0, 16), width: 120, height: 32);
     canvas.drawOval(embers, _fill(const Color(0xFF3A1208)));
-    canvas.drawOval(embers.deflate(6), _fill(Color.lerp(const Color(0xFFB23A12), const Color(0xFFFF8A1F), .5 + .5 * math.sin(t * 6 + i))!));
+    canvas.drawOval(
+      embers.deflate(6),
+      _fill(Color.lerp(const Color(0xFFB23A12), const Color(0xFFFF8A1F), .5 + .5 * math.sin(t * 6 + i))!),
+    );
     // ألسنة اللهب
     void flame(double w, double h, Color col, double phase, double dx) {
       final sway = math.sin(t * 5 + phase) * w * .12;
@@ -601,7 +751,14 @@ class TentLightsPainter extends CustomPainter {
       final path = Path()
         ..moveTo(c.dx + dx - w / 2, c.dy + 14)
         ..cubicTo(c.dx + dx - w * .65, c.dy - hh * .25, c.dx + dx - w * .2 + sway, c.dy - hh * .55, top.dx, top.dy)
-        ..cubicTo(c.dx + dx + w * .25 + sway, c.dy - hh * .5, c.dx + dx + w * .7, c.dy - hh * .2, c.dx + dx + w / 2, c.dy + 14)
+        ..cubicTo(
+          c.dx + dx + w * .25 + sway,
+          c.dy - hh * .5,
+          c.dx + dx + w * .7,
+          c.dy - hh * .2,
+          c.dx + dx + w / 2,
+          c.dy + 14,
+        )
         ..close();
       canvas.drawPath(path, _fill(col));
     }
@@ -612,7 +769,13 @@ class TentLightsPainter extends CustomPainter {
     flame(38, 62, const Color(0xFFFFD54A), .7, 4);
     flame(20, 36, const Color(0xFFFFF4C4), 1.9, 2);
     // حجار أمامية
-    for (final (dx, dy, w, h) in const [(-40.0, 34.0, 54.0, 34.0), (6.0, 38.0, 54.0, 32.0), (52.0, 34.0, 52.0, 32.0), (-86.0, 28.0, 44.0, 28.0), (92.0, 28.0, 44.0, 28.0)]) {
+    for (final (dx, dy, w, h) in const [
+      (-40.0, 34.0, 54.0, 34.0),
+      (6.0, 38.0, 54.0, 32.0),
+      (52.0, 34.0, 52.0, 32.0),
+      (-86.0, 28.0, 44.0, 28.0),
+      (92.0, 28.0, 44.0, 28.0),
+    ]) {
       stone(Offset(dx, dy), w, h, const Color(0xFF8A847C));
     }
     // شرار
@@ -620,7 +783,11 @@ class TentLightsPainter extends CustomPainter {
       final q = (t * (.35 + rnd(k, 51 + i) * .3) + rnd(k, 52 + i)) % 1;
       final x = c.dx + (rnd(k, 53 + i) - .5) * 90 + math.sin(t * 2 + k) * 14 * q;
       final y = c.dy - 30 - q * 190;
-      canvas.drawCircle(Offset(x, y), 1.6 + 2.2 * (1 - q) * rnd(k, 54), _fill(const Color(0xFFFFC857).withValues(alpha: (1 - q) * .9)));
+      canvas.drawCircle(
+        Offset(x, y),
+        1.6 + 2.2 * (1 - q) * rnd(k, 54),
+        _fill(const Color(0xFFFFC857).withValues(alpha: (1 - q) * .9)),
+      );
     }
   }
 

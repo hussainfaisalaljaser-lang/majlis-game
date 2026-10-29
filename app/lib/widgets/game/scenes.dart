@@ -106,7 +106,11 @@ class _SceneOverlayState extends State<SceneOverlay> with SingleTickerProviderSt
                     child: Text(
                       'اضغط بأي مكان عشان تكمل',
                       textAlign: TextAlign.center,
-                      style: TextStyle(color: AppColors.muted.withValues(alpha: .8), fontSize: 11.5, shadows: const [Shadow(color: Colors.black, blurRadius: 4)]),
+                      style: TextStyle(
+                        color: AppColors.muted.withValues(alpha: .8),
+                        fontSize: 11.5,
+                        shadows: const [Shadow(color: Colors.black, blurRadius: 4)],
+                      ),
                     ),
                   ),
                 ),
@@ -179,7 +183,13 @@ Widget _scenePlank(Stage st, String text, {Widget? icon, Color color = const Col
                 text,
                 textAlign: TextAlign.center,
                 maxLines: 1,
-                style: TextStyle(fontFamily: kufi, fontWeight: FontWeight.w800, fontSize: fs, height: 1.3, color: color),
+                style: TextStyle(
+                  fontFamily: kufi,
+                  fontWeight: FontWeight.w800,
+                  fontSize: fs,
+                  height: 1.3,
+                  color: color,
+                ),
               ),
             ),
           ),
@@ -251,14 +261,21 @@ class VoteScene extends GameScene {
             120 * k,
             Opacity(
               opacity: drum,
-              child: Transform.scale(scale: k, child: CustomPaint(painter: _DrumPainter(t, roll))),
+              child: Transform.scale(
+                scale: k,
+                child: CustomPaint(painter: _DrumPainter(t, roll)),
+              ),
             ),
           ),
         for (final (i, MapEntry(key: id, value: ja)) in votes.entries.indexed)
           if (seats[id] case final c?)
             _at(
               // الكرت جنب الصورة من جهة نص الطاولة، والمقاعد التحت ترفعه عشان ما يغطي لوح الرسالة.
-              c + Offset((c.dx < mid - 1 ? 1 : -1) * (d / 2 + cw / 2 + 6 * s), c.dy > stage.box.top + 700 * s && c.dy < stage.box.top + 900 * s ? -62 * s : 12 * s),
+              c +
+                  Offset(
+                    (c.dx < mid - 1 ? 1 : -1) * (d / 2 + cw / 2 + 6 * s),
+                    c.dy > stage.box.top + 700 * s && c.dy < stage.box.top + 900 * s ? -62 * s : 12 * s,
+                  ),
               cw,
               ch,
               Transform.translate(
@@ -296,7 +313,13 @@ class VoteScene extends GameScene {
                                   ),
                                   child: Text(
                                     weight(id) == 2 ? 'صوتين' : '×${arabicNumber(weight(id))}',
-                                    style: const TextStyle(fontFamily: kufi, color: AppColors.goldLight, fontWeight: FontWeight.w800, fontSize: 12.5, height: 1.3),
+                                    style: const TextStyle(
+                                      fontFamily: kufi,
+                                      color: AppColors.goldLight,
+                                      fontWeight: FontWeight.w800,
+                                      fontSize: 12.5,
+                                      height: 1.3,
+                                    ),
                                   ),
                                 ),
                               ),
@@ -440,7 +463,8 @@ class EnactScene extends GameScene {
     return Stack(
       clipBehavior: Clip.none,
       children: [
-        if (t > 1.3 && t < 2.1) Positioned.fill(child: CustomPaint(painter: _BurstPainter(end, seg(t, 1.3, 2.1), !loyal))),
+        if (t > 1.3 && t < 2.1)
+          Positioned.fill(child: CustomPaint(painter: _BurstPainter(end, seg(t, 1.3, 2.1), !loyal))),
         _at(
           pos,
           cardW,
@@ -452,8 +476,17 @@ class EnactScene extends GameScene {
               scaleY: .3 + .7 * fly - squash,
               child: _Flip(
                 angle: (1 - flip) * math.pi,
-                front: PolicyCard(policy: loyal ? Policy.loyal : Policy.traitor, skin: skin, width: cardW, stamp: stamp),
-                back: GameCardFace(kind: GameCardKind.draw, width: cardW, colors: classic ? null : (skin!.border!, skin!.loyal.first, skin!.loyal.last)),
+                front: PolicyCard(
+                  policy: loyal ? Policy.loyal : Policy.traitor,
+                  skin: skin,
+                  width: cardW,
+                  stamp: stamp,
+                ),
+                back: GameCardFace(
+                  kind: GameCardKind.draw,
+                  width: cardW,
+                  colors: classic ? null : (skin!.border!, skin!.loyal.first, skin!.loyal.last),
+                ),
               ),
             ),
           ),
@@ -815,7 +848,7 @@ class UnmaskScene extends GameScene {
     final perRow = (n / rows).ceil();
     final cell = math.min(118.0, (size.width - 40) / perRow);
     final av = math.min(84.0, cell * .72);
-    final rowH = av + 62;
+    final rowH = av + 70;
     final top = size.height / 2 - rows * rowH / 2 + (rows == 1 ? 20 : 34);
     final win = seg(t, _winAt, _winAt + .6, Curves.easeOutBack);
     final players = [...view.players]..sort((a, b) => a.seat.compareTo(b.seat));
@@ -953,7 +986,7 @@ class _Unmask extends StatelessWidget {
             ],
           ),
         ),
-        const SizedBox(height: 4),
+        const SizedBox(height: 10),
         NamePill(name, size: 14, color: shown ? light : const Color(0xFFFFF6E6)),
         Opacity(
           opacity: seg(off, .3, 1),
