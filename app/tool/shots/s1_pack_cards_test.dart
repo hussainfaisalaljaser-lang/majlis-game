@@ -116,7 +116,7 @@ void main() {
       await shotHi(tester, 'shop_stickers_$s', const ShopScreen(initialTab: ShopScreen.stickersTab), size: size);
     });
     _t('wardrobe stickers $s', _player, (tester) async {
-      await shotHi(tester, 'wardrobe_stickers_$s', const WardrobeScreen(initialTab: 3), size: size);
+      await shotHi(tester, 'wardrobe_stickers_$s', const WardrobeScreen(initialTab: 6), size: size);
     });
   }
 
@@ -130,7 +130,7 @@ void main() {
     );
   });
   _t('wardrobe stickers rich', _rich, (tester) async {
-    await shotHi(tester, 'wardrobe_stickers_rich', const WardrobeScreen(initialTab: 3), size: const Size(960, 900));
+    await shotHi(tester, 'wardrobe_stickers_rich', const WardrobeScreen(initialTab: 6), size: const Size(960, 900));
   });
   _t('shop stickers rich', _rich, (tester) async {
     await shotHi(

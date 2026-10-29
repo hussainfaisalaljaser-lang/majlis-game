@@ -236,13 +236,13 @@ void main() {
 
   // المتجر وغرفة التبديل (تبويب الفقاعات)
   testWidgets('shop bubbles', (tester) async {
-    await shot(tester, 'shop_bubbles', const ShopScreen(initialTab: 2));
+    await shot(tester, 'shop_bubbles', const ShopScreen(initialTab: ShopScreen.bubblesTab));
   });
   testWidgets('shop bubbles phone', (tester) async {
-    await shot(tester, 'shop_bubbles_phone', const ShopScreen(initialTab: 2), size: const Size(700, 320));
+    await shot(tester, 'shop_bubbles_phone', const ShopScreen(initialTab: ShopScreen.bubblesTab), size: const Size(700, 320));
   });
   testWidgets('wardrobe bubbles', (tester) async {
-    await shot(tester, 'wardrobe_bubbles', const WardrobeScreen(initialTab: 2));
+    await shot(tester, 'wardrobe_bubbles', const WardrobeScreen(initialTab: 5));
   });
 
   // فقاعة بالطاولة فوق لاعب (مثل اللعبة: كلام كبير شوي)

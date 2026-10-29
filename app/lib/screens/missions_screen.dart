@@ -11,6 +11,7 @@ import '../widgets/common.dart';
 import '../widgets/design.dart';
 import '../widgets/design_season.dart';
 import '../widgets/ui.dart';
+import '../widgets/weekend.dart';
 
 /// المهام: اليومية (ذهب ونقاط باتل باس، تتجدد كل يوم)، والأسبوعية (تتجدد كل أحد)، ومهام الموسم (لين نهاية
 /// الباتل باس). الأسبوعية والموسم تعطي نقاط باتل باس.
@@ -127,7 +128,7 @@ class MissionsView extends StatelessWidget {
     final left = season.end.difference(DateTime.now()).inDays;
     final (String note, List<MissionRow> rows) = switch (tab) {
       0 => (
-        'كل مهمة تعطي ذهب و${arabicNumber(missionPassPoints)} نقطة باتل باس · تتجدد كل يوم الساعة ١٢ بالليل',
+        'كل مهمة تعطي ذهب و${arabicNumber(missionPassPoints)} نقطة باتل باس · تتجدد كل يوم الساعة ١٢ منتصف الليل',
         [
           for (final m in missionDefs)
             MissionRow(
@@ -145,7 +146,7 @@ class MissionsView extends StatelessWidget {
       ),
       _ => (
         tab == 1
-            ? 'نقاط باتل باس · تتجدد كل أحد الساعة ١٢ بالليل'
+            ? 'نقاط باتل باس · تتجدد كل أحد الساعة ١٢ منتصف الليل'
             : 'نقاط باتل باس · لين نهاية الموسم (باقي ${arabicNumber(left.clamp(0, 999))} يوم)',
         [
           for (final m in tab == 1 ? weeklyMissions : seasonMissions)
@@ -199,7 +200,9 @@ class MissionsView extends StatelessWidget {
                               height: 36,
                             ),
                           ),
-                          const SizedBox(height: 10),
+                          const SizedBox(height: 8),
+                          _ResetChip(tab: tab),
+                          const SizedBox(height: 8),
                           Expanded(child: _MissionGrid(rows: rows)),
                         ],
                       ),
@@ -218,6 +221,50 @@ class MissionsView extends StatelessWidget {
       ),
     );
   }
+}
+
+/// وقت التجديد: اليومية كل يوم ١٢ منتصف الليل (بتوقيت الخليج)، والأسبوعية كل أحد، والموسم لين ينتهي.
+/// العداد يتحدث كل دقيقة.
+class _ResetChip extends StatelessWidget {
+  const _ResetChip({required this.tab});
+
+  final int tab;
+
+  @override
+  Widget build(BuildContext context) => MinuteTicker(
+    builder: (context, now) {
+      final g = now.toUtc().add(const Duration(hours: 3));
+      final Duration left;
+      switch (tab) {
+        case 0:
+          left = DateTime.utc(g.year, g.month, g.day + 1).difference(g);
+        case 1:
+          // الأسبوع يبدأ الأحد (نفس قاعدة السيرفر)
+          left = DateTime.utc(g.year, g.month, g.day + (g.weekday == DateTime.sunday ? 7 : 7 - g.weekday)).difference(g);
+        default:
+          left = season.end.difference(now);
+      }
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(20),
+          color: Colors.black.withValues(alpha: .3),
+          border: Border.all(color: const Color(0xFFE8B54E).withValues(alpha: .55)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Gfx('hourglass', size: 18),
+            const SizedBox(width: 6),
+            Text(
+              tab == 2 ? 'ينتهي الموسم بعد ${timeLeft(left)}' : 'تتجدد بعد ${timeLeft(left)}',
+              style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w800, color: Color(0xFFF6E2BC)),
+            ),
+          ],
+        ),
+      );
+    },
+  );
 }
 
 /// لوحة المخمل (يسار): أيقونة المهام وأشعة، وعنوان التبويب وملاحظته، وكم خلصت.

@@ -20,13 +20,13 @@ import 'shop_screen.dart';
 
 /// أقسام غرفة التبديل (بنفس ترتيب المتجر)، ورقم تبويبها في المتجر (لزر «المزيد من المتجر»).
 const _tabs = [
-  (icon: 'frame', name: 'الإطارات', slot: ShopSlot.frame, shop: 0),
   (icon: 'avatar', name: 'الشخصيات', slot: ShopSlot.avatar, shop: ShopScreen.avatarsTab),
-  (icon: 'bubble', name: 'الفقاعات', slot: ShopSlot.bubble, shop: 2),
-  (icon: 'sticker', name: 'الملصقات', slot: ShopSlot.reactions, shop: ShopScreen.stickersTab),
-  (icon: 'table', name: 'الطاولات', slot: ShopSlot.table, shop: 4),
-  (icon: 'cards', name: 'الكروت', slot: ShopSlot.cards, shop: 5),
+  (icon: 'frame', name: 'الإطارات', slot: ShopSlot.frame, shop: ShopScreen.framesTab),
   (icon: 'death', name: 'الطرد', slot: ShopSlot.death, shop: ShopScreen.deathsTab),
+  (icon: 'cards', name: 'الأوراق', slot: ShopSlot.cards, shop: ShopScreen.cardsTab),
+  (icon: 'table', name: 'الطاولات', slot: ShopSlot.table, shop: ShopScreen.tablesTab),
+  (icon: 'bubble', name: 'الفقاعات', slot: ShopSlot.bubble, shop: ShopScreen.bubblesTab),
+  (icon: 'sticker', name: 'الملصقات', slot: ShopSlot.reactions, shop: ShopScreen.stickersTab),
 ];
 
 /// غرفة التبديل: كل اللي تملكه بمكان واحد (الإطارات، الشخصيات، الفقاعات، الملصقات، الطاولات، الكروت، تأثير الموت)،

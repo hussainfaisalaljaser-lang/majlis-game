@@ -23,12 +23,14 @@ class ClanCrest extends StatelessWidget {
       height: size,
       child: Align(
         alignment: const Alignment(0, -.12),
-        child: PlayerAvatar(avatar: emblem, size: size * .5, animate: false),
+        child: PlayerAvatar(avatar: emblem, size: size * .46, animate: false),
       ),
     ),
   );
 }
 
+/// درع بقوس مجلس: رأس مدبب مثل المحراب، وحافة ذهبية، وجسم بلون الديوان بخطوط قماش خفيفة، وهلال صغير فوق.
+/// الشعار (الشخصية) في ميدالية ذهبية بالنص.
 class _ShieldPainter extends CustomPainter {
   _ShieldPainter(this.color);
 
@@ -37,22 +39,24 @@ class _ShieldPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final w = size.width, h = size.height;
-    final shield = Path()
-      ..moveTo(w * .5, 0)
-      ..lineTo(w * .96, h * .12)
-      ..lineTo(w * .92, h * .58)
-      ..quadraticBezierTo(w * .8, h * .86, w * .5, h)
-      ..quadraticBezierTo(w * .2, h * .86, w * .08, h * .58)
-      ..lineTo(w * .04, h * .12)
-      ..close();
-    // حافة ذهب، وفوقها وجه الدرع بلون الديوان، وحد بني غامق مثل رسم التصميم.
-    final inner = shield.transform(
-      (Matrix4.identity()
-            ..translateByDouble(w * .5, h * .5, 0, 1)
-            ..scaleByDouble(.8, .8, 1, 1)
-            ..translateByDouble(-w * .5, -h * .5, 0, 1))
-          .storage,
-    );
+    Path arch(double s) {
+      final cx = w * .5, cy = h * .52;
+      final k = s;
+      double x(double v) => cx + (v - cx) * k;
+      double y(double v) => cy + (v - cy) * k;
+      return Path()
+        ..moveTo(x(w * .5), y(h * .03))
+        ..quadraticBezierTo(x(w * .93), y(h * .1), x(w * .93), y(h * .36))
+        ..lineTo(x(w * .93), y(h * .6))
+        ..quadraticBezierTo(x(w * .8), y(h * .86), x(w * .5), y(h))
+        ..quadraticBezierTo(x(w * .2), y(h * .86), x(w * .07), y(h * .6))
+        ..lineTo(x(w * .07), y(h * .36))
+        ..quadraticBezierTo(x(w * .07), y(h * .1), x(w * .5), y(h * .03))
+        ..close();
+    }
+
+    final shield = arch(1);
+    final inner = arch(.8);
     canvas.drawPath(
       shield,
       Paint()
@@ -68,18 +72,46 @@ class _ShieldPainter extends CustomPainter {
         ..shader = LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: [Color.lerp(color, Colors.white, .3)!, color, Color.lerp(color, Colors.black, .4)!],
+          colors: [Color.lerp(color, Colors.white, .3)!, color, Color.lerp(color, Colors.black, .45)!],
           stops: const [0, .45, 1],
         ).createShader(Offset.zero & size),
     );
-    // لمعة بالنص الفوقاني
     canvas.save();
     canvas.clipPath(inner);
-    canvas.drawOval(
-      Rect.fromLTWH(w * .1, -h * .22, w * .8, h * .5),
-      Paint()..color = Colors.white.withValues(alpha: .2),
-    );
+    // خطوط قماش مائلة خفيفة
+    final line = Paint()
+      ..strokeWidth = (w * .05).clamp(1.0, 3.0)
+      ..color = Colors.white.withValues(alpha: .09);
+    for (var i = -4; i < 12; i++) {
+      final x0 = i * w * .16;
+      canvas.drawLine(Offset(x0, 0), Offset(x0 + w * .5, h), line);
+    }
+    // لمعة فوق
+    canvas.drawOval(Rect.fromLTWH(w * .1, -h * .22, w * .8, h * .5), Paint()..color = Colors.white.withValues(alpha: .18));
     canvas.restore();
+    // ميدالية ذهبية حول الشعار
+    final c = Offset(w * .5, h * .44);
+    final r = w * .3;
+    canvas.drawCircle(c, r, Paint()..color = const Color(0xFF1A0E07).withValues(alpha: .55));
+    canvas.drawCircle(
+      c,
+      r,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = (w * .06).clamp(1.5, 4.0)
+        ..color = const Color(0xFFF2C75A),
+    );
+    // هلال صغير على رأس الدرع
+    final mc = Offset(w * .5, h * .03);
+    final mr = w * .1;
+    canvas.drawPath(
+      Path.combine(
+        PathOperation.difference,
+        Path()..addOval(Rect.fromCircle(center: mc, radius: mr)),
+        Path()..addOval(Rect.fromCircle(center: mc + Offset(mr * .45, -mr * .2), radius: mr * .85)),
+      ),
+      Paint()..color = const Color(0xFFFFE9A0),
+    );
     final edge = Paint()
       ..style = PaintingStyle.stroke
       ..strokeJoin = StrokeJoin.round

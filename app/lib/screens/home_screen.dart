@@ -343,7 +343,7 @@ class _Header extends StatelessWidget {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     _TopIcon(
-                      icon: const ScrollIcon(size: 28),
+                      icon: const Gfx('missions', size: 30),
                       // اليومية والأسبوعية والموسم كلها تنحسب في الرقم.
                       label: 'المهام',
                       count: p.claimableMissions + p.claimablePassMissions,

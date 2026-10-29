@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../models/profile.dart';
@@ -740,6 +741,7 @@ class ShopCatIcon extends StatelessWidget {
   @override
   Widget build(BuildContext context) => switch (id) {
     'avatar' => Image.asset('assets/avatars/emir.webp', width: size, height: size, fit: BoxFit.contain),
+    'offers' => Gfx('gift', size: size),
     'death' => Gfx('skull', size: size),
     'ids' => Gfx('idcard', size: size),
     'gems' => Gfx('gems', size: size),
@@ -991,12 +993,16 @@ class ShopCardFrame extends StatelessWidget {
     this.selected = false,
     this.radius = 14,
     this.wide = false,
+    this.rarity,
   });
 
   final Widget child;
 
   /// رق عريض (للكروت الطويلة مثل باقات الملصقات).
   final bool wide;
+
+  /// ندرة الغرض: لكل ندرة خلفية (النادر جليد، الملحمي بنفسجي بأشعة، الأسطوري ذهب يلمع). العادي رق. null = رق.
+  final Rarity? rarity;
 
   /// خلفية مخمل (للإطارات الغامقة اللي ما تبان على الرق).
   final bool dark;
@@ -1025,13 +1031,18 @@ class ShopCardFrame extends StatelessWidget {
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(radius),
               color: dark ? const Color(0xFF45131E) : AppColors.parchmentDark,
-              image: DecorationImage(
-                image: AssetImage(
-                  dark ? DesignAssets.velvet : (wide ? DesignAssets.parchmentWide : DesignAssets.parchment),
-                ),
-                fit: dark ? BoxFit.cover : BoxFit.fill,
+              image: _plain
+                  ? DecorationImage(
+                      image: AssetImage(
+                        dark ? DesignAssets.velvet : (wide ? DesignAssets.parchmentWide : DesignAssets.parchment),
+                      ),
+                      fit: dark ? BoxFit.cover : BoxFit.fill,
+                    )
+                  : null,
+              border: Border.all(
+                color: dark ? const Color(0xFF2A0B12) : (_plain ? const Color(0xFF4E331F) : rarity!.color.withValues(alpha: .75)),
+                width: 1.5,
               ),
-              border: Border.all(color: dark ? const Color(0xFF2A0B12) : const Color(0xFF4E331F), width: 1.5),
             ),
             child: ClipRRect(
               borderRadius: BorderRadius.circular(radius),
@@ -1049,7 +1060,7 @@ class ShopCardFrame extends StatelessWidget {
                     stops: const [0, .62, 1],
                   ),
                 ),
-                child: child,
+                child: _plain ? child : Stack(fit: StackFit.expand, children: [RarityBackdrop(rarity!), child]),
               ),
             ),
           ),
@@ -1057,6 +1068,112 @@ class ShopCardFrame extends StatelessWidget {
       ),
     ),
   );
+
+  /// رق عادي (العادي، أو الغامق، أو بدون ندرة)؟
+  bool get _plain => dark || rarity == null || rarity == Rarity.common;
+}
+
+/// خلفية الكرت حسب ندرته: نادر جليد أزرق بلمعات، ملحمي بنفسجي بأشعة، أسطوري ذهب بأشعة ولمعة تمر.
+/// ألوانها فاتحة عشان رسمات الأغراض (المصممة على الرق) تبقى واضحة.
+class RarityBackdrop extends StatelessWidget {
+  const RarityBackdrop(this.rarity, {super.key});
+
+  final Rarity rarity;
+
+  @override
+  Widget build(BuildContext context) {
+    final (top, bottom) = switch (rarity) {
+      Rarity.rare => (const Color(0xFFE4F4FF), const Color(0xFF9CCBF0)),
+      Rarity.epic => (const Color(0xFFF0E2FF), const Color(0xFFB690EA)),
+      _ => (const Color(0xFFFFF6C8), const Color(0xFFF1BD45)),
+    };
+    final art = CustomPaint(painter: _RarityArtPainter(rarity, null), size: Size.infinite);
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [top, bottom]),
+      ),
+      // الأسطوري: لمعة تمر ببطء. الباقي ثابت (كروت كثيرة بالشاشة، فنوفّر).
+      child: rarity == Rarity.legendary
+          ? RepaintBoundary(
+              child: FxClock(builder: (context, time) => CustomPaint(painter: _RarityArtPainter(rarity, time))),
+            )
+          : art,
+    );
+  }
+}
+
+class _RarityArtPainter extends CustomPainter {
+  _RarityArtPainter(this.rarity, this.time) : super(repaint: time);
+
+  final Rarity rarity;
+  final ValueListenable<double>? time;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final w = size.width, h = size.height;
+    final t = time?.value ?? 0.0;
+    final c = Offset(w / 2, h * .42);
+    if (rarity == Rarity.rare) {
+      // لمعات ثلج صغيرة
+      final p = Paint();
+      for (var i = 0; i < 16; i++) {
+        final x = rnd(i, 1) * w, y = rnd(i, 2) * h;
+        p.color = Colors.white.withValues(alpha: .55 + .35 * rnd(i, 3));
+        canvas.drawCircle(Offset(x, y), .8 + rnd(i, 4) * 1.6, p);
+        if (i % 5 == 0) {
+          p
+            ..strokeWidth = .9
+            ..color = Colors.white.withValues(alpha: .8);
+          canvas.drawLine(Offset(x - 4, y), Offset(x + 4, y), p);
+          canvas.drawLine(Offset(x, y - 4), Offset(x, y + 4), p);
+        }
+      }
+      return;
+    }
+    // أشعة من ورا الرسمة
+    final rays = Path();
+    const n = 14;
+    final r = math.max(w, h);
+    for (var i = 0; i < n; i++) {
+      final a = (rarity == Rarity.legendary ? t * .08 : 0) + i * 2 * math.pi / n;
+      rays
+        ..moveTo(c.dx, c.dy)
+        ..lineTo(c.dx + math.cos(a - .09) * r, c.dy + math.sin(a - .09) * r)
+        ..lineTo(c.dx + math.cos(a + .09) * r, c.dy + math.sin(a + .09) * r)
+        ..close();
+    }
+    canvas.drawPath(
+      rays,
+      Paint()..color = (rarity == Rarity.legendary ? Colors.white : const Color(0xFFFFFFFF)).withValues(alpha: rarity == Rarity.legendary ? .3 : .2),
+    );
+    canvas.drawCircle(
+      c,
+      w * .55,
+      Paint()
+        ..shader = RadialGradient(
+          colors: [Colors.white.withValues(alpha: rarity == Rarity.legendary ? .6 : .4), Colors.white.withValues(alpha: 0)],
+        ).createShader(Rect.fromCircle(center: c, radius: w * .55)),
+    );
+    if (rarity == Rarity.legendary) {
+      // لمعة مائلة تمر كل ٥ ثواني
+      final sp = (t % 5) / 1.4;
+      if (sp < 1) {
+        final x = -w * .3 + (w * 1.6) * sp;
+        canvas.drawPath(
+          Path()
+            ..moveTo(x, 0)
+            ..lineTo(x + w * .18, 0)
+            ..lineTo(x - w * .1, h)
+            ..lineTo(x - w * .28, h)
+            ..close(),
+          Paint()..color = Colors.white.withValues(alpha: .35 * math.sin(math.pi * sp)),
+        );
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(_RarityArtPainter old) => old.rarity != rarity;
 }
 
 /// كرت غرض: درجته فوق اليمين، وعين المعاينة فوق اليسار، والرسمة بالنص، واسمه، وزره تحت.
@@ -1106,6 +1223,7 @@ class ShopItemCard extends StatelessWidget {
             child: ShopCardFrame(
               dark: dark,
               selected: selected,
+              rarity: rarity,
               child: Stack(
                 children: [
                   Positioned(

@@ -19,17 +19,18 @@ import '../widgets/pid.dart';
 import '../widgets/ui.dart';
 import 'wardrobe_screen.dart';
 
-/// أقسام المتجر: الأيقونة والاسم ونوع الأغراض.
+/// أقسام المتجر بالترتيب: العروض، الشخصيات، الإطارات، الطرد، الأوراق، الطاولات، الفقاعات، الملصقات، الرموز، المجوهرات.
 const _sections = [
-  (icon: 'frame', name: 'الإطارات', slot: ShopSlot.frame),
+  (icon: 'offers', name: 'العروض', slot: null),
   (icon: 'avatar', name: 'الشخصيات', slot: ShopSlot.avatar),
+  (icon: 'frame', name: 'الإطارات', slot: ShopSlot.frame),
+  (icon: 'death', name: 'الطرد', slot: ShopSlot.death),
+  (icon: 'cards', name: 'الأوراق', slot: ShopSlot.cards),
+  (icon: 'table', name: 'الطاولات', slot: ShopSlot.table),
   (icon: 'bubble', name: 'الفقاعات', slot: ShopSlot.bubble),
   (icon: 'sticker', name: 'الملصقات', slot: ShopSlot.reactions),
-  (icon: 'table', name: 'الطاولات', slot: ShopSlot.table),
-  (icon: 'cards', name: 'الكروت', slot: ShopSlot.cards),
-  (icon: 'death', name: 'الطرد', slot: ShopSlot.death),
   (icon: 'ids', name: 'الرموز', slot: null),
-  (icon: 'gems', name: 'الجواهر', slot: null),
+  (icon: 'gems', name: 'المجوهرات', slot: null),
 ];
 
 /// أيقونة القسم لكل نوع غرض (للتنبيهات).
@@ -56,11 +57,16 @@ class ShopScreen extends StatefulWidget {
   /// غرض عرض اليوم بدال اللي يختاره اليوم (للعرض بس).
   final ShopItem? featuredItem;
 
+  static const offersTab = 0;
   static const avatarsTab = 1;
-  static const stickersTab = 3;
-  static const deathsTab = 6;
-  static const idsTab = 7;
-  static const diamondsTab = 8;
+  static const framesTab = 2;
+  static const deathsTab = 3;
+  static const cardsTab = 4;
+  static const tablesTab = 5;
+  static const bubblesTab = 6;
+  static const stickersTab = 7;
+  static const idsTab = 8;
+  static const diamondsTab = 9;
 
   @override
   State<ShopScreen> createState() => _ShopScreenState();
@@ -178,11 +184,11 @@ class _ShopScreenState extends State<ShopScreen> {
                                   duration: const Duration(milliseconds: 220),
                                   child: _tab == ShopScreen.idsTab
                                       ? const _PremiumIdsSection(key: ValueKey('ids'))
-                                      : section.slot == null
+                                      : _tab == ShopScreen.diamondsTab
                                       ? const _DiamondPacks(key: ValueKey('gems'))
                                       : _ItemsGrid(
-                                          key: ValueKey(section.slot),
-                                          slot: section.slot!,
+                                          key: ValueKey(section.slot ?? 'offers'),
+                                          slot: section.slot,
                                           busy: _busy,
                                           onAct: _act,
                                         ),
@@ -281,18 +287,30 @@ Widget _shopCard(BuildContext context, ShopItem item, Profile p, {required Strin
 class _ItemsGrid extends StatelessWidget {
   const _ItemsGrid({super.key, required this.slot, required this.busy, required this.onAct});
 
-  final ShopSlot slot;
+  /// null = قسم العروض: أبرز الأغراض اللي تنشرى (الأسطوري والملحمي والنادر، بهالترتيب).
+  final ShopSlot? slot;
   final String? busy;
   final Future<void> Function(ShopItem item, Profile p) onAct;
 
   @override
   Widget build(BuildContext context) {
-    final items = [
-      for (final i in catalog)
-        if (i.slot == slot) i,
-    ];
-    // اللي ينشرى أول، وبعده هدايا المستويات والموسم والأبطال.
-    items.sort((a, b) => (a.buyable || a.isDefault ? 0 : 1).compareTo(b.buyable || b.isDefault ? 0 : 1));
+    final offers = slot == null;
+    final items = offers
+        ? [
+            for (final i in catalog)
+              if (i.buyable && i.slot != ShopSlot.reactions && i.slot != ShopSlot.table && i.rarity != Rarity.common) i,
+          ]
+        : [
+            for (final i in catalog)
+              if (i.slot == slot) i,
+          ];
+    if (offers) {
+      // الأندر أول
+      items.sort((a, b) => b.rarity.index.compareTo(a.rarity.index));
+    } else {
+      // اللي ينشرى أول، وبعده هدايا المستويات والموسم والأبطال.
+      items.sort((a, b) => (a.buyable || a.isDefault ? 0 : 1).compareTo(b.buyable || b.isDefault ? 0 : 1));
+    }
     final wide = slot == ShopSlot.table;
     final packs = slot == ShopSlot.reactions;
     return ValueListenableBuilder(

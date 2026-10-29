@@ -12,6 +12,7 @@ import '../theme.dart';
 import '../widgets/common.dart';
 import '../widgets/design.dart';
 import '../widgets/design_season.dart';
+import '../widgets/fx.dart';
 import '../widgets/item_preview.dart';
 import '../widgets/ui.dart';
 import 'missions_screen.dart';
@@ -288,27 +289,16 @@ class _SeasonViewState extends State<SeasonView> {
         top: false,
         child: LayoutBuilder(
           builder: (context, box) {
-            final leftW = (box.maxWidth * .273).clamp(184.0, 272.0);
             return Padding(
               padding: const EdgeInsets.fromLTRB(8, 4, 8, 8),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: _Board(
-                      profile: p,
-                      busy: widget.busy,
-                      controller: _scroll,
-                      onPlace: _place,
-                      onClaim: widget.onClaim,
-                      onDailyMissions: widget.onDailyMissions,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  SizedBox(
-                    width: leftW,
-                    child: _GoldPassPanel(pass: p.pass, dev: p.dev, busy: widget.busy, onBuy: widget.onBuy),
-                  ),
-                ],
+              child: _Board(
+                profile: p,
+                busy: widget.busy,
+                controller: _scroll,
+                onPlace: _place,
+                onClaim: widget.onClaim,
+                onBuy: widget.onBuy,
+                onDailyMissions: widget.onDailyMissions,
               ),
             );
           },
@@ -318,120 +308,19 @@ class _SeasonViewState extends State<SeasonView> {
   }
 }
 
-/// لوحة المسار الذهبي (يسار): صندوق وأشعة، وميزاته، وزر الفتح.
-class _GoldPassPanel extends StatelessWidget {
-  const _GoldPassPanel({required this.pass, required this.dev, required this.busy, required this.onBuy});
+/// نبض خفيف (يكبر ويصغر شوي) للشي اللي نبيه يلفت النظر. مع «حركات خفيفة» يوقف.
+class _Breathe extends StatelessWidget {
+  const _Breathe({required this.child, this.amount = .035});
 
-  final PassState pass;
-  final bool dev;
-  final bool busy;
-  final VoidCallback onBuy;
+  final Widget child;
+  final double amount;
 
   @override
-  Widget build(BuildContext context) => LayoutBuilder(
-    builder: (context, box) {
-      final k = (box.maxHeight / 477).clamp(.55, 1.0);
-      final w = box.maxWidth;
-      final owned = pass.premium;
-      final complete = pass.tier >= season.tiers;
-      Widget bullet(String text) => Padding(
-        padding: EdgeInsets.only(bottom: 12.5 * k),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Gfx('check', size: 20 * k),
-            SizedBox(width: 7 * k),
-            Flexible(
-              child: OutlinedText(
-                text,
-                size: math.max(11, 15.5 * k),
-                maxLines: 1,
-                stroke: const Color(0xFF260A10),
-                strokeWidth: 2.6,
-                shadow: false,
-                align: TextAlign.start,
-              ),
-            ),
-          ],
-        ),
-      );
-      return VelvetPanel(
-        padding: EdgeInsets.zero,
-        child: Stack(
-          children: [
-            const Positioned.fill(child: SnSunburst(alignment: Alignment(0, -.44))),
-            Padding(
-              padding: EdgeInsets.fromLTRB(math.max(14.0, w * .09), 14 * k, math.max(14.0, w * .09), 16 * k),
-              child: Column(
-                children: [
-                  Expanded(
-                    child: Align(
-                      alignment: const Alignment(0, .3),
-                      child: SnChest(size: 92 * k),
-                    ),
-                  ),
-                  GoldTitle('المسار الذهبي', size: math.max(17, 25 * k)),
-                  SizedBox(height: 6 * k),
-                  Align(
-                    alignment: AlignmentDirectional.centerStart,
-                    child: Padding(
-                      padding: EdgeInsetsDirectional.only(start: 4 * k),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          bullet('إطارات وشخصيات حصرية'),
-                          bullet('ضعف الذهب من الجوائز'),
-                          bullet('ملصقات ما تنباع'),
-                        ],
-                      ),
-                    ),
-                  ),
-                  SizedBox(height: 14 * k),
-                  if (complete && owned)
-                    Padding(
-                      padding: EdgeInsets.only(bottom: 6 * k),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Gfx('check', size: 22 * k),
-                          SizedBox(width: 6 * k),
-                          Flexible(
-                            child: OutlinedText(
-                              'عندك الباتل باس كامل',
-                              size: math.max(12, 15 * k),
-                              color: const Color(0xFFB6F08C),
-                              maxLines: 1,
-                            ),
-                          ),
-                        ],
-                      ),
-                    )
-                  else ...[
-                    OutlinedText(
-                      owned ? 'مسارك الذهبي مفتوح' : 'افتح المسار الذهبي',
-                      size: math.max(12.5, 17 * k),
-                      stroke: const Color(0xFF260A10),
-                      maxLines: 1,
-                    ),
-                    SizedBox(height: 9 * k),
-                    SnButton(
-                      label: owned ? 'كمّل كل الدرجات' : (dev ? 'ببلاش' : arabicNumber(season.price)),
-                      semantics: owned ? 'كمّل كل الدرجات' : 'اشترِ الباتل باس',
-                      icon: owned && !dev ? null : Gfx('gem', size: 28 * k),
-                      tone: owned ? SnTone.blue : SnTone.orange,
-                      height: 54 * k,
-                      fontSize: owned ? math.max(14, 18 * k) : math.max(16, 30 * k),
-                      onPressed: busy || !season.active ? null : onBuy,
-                    ),
-                  ],
-                ],
-              ),
-            ),
-          ],
-        ),
-      );
-    },
+  Widget build(BuildContext context) => FxClock(
+    builder: (context, time) => ValueListenableBuilder<double>(
+      valueListenable: time,
+      builder: (context, t, _) => Transform.scale(scale: 1 + amount * math.sin(t * 2.4), child: child),
+    ),
   );
 }
 
@@ -471,6 +360,7 @@ class _Board extends StatelessWidget {
     required this.controller,
     required this.onPlace,
     required this.onClaim,
+    required this.onBuy,
     required this.onDailyMissions,
   });
 
@@ -479,6 +369,7 @@ class _Board extends StatelessWidget {
   final ScrollController controller;
   final void Function(double pitch) onPlace;
   final VoidCallback onClaim;
+  final VoidCallback onBuy;
   final VoidCallback onDailyMissions;
 
   @override
@@ -510,7 +401,7 @@ class _Board extends StatelessWidget {
           );
           return Column(
             children: [
-              _Header(state: s, busy: busy, onClaim: onClaim, d: d),
+              _Header(state: s, dev: profile.dev, busy: busy, onClaim: onClaim, onBuy: onBuy, d: d),
               const Spacer(flex: 3),
               SizedBox(
                 height: th * 2 + ropeH,
@@ -544,11 +435,20 @@ class _Board extends StatelessWidget {
 
 /// أعلى اللوح: «الدرجة ٧ من ٣٠» وشريط نقاطك، و«استلم الكل».
 class _Header extends StatelessWidget {
-  const _Header({required this.state, required this.busy, required this.onClaim, required this.d});
+  const _Header({
+    required this.state,
+    required this.dev,
+    required this.busy,
+    required this.onClaim,
+    required this.onBuy,
+    required this.d,
+  });
 
   final PassState state;
+  final bool dev;
   final bool busy;
   final VoidCallback onClaim;
+  final VoidCallback onBuy;
   final _Dims d;
 
   @override
@@ -611,7 +511,11 @@ class _Header extends StatelessWidget {
                   if (hint) ...[
                     SizedBox(height: 2 * k),
                     Text(
-                      done ? 'خلصت كل الدرجات!' : 'كل لعبة +٢٠ نقطة، والفوز +٣٠، والمهام نقاط أكثر',
+                      done
+                          ? 'خلصت كل الدرجات!'
+                          : state.premium
+                          ? 'كل لعبة +٢٠ نقطة، والفوز +٣٠، والمهام نقاط أكثر'
+                          : 'الذهبي: إطارات وشخصيات حصرية، وضعف الذهب من الجوائز، وملصقات ما تنباع',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(color: AppColors.muted, fontSize: math.max(9.5, 11 * k)),
@@ -621,6 +525,24 @@ class _Header extends StatelessWidget {
               ),
             ),
             SizedBox(width: 10 * k),
+            // فتح المسار الذهبي (أو إكمال كل الدرجات): ينبض بشويش عشان يلفت
+            if (!(done && state.premium)) ...[
+              SizedBox(
+                width: math.max(130.0, 170 * k),
+                child: _Breathe(
+                  child: SnButton(
+                    label: state.premium ? 'كمّل كل الدرجات' : (dev ? 'افتح الذهبي' : 'افتح الذهبي ${arabicNumber(season.price)}'),
+                    semantics: state.premium ? 'كمّل كل الدرجات' : 'افتح المسار الذهبي',
+                    icon: state.premium || dev ? null : Gfx('gem', size: 20 * k),
+                    tone: state.premium ? SnTone.blue : SnTone.orange,
+                    height: math.max(26.0, 32 * k),
+                    fontSize: math.max(11.5, 14.5 * k),
+                    onPressed: busy || !season.active ? null : onBuy,
+                  ),
+                ),
+              ),
+              SizedBox(width: 8 * k),
+            ],
             SizedBox(
               width: math.max(96.0, 116 * k),
               child: SnButton(
@@ -690,7 +612,9 @@ class _TierColumn extends StatelessWidget {
                 left: 0,
                 right: 0,
                 child: Center(
-                  child: SnLevelNode(level: tier, reached: reached, current: tier == cur, size: node),
+                  child: tier == cur
+                      ? _Breathe(amount: .09, child: SnLevelNode(level: tier, reached: reached, current: true, size: node))
+                      : SnLevelNode(level: tier, reached: reached, current: false, size: node),
                 ),
               ),
             ],

@@ -144,7 +144,7 @@ void main() {
   });
   tearDown(() => FxClock.manual.value = null);
 
-  const tabs = ['frames', 'avatars', 'bubbles', 'stickers', 'tables', 'cards', 'death', 'ids', 'gems'];
+  const tabs = ['offers', 'avatars', 'frames', 'death', 'cards', 'tables', 'bubbles', 'stickers', 'ids', 'gems'];
   for (final (i, name) in tabs.indexed) {
     _t('shop $name', (tester) async {
       await shotHi(
@@ -156,7 +156,7 @@ void main() {
   }
 
   // الشبكة كاملة بشاشة طويلة (عشان نشوف كل الكروت بما فيها المقفولة)
-  for (final (i, name) in tabs.indexed.take(7)) {
+  for (final (i, name) in tabs.indexed.take(8)) {
     _t('shop tall $name', (tester) async {
       await shotHi(
         tester,
@@ -212,7 +212,7 @@ void main() {
     );
   });
 
-  for (final (i, name) in ['frames', 'avatars', 'bubbles', 'stickers', 'tables', 'cards', 'death'].indexed) {
+  for (final (i, name) in ['avatars', 'frames', 'death', 'cards', 'tables', 'bubbles', 'stickers'].indexed) {
     _t('wardrobe $name', (tester) async {
       await shotHi(tester, 'wardrobe_$name', WardrobeScreen(initialTab: i));
     });
@@ -256,7 +256,7 @@ void main() {
       await shotHi(tester, 'wardrobe_${w.toInt()}', const WardrobeScreen(), size: Size(w, h));
     });
     _t('shop tables small ${w.toInt()}', (tester) async {
-      await shotHi(tester, 'shop_tables_${w.toInt()}', const ShopScreen(initialTab: 4), size: Size(w, h));
+      await shotHi(tester, 'shop_tables_${w.toInt()}', const ShopScreen(initialTab: ShopScreen.tablesTab), size: Size(w, h));
     });
     _t('reveal small ${w.toInt()}', (tester) async {
       await shotHi(

@@ -1,6 +1,10 @@
+import 'dart:math' as math;
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../theme.dart';
+import 'fx.dart';
 
 /// قطع التصميم الجديد (خشب، مخمل، رق، ذهب): كل شاشة تبني منها عشان يكون الشكل واحد في كل مكان.
 /// الخامات في assets/design (مقصوصة من صور التصميم أو مولّدة بسكربت).
@@ -192,7 +196,7 @@ class GoldTitle extends StatelessWidget {
       OutlinedText(text, size: size, gradient: goldTitleColors, stroke: const Color(0xFF3A1606), align: align);
 }
 
-/// خلفية الشاشات: جدار ألواح خشب دافي، وفوقه ضو خفيف بلون [glow] (لون الطور مثلاً).
+/// خلفية الشاشات: ليل الخيمة. نجوم تلمع، وهلال، وبقع ضو دافية (بلون [glow]) تتحرك ببطء.
 class WoodWall extends StatelessWidget {
   const WoodWall({super.key, required this.child, this.glow});
 
@@ -203,24 +207,101 @@ class WoodWall extends StatelessWidget {
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: const BoxDecoration(
-        color: AppColors.bg,
-        image: DecorationImage(image: AssetImage(DesignAssets.woodWall), fit: BoxFit.cover),
-      ),
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          gradient: RadialGradient(
-            center: const Alignment(0, -1.1),
-            radius: 1.2,
-            colors: [(glow ?? const Color(0xFFB4651E)).withValues(alpha: .28), Colors.transparent],
-          ),
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [Color(0xFF0D1030), Color(0xFF1D1730), Color(0xFF2E1B13)],
+          stops: [0, .55, 1],
         ),
-        child: child,
+      ),
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          RepaintBoundary(
+            child: FxClock(
+              builder: (context, time) => CustomPaint(painter: _NightTentPainter(time, glow ?? const Color(0xFFFFB05A))),
+            ),
+          ),
+          child,
+        ],
       ),
     );
   }
 }
 
-/// لوحة خشب غامق بحافة بنية وقوس صغير بكل زاوية (مثل لوحة ترتيب الدواوين في التصميم).
+class _NightTentPainter extends CustomPainter {
+  _NightTentPainter(this.time, this.glow) : super(repaint: time);
+
+  final ValueListenable<double> time;
+  final Color glow;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final t = time.value;
+    final w = size.width, h = size.height;
+    final p = Paint();
+    // نجوم تلمع
+    for (var i = 0; i < 70; i++) {
+      final x = rnd(i, 1) * w, y = rnd(i, 2) * h * .8;
+      final tw = .5 + .5 * math.sin(t * (.9 + rnd(i, 3) * 2.2) + rnd(i, 4) * 6.3);
+      p.color = Colors.white.withValues(alpha: .12 + .6 * tw * tw);
+      canvas.drawCircle(Offset(x, y), .6 + rnd(i, 5) * 1.5 + tw * .5, p);
+      if (i % 9 == 0 && tw > .8) {
+        p
+          ..strokeWidth = .8
+          ..color = Colors.white.withValues(alpha: .5 * tw);
+        canvas.drawLine(Offset(x - 5, y), Offset(x + 5, y), p);
+        canvas.drawLine(Offset(x, y - 5), Offset(x, y + 5), p);
+      }
+    }
+    // هلال فوق على الجنب
+    final c = Offset(w * .9, h * .13);
+    final r = math.min(w, h) * .045;
+    canvas.drawCircle(
+      c,
+      r * 4,
+      Paint()
+        ..shader = RadialGradient(
+          colors: [const Color(0xFFFFE9A8).withValues(alpha: .16 + .04 * math.sin(t * .8)), const Color(0x00FFE9A8)],
+        ).createShader(Rect.fromCircle(center: c, radius: r * 4)),
+    );
+    final moon = Path.combine(
+      PathOperation.difference,
+      Path()..addOval(Rect.fromCircle(center: c, radius: r)),
+      Path()..addOval(Rect.fromCircle(center: c + Offset(r * .45, -r * .3), radius: r * .88)),
+    );
+    canvas.drawPath(moon, Paint()..color = const Color(0xFFF6D77A).withValues(alpha: .9));
+    // بقع ضو دافية تطوف ببطء (فوانيس بعيدة)
+    for (var i = 0; i < 5; i++) {
+      final bx = w * (.12 + .76 * rnd(i, 21)) + math.sin(t * .22 + i * 1.7) * w * .04;
+      final by = h * (.3 + .6 * rnd(i, 22)) + math.cos(t * .18 + i) * h * .03;
+      final br = math.min(w, h) * (.16 + .1 * rnd(i, 23));
+      canvas.drawCircle(
+        Offset(bx, by),
+        br,
+        Paint()
+          ..shader = RadialGradient(
+            colors: [glow.withValues(alpha: .1 + .04 * math.sin(t * .6 + i)), glow.withValues(alpha: 0)],
+          ).createShader(Rect.fromCircle(center: Offset(bx, by), radius: br)),
+      );
+    }
+    // ضباب أرضي دافي تحت
+    canvas.drawRect(
+      Rect.fromLTWH(0, h * .75, w, h * .25),
+      Paint()
+        ..shader = LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [const Color(0x00C27A3A), const Color(0xFFC27A3A).withValues(alpha: .1)],
+        ).createShader(Rect.fromLTWH(0, h * .75, w, h * .25)),
+    );
+  }
+
+  @override
+  bool shouldRepaint(_NightTentPainter old) => old.glow != glow;
+}
+
+/// لوحة ليل الخيمة: زجاج غامق شفاف بحد ذهبي رفيع وعلامات بالزوايا (مكان لوحات الخشب الرمادية).
 class WoodPanel extends StatelessWidget {
   const WoodPanel({super.key, required this.child, this.padding = const EdgeInsets.all(14), this.radius = 22});
 
@@ -229,61 +310,87 @@ class WoodPanel extends StatelessWidget {
   final double radius;
 
   @override
-  Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(radius),
-        color: const Color(0xFF1F130B),
-        image: const DecorationImage(image: AssetImage(DesignAssets.woodPanel), fit: BoxFit.cover),
-        border: Border.all(color: const Color(0xFF0F0805), width: 2.5),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: .45), blurRadius: 12, offset: const Offset(0, 6))],
-      ),
-      child: CustomPaint(
-        painter: _WoodFramePainter(radius),
-        child: Padding(padding: padding, child: child),
-      ),
-    );
-  }
+  Widget build(BuildContext context) => _GlassPanel(
+    radius: radius,
+    padding: padding,
+    colors: const [Color(0xCC2A1C28), Color(0xDD150C12)],
+    child: child,
+  );
 }
 
-class _WoodFramePainter extends CustomPainter {
-  const _WoodFramePainter(this.radius);
+class _GlassPanel extends StatelessWidget {
+  const _GlassPanel({required this.child, required this.padding, required this.radius, required this.colors, this.corners = true});
+
+  final Widget child;
+  final EdgeInsetsGeometry padding;
+  final double radius;
+  final List<Color> colors;
+  final bool corners;
+
+  @override
+  Widget build(BuildContext context) => DecoratedBox(
+    decoration: BoxDecoration(
+      borderRadius: BorderRadius.circular(radius),
+      gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: colors),
+      border: Border.all(color: const Color(0xFFE8B54E).withValues(alpha: .6), width: 1.8),
+      boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: .45), blurRadius: 14, offset: const Offset(0, 6))],
+    ),
+    child: CustomPaint(
+      painter: _GlassFramePainter(radius, corners),
+      child: Padding(padding: padding, child: child),
+    ),
+  );
+}
+
+/// خط ذهبي خفيف داخل اللوحة، وعلامة L بكل زاوية.
+class _GlassFramePainter extends CustomPainter {
+  const _GlassFramePainter(this.radius, this.corners);
 
   final double radius;
+  final bool corners;
 
   @override
   void paint(Canvas canvas, Size size) {
-    final p = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2.5
-      ..color = const Color(0xFF86613B);
     const inset = 6.0;
     final r = (radius - inset).clamp(4.0, 60.0);
     canvas.drawRRect(
-      RRect.fromRectAndRadius(Rect.fromLTWH(inset, inset, size.width - inset * 2, size.height - inset * 2), Radius.circular(r)),
-      p,
+      RRect.fromRectAndRadius(
+        Rect.fromLTWH(inset, inset, size.width - inset * 2, size.height - inset * 2),
+        Radius.circular(r),
+      ),
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1
+        ..color = const Color(0xFFE8B54E).withValues(alpha: .22),
     );
-    // قوس بكل زاوية
-    final a = (size.shortestSide * .16).clamp(14.0, 34.0);
+    if (!corners) return;
+    final a = (size.shortestSide * .12).clamp(12.0, 26.0);
+    final p = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.2
+      ..strokeCap = StrokeCap.round
+      ..color = const Color(0xFFF2C75A).withValues(alpha: .85);
     for (final (x, y, sx, sy) in [
-      (inset, inset, 1.0, 1.0),
-      (size.width - inset, inset, -1.0, 1.0),
-      (inset, size.height - inset, 1.0, -1.0),
-      (size.width - inset, size.height - inset, -1.0, -1.0),
+      (inset + 3, inset + 3, 1.0, 1.0),
+      (size.width - inset - 3, inset + 3, -1.0, 1.0),
+      (inset + 3, size.height - inset - 3, 1.0, -1.0),
+      (size.width - inset - 3, size.height - inset - 3, -1.0, -1.0),
     ]) {
-      canvas.save();
-      canvas.translate(x, y);
-      canvas.scale(sx, sy);
-      canvas.drawArc(Rect.fromCircle(center: Offset.zero, radius: a), 0, 1.5708, false, p);
-      canvas.restore();
+      canvas.drawPath(
+        Path()
+          ..moveTo(x, y + sy * a)
+          ..lineTo(x, y)
+          ..lineTo(x + sx * a, y),
+        p,
+      );
     }
   }
 
   @override
-  bool shouldRepaint(_WoodFramePainter old) => old.radius != radius;
+  bool shouldRepaint(_GlassFramePainter old) => old.radius != radius || old.corners != corners;
 }
 
-/// لوحة مخمل أحمر بحد ذهبي وزخرفة بالزوايا (مثل لوحة الديوان في التصميم).
+/// لوحة خمرية (زجاج ليل الخيمة بدرجة أدفأ): للألواح المهمة مثل «خاص» وعرض اليوم.
 class VelvetPanel extends StatelessWidget {
   const VelvetPanel({super.key, required this.child, this.padding = const EdgeInsets.all(18), this.radius = 20, this.corners = true});
 
@@ -291,59 +398,17 @@ class VelvetPanel extends StatelessWidget {
   final EdgeInsetsGeometry padding;
   final double radius;
 
-  /// الزخرفة الذهبية بالزوايا (تنشال في اللوحات الصغيرة).
+  /// علامات الزوايا الذهبية (تنشال في اللوحات الصغيرة).
   final bool corners;
 
   @override
-  Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(radius + 3),
-        color: const Color(0xFF140504),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: .5), blurRadius: 14, offset: const Offset(0, 7))],
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(3),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(radius),
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              color: const Color(0xFF45131E),
-              image: const DecorationImage(image: AssetImage(DesignAssets.velvet), fit: BoxFit.cover),
-              border: Border.all(color: const Color(0xFFD9A84E), width: 3),
-              borderRadius: BorderRadius.circular(radius),
-            ),
-            child: Stack(
-              children: [
-                if (corners)
-                  Positioned.fill(
-                    child: LayoutBuilder(
-                      builder: (context, box) {
-                        final c = (box.biggest.shortestSide * .32).clamp(28.0, 72.0);
-                        Widget corner(double sx, double sy) => Transform.scale(
-                          scaleX: sx,
-                          scaleY: sy,
-                          child: Image.asset(DesignAssets.velvetCorner, width: c, height: c, fit: BoxFit.fill),
-                        );
-                        return Stack(
-                          children: [
-                            Positioned(left: 0, bottom: 0, child: corner(1, 1)),
-                            Positioned(right: 0, bottom: 0, child: corner(-1, 1)),
-                            Positioned(left: 0, top: 0, child: corner(1, -1)),
-                            Positioned(right: 0, top: 0, child: corner(-1, -1)),
-                          ],
-                        );
-                      },
-                    ),
-                  ),
-                Padding(padding: padding, child: child),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
+  Widget build(BuildContext context) => _GlassPanel(
+    radius: radius,
+    padding: padding,
+    corners: corners,
+    colors: const [Color(0xDD4A1626), Color(0xEE24090F)],
+    child: child,
+  );
 }
 
 /// كرت رق (ورق قديم) بحد بني غامق، مثل كروت غرفة التبديل.

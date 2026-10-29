@@ -42,6 +42,8 @@ class _ClansScreenState extends State<ClansScreen> {
         // طلعت من الديوان: الدردشة ترجع مغلقة للديوان الجاي.
         if (clan == null) _chat = false;
         return SocTwoPanels(
+          mainFlex: clan != null && _chat ? 11 : 15,
+          sideFlex: clan != null && _chat ? 10 : 8,
           main: clan == null
               ? const _CreateClan()
               : _MyClan(
@@ -424,21 +426,7 @@ class ClanPanelView extends StatelessWidget {
                   ),
                 ],
               ),
-              if (clan.desc.isNotEmpty && !compact)
-                Padding(
-                  padding: const EdgeInsets.only(top: 4),
-                  child: Text(
-                    clan.desc,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: Color(0xFFE9D3B5),
-                      fontSize: 13,
-                      fontFamily: kufi,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
+              _ClanInfo(clan: clan, power: power, compact: compact),
               SizedBox(height: compact ? 2 : 4),
               // الدردشة، والدعوة والطلبات (الوجهاء وفوق)، والإعدادات (الشيخ ونوابه).
               Row(
@@ -501,6 +489,112 @@ class ClanPanelView extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+}
+
+/// ألقاب الديوان وإنجازاته (تنحسب من نقاطه وأعضائه): اللقب أول وبعده الإنجازات اللي تحققت.
+List<({String label, bool title})> clanAchievements(Clan clan) {
+  final t = clan.total;
+  return [
+    (
+      label: t >= 100000
+          ? 'ديوان أسطوري'
+          : t >= 10000
+          ? 'ديوان عريق'
+          : t >= 1000
+          ? 'ديوان نشيط'
+          : 'ديوان ناشئ',
+      title: true,
+    ),
+    if (clan.points >= clanGoal) (label: 'حقق هدف الأسبوع', title: false),
+    if (clan.count >= clanMax) (label: 'ديوان مليان', title: false),
+    if (clan.members.where((m) => m.points > 0).length >= 5) (label: 'خمسة نشطين', title: false),
+    if (t >= 1000) (label: '${arabicNumber((t ~/ 1000) * 1000)} نقطة', title: false),
+  ];
+}
+
+/// وصف الديوان (يكتبه المدراء من الإعدادات) وبجنبه ألقابه وإنجازاته. بالجوال الصغير: شارات بس.
+class _ClanInfo extends StatelessWidget {
+  const _ClanInfo({required this.clan, required this.power, required this.compact});
+
+  final Clan clan;
+  final int power;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    final ach = clanAchievements(clan);
+    Widget chip(({String label, bool title}) a, double size) =>
+        SocChip(a.label, kind: a.title ? SocChipKind.gold : SocChipKind.blue, size: size);
+    if (compact) {
+      return Padding(
+        padding: const EdgeInsets.only(top: 2),
+        child: Wrap(spacing: 4, runSpacing: 2, children: [for (final a in ach.take(3)) chip(a, 10.5)]),
+      );
+    }
+    final desc = clan.desc.isNotEmpty
+        ? clan.desc
+        : power >= ClanRole.deputy.power
+        ? 'اكتب وصف ديوانك من «الإعدادات»'
+        : 'لسا ما كتب المدراء وصفاً للديوان';
+    Widget card(String title, Widget child) => Container(
+      padding: const EdgeInsets.fromLTRB(10, 6, 10, 6),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: .28),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFE8B54E).withValues(alpha: .35)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: const TextStyle(fontFamily: kufi, fontWeight: FontWeight.w800, fontSize: 13, color: Color(0xFFF2C75A)),
+          ),
+          const SizedBox(height: 3),
+          Expanded(child: child),
+        ],
+      ),
+    );
+    return Padding(
+      padding: const EdgeInsets.only(top: 5),
+      child: SizedBox(
+        height: 74,
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Expanded(
+              flex: 5,
+              child: card(
+                'وصف الديوان',
+                Text(
+                  desc,
+                  maxLines: 3,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: clan.desc.isEmpty ? const Color(0xFFB9A07A) : const Color(0xFFF1DDBA),
+                    fontSize: 12.5,
+                    fontFamily: kufi,
+                    fontWeight: FontWeight.w700,
+                    height: 1.3,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              flex: 4,
+              child: card(
+                'ألقاب وإنجازات',
+                SingleChildScrollView(
+                  child: Wrap(spacing: 4, runSpacing: 3, children: [for (final a in ach) chip(a, 11)]),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -1105,12 +1199,12 @@ class ClanRankingView extends StatelessWidget {
           selected: isMine,
           semantics: 'تفاصيل ${c.name}',
           onTap: () => onDetails(c),
-          padding: const EdgeInsets.fromLTRB(12, 6, 12, 6),
+          padding: const EdgeInsets.fromLTRB(10, 5, 10, 5),
           child: Row(
             children: [
               if (ranked)
                 SizedBox(
-                  width: 26,
+                  width: 22,
                   child: Text(
                     arabicNumber(i + 1),
                     style: const TextStyle(
@@ -1121,8 +1215,8 @@ class ClanRankingView extends StatelessWidget {
                     ),
                   ),
                 ),
-              ClanCrest.of(c.tag, size: 38),
-              const SizedBox(width: 10),
+              ClanCrest.of(c.tag, size: 32),
+              const SizedBox(width: 8),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -1134,7 +1228,7 @@ class ClanRankingView extends StatelessWidget {
                       style: const TextStyle(
                         fontFamily: kufi,
                         fontWeight: FontWeight.w800,
-                        fontSize: 17,
+                        fontSize: 15,
                         color: socCream,
                         height: 1.2,
                       ),
@@ -1148,7 +1242,7 @@ class ClanRankingView extends StatelessWidget {
                             overflow: TextOverflow.ellipsis,
                             style: const TextStyle(
                               color: socMuted,
-                              fontSize: 12.5,
+                              fontSize: 11.5,
                               fontFamily: kufi,
                               fontWeight: FontWeight.w700,
                               height: 1.2,
@@ -1176,7 +1270,7 @@ class ClanRankingView extends StatelessWidget {
                 style: const TextStyle(
                   fontFamily: kufi,
                   fontWeight: FontWeight.w800,
-                  fontSize: 18,
+                  fontSize: 16,
                   color: Color(0xFFFFD27A),
                 ),
               ),
