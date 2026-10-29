@@ -11,6 +11,7 @@ import '../widgets/bubble.dart';
 import '../widgets/common.dart';
 import '../widgets/design.dart';
 import '../widgets/design_shop.dart';
+import '../widgets/design_stickers.dart';
 import '../widgets/game/policy_card.dart';
 import '../widgets/item_preview.dart';
 import '../widgets/majlis.dart';
@@ -464,37 +465,18 @@ class _StickersTabState extends State<_StickersTab> {
               runSpacing: 12,
               children: [
                 for (final pack in packs)
-                  SizedBox(
+                  // نفس كرت المتجر بس بملصقات الباقة كلها (ضغطة مطوّلة على الملصق للمفضلة)
+                  StickerPackCard(
+                    key: ValueKey(pack.id),
+                    semantics: pack.name,
+                    name: pack.name,
+                    rarity: pack.rarity,
+                    stickers: pack.stickers,
                     width: w,
-                    child: ShopCardFrame(
-                      wide: true,
-                      child: Padding(
-                        padding: const EdgeInsets.fromLTRB(14, 8, 14, 12),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: Text(
-                                    pack.name,
-                                    style: const TextStyle(
-                                      fontFamily: kufi,
-                                      fontWeight: FontWeight.w800,
-                                      fontSize: 17,
-                                      color: AppColors.ink,
-                                    ),
-                                  ),
-                                ),
-                                ShopRarityTag(pack.rarity),
-                              ],
-                            ),
-                            const SizedBox(height: 6),
-                            Wrap(spacing: 8, runSpacing: 8, children: [for (final id in pack.stickers!) _sticker(id)]),
-                          ],
-                        ),
-                      ),
-                    ),
+                    shown: pack.stickers!.length,
+                    perRow: pack.stickers!.length,
+                    onPreview: () => showItemPreview(context, pack),
+                    stickerBuilder: (id, size) => _sticker(id, size: size),
                   ),
               ],
             );

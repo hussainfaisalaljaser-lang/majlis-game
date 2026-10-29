@@ -11,6 +11,7 @@ import '../theme.dart';
 import '../widgets/common.dart';
 import '../widgets/design.dart';
 import '../widgets/design_shop.dart';
+import '../widgets/design_stickers.dart';
 import '../widgets/fx.dart';
 import '../widgets/fx_sig.dart';
 import '../widgets/item_preview.dart';
@@ -220,6 +221,34 @@ Widget _shopCard(BuildContext context, ShopItem item, Profile p, {required Strin
   final st = shopStateOf(item, p);
   final avatar = item.slot == ShopSlot.avatar;
   void preview() => showItemPreview(context, item);
+  // باقات الملصقات والكلام: كرت الباقة (أربع ملصقات على رق، ولوح مخمل بالاسم، وزر عندك أو السعر)
+  if (item.slot == ShopSlot.reactions) {
+    return FittedBox(
+      key: ValueKey(item.id),
+      child: StickerPackCard(
+        semantics: 'غرض ${item.id}',
+        name: item.name,
+        rarity: item.rarity,
+        stickers: item.stickers,
+        phrases: item.phrases ? stickerPackPhrases(item.id) : null,
+        dim: st == ShopItemState.locked,
+        onTap: preview,
+        onPreview: preview,
+        action: Semantics(
+          label: 'زر ${item.id}',
+          child: StickerPackPill(
+            state: st,
+            icon: item.coins != null ? 'coin' : 'gem',
+            price: item.coins ?? item.diamonds,
+            source: item.source,
+            sourceIcon: shopSourceIcon(item),
+            busy: busy == item.id,
+            onTap: onAct,
+          ),
+        ),
+      ),
+    );
+  }
   return ShopItemCard(
     key: ValueKey(item.id),
     semantics: 'غرض ${item.id}',
@@ -229,7 +258,7 @@ Widget _shopCard(BuildContext context, ShopItem item, Profile p, {required Strin
     dark: shopDarkCard(item),
     selected: st == ShopItemState.equipped,
     dim: st == ShopItemState.locked,
-    wide: item.slot == ShopSlot.table || item.slot == ShopSlot.reactions,
+    wide: item.slot == ShopSlot.table,
     onTap: preview,
     onPreview: preview,
     action: Semantics(
@@ -244,7 +273,6 @@ Widget _shopCard(BuildContext context, ShopItem item, Profile p, {required Strin
         onTap: onAct,
         ownedLabel: avatar ? 'استخدمها' : 'البس',
         equippedLabel: avatar ? 'صورتك' : 'لابسه',
-        passive: item.slot == ShopSlot.reactions ? 'عندك' : null,
       ),
     ),
   );
@@ -265,19 +293,23 @@ class _ItemsGrid extends StatelessWidget {
     ];
     // اللي ينشرى أول، وبعده هدايا المستويات والموسم والأبطال.
     items.sort((a, b) => (a.buyable || a.isDefault ? 0 : 1).compareTo(b.buyable || b.isDefault ? 0 : 1));
-    final wide = slot == ShopSlot.table || slot == ShopSlot.reactions;
+    final wide = slot == ShopSlot.table;
+    final packs = slot == ShopSlot.reactions;
     return ValueListenableBuilder(
       valueListenable: Backend.instance.profile,
       builder: (context, p, _) => LayoutBuilder(
         builder: (context, box) {
-          final cols = math.max(2, ((box.maxWidth - 8) / (wide ? 190 : 124)).floor());
+          // كروت الباقات عريضة (أربع ملصقات بصف): تتوزع على قد العرض، وأقلها عمودين
+          final cols = math.max(2, ((box.maxWidth - 8) / (packs ? 205 : (wide ? 190 : 124))).floor());
           return GridView.builder(
             padding: const EdgeInsets.fromLTRB(10, 8, 10, 14),
             gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: wide ? math.max(1, cols) : cols,
               mainAxisSpacing: 11,
               crossAxisSpacing: 11,
-              childAspectRatio: (wide ? shopCardWideW : shopCardW) / shopCardH,
+              childAspectRatio: packs
+                  ? stickerPackCardW / stickerPackCardH
+                  : (wide ? shopCardWideW : shopCardW) / shopCardH,
             ),
             itemCount: items.length,
             itemBuilder: (context, i) {
