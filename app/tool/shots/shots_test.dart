@@ -8,11 +8,7 @@ import 'package:majlis/screens/wardrobe_screen.dart';
 import 'package:majlis/screens/missions_screen.dart';
 import 'package:majlis/screens/leaderboard_screen.dart';
 import 'package:majlis/screens/profile_screen.dart';
-import 'package:majlis/screens/tournament_screen.dart';
-import 'package:majlis/screens/welcome_screen.dart';
-import 'package:majlis/screens/how_to_play_screen.dart';
 import 'package:majlis/screens/history_screen.dart';
-import 'package:majlis/screens/clans_screen.dart';
 import 'package:majlis/screens/friends_screen.dart';
 import 'package:majlis/screens/tables_screen.dart';
 import 'package:majlis/widgets/mode_theme.dart';
@@ -49,24 +45,8 @@ void main() {
     await shot(tester, 'profile', const ProfileScreen());
   });
 
-  testWidgets('tournament', (tester) async {
-    await shot(tester, 'tournament', const TournamentScreen());
-  });
-
-  testWidgets('welcome', (tester) async {
-    await shot(tester, 'welcome', const WelcomeScreen());
-  });
-
-  testWidgets('howto', (tester) async {
-    await shot(tester, 'howto', const HowToPlayScreen());
-  });
-
   testWidgets('history', (tester) async {
     await shot(tester, 'history', const HistoryScreen());
-  });
-
-  testWidgets('clans', (tester) async {
-    await shot(tester, 'clans', const ClansScreen());
   });
 
   testWidgets('friends', (tester) async {
