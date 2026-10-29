@@ -117,9 +117,9 @@ class TablesView extends StatelessWidget {
     ..hideCurrentSnackBar()
     ..showSnackBar(
       SnackBar(
-        content: const Text('طاولة النخبة تنفتح بباتل الموسم الحالي، وتنقفل لما يخلص الموسم لو ما جددته'),
+        content: const Text('طاولة النخبة تنفتح بتذكرة الموسم الحالي، وتنقفل لما يخلص الموسم لو ما جددته'),
         action: SnackBarAction(
-          label: 'افتح الباتل',
+          label: 'افتح التذكرة',
           onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const PassScreen())),
         ),
       ),
@@ -297,7 +297,7 @@ class _TierTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final hint = locked
-        ? (tier.vipOnly ? 'يفتح بباتل الموسم' : 'يفتح في مستوى ${arabicNumber(tier.requiredLevel)}')
+        ? (tier.vipOnly ? 'يفتح بتذكرة الموسم' : 'يفتح في مستوى ${arabicNumber(tier.requiredLevel)}')
         : poor
         ? 'ما عندك ذهب كافي'
         : null;

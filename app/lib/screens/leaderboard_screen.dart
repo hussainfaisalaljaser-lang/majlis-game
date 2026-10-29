@@ -201,7 +201,7 @@ class LeaderboardView extends StatelessWidget {
 
   /// قائمة الباقي (من المركز الرابع).
   Widget _list(List<LeaderboardEntry>? list) {
-    if (offline) return _message('يحتاج اتصال بالسيرفر');
+    if (offline) return _message('يحتاج اتصال بالخادم');
     if (error) return _message('ما قدرنا نجيب الترتيب');
     if (list == null) return const Center(child: CircularProgressIndicator(color: AppColors.gold));
     final myIndex = list.indexWhere((e) => e.uid == me);

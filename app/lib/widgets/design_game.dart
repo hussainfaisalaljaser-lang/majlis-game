@@ -748,7 +748,13 @@ class GameCardFace extends StatelessWidget {
   double get height => width * 1.46;
 
   @override
-  Widget build(BuildContext context) => SizedBox(
+  Widget build(BuildContext context) {
+    // كومتا السحب والرمي: نفس ظهر الكرت (أيقونة اللعبة واسمها بس)
+    if (kind == GameCardKind.draw || kind == GameCardKind.discard) return GameCardBack(width: width, glow: glow);
+    return _face(context);
+  }
+
+  Widget _face(BuildContext context) => SizedBox(
     width: width,
     height: height,
     child: CustomPaint(
@@ -767,6 +773,110 @@ class GameCardFace extends StatelessWidget {
             ),
     ),
   );
+}
+
+/// ظهر كرت اللعبة (كومة السحب وكومة الرمي): بنفسجي غامق بحافة ذهبية، وفيه أيقونة اللعبة واسمها بس.
+class GameCardBack extends StatelessWidget {
+  const GameCardBack({super.key, this.width = 130, this.glow = false});
+
+  final double width;
+  final bool glow;
+
+  @override
+  Widget build(BuildContext context) {
+    final w = width, h = width * 1.46, u = w / 130;
+    return SizedBox(
+      width: w,
+      height: h,
+      child: Stack(
+        children: [
+          CustomPaint(size: Size(w, h), painter: _CardBackPainter(glow)),
+          if (w >= 22)
+            Positioned.fill(
+              child: Padding(
+                padding: EdgeInsets.all(8 * u),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Image.asset('assets/logo.png', width: w * .6, height: w * .6, filterQuality: FilterQuality.medium),
+                    if (w >= 56) ...[
+                      SizedBox(height: 6 * u),
+                      FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text(
+                          'مجلس الخونة',
+                          style: TextStyle(
+                            fontFamily: kufi,
+                            fontWeight: FontWeight.w800,
+                            fontSize: 17 * u,
+                            height: 1.1,
+                            color: const Color(0xFFF6D77A),
+                            shadows: const [Shadow(color: Color(0xCC000000), blurRadius: 3, offset: Offset(0, 1))],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CardBackPainter extends CustomPainter {
+  const _CardBackPainter(this.glow);
+
+  final bool glow;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final u = size.width / 130;
+    final rect = Offset.zero & size;
+    final rr = RRect.fromRectAndRadius(rect.deflate(1.5 * u), Radius.circular(10 * u));
+    if (glow) {
+      canvas.drawRRect(
+        rr,
+        Paint()
+          ..color = AppColors.gold.withValues(alpha: .8)
+          ..maskFilter = MaskFilter.blur(BlurStyle.normal, 10 * u),
+      );
+    }
+    canvas.drawRRect(
+      rr.shift(Offset(0, 3 * u)),
+      Paint()
+        ..color = Colors.black.withValues(alpha: .38)
+        ..maskFilter = MaskFilter.blur(BlurStyle.normal, 3.5 * u),
+    );
+    canvas.drawRRect(
+      rr,
+      Paint()
+        ..shader = const LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [Color(0xFF5A2396), Color(0xFF2A1260), Color(0xFF150A32)],
+        ).createShader(rect),
+    );
+    canvas.drawRRect(
+      rr.deflate(6 * u),
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.6 * u
+        ..color = const Color(0xFFE8B54E).withValues(alpha: .9),
+    );
+    canvas.drawRRect(
+      rr,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2.6 * u
+        ..color = const Color(0xFF2A1A10),
+    );
+  }
+
+  @override
+  bool shouldRepaint(_CardBackPainter old) => old.glow != glow;
 }
 
 class GameCardPainter extends CustomPainter {

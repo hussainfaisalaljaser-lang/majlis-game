@@ -285,7 +285,7 @@ class _DevScreenState extends State<DevScreen> {
                     children: [
                       Expanded(
                         child: tool(
-                          '+٣ درجات بالباتل باس',
+                          '+٣ درجات بتذكرة الموسم',
                           'انضافت نقاط الموسم',
                           () => backend.devTool('passPoints', {'points': 450}),
                           tone: ButtonTone.green,

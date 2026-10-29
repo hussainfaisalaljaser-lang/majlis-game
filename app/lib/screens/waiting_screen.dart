@@ -170,7 +170,7 @@ class _WaitingScreenState extends State<WaitingScreen> {
         icon: Gfx(_room?.tour != null ? 'trophy' : (tier == null ? 'key' : tier.icon), size: 30),
         title: _room?.tour != null
             ? 'بطولة الأسبوع · ${tourStageNames[_room!.tour!]}'
-            : (tier == null ? 'روم خاص' : 'طاولة ${tier.name}'),
+            : (tier == null ? 'طاولة خاصة' : 'طاولة ${tier.name}'),
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -195,7 +195,7 @@ class _WaitingScreenState extends State<WaitingScreen> {
                       children: [
                         Text(
                           isPrivate
-                              ? 'اعزم أصحابك بالكود'
+                              ? 'اعزم أصحابك بالرمز'
                               : full
                               ? 'اكتملت الطاولة! اللعبة بتبدأ…'
                               : 'نبحث عن لاعبين…',
@@ -437,7 +437,7 @@ class _CodeBox extends StatelessWidget {
       child: Column(
         children: [
           const Text(
-            'كود الروم (لو تبي تعزم أصحابك)',
+            'رمز الطاولة (لو تبي تعزم أصحابك)',
             style: TextStyle(color: socMuted, fontSize: 12.5, fontFamily: kufi, fontWeight: FontWeight.w700),
           ),
           Directionality(

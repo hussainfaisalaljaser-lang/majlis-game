@@ -584,7 +584,7 @@ class ChatInviteCard extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      GoldTitle('روم خاص من $name', size: 18, align: TextAlign.start),
+                      GoldTitle('طاولة خاصة من $name', size: 18, align: TextAlign.start),
                       Text(
                         note,
                         style: const TextStyle(
@@ -631,7 +631,7 @@ Widget? friendInviteCard(Profile p, ChatFriend friend, {required VoidCallback on
   return ChatInviteCard(
     name: friend.name,
     avatar: friend.avatar,
-    note: 'يبيك تلعب معه في الروم',
+    note: 'يبيك تلعب معه في الطاولة',
     onJoin: () => Links.joinInvite(inv.code),
     onLater: onLater,
   );

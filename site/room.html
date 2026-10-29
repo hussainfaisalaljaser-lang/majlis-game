@@ -4,11 +4,11 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>تعال العب معي «مجلس الخونة»!</title>
-<meta name="description" content="أصحابك يبونك في المجلس… مين الخاين فيكم؟ اضغط وادخل الروم.">
+<meta name="description" content="أصحابك يبونك في المجلس… مين الخاين فيكم؟ اضغط وادخل الطاولة.">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="مجلس الخونة">
 <meta property="og:title" content="تعال العب معي «مجلس الخونة»!">
-<meta property="og:description" content="أصحابك يبونك في المجلس… مين الخاين فيكم؟ اضغط وادخل الروم.">
+<meta property="og:description" content="أصحابك يبونك في المجلس… مين الخاين فيكم؟ اضغط وادخل الطاولة.">
 <meta property="og:image" content="https://majlis-game-1d739.web.app/og.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
@@ -26,10 +26,10 @@
   <img class="icon" src="/icon.png" alt="مجلس الخونة">
   <h1>أصحابك يبونك في المجلس!</h1>
   <p class="sub">بينكم أوفياء… وبينكم خونة متخبّين. مين الخاين فيكم؟</p>
-  <div class="code" id="codeBox"><span>كود الروم</span><b id="code"></b></div>
-  <a id="open" class="btn gold" href="#">ادخل الروم</a>
+  <div class="code" id="codeBox"><span>رمز الطاولة</span><b id="code"></b></div>
+  <a id="open" class="btn gold" href="#">ادخل الطاولة</a>
   <a id="get" class="btn ghost" href="/">ما عندك اللعبة؟ حمّلها</a>
-  <p class="hint" id="hint">بعد ما تحمّلها: ارجع هنا واضغط «ادخل الروم»، أو افتح اللعبة ← مع أصحابك ← ادخل بالكود.</p>
+  <p class="hint" id="hint">بعد ما تحمّلها: ارجع هنا واضغط «ادخل الطاولة»، أو افتح اللعبة ← مع أصحابك ← ادخل بالرمز.</p>
   <footer>مجلس الخونة · لعبة خيانة وذكاء مع أصحابك</footer>
   <nav class="links"><a href="/privacy">سياسة الخصوصية</a><a href="/terms">شروط الاستخدام</a><a href="/delete">حذف الحساب</a></nav>
 </main>
@@ -49,7 +49,7 @@
     document.getElementById('code').textContent = code;
     var download = location.origin + '/?room=' + code;
     get.href = download;
-    // أندرويد: نفتح اللعبة على الروم، ولو مو محمّلة يروح لصفحة التحميل ومعه الكود.
+    // أندرويد: نفتح اللعبة على الطاولة، ولو مو محمّلة يروح لصفحة التحميل ومعه الرمز.
     open.href = /android/i.test(navigator.userAgent)
       ? 'intent://room/' + code + '#Intent;scheme=majlis;package=com.majlis.majlis;S.browser_fallback_url=' + encodeURIComponent(download) + ';end'
       : 'majlis://room/' + code;

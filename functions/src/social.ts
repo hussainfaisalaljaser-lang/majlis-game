@@ -142,7 +142,7 @@ export const inviteFriend = onCall(async (req) => {
   const uid = requireAuth(req);
   const to = otherUid(req.data?.uid, uid);
   const code = String(req.data?.code ?? '').toUpperCase();
-  if (!/^[A-Z0-9]{5}$/.test(code)) throw new HttpsError('invalid-argument', 'الروم مو موجود');
+  if (!/^[A-Z0-9]{5}$/.test(code)) throw new HttpsError('invalid-argument', 'الطاولة مو موجودة');
   const now = Date.now();
   const name = await db.runTransaction(async (tx) => {
     const [meSnap, themSnap, roomSnap] = await tx.getAll(userRef(uid), userRef(to), db.doc(`rooms/${code}`));
@@ -151,10 +151,10 @@ export const inviteFriend = onCall(async (req) => {
     const room = roomSnap.data() as { status: string; players: { uid: string }[]; maxPlayers: number } | undefined;
     if (!me || !them || !(me.friends ?? []).includes(to)) throw new HttpsError('failed-precondition', 'تقدر تدعو أصدقاءك بس');
     if (!room || room.status !== 'waiting' || !room.players.some((p) => p.uid === uid)) {
-      throw new HttpsError('failed-precondition', 'لازم تكون في روم ينتظر لاعبين');
+      throw new HttpsError('failed-precondition', 'لازم تكون في طاولة تنتظر لاعبين');
     }
-    if (room.players.some((p) => p.uid === to)) throw new HttpsError('already-exists', 'صديقك موجود في الروم');
-    if (room.players.length >= room.maxPlayers) throw new HttpsError('failed-precondition', 'الروم مليان');
+    if (room.players.some((p) => p.uid === to)) throw new HttpsError('already-exists', 'صديقك موجود في الطاولة');
+    if (room.players.length >= room.maxPlayers) throw new HttpsError('failed-precondition', 'الطاولة مليانة');
     if (now - (me.invitedAt?.[to] ?? 0) < INVITE_GAP_MS) throw new HttpsError('resource-exhausted', 'دعيته قبل شوي، انتظر دقيقة');
     // نخلي آخر دعوة لكل صديق بس (اللي ما عادوا أصدقاء ينشالون).
     const invitedAt = Object.fromEntries(Object.entries({ ...me.invitedAt, [to]: now }).filter(([id]) => (me.friends ?? []).includes(id)));

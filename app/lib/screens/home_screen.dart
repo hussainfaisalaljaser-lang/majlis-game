@@ -873,8 +873,8 @@ class _PrivatePanel extends StatelessWidget {
                       SizedBox(
                         width: 150,
                         child: GameButton(
-                          label: 'سوّ روم',
-                          semantics: 'سوّ روم خاص',
+                          label: 'سوّ طاولة',
+                          semantics: 'سوّ طاولة خاصة',
                           tone: ButtonTone.green,
                           height: 50,
                           fontSize: 24,
@@ -885,7 +885,7 @@ class _PrivatePanel extends StatelessWidget {
                       // الدخول بكود صاحبك (دائرة صغيرة جنب زر السوّ).
                       Semantics(
                         button: true,
-                        label: 'ادخل روم صاحبك بالكود',
+                        label: 'ادخل طاولة صاحبك بالرمز',
                         excludeSemantics: true,
                         child: Tooltip(
                           message: 'ادخل بكود',

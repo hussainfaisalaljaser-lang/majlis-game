@@ -50,7 +50,7 @@ String _where(HistoryEntry g) {
   final table = g.room.tour != null
       ? 'البطولة'
       : g.room.isPrivate
-      ? 'روم خاص'
+      ? 'طاولة خاصة'
       : 'عشوائي';
   return '$table · ${g.room.roles ? 'المطوّر' : 'الكلاسيكي'}${g.room.quick ? ' · سريع' : ''}';
 }

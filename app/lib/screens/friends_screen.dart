@@ -102,7 +102,7 @@ class _FriendsScreenState extends State<FriendsScreen> {
                   p.friends.isEmpty
                       ? FriendsEmpty(
                           icon: 'friends',
-                          text: 'ما عندك أصدقاء للحين.\nضيفهم برمزهم من «أضف صديق بالكود»، أو من بطاقة أي لاعب في الطاولة.',
+                          text: 'ما عندك أصدقاء للحين.\nضيفهم برمزهم من «أضف صديق بالرمز»، أو من بطاقة أي لاعب في الطاولة.',
                         )
                       : _FriendsList(uids: p.friends, unread: p.dmUnread, selected: selected, onOpen: _openFriend),
               },
@@ -214,12 +214,12 @@ class FriendsPanelView extends StatelessWidget {
           const SizedBox(height: 6),
           Center(
             child: SocButton(
-              label: 'أضف صديق بالكود',
+              label: 'أضف صديق بالرمز',
               tone: SocTone.orange,
               height: 46,
               fontSize: 21,
               width: 250,
-              semantics: 'أضف صديق بالكود',
+              semantics: 'أضف صديق بالرمز',
               onPressed: onAdd,
             ),
           ),
@@ -885,7 +885,7 @@ void _toast(BuildContext context, String text) =>
 
 /// أضف صديق برمزه، وشارك رمزك (نافذة).
 Future<void> showAddFriend(BuildContext context) =>
-    showSocDialog<void>(context, title: 'أضف صديق بالكود', width: 520, builder: (_) => const _AddFriend());
+    showSocDialog<void>(context, title: 'أضف صديق بالرمز', width: 520, builder: (_) => const _AddFriend());
 
 class _AddFriend extends StatefulWidget {
   const _AddFriend();
@@ -1126,7 +1126,7 @@ class _InviteSheetState extends State<_InviteSheet> {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const SocPopupText('توصلهم الدعوة في اللعبة وبإشعار، ويدخلون الروم بضغطة', size: 13.5, muted: true),
+        const SocPopupText('توصلهم الدعوة في اللعبة وبإشعار، ويدخلون الطاولة بضغطة', size: 13.5, muted: true),
         const SizedBox(height: 8),
         if (friends.isEmpty) ...[
           const SocPopupText('ما عندك أصدقاء للحين'),

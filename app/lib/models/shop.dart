@@ -208,7 +208,7 @@ class ShopItem {
   String get source => switch (this) {
     ShopItem(level: final int l) => 'هدية مستوى $l',
     ShopItem(champion: final int c) => c == 1 ? 'لبطل الأسبوع' : (c == 2 ? 'لوصيف الأسبوع' : 'لثالث الأسبوع'),
-    ShopItem(season: final String _) => 'من الباتل باس',
+    ShopItem(season: final String _) => 'من تذكرة الموسم',
     _ => '',
   };
 }

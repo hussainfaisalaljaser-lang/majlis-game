@@ -91,7 +91,7 @@ Future<void> showGiftDialog(BuildContext context, Gift g) {
   if (!g.tutorial && ach == null) Sfx.say(g.champion ? 'win_loyal' : 'enact_loyal');
   final from = g.passFrom;
   final title = from != null
-      ? (g.n == 1 ? 'هدية من $from: الباتل باس كامل!' : 'هدية من $from: الباتل باس!')
+      ? (g.n == 1 ? 'هدية من $from: تذكرة الموسم كاملة!' : 'هدية من $from: تذكرة الموسم!')
       : rank != null
       ? 'وصلت رتبة ${rank.name}!'
       : ach != null
@@ -105,8 +105,8 @@ Future<void> showGiftDialog(BuildContext context, Gift g) {
       : 'هدية المستوى ${arabicNumber(g.n)}!';
   final note = from != null
       ? (g.n == 1
-            ? 'كل درجات الموسم انفتحت لك. استلم مكافآتها من الباتل باس.'
-            : 'انفتح لك المسار المدفوع ومعه ${arabicNumber(season.bonusTiers)} درجات هدية. استلمها من الباتل باس.')
+            ? 'كل درجات الموسم انفتحت لك. استلم مكافآتها من تذكرة الموسم.'
+            : 'انفتح لك المسار المدفوع ومعه ${arabicNumber(season.bonusTiers)} درجات هدية. استلمها من تذكرة الموسم.')
       : rank != null
       ? 'هذي مكافأة أول وصول للرتبة هالموسم. كمّل في الطاولات العامة عشان تطلع أكثر.'
       : ach != null

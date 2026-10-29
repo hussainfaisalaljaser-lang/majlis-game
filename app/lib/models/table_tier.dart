@@ -27,7 +27,7 @@ const tableTiers = [
   TableTier(id: 'city', icon: 'tier_city', name: 'المدينة', entryFee: 1000),
   TableTier(id: 'palace', icon: 'tier_palace', name: 'القصر', entryFee: 5000, requiredLevel: 10),
   TableTier(id: 'kings', icon: 'tier_kings', name: 'الملوك', entryFee: 25000, requiredLevel: 30),
-  TableTier(id: 'vip', icon: 'tier_vip', name: 'نخبة VIP', entryFee: 100000, vipOnly: true),
+  TableTier(id: 'vip', icon: 'tier_vip', name: 'النخبة', entryFee: 100000, vipOnly: true),
 ];
 
 TableTier? tierById(String? id) => tableTiers.where((t) => t.id == id).firstOrNull;

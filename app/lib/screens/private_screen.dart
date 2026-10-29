@@ -17,7 +17,7 @@ Future<void> joinRoomByCode(BuildContext context) async {
   final controller = TextEditingController();
   final code = await showSocDialog<String>(
     context,
-    title: 'ادخل كود روم صاحبك',
+    title: 'ادخل رمز طاولة صاحبك',
     width: 420,
     builder: (context) => Column(
       mainAxisSize: MainAxisSize.min,
@@ -156,7 +156,7 @@ class PrivateRoomView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SocScaffold(
-      title: 'خاص · روم مع أصحابك',
+      title: 'خاص · طاولة مع أصحابك',
       icon: const Gfx('friends', size: 30),
       currency: false,
       glow: mode.glow,
@@ -185,9 +185,9 @@ class PrivateRoomView extends StatelessWidget {
               ModeSummary(mode: mode),
               const Spacer(),
               SocButton(
-                label: busy ? 'لحظة…' : 'أنشئ روم ${mode.name}',
+                label: busy ? 'لحظة…' : 'أنشئ طاولة ${mode.name}',
                 icon: const Gfx('plus', size: 26),
-                semantics: 'أنشئ روم خاص',
+                semantics: 'أنشئ طاولة خاصة',
                 tone: mode.roles ? SocTone.blue : SocTone.orange,
                 height: 50,
                 fontSize: 19,
@@ -210,11 +210,11 @@ class PrivateRoomView extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(18, 14, 18, 12),
           child: _FitColumn(
             children: [
-              const GoldTitle('كيف يشتغل الروم الخاص؟', size: 22),
+              const GoldTitle('كيف تشتغل الطاولة الخاصة؟', size: 22),
               const SizedBox(height: 10),
               for (final (i, (icon, text)) in const [
-                ('plus', 'أنشئ روم، ويطلع لك كود من ٥ حروف'),
-                ('friends', 'ادعُ أصحابك من قائمة الأصدقاء، أو أرسل لهم الكود بالواتساب'),
+                ('plus', 'أنشئ طاولة، ويطلع لك رمز من ٥ حروف'),
+                ('friends', 'ادعُ أصحابك من قائمة الأصدقاء، أو أرسل لهم الرمز بالواتساب'),
                 ('bot', 'ما اكتمل العدد؟ كمّله ببوتات وابدأ'),
               ].indexed)
                 Padding(
@@ -268,7 +268,7 @@ class PrivateRoomView extends StatelessWidget {
                 ),
               const Spacer(),
               const Text(
-                'الروم الخاص ما يدخله أحد غريب، وما يحسب في التصنيف.',
+                'الطاولة الخاصة ما يدخلها أحد غريب، وما يحسب في التصنيف.',
                 textAlign: TextAlign.center,
                 style: TextStyle(color: socMuted, fontSize: 12.5, fontFamily: kufi, fontWeight: FontWeight.w700),
               ),

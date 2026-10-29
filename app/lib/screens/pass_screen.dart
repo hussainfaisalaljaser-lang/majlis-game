@@ -78,7 +78,7 @@ class _PassScreenState extends State<PassScreen> {
             if (!owned) ...[
               Expanded(
                 child: SeasonOption(
-                  title: 'الباتل باس',
+                  title: 'تذكرة الموسم',
                   lines: ['المسار المدفوع وكل مكافآته', 'هدية: ${arabicNumber(season.bonusTiers)} درجات على طول'],
                   price: p.dev ? null : season.price,
                   tone: SnTone.orange,
@@ -89,7 +89,7 @@ class _PassScreenState extends State<PassScreen> {
             ],
             Expanded(
               child: SeasonOption(
-                title: 'الباتل باس كامل',
+                title: 'تذكرة الموسم كاملة',
                 lines: [
                   'المسار المدفوع وكل مكافآته',
                   'كل الدرجات الـ${arabicNumber(season.tiers)} مفتوحة على طول',
@@ -108,7 +108,7 @@ class _PassScreenState extends State<PassScreen> {
 
   Future<void> _buy(Profile p) async {
     final owned = p.pass.premium;
-    final full = await _pickOption(p, title: owned ? 'كمّل الباتل باس' : 'اشترِ الباتل باس', owned: owned);
+    final full = await _pickOption(p, title: owned ? 'كمّل تذكرة الموسم' : 'اشترِ تذكرة الموسم', owned: owned);
     if (full == null) return;
     setState(() => _busy = true);
     try {
@@ -128,7 +128,7 @@ class _PassScreenState extends State<PassScreen> {
     final friend = await showDialog<LeaderboardEntry>(
       context: context,
       builder: (context) => SnPopup(
-        title: 'أهدِ الباتل باس لصاحبك',
+        title: 'أهدِ تذكرة الموسم لصاحبك',
         width: 460,
         child: SizedBox(
           height: 210,

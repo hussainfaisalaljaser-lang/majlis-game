@@ -43,12 +43,12 @@ class _MissionsScreenState extends State<MissionsScreen> {
 
   void _claimDaily(MissionDef m) => _claim(m.id, () async {
     final coins = await Backend.instance.claimMission(m.id);
-    return '+${arabicNumber(coins)} ذهب و${arabicNumber(missionPassPoints)} نقطة باتل باس · ${m.title}';
+    return '+${arabicNumber(coins)} ذهب و${arabicNumber(missionPassPoints)} نقطة موسم · ${m.title}';
   });
 
   void _claimPass(PassMissionDef m) => _claim(m.id, () async {
     final points = await Backend.instance.claimPassMission(m.id);
-    return '+${arabicNumber(points)} نقطة باتل باس · ${m.title}';
+    return '+${arabicNumber(points)} نقطة موسم · ${m.title}';
   });
 
   @override
@@ -128,7 +128,7 @@ class MissionsView extends StatelessWidget {
     final left = season.end.difference(DateTime.now()).inDays;
     final (String note, List<MissionRow> rows) = switch (tab) {
       0 => (
-        'كل مهمة تعطي ذهب و${arabicNumber(missionPassPoints)} نقطة باتل باس · تتجدد كل يوم الساعة ١٢ منتصف الليل',
+        'كل مهمة تعطي ذهب و${arabicNumber(missionPassPoints)} نقطة موسم · تتجدد كل يوم الساعة ١٢ منتصف الليل',
         [
           for (final m in missionDefs)
             MissionRow(
@@ -146,8 +146,8 @@ class MissionsView extends StatelessWidget {
       ),
       _ => (
         tab == 1
-            ? 'نقاط باتل باس · تتجدد كل أحد الساعة ١٢ منتصف الليل'
-            : 'نقاط باتل باس · لين نهاية الموسم (باقي ${arabicNumber(left.clamp(0, 999))} يوم)',
+            ? 'نقاط الموسم · تتجدد كل أحد الساعة ١٢ منتصف الليل'
+            : 'نقاط الموسم · لين نهاية الموسم (باقي ${arabicNumber(left.clamp(0, 999))} يوم)',
         [
           for (final m in tab == 1 ? weeklyMissions : seasonMissions)
             MissionRow(
