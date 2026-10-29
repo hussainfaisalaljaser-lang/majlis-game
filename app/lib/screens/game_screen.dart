@@ -15,6 +15,7 @@ import '../services/notes.dart';
 import '../services/push.dart';
 import '../services/music.dart';
 import '../services/sfx.dart';
+import '../services/sounds.dart';
 import '../services/telemetry.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
@@ -78,6 +79,7 @@ class GamePreview {
     this.pendingReaction,
     this.sent,
     this.scene,
+    this.sceneAt,
   });
 
   final GameView view;
@@ -95,6 +97,9 @@ class GamePreview {
 
   /// مشهد شغال فوق الطاولة.
   final GameScene? scene;
+
+  /// لو انحدد: المشهد واقف على هاللحظة (ثواني من بدايته) بدل ما يتحرك.
+  final double? sceneAt;
 }
 
 /// شاشة الطاولة: كل اللعب يصير هنا.
@@ -164,6 +169,9 @@ class _GameScreenState extends State<GameScreen> {
 
   /// المطرودين: متى بدأ حزنهم على كراسيهم، واللي لسا مشهد طردهم ما خلص.
   final _deaths = <String, DateTime>{};
+
+  /// للتصوير بس: المشهد واقف على هاللحظة.
+  double? _sceneAt;
   final _hiddenDeaths = <String>{};
 
   /// رد ينتظر تختار له لاعب (مثل أشك في…).
@@ -195,11 +203,13 @@ class _GameScreenState extends State<GameScreen> {
       _pendingReaction = pre.pendingReaction;
       if (pre.sent != null) _sent[_turnKey(pre.view)] = pre.sent!;
       if (pre.scene != null) _scenes.add((scene: pre.scene!, lines: const [], onEnd: null));
+      _sceneAt = pre.sceneAt;
       return;
     }
     _notes.load();
     if (!_spectating) Push.enterGame(widget.code);
     Music.play('game');
+    Sounds.warm();
     _viewSub = (_spectating ? _backend.watchSpectator(widget.code) : _backend.watchView(widget.code)).listen((data) {
       if (data == null || !mounted) return;
       final view = GameView.fromJson(data, perspective: widget.watching);
@@ -605,12 +615,19 @@ class _GameScreenState extends State<GameScreen> {
           // كرسيه يبان عادي لين يخلص المشهد، وبعدها يحزن ويتغطى.
           if (executed) _hiddenDeaths.add(id);
           _scenes.add((
-            scene: DeathScene(name: v.nameOf(id), avatar: _room?.player(id)?.avatar ?? 'masked', guarded: !executed),
+            scene: DeathScene(
+              name: v.nameOf(id),
+              avatar: _room?.player(id)?.avatar ?? 'masked',
+              guarded: !executed,
+              fx: deathFxOf(_room?.player(id)?.death),
+            ),
             lines: [executed ? 'executed' : 'guarded'],
             onEnd: executed
                 ? () {
                     _hiddenDeaths.remove(id);
-                    _deaths[id] = DateTime.now();
+                    // الافكت لعب كبير بالمشهد، فكرسيه يبان بآخر شكل له (الغطا الرمادي يكمل حركته على كرسيه)
+                    final played = deathFxOf(_room?.player(id)?.death) != DeathFx.cloth;
+                    _deaths[id] = DateTime.now().subtract(Duration(milliseconds: played ? 2800 : 0));
                   }
                 : null,
           ));
@@ -1353,6 +1370,7 @@ class _GameScreenState extends State<GameScreen> {
                           child: SceneOverlay(
                             key: ObjectKey(_scenes.first),
                             scene: _scenes.first.scene,
+                            freezeAt: _sceneAt,
                             onDone: _nextScene,
                           ),
                         ),

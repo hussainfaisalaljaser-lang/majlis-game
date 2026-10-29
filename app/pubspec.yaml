@@ -64,6 +64,7 @@ flutter:
     - assets/design/
     - assets/icons/
     - assets/voice/
+    - assets/sfx/
     - assets/music/
     - assets/tables/
     - assets/stickers/

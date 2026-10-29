@@ -8,12 +8,14 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:majlis/services/sounds.dart';
 import 'package:majlis/theme.dart';
 
 final _outDir = Platform.environment['SHOT_DIR'] ?? 'build/shots';
 
 /// الخطوط ما تنحمل تلقائياً في الاختبار، فنحملها من مجلد الخطوط.
 Future<void> loadFonts() async {
+  Sounds.silent = true;
   final fonts = <String, List<String>>{
     'Tajawal': ['Tajawal-Regular', 'Tajawal-Medium', 'Tajawal-Bold', 'Tajawal-ExtraBold'],
     'Marhey': ['Marhey-Bold'],
@@ -61,4 +63,3 @@ Future<void> shot(WidgetTester tester, String name, Widget screen, {Size size = 
     File('$_outDir/$name.png').writeAsBytesSync(bytes.buffer.asUint8List());
   });
 }
-

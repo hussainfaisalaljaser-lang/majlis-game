@@ -1,0 +1,70 @@
+import 'package:audioplayers/audioplayers.dart';
+
+import 'music.dart';
+import 'sfx.dart';
+
+/// مؤثرات لحظات الطاولة (assets/sfx، مولّدة بالكود من tools/sfx/make_sfx.py): طبل، قلب كرت، ختم، رعد…
+/// تنكتم مع زر الصوت (نفس الراوي)، وما تشتغل والتطبيق برا. قصيرة، فنشغّلها على مشغّلات جاهزة بالدور.
+abstract final class Sounds {
+  /// اختبارات التصوير ما فيها مشغّل صوت، فنسكتها.
+  static bool silent = false;
+
+  /// كل ملفات assets/sfx (اختبار يتأكد إنها نفس اللي في المجلد).
+  static const all = [
+    'whoosh',
+    'flip',
+    'drum',
+    'drum2',
+    'yes',
+    'no',
+    'stamp',
+    'thud_red',
+    'crack',
+    'shatter',
+    'lamp_out',
+    'shield',
+    'heartbeat',
+    'sting_traitor',
+    'sting_loyal',
+    'sting_leader',
+    'win',
+    'sparkle',
+    'mask_drop',
+    'tick',
+    'thunder',
+    'fire',
+    'ice',
+    'wings',
+    'ghost',
+    'gong',
+    'airy',
+    'puff',
+  ];
+
+  /// يجهّز الملفات من أول ما تبدأ اللعبة، عشان أول مرة يشتغل فيها صوت ما يتأخر عن لحظته.
+  static void warm() {
+    if (silent) return;
+    try {
+      AudioCache.instance.loadAll([for (final n in all) 'sfx/$n.wav']).catchError((_) => <Uri>[]);
+    } catch (_) {}
+  }
+
+  static const _pool = 6;
+  static final _players = <AudioPlayer>[];
+  static int _next = 0;
+
+  /// يشغّل [name] (اسم ملف في assets/sfx بدون .wav). [volume] من ٠ لـ١. أي خطأ ينتجاهل.
+  static void play(String name, {double volume = 1}) {
+    if (silent || Sfx.muted.value || !Music.visible.value) return;
+    try {
+      final player = _players.length < _pool
+          ? (AudioPlayer()
+              ..positionUpdater = null
+              ..setPlayerMode(PlayerMode.lowLatency))
+          : _players[_next];
+      if (_players.length < _pool) _players.add(player);
+      _next = (_next + 1) % _pool;
+      player.play(AssetSource('sfx/$name.wav'), volume: volume.clamp(0.0, 1.0)).catchError((_) {});
+    } catch (_) {}
+  }
+}

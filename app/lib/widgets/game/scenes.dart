@@ -5,8 +5,10 @@ import 'package:flutter/material.dart';
 import '../../models/game_view.dart';
 import '../../models/room.dart';
 import '../../models/shop.dart';
+import '../../services/sounds.dart';
 import '../../theme.dart';
 import '../common.dart';
+import '../death_fx.dart';
 import '../design.dart';
 import '../design_game.dart';
 import '../fx.dart';
@@ -21,6 +23,15 @@ import 'table_art.dart';
 
 /// هزة الشاشة من المشاهد (القرار الأحمر): ٠ ثابت، ١ أقوى هزة. الطاولة تسمعها وتهتز معها.
 final sceneShake = ValueNotifier<double>(0);
+
+/// مؤثر صوتي يشتغل لما يوصل المشهد [at] ثانية من بدايته (الأسماء في assets/sfx، انظر Sounds).
+class SceneCue {
+  const SceneCue(this.at, this.sound, [this.volume = 1]);
+
+  final double at;
+  final String sound;
+  final double volume;
+}
 
 abstract class GameScene {
   const GameScene();
@@ -37,30 +48,63 @@ abstract class GameScene {
   /// قد إيش الشاشة تهتز بهاللحظة.
   double shakeAt(double t) => 0;
 
+  /// أصوات المشهد بترتيب أوقاتها.
+  List<SceneCue> get cues => const [];
+
+  /// تعتيم الأطراف (٠–١) بلون [vignetteColor]: يشد الأعصاب قبل اللحظة الكبيرة.
+  double vignetteAt(double t) => 0;
+  Color get vignetteColor => const Color(0xFF000000);
+
+  /// وميض يغطي الشاشة (٠–١) بلون [flashColor] لحظة الضربة.
+  double flashAt(double t) => 0;
+  Color get flashColor => const Color(0xFFFFFFFF);
+
   /// [size] مقاس المشهد (نفس الطاولة: المسرح ١٦:٩ يتوسطه).
   Widget build(BuildContext context, double t, Size size);
 }
 
 /// يشغّل مشهد فوق الطاولة ويخلّصه لحاله بعد مدته، أو بضغطة.
 class SceneOverlay extends StatefulWidget {
-  const SceneOverlay({super.key, required this.scene, required this.onDone});
+  const SceneOverlay({super.key, required this.scene, required this.onDone, this.freezeAt});
 
   final GameScene scene;
   final VoidCallback onDone;
+
+  /// للتصوير: يوقف المشهد على هاللحظة (ثواني من بدايته) بدون صوت ولا حركة.
+  final double? freezeAt;
 
   @override
   State<SceneOverlay> createState() => _SceneOverlayState();
 }
 
 class _SceneOverlayState extends State<SceneOverlay> with SingleTickerProviderStateMixin {
-  late final _c = AnimationController(vsync: this, duration: widget.scene.duration)
-    ..addListener(_shake)
-    ..forward().then((_) => _done());
+  late final _c = AnimationController(vsync: this, duration: widget.scene.duration)..addListener(_tick);
+  late final _cues = [...widget.scene.cues]..sort((a, b) => a.at.compareTo(b.at));
+  int _cue = 0;
   bool _finished = false;
 
   double get _seconds => _c.value * widget.scene.duration.inMicroseconds / 1e6;
 
-  void _shake() => sceneShake.value = FxClock.lite.value ? 0 : widget.scene.shakeAt(_seconds);
+  @override
+  void initState() {
+    super.initState();
+    if (widget.freezeAt case final at?) {
+      _c.value = (at * 1e6 / widget.scene.duration.inMicroseconds).clamp(0.0, 1.0);
+    } else {
+      _c.forward().then((_) => _done());
+    }
+  }
+
+  void _tick() {
+    if (widget.freezeAt != null) return;
+    final s = _seconds;
+    sceneShake.value = FxClock.lite.value ? 0 : widget.scene.shakeAt(s);
+    // الأصوات تشتغل بوقتها (حتى لو الشاشة بالوضع الخفيف)
+    while (_cue < _cues.length && _cues[_cue].at <= s) {
+      final cue = _cues[_cue++];
+      Sounds.play(cue.sound, volume: cue.volume);
+    }
+  }
 
   void _done() {
     if (_finished) return;
@@ -86,17 +130,13 @@ class _SceneOverlayState extends State<SceneOverlay> with SingleTickerProviderSt
         builder: (context, _) {
           final s = _seconds;
           final fade = (s / .2).clamp(0.0, 1.0) * ((total - s) / .3).clamp(0.0, 1.0);
-          final t = FxClock.lite.value ? widget.scene.settle : s;
           return Opacity(
             opacity: fade,
             child: Stack(
               clipBehavior: Clip.none,
               children: [
                 Positioned.fill(
-                  child: ColoredBox(color: Colors.black.withValues(alpha: widget.scene.dim)),
-                ),
-                Positioned.fill(
-                  child: LayoutBuilder(builder: (context, box) => widget.scene.build(context, t, box.biggest)),
+                  child: SceneFrame(scene: widget.scene, seconds: s),
                 ),
                 Positioned(
                   top: 6,
@@ -119,6 +159,55 @@ class _SceneOverlayState extends State<SceneOverlay> with SingleTickerProviderSt
           );
         },
       ),
+    );
+  }
+}
+
+/// طبقات المشهد عند لحظة [seconds] من بدايته: تعتيم الطاولة، تعتيم الأطراف، المشهد نفسه، والوميض.
+/// (مفصولة عشان اللقطات تصور أي لحظة بدون ما تشغّل المشهد.)
+class SceneFrame extends StatelessWidget {
+  const SceneFrame({super.key, required this.scene, required this.seconds});
+
+  final GameScene scene;
+  final double seconds;
+
+  @override
+  Widget build(BuildContext context) {
+    final lite = FxClock.lite.value;
+    final t = lite ? scene.settle : seconds;
+    final vignette = lite ? 0.0 : scene.vignetteAt(seconds).clamp(0.0, 1.0);
+    final flash = lite ? 0.0 : scene.flashAt(seconds).clamp(0.0, 1.0);
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        Positioned.fill(
+          child: ColoredBox(color: Colors.black.withValues(alpha: scene.dim)),
+        ),
+        if (vignette > 0)
+          Positioned.fill(
+            child: IgnorePointer(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: RadialGradient(
+                    radius: .95,
+                    colors: [
+                      scene.vignetteColor.withValues(alpha: 0),
+                      scene.vignetteColor.withValues(alpha: vignette),
+                    ],
+                    stops: const [.45, 1],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        Positioned.fill(child: LayoutBuilder(builder: (context, box) => scene.build(context, t, box.biggest))),
+        if (flash > 0)
+          Positioned.fill(
+            child: IgnorePointer(
+              child: ColoredBox(color: scene.flashColor.withValues(alpha: flash)),
+            ),
+          ),
+      ],
     );
   }
 }
@@ -231,6 +320,31 @@ class VoteScene extends GameScene {
   /// التصميم ما يعتّم الطاولة وقت الكشف.
   @override
   double get dim => 0;
+
+  /// دقات الطبل: العصيان تسرع من ٤ لـ١٤ ضربة بالثانية بين ٠٫٢ و١٫٥ (نفس سرعة رسمة الطبل)، فنحسب وقت كل ضربة.
+  static final _drumHits = [
+    for (var k = 1; k <= 11; k++) .2 + (-4 + math.sqrt(16 + 4 * (10 / 2.6) * k)) / (2 * (10 / 2.6)),
+  ];
+
+  @override
+  List<SceneCue> get cues => [
+    const SceneCue(.05, 'whoosh', .45),
+    for (final (i, at) in _drumHits.indexed) SceneCue(at, i.isEven ? 'drum' : 'drum2', .35 + .5 * i / _drumHits.length),
+    const SceneCue(1.55, 'flip', .8),
+    SceneCue(1.95, cancelledBy == null && passed ? 'yes' : 'no', .9),
+    const SceneCue(2.2, 'tick', .6),
+  ];
+
+  /// الأطراف تعتم وتشد مع الطبل، وتنفك لما ينقلبون.
+  @override
+  double vignetteAt(double t) => .5 * seg(t, .2, 1.5) * (1 - seg(t, 1.5, 1.75));
+
+  /// ولعة وقت النتيجة: ذهبي لو مشت، أحمر لو سقطت.
+  @override
+  double flashAt(double t) => .3 * bump(t, 1.95, 2.4);
+
+  @override
+  Color get flashColor => cancelledBy == null && passed ? AppColors.goldLight : AppColors.traitor;
 
   @override
   Widget build(BuildContext context, double t, Size size) {
@@ -445,6 +559,27 @@ class EnactScene extends GameScene {
   double shakeAt(double t) => !loyal && t >= 1.3 ? 1 - seg(t, 1.3, 1.85) : 0;
 
   @override
+  List<SceneCue> get cues => [
+    const SceneCue(.1, 'whoosh', .55),
+    const SceneCue(.75, 'flip', .8),
+    // نزول الختم: الأوفياء ختم خفيف وبريق، والخونة ضربة تقيلة تهز الشاشة
+    if (loyal) ...const [SceneCue(1.3, 'stamp', .8), SceneCue(1.36, 'sparkle', .5)] else ...[
+      const SceneCue(1.3, 'thud_red'),
+      if (chaos) const SceneCue(1.3, 'drum', .8),
+    ],
+  ];
+
+  /// الأطراف تحمر بعد ضربة الخونة.
+  @override
+  double vignetteAt(double t) => loyal ? 0 : .55 * seg(t, 1.3, 1.45) * (1 - seg(t, 1.5, 2.4));
+
+  @override
+  Color get vignetteColor => AppColors.traitor;
+
+  @override
+  double flashAt(double t) => (loyal ? .22 : .38) * bump(t, 1.3, 1.6);
+
+  @override
   Widget build(BuildContext context, double t, Size size) {
     final (:seats, :rug, :table, :stage) = _layout(view, size);
     final s = stage.s;
@@ -563,20 +698,64 @@ class _BurstPainter extends CustomPainter {
 
 /// الطرد: الصورة ترجف وتتشقق وتتكسر قطع، وفانوسه ينطفي ويطلع منه دخان. الحارس: درع يحميه والشقوق تختفي.
 class DeathScene extends GameScene {
-  const DeathScene({required this.name, required this.avatar, required this.guarded});
+  const DeathScene({required this.name, required this.avatar, required this.guarded, this.fx = DeathFx.cloth});
 
   final String name;
   final String avatar;
   final bool guarded;
 
+  /// افكت موته من المتجر: غير الغطا الرمادي يلعب كبير بوسط المشهد مكان تكسر الصورة.
+  final DeathFx fx;
+
+  bool get _custom => !guarded && fx != DeathFx.cloth;
+
+  /// الافكت يبدأ (deathFxStart) على ١٫٥ ثانية من المشهد، بعد الارتجاف والشقوق.
+  static const _fxAt = 1.5;
+
   @override
   Duration get duration => const Duration(milliseconds: 3800);
 
   @override
-  double get settle => guarded ? 2.6 : 3.2;
+  double get settle => guarded ? 2.6 : (_custom ? 3.4 : 3.2);
 
   @override
   double get dim => .62;
+
+  /// صوت كل افكت.
+  static String _fxSound(DeathFx fx) => switch (fx) {
+    DeathFx.lightning => 'thunder',
+    DeathFx.fire => 'fire',
+    DeathFx.ice => 'ice',
+    DeathFx.bats => 'wings',
+    DeathFx.ghost => 'ghost',
+    DeathFx.gold => 'gong',
+    DeathFx.petals => 'airy',
+    DeathFx.smoke || DeathFx.sand => 'puff',
+    DeathFx.cloth => 'shatter',
+  };
+
+  @override
+  List<SceneCue> get cues => [
+    const SceneCue(.2, 'heartbeat', .8),
+    const SceneCue(.85, 'heartbeat', .9),
+    const SceneCue(.9, 'crack', .8),
+    if (guarded)
+      const SceneCue(1.2, 'shield')
+    else ...[
+      SceneCue(_custom ? _fxAt : 1.55, _fxSound(fx)),
+      const SceneCue(1.6, 'lamp_out', .8),
+    ],
+  ];
+
+  /// الأطراف تحمر (أو تخضر مع الحارس) وهو يرتجف، وتنفك لما ينكسر.
+  @override
+  double vignetteAt(double t) => .65 * seg(t, .2, 1.4) * (1 - seg(t, 1.5, 2.0));
+
+  @override
+  Color get vignetteColor => guarded ? AppColors.loyal : AppColors.traitor;
+
+  @override
+  double flashAt(double t) => guarded ? .25 * bump(t, 1.2, 1.5) : .35 * bump(t, 1.5, 1.85);
 
   @override
   Widget build(BuildContext context, double t, Size size) {
@@ -584,7 +763,9 @@ class DeathScene extends GameScene {
     final c = Offset(size.width / 2, size.height * .42);
     final shake = seg(t, .2, 1.0) * (1 - seg(t, guarded ? 1.2 : 1.5, guarded ? 1.3 : 1.6));
     final crack = guarded ? seg(t, .9, 1.2) * (1 - seg(t, 1.4, 1.8)) : seg(t, .9, 1.35, Curves.easeOut);
-    final shatter = guarded ? 0.0 : seg(t, 1.55, 2.6, Curves.easeIn);
+    final shatter = guarded || _custom ? 0.0 : seg(t, 1.55, 2.6, Curves.easeIn);
+    // وقت الافكت (يبدأ على deathFxStart لما نوصل _fxAt)
+    final fxT = t - (_fxAt - deathFxStart);
     final shield = guarded ? seg(t, 1.2, 1.5, Curves.easeOutBack) : 0.0;
     final out = guarded ? 0.0 : seg(t, 1.6, 2.1);
     final lampOn = out == 0 ? 1.0 : (1 - out) * (.5 + .5 * math.sin(t * 50).abs());
@@ -611,12 +792,15 @@ class DeathScene extends GameScene {
             ),
           ),
           if (shatter == 0) ...[
-            TableAvatar(avatar: avatar, size: r * 1.2),
+            if (_custom) _deathFxAvatar(fx, avatar, r * 1.2, fxT) else TableAvatar(avatar: avatar, size: r * 1.2),
             if (crack > 0)
-              SizedBox(
-                width: r,
-                height: r,
-                child: ClipOval(child: CustomPaint(painter: _CracksPainter(crack))),
+              Opacity(
+                opacity: _custom ? 1 - seg(t, _fxAt, _fxAt + .4) : 1,
+                child: SizedBox(
+                  width: r,
+                  height: r,
+                  child: ClipOval(child: CustomPaint(painter: _CracksPainter(crack))),
+                ),
               ),
           ] else
             _Shatter(avatar: avatar, size: r, p: shatter),
@@ -656,13 +840,13 @@ class DeathScene extends GameScene {
           if (t > 2.0)
             Positioned.fill(child: CustomPaint(painter: _SmokePainter(lamp - Offset(0, r * .2), seg(t, 2.0, 3.8)))),
         ],
-        if (t > (guarded ? 1.8 : 2.6))
+        if (t > (guarded ? 1.8 : (_custom ? 2.8 : 2.6)))
           Positioned(
             left: 0,
             right: 0,
             top: c.dy + r * .62,
             child: Opacity(
-              opacity: seg(t, guarded ? 1.8 : 2.6, guarded ? 2.2 : 3.0),
+              opacity: seg(t, guarded ? 1.8 : (_custom ? 2.8 : 2.6), guarded ? 2.2 : (_custom ? 3.2 : 3.0)),
               child: Column(
                 children: [
                   GoldText(guarded ? '$name نجا! طلع حارس' : '$name انطرد', size: 28),
@@ -678,6 +862,35 @@ class DeathScene extends GameScene {
       ],
     );
   }
+}
+
+/// صورة المطرود بافكت موته (نفس اللي يبان بالطاولة): تحزن وتترمد، وبعدها المسند والافكت مكانها.
+Widget _deathFxAvatar(DeathFx fx, String avatar, double size, double fxT) {
+  final look = deathLook(fx, math.max(0, fxT));
+  return SizedBox(
+    width: size,
+    height: size,
+    child: Stack(
+      clipBehavior: Clip.none,
+      children: [
+        if (!deathHidesAvatar(fx, fxT))
+          Positioned.fill(
+            child: Opacity(
+              opacity: look.opacity.clamp(0.0, 1.0),
+              child: look.matrix == null
+                  ? TableAvatar(avatar: avatar, size: size)
+                  : ColorFiltered(
+                      colorFilter: ColorFilter.matrix(look.matrix!),
+                      child: TableAvatar(avatar: avatar, size: size),
+                    ),
+            ),
+          ),
+        Positioned.fill(
+          child: DeathLayer(fx: fx, t: fxT),
+        ),
+      ],
+    ),
+  );
 }
 
 /// شقوق تمشي من نقطة الضربة لأطراف الصورة.
@@ -839,6 +1052,34 @@ class UnmaskScene extends GameScene {
 
   @override
   double get dim => .84;
+
+  @override
+  List<SceneCue> get cues {
+    final loyalWon = view.winnerLoyal ?? false;
+    return [
+      const SceneCue(_loyalAt, 'whoosh', .5),
+      for (final (i, _) in traitors.indexed) ...[
+        SceneCue(_firstTraitor + i * _gap, 'mask_drop'),
+        // الزعيم آخر واحد: ضربة تقيلة
+        if (i == traitors.length - 1) SceneCue(_firstTraitor + i * _gap + .05, 'thud_red', .8),
+      ],
+      SceneCue(_winAt, loyalWon ? 'win' : 'sting_traitor'),
+      SceneCue(_winAt + .2, 'sparkle', .6),
+    ];
+  }
+
+  /// وميض أحمر خفيف مع كل قناع يطيح، وذهبي كبير لما يعلن الفايز.
+  @override
+  double flashAt(double t) {
+    var f = .3 * bump(t, _winAt, _winAt + .5);
+    for (var i = 0; i < traitors.length; i++) {
+      f = math.max(f, .14 * bump(t, _firstTraitor + i * _gap, _firstTraitor + i * _gap + .35));
+    }
+    return f;
+  }
+
+  @override
+  Color get flashColor => (view.winnerLoyal ?? false) ? AppColors.goldLight : AppColors.traitor;
 
   @override
   Widget build(BuildContext context, double t, Size size) {

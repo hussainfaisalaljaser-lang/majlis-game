@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../../models/game_view.dart';
 import '../../models/room.dart';
 import '../../services/sfx.dart';
+import '../../services/sounds.dart';
 import '../../theme.dart';
 import '../common.dart';
 import '../design.dart';
@@ -69,9 +70,16 @@ class _RoleRevealState extends State<_RoleReveal> with TickerProviderStateMixin 
     // البطاقة تنقلب على طول (ما تنتظر الترحيب)، وجملة الدور تنتظر دورها عند الراوي بعده.
     Future.delayed(const Duration(milliseconds: 500), () {
       if (!mounted) return;
+      Sounds.play('flip');
       _flip.forward().then((_) {
         if (!mounted) return;
         _shine.forward();
+        // ضربة الدور: خائن غامقة، وفي دافية، وزعيم بالنفير
+        Sounds.play(switch (widget.view.yourRole) {
+          Role.loyal => 'sting_loyal',
+          Role.traitor => 'sting_traitor',
+          Role.leader => 'sting_leader',
+        });
         Sfx.say(switch (widget.view.yourRole) {
           Role.loyal => 'role_loyal',
           Role.traitor => 'role_traitor',
@@ -146,6 +154,32 @@ class _RoleRevealState extends State<_RoleReveal> with TickerProviderStateMixin 
                         child: Transform.translate(
                           offset: Offset(0, c.dy - box.maxHeight / 2),
                           child: const SunRays(opacity: .11),
+                        ),
+                      ),
+                    ),
+                    // توهج بلون الدور ينطلق من البطاقة لحظة ما تنقلب ويخفت
+                    Positioned.fill(
+                      child: IgnorePointer(
+                        child: AnimatedBuilder(
+                          animation: _shine,
+                          builder: (context, _) {
+                            final burst = _shine.value == 0
+                                ? 0.0
+                                : 1 - Curves.easeOut.transform((_shine.value / .8).clamp(0.0, 1.0));
+                            if (burst <= 0) return const SizedBox.shrink();
+                            return DecoratedBox(
+                              decoration: BoxDecoration(
+                                gradient: RadialGradient(
+                                  center: Alignment((c.dx / box.maxWidth) * 2 - 1, (c.dy / box.maxHeight) * 2 - 1),
+                                  radius: .35 + .75 * (1 - burst),
+                                  colors: [
+                                    color.withValues(alpha: .55 * burst),
+                                    color.withValues(alpha: 0),
+                                  ],
+                                ),
+                              ),
+                            );
+                          },
                         ),
                       ),
                     ),

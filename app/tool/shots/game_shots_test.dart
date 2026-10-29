@@ -7,10 +7,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:majlis/models/catalog.dart';
 import 'package:majlis/models/game_view.dart';
 import 'package:majlis/models/profile.dart';
 import 'package:majlis/models/room.dart';
+import 'package:majlis/models/shop.dart';
 import 'package:majlis/screens/game_screen.dart';
 import 'package:majlis/services/backend.dart';
 import 'package:majlis/services/music.dart';
@@ -473,5 +473,102 @@ void main() {
     for (final v in [Venue.city, Venue.palace, Venue.kings, Venue.vip]) {
       await shot(tester, 'game_scene_${v.name}', MajlisRoom(venue: v));
     }
+  });
+
+  // لحظات الطاولة: كل مشهد على أكثر من لحظة (للفحص: tm_<مشهد>_<ثانية بالأجزاء من عشرة>)
+  String sec(double t) => (t * 10).round().toString().padLeft(2, '0');
+
+  testWidgets('moments_vote', (tester) async {
+    final view = _view(_viewJson(phase: 'presidentDiscard', nominee: 'faisal'));
+    final votes = {
+      'me': true,
+      'lulwa': false,
+      'badr': true,
+      'turki': true,
+      'faisal': true,
+      'majed': false,
+      'jood': true,
+    };
+    for (final t in [.9, 1.75, 2.1, 2.9]) {
+      await screen(
+        tester,
+        'tm_vote_${sec(t)}',
+        GamePreview(
+          view: view,
+          room: _room(),
+          scene: VoteScene(view: view, votes: votes, passed: t != 2.9),
+          sceneAt: t,
+        ),
+        frames: 2,
+      );
+    }
+  });
+
+  testWidgets('moments_enact', (tester) async {
+    final view = _view(_viewJson(phase: 'nomination', loyal: 1));
+    for (final t in [.5, 1.4, 2.0]) {
+      await screen(
+        tester,
+        'tm_enact_red_${sec(t)}',
+        GamePreview(
+          view: view,
+          room: _room(),
+          scene: EnactScene(view: view, loyal: false, chaos: false, from: 'faisal'),
+          sceneAt: t,
+        ),
+        frames: 2,
+      );
+    }
+  });
+
+  testWidgets('moments_death', (tester) async {
+    final view = _view(_viewJson(phase: 'nomination', dead: ['badr']));
+    for (final fx in [DeathFx.fire, DeathFx.ice, DeathFx.lightning]) {
+      for (final t in [1.0, 1.7, 2.2, 3.3]) {
+        await screen(
+          tester,
+          'tm_death_${fx.name}_${sec(t)}',
+          GamePreview(
+            view: view,
+            room: _room(),
+            scene: DeathScene(name: 'بدر', avatar: 'youth', guarded: false, fx: fx),
+            sceneAt: t,
+          ),
+          frames: 2,
+        );
+      }
+    }
+    for (final fx in [
+      DeathFx.cloth,
+      DeathFx.smoke,
+      DeathFx.sand,
+      DeathFx.petals,
+      DeathFx.bats,
+      DeathFx.ghost,
+      DeathFx.gold,
+    ]) {
+      await screen(
+        tester,
+        'tm_death_${fx.name}_33',
+        GamePreview(
+          view: view,
+          room: _room(),
+          scene: DeathScene(name: 'بدر', avatar: 'youth', guarded: false, fx: fx),
+          sceneAt: 3.3,
+        ),
+        frames: 2,
+      );
+    }
+    await screen(
+      tester,
+      'tm_death_guarded_17',
+      GamePreview(
+        view: view,
+        room: _room(),
+        scene: const DeathScene(name: 'بدر', avatar: 'youth', guarded: true),
+        sceneAt: 1.7,
+      ),
+      frames: 2,
+    );
   });
 }
