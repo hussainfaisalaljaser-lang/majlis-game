@@ -111,7 +111,17 @@ Map<String, dynamic> _viewJson({
   };
 }
 
-Room _room({bool finished = false, List<String> watchers = const []}) => Room.fromJson({
+/// ملصقات طالعة الحين فوق لاعبين: [from] → رقم الملصق في القائمة.
+List<Map<String, dynamic>> _stickerReactions(Map<String, int> from) => [
+  for (final e in from.entries)
+    {'from': e.key, 'kind': stickers[e.value].id, 'at': DateTime.now().millisecondsSinceEpoch - 600},
+];
+
+Room _room({
+  bool finished = false,
+  List<String> watchers = const [],
+  List<Map<String, dynamic>> reactions = const [],
+}) => Room.fromJson({
   'code': 'ABCD',
   'hostId': 'me',
   'status': finished ? 'finished' : 'playing',
@@ -123,6 +133,7 @@ Room _room({bool finished = false, List<String> watchers = const []}) => Room.fr
       {'uid': id, 'name': _names[id], 'avatar': _avatars[id], 'frame': _frames[id], 'bot': false},
   ],
   'watchers': watchers,
+  'reactions': reactions,
   if (finished)
     'results': {
       'me': {'won': true, 'coins': 600, 'xp': 120, 'rank': 12, 'boost': 1},
@@ -386,6 +397,22 @@ void main() {
         GamePreview(view: view, room: _room()),
         size: size,
         after: (context) => showRoleReveal(context, view, _room()),
+      );
+    }
+  });
+
+  testWidgets('stickers_on_table', (tester) async {
+    // ملصقات فوق أكثر من لاعب، على الجوال وعلى الشاشة الكبيرة
+    final reactions = _stickerReactions({'me': 3, 'majed': 12, 'jood': 30, 'lulwa': 45});
+    for (final size in const [Size(800, 360), Size(960, 540)]) {
+      await screen(
+        tester,
+        'game_stickers_${size.width.toInt()}',
+        GamePreview(
+          view: _view(_viewJson()),
+          room: _room(reactions: reactions),
+        ),
+        size: size,
       );
     }
   });

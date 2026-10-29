@@ -550,11 +550,19 @@ class _SeatView extends StatelessWidget {
               ),
             ),
             if (selectable) at(0, 0, PulseRing(size: d * .9)),
-            if (reaction != null)
+            // فوق كل شي (لوحة القرارات ولوحة الجولة اللي في الزوايا)، عشان كلام اللاعب ما يتغطى.
+            if (reaction != null && sticker == null)
               at(
                 0,
-                sticker == null ? -118 : (stickerBelow ? 150 : -140),
-                // فوق كل شي (لوحة القرارات ولوحة الجولة اللي في الزوايا)، عشان كلام اللاعب ما يتغطى.
+                -118,
+                _AboveAll(
+                  child: _Bubble(reaction: reaction, view: view, bubble: rp?.bubble, scale: s),
+                ),
+              ),
+            // الملصق كبير ويلمس طرف الصورة بس: نحسب مكانه بالبكسل على قد حجمه، مو بوحدات التصميم.
+            if (reaction != null && sticker != null)
+              below(
+                (stickerBelow ? 1 : -1) * (d / 2 + stickerSize(s) * .4),
                 _AboveAll(
                   child: _Bubble(reaction: reaction, view: view, bubble: rp?.bubble, scale: s),
                 ),
@@ -605,7 +613,9 @@ class _SeatView extends StatelessWidget {
           else
             SizedBox(width: d, height: d),
           if (t < 1.6) Positioned.fill(child: CustomPaint(painter: _SadPainter(t))),
-          Positioned.fill(child: DeathLayer(fx: fx, t: t)),
+          Positioned.fill(
+            child: DeathLayer(fx: fx, t: t),
+          ),
           Positioned.fill(
             child: DeathMark(fx: fx, t: t),
           ),
@@ -1064,6 +1074,9 @@ class _AboveAllState extends State<_AboveAll> {
   );
 }
 
+/// حجم الملصق فوق اللاعب بالبكسل. على الجوال الصغير ما ينزل عن ٩٢ عشان يبان واضح.
+double stickerSize(double scale) => math.max(92, 190 * scale);
+
 /// اللي قاله اللاعب: ملصق، أو كلام بفقاعته من المتجر.
 class _Bubble extends StatelessWidget {
   const _Bubble({required this.reaction, required this.view, required this.bubble, required this.scale});
@@ -1076,7 +1089,7 @@ class _Bubble extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final sticker = stickerById(reaction.kind);
-    if (sticker != null) return StickerView(sticker: sticker, size: math.max(54, 110 * scale));
+    if (sticker != null) return StickerView(sticker: sticker, size: stickerSize(scale));
     final target = reaction.target;
     final targetName = target == null
         ? null
