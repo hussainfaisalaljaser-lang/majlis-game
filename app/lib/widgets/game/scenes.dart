@@ -7,14 +7,17 @@ import '../../models/room.dart';
 import '../../models/shop.dart';
 import '../../theme.dart';
 import '../common.dart';
+import '../design.dart';
+import '../design_game.dart';
 import '../fx.dart';
 import '../majlis.dart';
 import '../ui.dart';
 import 'game_table.dart';
 import 'policy_card.dart';
+import 'table_art.dart';
 
 /// المشاهد اللي تطلع فوق الطاولة بعد الأحداث: كشف التصويت، الختم، الطرد، وكشف الأقنعة بالنهاية.
-/// كل مشهد يرسم نفسه حسب الوقت من بدايته، ويعرف وين كل لاعب قاعد (نفس حساب الطاولة).
+/// كل مشهد يرسم نفسه حسب الوقت من بدايته، ويعرف وين كل لاعب قاعد (نفس حساب الطاولة، على [Stage]).
 
 /// هزة الشاشة من المشاهد (القرار الأحمر): ٠ ثابت، ١ أقوى هزة. الطاولة تسمعها وتهتز معها.
 final sceneShake = ValueNotifier<double>(0);
@@ -34,7 +37,7 @@ abstract class GameScene {
   /// قد إيش الشاشة تهتز بهاللحظة.
   double shakeAt(double t) => 0;
 
-  /// [size] مقاس المشهد (نفس الطاولة مع حوافها: [tablePadding]).
+  /// [size] مقاس المشهد (نفس الطاولة: المسرح ١٦:٩ يتوسطه).
   Widget build(BuildContext context, double t, Size size);
 }
 
@@ -95,14 +98,20 @@ class _SceneOverlayState extends State<SceneOverlay> with SingleTickerProviderSt
                 Positioned.fill(
                   child: LayoutBuilder(builder: (context, box) => widget.scene.build(context, t, box.biggest)),
                 ),
-                const Positioned(
-                  top: 12,
+                Positioned(
+                  top: 6,
                   left: 0,
                   right: 0,
-                  child: Text(
-                    'اضغط بأي مكان عشان تكمل',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(color: AppColors.muted, fontSize: 12.5),
+                  child: IgnorePointer(
+                    child: Text(
+                      'اضغط بأي مكان عشان تكمل',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: AppColors.muted.withValues(alpha: .8),
+                        fontSize: 11.5,
+                        shadows: const [Shadow(color: Colors.black, blurRadius: 4)],
+                      ),
+                    ),
                   ),
                 ),
               ],
@@ -122,15 +131,9 @@ Offset _bezier(Offset a, Offset c, Offset b, double t) => a * ((1 - t) * (1 - t)
 Widget _at(Offset c, double w, double h, Widget child) =>
     Positioned(left: c.dx - w / 2, top: c.dy - h / 2, width: w, height: h, child: child);
 
-/// مكان كل لاعب ومكان السجادة بإحداثيات المشهد.
-({Map<String, Offset> seats, Rect rug, Size table}) _layout(GameView view, Size size) {
-  final table = Size(size.width - tablePadding.horizontal, size.height - tablePadding.vertical);
-  final o = Offset(tablePadding.left, tablePadding.top);
-  return (
-    seats: {for (final MapEntry(:key, :value) in seatCenters(view, table).entries) key: value + o},
-    rug: rugRect(table).shift(o),
-    table: table,
-  );
+/// مكان كل لاعب والسجادة والبيضاوي بإحداثيات المشهد (المسرح).
+({Map<String, Offset> seats, Rect rug, Size table, Stage stage}) _layout(GameView view, Size size) {
+  return (seats: seatCenters(view, size), rug: rugRect(size), table: size, stage: Stage(size));
 }
 
 /// كرت ينقلب: [angle] صفر يبين الوجه، وπ يبين الظهر.
@@ -154,73 +157,52 @@ class _Flip extends StatelessWidget {
   }
 }
 
-/// ظهر الكرت (نفس الكومة على الطاولة).
-class _Back extends StatelessWidget {
-  const _Back({required this.width, required this.height});
-
-  final double width, height;
-
-  @override
-  Widget build(BuildContext context) => Container(
-    width: width,
-    height: height,
-    padding: EdgeInsets.all(width * .08),
-    decoration: BoxDecoration(
-      borderRadius: BorderRadius.circular(width * .12),
-      gradient: const LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-        colors: [Color(0xFF4A3592), Color(0xFF1C1638)],
+/// لوح الرسالة تحت الطاولة (نفس مكانه وشكله في الشاشة)، يطلع فيه نتيجة المشهد.
+Widget _scenePlank(Stage st, String text, {Widget? icon, Color color = const Color(0xFFFFF6E6)}) {
+  final s = st.s;
+  final fs = gameFont(34, s, min: 13);
+  final r = TablePos.plank;
+  final w = math.max(r.width * s, math.min(996 * s - 8, 330.0));
+  final h = math.max(r.height * s, fs * 1.4 + 14);
+  final c = st.at(r.center.dx, r.center.dy);
+  return Positioned(
+    left: c.dx - w / 2,
+    top: c.dy - h / 2,
+    width: w,
+    height: h,
+    child: GamePlank(
+      radius: math.max(10, 16 * s),
+      padding: EdgeInsets.symmetric(horizontal: math.max(10, 18 * s), vertical: 2),
+      child: Row(
+        children: [
+          if (icon != null) ...[icon, SizedBox(width: math.max(6, 10 * s))],
+          Expanded(
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                text,
+                textAlign: TextAlign.center,
+                maxLines: 1,
+                style: TextStyle(
+                  fontFamily: kufi,
+                  fontWeight: FontWeight.w800,
+                  fontSize: fs,
+                  height: 1.3,
+                  color: color,
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
-      border: Border.all(color: AppColors.gold, width: 2),
-      boxShadow: const [BoxShadow(color: Colors.black54, blurRadius: 10, offset: Offset(0, 5))],
     ),
-    child: Container(
-      alignment: Alignment.center,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(width * .08),
-        border: Border.all(color: AppColors.gold.withValues(alpha: .5)),
-      ),
-      child: CustomPaint(size: Size.square(width * .42), painter: _StarPainter()),
-    ),
-  );
-}
-
-class _StarPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final c = size.center(Offset.zero);
-    canvas.drawPath(star4(c, size.width / 2), Paint()..color = AppColors.gold);
-    canvas.drawCircle(c, size.width * .09, Paint()..color = AppColors.goldLight);
-  }
-
-  @override
-  bool shouldRepaint(_StarPainter old) => false;
-}
-
-/// لوحة نتيجة داكنة بحافة ملونة.
-class _Plate extends StatelessWidget {
-  const _Plate({required this.color, required this.child});
-
-  final Color color;
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-    decoration: BoxDecoration(
-      color: const Color(0xF00B0818),
-      borderRadius: BorderRadius.circular(18),
-      border: Border.all(color: color, width: 2),
-      boxShadow: [BoxShadow(color: color.withValues(alpha: .45), blurRadius: 24)],
-    ),
-    child: child,
   );
 }
 
 // ───────── كشف التصويت
 
-/// كشف التصويت: كرت مقلوب جنب كل لاعب صوّت، يرجف مع دق الطبول، وبعدها كلهم ينقلبون مرة وحدة.
+/// كشف التصويت: كرت بنفسجي مقلوب جنب كل لاعب صوّت، يرجف مع دق الطبول، وبعدها كلهم ينقلبون مرة وحدة
+/// على ورقة «موافق» أو «رافض» (مثل التصميم)، ولوح النتيجة تحت.
 class VoteScene extends GameScene {
   const VoteScene({
     required this.view,
@@ -246,12 +228,14 @@ class VoteScene extends GameScene {
   @override
   double get settle => 3.0;
 
+  /// التصميم ما يعتّم الطاولة وقت الكشف.
   @override
-  double get dim => .3;
+  double get dim => 0;
 
   @override
   Widget build(BuildContext context, double t, Size size) {
-    final (:seats, :rug, :table) = _layout(view, size);
+    final (:seats, :rug, :table, :stage) = _layout(view, size);
+    final s = stage.s;
     final appear = seg(t, 0, .35, Curves.easeOutBack);
     final drum = seg(t, .2, .45) * (1 - seg(t, 1.5, 1.7));
     final roll = seg(t, .2, 1.5);
@@ -262,25 +246,38 @@ class VoteScene extends GameScene {
     final no = votes.entries.where((e) => !e.value).fold(0, (n, e) => n + weight(e.key));
     final judge = cancelledBy;
     final mid = size.width / 2;
+    final cw = (96 * s).clamp(50.0, 110.0);
+    final ch = cw * 1.28;
+    final d = seatDiameter * s;
+    final oval = stage.at(TablePos.oval.dx, TablePos.oval.dy);
+    final k = (s * 1.6).clamp(.7, 1.4);
     return Stack(
       clipBehavior: Clip.none,
       children: [
         if (drum > 0)
           _at(
-            rug.center,
-            130,
-            120,
+            oval,
+            130 * k,
+            120 * k,
             Opacity(
               opacity: drum,
-              child: CustomPaint(painter: _DrumPainter(t, roll)),
+              child: Transform.scale(
+                scale: k,
+                child: CustomPaint(painter: _DrumPainter(t, roll)),
+              ),
             ),
           ),
         for (final (i, MapEntry(key: id, value: ja)) in votes.entries.indexed)
           if (seats[id] case final c?)
             _at(
-              c + Offset(c.dx <= mid + 1 ? 52 : -52, -2),
-              42,
-              58,
+              // الكرت جنب الصورة من جهة نص الطاولة، والمقاعد التحت ترفعه عشان ما يغطي لوح الرسالة.
+              c +
+                  Offset(
+                    (c.dx < mid - 1 ? 1 : -1) * (d / 2 + cw / 2 + 6 * s),
+                    c.dy > stage.box.top + 700 * s && c.dy < stage.box.top + 900 * s ? -62 * s : 12 * s,
+                  ),
+              cw,
+              ch,
               Transform.translate(
                 offset: Offset(0, math.sin(t * 37 + i * 2) * 3 * roll * (1 - flip)),
                 child: Transform.rotate(
@@ -289,11 +286,14 @@ class VoteScene extends GameScene {
                     scale: appear * (1 + .2 * pop),
                     child: Stack(
                       clipBehavior: Clip.none,
+                      alignment: Alignment.center,
                       children: [
                         _Flip(
                           angle: (1 - flip) * math.pi,
-                          front: id == judge ? const _JudgeFace() : _VoteFace(ja),
-                          back: const _VoteBack(),
+                          front: id == judge
+                              ? VoteBadgeCard(yes: false, width: cw, label: 'ألغى', icon: const Gfx('scales', size: 40))
+                              : VoteBadgeCard(yes: ja, width: cw),
+                          back: GameCardFace(kind: GameCardKind.discard, width: cw * .9),
                         ),
                         // الشيخ: صوته بصوتين (شارة فوق كرته).
                         if (weight(id) > 1 && flip > .5)
@@ -305,19 +305,20 @@ class VoteScene extends GameScene {
                               child: Transform.scale(
                                 scale: Curves.elasticOut.transform(seg(t, 1.9, 2.4)),
                                 child: Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 1),
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 1),
                                   decoration: BoxDecoration(
                                     color: const Color(0xFF2A1B0A),
-                                    borderRadius: BorderRadius.circular(10),
-                                    border: Border.all(color: AppColors.gold, width: 1.5),
-                                    boxShadow: [BoxShadow(color: AppColors.gold.withValues(alpha: .5), blurRadius: 8)],
+                                    borderRadius: BorderRadius.circular(40),
+                                    border: Border.all(color: AppColors.gold, width: 2),
                                   ),
                                   child: Text(
                                     weight(id) == 2 ? 'صوتين' : '×${arabicNumber(weight(id))}',
                                     style: const TextStyle(
+                                      fontFamily: kufi,
                                       color: AppColors.goldLight,
-                                      fontWeight: FontWeight.w900,
+                                      fontWeight: FontWeight.w800,
                                       fontSize: 12.5,
+                                      height: 1.3,
                                     ),
                                   ),
                                 ),
@@ -331,165 +332,25 @@ class VoteScene extends GameScene {
               ),
             ),
         if (t > 2.2)
-          _at(
-            rug.center,
-            320,
-            60,
-            Center(
-              child: Opacity(
-                opacity: seg(t, 2.2, 2.45),
-                child: Transform.scale(
-                  scale: seg(t, 2.2, 2.55, Curves.easeOutBack),
-                  child: judge != null
-                      ? _Plate(
-                          color: const Color(0xFFA48BFF),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Gfx('scales', size: 28),
-                              const SizedBox(width: 8),
-                              Flexible(
-                                child: Text(
-                                  'القاضي ${judge == view.you && !view.spectator ? '(أنت)' : view.player(judge).name} ألغى التصويت',
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
-                                    fontFamily: kufi,
-                                    fontSize: 19,
-                                    fontWeight: FontWeight.w700,
-                                    color: Color(0xFFD9CFFF),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        )
-                      : _Plate(
-                          color: passed ? AppColors.green : AppColors.traitor,
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Gfx(passed ? 'check' : 'cross', size: 28),
-                              const SizedBox(width: 8),
-                              Text(
-                                passed ? 'الحكومة انتخبت' : 'الحكومة انرفضت',
-                                style: TextStyle(
-                                  fontFamily: kufi,
-                                  fontSize: 21,
-                                  fontWeight: FontWeight.w700,
-                                  color: passed ? AppColors.green : AppColors.traitorLight,
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Text(
-                                '${arabicNumber(yes)} – ${arabicNumber(no)}',
-                                style: const TextStyle(fontFamily: kufi, fontSize: 21, fontWeight: FontWeight.w700),
-                              ),
-                            ],
-                          ),
-                        ),
-                ),
+          Positioned.fill(
+            child: Opacity(
+              opacity: seg(t, 2.2, 2.45),
+              child: Stack(
+                children: [
+                  _scenePlank(
+                    stage,
+                    judge != null
+                        ? 'القاضي ${judge == view.you && !view.spectator ? '(أنت)' : view.player(judge).name} ألغى التصويت'
+                        : '${passed ? 'مشت' : 'سقطت'} الحكومة: ${arabicNumber(yes)} موافق و${arabicNumber(no)} رافض',
+                    icon: judge != null ? const Gfx('scales', size: 30) : null,
+                  ),
+                ],
               ),
             ),
           ),
       ],
     );
   }
-}
-
-class _VoteFace extends StatelessWidget {
-  const _VoteFace(this.yes);
-
-  final bool yes;
-
-  @override
-  Widget build(BuildContext context) => Container(
-    width: 42,
-    height: 58,
-    decoration: BoxDecoration(
-      borderRadius: BorderRadius.circular(8),
-      gradient: LinearGradient(
-        begin: Alignment.topCenter,
-        end: Alignment.bottomCenter,
-        colors: yes ? const [Color(0xFF6DE3A0), Color(0xFF1E8E52)] : const [Color(0xFFFF8C98), Color(0xFFA3172D)],
-      ),
-      border: Border.all(color: Colors.white.withValues(alpha: .85), width: 2),
-      boxShadow: [BoxShadow(color: (yes ? AppColors.green : AppColors.traitor).withValues(alpha: .7), blurRadius: 12)],
-    ),
-    child: Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Gfx(yes ? 'check' : 'cross', size: 22),
-        Text(
-          yes ? 'نعم' : 'لا',
-          style: TextStyle(
-            fontFamily: kufi,
-            fontWeight: FontWeight.w700,
-            fontSize: 13,
-            height: 1.3,
-            color: yes ? const Color(0xFF062814) : Colors.white,
-          ),
-        ),
-      ],
-    ),
-  );
-}
-
-/// ورقة القاضي: ميزان وكلمة «ألغى» بدال نعم أو لا.
-class _JudgeFace extends StatelessWidget {
-  const _JudgeFace();
-
-  @override
-  Widget build(BuildContext context) => Container(
-    width: 42,
-    height: 58,
-    decoration: BoxDecoration(
-      borderRadius: BorderRadius.circular(8),
-      gradient: const LinearGradient(
-        begin: Alignment.topCenter,
-        end: Alignment.bottomCenter,
-        colors: [Color(0xFFC4B5FD), Color(0xFF5B21B6)],
-      ),
-      border: Border.all(color: Colors.white.withValues(alpha: .85), width: 2),
-      boxShadow: [BoxShadow(color: const Color(0xFF7C3AED).withValues(alpha: .7), blurRadius: 12)],
-    ),
-    child: const Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Gfx('scales', size: 22),
-        Text(
-          'ألغى',
-          style: TextStyle(
-            fontFamily: kufi,
-            fontWeight: FontWeight.w700,
-            fontSize: 12,
-            height: 1.3,
-            color: Colors.white,
-          ),
-        ),
-      ],
-    ),
-  );
-}
-
-class _VoteBack extends StatelessWidget {
-  const _VoteBack();
-
-  @override
-  Widget build(BuildContext context) => Container(
-    width: 42,
-    height: 58,
-    alignment: Alignment.center,
-    decoration: BoxDecoration(
-      borderRadius: BorderRadius.circular(8),
-      gradient: const LinearGradient(colors: [Color(0xFF4A2775), Color(0xFF1A0F33)]),
-      border: Border.all(color: AppColors.gold, width: 2),
-      boxShadow: const [BoxShadow(color: Colors.black54, blurRadius: 8, offset: Offset(0, 3))],
-    ),
-    child: const Text(
-      '؟',
-      style: TextStyle(fontFamily: kufi, fontSize: 26, fontWeight: FontWeight.w700, color: AppColors.goldLight),
-    ),
-  );
 }
 
 /// طبل وعصيه تضرب بالتناوب، وتسرع مع [roll].
@@ -558,7 +419,7 @@ class _DrumPainter extends CustomPainter {
 
 // ───────── تمرير القرار
 
-/// تمرير القرار: الكرت يطير من الوزير (أو من الكومة وقت الفوضى) لنص الطاولة، ينقلب، والختم ينزل
+/// تمرير القرار: الكرت يطير من الوزير (أو من الكومة وقت الفوضى) لنص البيضاوي، ينقلب، والختم ينزل
 /// عليه مع شرار. الأحمر يهز الشاشة.
 class EnactScene extends GameScene {
   const EnactScene({required this.view, required this.loyal, required this.chaos, this.from, this.skin});
@@ -578,25 +439,27 @@ class EnactScene extends GameScene {
   double get settle => 2.4;
 
   @override
-  double get dim => .45;
+  double get dim => .3;
 
   @override
   double shakeAt(double t) => !loyal && t >= 1.3 ? 1 - seg(t, 1.3, 1.85) : 0;
 
   @override
   Widget build(BuildContext context, double t, Size size) {
-    final (:seats, :rug, :table) = _layout(view, size);
-    final start = seats[from] ?? Offset(rug.right - rug.width * .14, rug.center.dy);
-    final cardW = (rug.height * .42).clamp(72.0, 112.0);
-    final cardH = cardW * 1.45;
-    final end = Offset(rug.center.dx, math.max(cardH / 2 + 8, rug.center.dy - cardH * .12));
+    final (:seats, :rug, :table, :stage) = _layout(view, size);
+    final s = stage.s;
+    final draw = stage.at(TablePos.draw.dx, TablePos.draw.dy);
+    final start = seats[from] ?? draw;
+    final cardW = (170 * s).clamp(66.0, 190.0);
+    final cardH = cardW * 1.46;
+    final end = stage.at(TablePos.oval.dx, TablePos.oval.dy);
     final fly = seg(t, .1, .75, Curves.easeOutCubic);
-    final pos = _bezier(start, Offset((start.dx + end.dx) / 2, math.min(start.dy, end.dy) - 90), end, fly);
+    final pos = _bezier(start, Offset((start.dx + end.dx) / 2, math.min(start.dy, end.dy) - 90 * s), end, fly);
     final flip = seg(t, .75, 1.0, Curves.easeInOut);
     final stamp = seg(t, 1.0, 1.3, Curves.easeInCubic);
     final squash = bump(t, 1.3, 1.5) * .07;
     final shake = shakeAt(t);
-    final color = loyal ? AppColors.loyalLight : AppColors.traitorLight;
+    final classic = skin == null || skin!.border == null;
     return Stack(
       clipBehavior: Clip.none,
       children: [
@@ -619,32 +482,28 @@ class EnactScene extends GameScene {
                   width: cardW,
                   stamp: stamp,
                 ),
-                back: _Back(width: cardW, height: cardH),
+                back: GameCardFace(
+                  kind: GameCardKind.draw,
+                  width: cardW,
+                  colors: classic ? null : (skin!.border!, skin!.loyal.first, skin!.loyal.last),
+                ),
               ),
             ),
           ),
         ),
         if (t > 1.4)
-          Positioned(
-            left: 0,
-            right: 0,
-            top: end.dy + cardH / 2 + 10,
-            child: Center(
-              child: Opacity(
-                opacity: seg(t, 1.4, 1.7),
-                child: _Plate(
-                  color: loyal ? AppColors.loyal : AppColors.traitor,
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      if (chaos) ...[const Gfx('chaos', size: 28), const SizedBox(width: 6)],
-                      Text(
-                        chaos ? 'فوضى! تمرر تلقائياً' : 'تمرر قرار ${loyal ? 'للأوفياء' : 'للخونة'}',
-                        style: TextStyle(fontFamily: kufi, fontSize: 21, fontWeight: FontWeight.w700, color: color),
-                      ),
-                    ],
+          Positioned.fill(
+            child: Opacity(
+              opacity: seg(t, 1.4, 1.7),
+              child: Stack(
+                children: [
+                  _scenePlank(
+                    stage,
+                    chaos ? 'فوضى! تمرر تلقائياً' : 'مشى قرار ${loyal ? 'للأوفياء' : 'للخونة'}!',
+                    icon: chaos ? const Gfx('chaos', size: 30) : const Gfx('log', size: 30),
+                    color: loyal ? const Color(0xFFD6E6FF) : const Color(0xFFFFD3D0),
                   ),
-                ),
+                ],
               ),
             ),
           ),
@@ -752,7 +611,7 @@ class DeathScene extends GameScene {
             ),
           ),
           if (shatter == 0) ...[
-            PlayerAvatar(avatar: avatar, size: r),
+            TableAvatar(avatar: avatar, size: r * 1.2),
             if (crack > 0)
               SizedBox(
                 width: r,
@@ -876,7 +735,7 @@ class _Shatter extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final img = PlayerAvatar(avatar: avatar, size: size, animate: false);
+    final img = TableAvatar(avatar: avatar, size: size * 1.2, animate: false);
     final c = Offset(size * .43, size * .4);
     return SizedBox(
       width: size,
@@ -989,7 +848,7 @@ class UnmaskScene extends GameScene {
     final perRow = (n / rows).ceil();
     final cell = math.min(118.0, (size.width - 40) / perRow);
     final av = math.min(84.0, cell * .72);
-    final rowH = av + 62;
+    final rowH = av + 70;
     final top = size.height / 2 - rows * rowH / 2 + (rows == 1 ? 20 : 34);
     final win = seg(t, _winAt, _winAt + .6, Curves.easeOutBack);
     final players = [...view.players]..sort((a, b) => a.seat.compareTo(b.seat));
@@ -1099,7 +958,7 @@ class _Unmask extends StatelessWidget {
                 offset: Offset(0, hop),
                 child: ColorFiltered(
                   colorFilter: ColorFilter.matrix(greyMatrix(.6 * lost)),
-                  child: PlayerAvatar(avatar: avatar, size: size, frame: shown ? color : null),
+                  child: TableAvatar(avatar: avatar, size: size * 1.14, ring: shown ? color : null),
                 ),
               ),
               Transform.translate(
@@ -1108,7 +967,7 @@ class _Unmask extends StatelessWidget {
                   angle: wobble + (traitor ? off * 1.3 : -off * .4),
                   child: Opacity(
                     opacity: (1 - off).clamp(0.0, 1.0),
-                    child: PlayerAvatar(avatar: 'masked', size: size, animate: false),
+                    child: TableAvatar(avatar: 'masked', size: size * 1.14, animate: false),
                   ),
                 ),
               ),
@@ -1127,13 +986,8 @@ class _Unmask extends StatelessWidget {
             ],
           ),
         ),
-        const SizedBox(height: 4),
-        Text(
-          name,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14, color: shown ? light : AppColors.text),
-        ),
+        const SizedBox(height: 10),
+        NamePill(name, size: 14, color: shown ? light : const Color(0xFFFFF6E6)),
         Opacity(
           opacity: seg(off, .3, 1),
           child: Text(switch (role) {

@@ -4,6 +4,7 @@ import '../models/achievements.dart';
 import '../models/catalog.dart';
 import '../theme.dart';
 import 'common.dart';
+import 'design_game.dart';
 
 /// ميدالية إنجاز: حلقة بلون الدرجة (برونزي، فضي، ذهبي) وأيقونة الإنجاز، وتحتها نجوم بعدد الدرجة.
 class BadgeMedal extends StatelessWidget {
@@ -16,7 +17,7 @@ class BadgeMedal extends StatelessWidget {
   final double size;
 
   static const _rings = [
-    [Color(0xFF8D86B8), Color(0xFF4B4378), Color(0xFF2A2350)],
+    [Color(0xFFA08A6C), Color(0xFF65503A), Color(0xFF33261A)],
     [Color(0xFFF6C49A), Color(0xFFCD7F32), Color(0xFF7A4512)],
     [Color(0xFFFFFFFF), Color(0xFFC9D1DC), Color(0xFF6E7987)],
     [Color(0xFFFFE7A3), Color(0xFFF2C14E), Color(0xFFB87A12)],
@@ -44,14 +45,20 @@ class BadgeMedal extends StatelessWidget {
                 gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: _rings[t]),
                 boxShadow: [
                   if (t == 3) BoxShadow(color: AppColors.gold.withValues(alpha: .45), blurRadius: size * .3),
-                  const BoxShadow(color: Colors.black45, blurRadius: 4, offset: Offset(0, 2)),
+                  // حد بني غامق حول الميدالية مثل أزرار التصميم
+                  const BoxShadow(color: gameInk, spreadRadius: 1.5),
+                  const BoxShadow(color: Colors.black45, blurRadius: 4, offset: Offset(0, 3)),
                 ],
               ),
               child: Container(
                 alignment: Alignment.center,
-                decoration: const BoxDecoration(
+                decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  gradient: RadialGradient(colors: [Color(0xFF3A2C7A), Color(0xFF1A1240)]),
+                  gradient: const RadialGradient(
+                    center: Alignment(0, -.35),
+                    colors: [Color(0xFF7A4F2E), Color(0xFF3A2314)],
+                  ),
+                  border: Border.all(color: gameInk, width: 1.4),
                 ),
                 child: Opacity(
                   opacity: t == 0 ? .3 : 1,
@@ -73,7 +80,7 @@ class BadgeMedal extends StatelessWidget {
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
                           color: tierColors[t],
-                          border: Border.all(color: AppColors.bg, width: 1.2),
+                          border: Border.all(color: gameInk, width: 1.3),
                         ),
                       ),
                   ],
@@ -143,10 +150,11 @@ class RankChip extends StatelessWidget {
     final t = RankTier.of(points);
     return Container(
       padding: const EdgeInsets.fromLTRB(8, 2, 10, 2),
+      // حبة خشب غامقة بحد بلون الرتبة (مثل عدادات التصميم)
       decoration: BoxDecoration(
-        color: t.color.withValues(alpha: .14),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: t.color.withValues(alpha: .7)),
+        color: const Color(0xFF21140B).withValues(alpha: .92),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: t.color.withValues(alpha: .85), width: 1.8),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,

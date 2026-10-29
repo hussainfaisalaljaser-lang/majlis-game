@@ -1,8 +1,11 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import '../../models/game_view.dart';
 import '../../theme.dart';
 import '../common.dart';
+import '../design_game.dart';
 import '../fx.dart';
 import '../ui.dart';
 
@@ -48,29 +51,29 @@ class PolicyTracks extends StatelessWidget {
             for (final (i, p) in view.traitorTrackPowers.indexed) i == 5 ? 'skull' : (p == null ? null : powerIcon[p]),
           ],
         ),
-        const SizedBox(height: 6),
+        const SizedBox(height: 8),
         Row(
           children: [
             const SizedBox(width: 6),
-            const Gfx('chaos', size: 20),
+            const Gfx('chaos', size: 22),
             const SizedBox(width: 3),
             const Text(
               'الفوضى',
-              style: TextStyle(color: AppColors.muted, fontSize: 12, fontWeight: FontWeight.w700),
+              style: TextStyle(color: Color(0xFFF1DDBB), fontSize: 13, fontWeight: FontWeight.w800),
             ),
             const SizedBox(width: 8),
             for (var i = 0; i < 3; i++)
               AnimatedContainer(
                 duration: const Duration(milliseconds: 300),
-                width: 14,
-                height: 14,
+                width: 16,
+                height: 16,
                 margin: const EdgeInsetsDirectional.only(end: 5),
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: i < view.electionTracker ? AppColors.gold : const Color(0xFF0E0A1E),
+                  color: i < view.electionTracker ? AppColors.gold : const Color(0xFF2B190E),
                   border: Border.all(
-                    color: i < view.electionTracker ? AppColors.goldLight : AppColors.line,
-                    width: 1.5,
+                    color: i < view.electionTracker ? AppColors.goldLight : const Color(0xFF8A5E3B),
+                    width: 2,
                   ),
                   boxShadow: i < view.electionTracker
                       ? [BoxShadow(color: AppColors.gold.withValues(alpha: .7), blurRadius: 8)]
@@ -79,15 +82,14 @@ class PolicyTracks extends StatelessWidget {
               ),
             const Spacer(),
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 1),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 1),
               decoration: BoxDecoration(
-                color: const Color(0xFF0E0A1E),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: AppColors.line),
+                color: const Color(0xFF241209).withValues(alpha: .9),
+                borderRadius: BorderRadius.circular(40),
               ),
               child: Text(
                 'سحب ${arabicNumber(view.drawPileCount)}، رمي ${arabicNumber(view.discardPileCount)}',
-                style: const TextStyle(color: AppColors.muted, fontSize: 12, fontWeight: FontWeight.w700),
+                style: const TextStyle(color: Color(0xFFFFF3DA), fontSize: 12.5, fontWeight: FontWeight.w800),
               ),
             ),
           ],
@@ -114,36 +116,37 @@ class _Track extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final main = loyal ? AppColors.loyal : AppColors.traitor;
+    final main = loyal ? const Color(0xFF4B8CF5) : const Color(0xFFE0485A);
     final light = loyal ? AppColors.loyalLight : AppColors.traitorLight;
-    final dark = loyal ? AppColors.loyalDark : AppColors.traitorDark;
-    return Container(
-      height: 50,
-      padding: const EdgeInsetsDirectional.fromSTEB(10, 0, 8, 0),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(25),
-        gradient: LinearGradient(
-          begin: AlignmentDirectional.centerStart,
-          end: AlignmentDirectional.centerEnd,
-          colors: [dark, const Color(0xFF140F2A)],
-        ),
-        border: Border.all(color: main.withValues(alpha: .6), width: 1.5),
-        boxShadow: [BoxShadow(color: main.withValues(alpha: .25), blurRadius: 10)],
-      ),
+    return GameHudPlank(
+      radius: 14,
+      padding: const EdgeInsetsDirectional.fromSTEB(10, 4, 8, 4),
       child: Row(
         children: [
           SizedBox(
-            width: 58,
+            width: 62,
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Text(
                   label,
-                  style: TextStyle(fontFamily: kufi, fontSize: 12, fontWeight: FontWeight.w700, color: light),
+                  style: TextStyle(
+                    fontFamily: kufi,
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w800,
+                    color: light,
+                    height: 1.2,
+                  ),
                 ),
                 Text(
                   '${arabicNumber(filled)}/${arabicNumber(total)}',
-                  style: const TextStyle(fontFamily: kufi, fontSize: 16, fontWeight: FontWeight.w700, height: 1.1),
+                  style: const TextStyle(
+                    fontFamily: kufi,
+                    fontSize: 17,
+                    fontWeight: FontWeight.w800,
+                    height: 1.1,
+                    color: Color(0xFFFFF3DA),
+                  ),
                 ),
               ],
             ),
@@ -192,7 +195,7 @@ class _Socket extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final size = last ? 38.0 : 34.0;
+    final size = last ? 40.0 : 36.0;
     return SizedBox(
       width: size,
       height: size,
@@ -206,8 +209,8 @@ class _Socket extends StatelessWidget {
             Container(
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: const Color(0xFF0E0A1E),
-                border: Border.all(color: last ? AppColors.gold : color.withValues(alpha: .7), width: last ? 2.5 : 2),
+                color: const Color(0xFF1E120B),
+                border: Border.all(color: last ? AppColors.gold : color, width: last ? 3 : 2.4),
                 boxShadow: last ? [BoxShadow(color: AppColors.gold.withValues(alpha: .35), blurRadius: 8)] : null,
               ),
             ),
@@ -224,42 +227,58 @@ class _Socket extends StatelessWidget {
   }
 }
 
-/// النقاط مصغرة في زاوية الشاشة. تنضغط وتطلع اللوحة كاملة.
+/// النقاط مصغرة في زاوية الشاشة على لوح خشب (دوائر زرقا وحمرا). تنضغط وتطلع اللوحة كاملة.
+/// [scale] مقياس الواجهة (١ = حجم التصميم).
 class MiniTracks extends StatelessWidget {
-  const MiniTracks({super.key, required this.view, required this.onTap});
+  const MiniTracks({super.key, required this.view, required this.onTap, this.scale = 1});
 
   final GameView view;
   final VoidCallback onTap;
+  final double scale;
 
   @override
   Widget build(BuildContext context) {
+    final sc = scale;
+    final dot = math.max(10.0, 23 * sc);
+    final fs = math.max(12.0, 22 * sc);
     Widget row(bool loyal, int filled, int total) {
-      final color = loyal ? AppColors.loyal : AppColors.traitor;
+      final color = loyal ? const Color(0xFF3F78E0) : const Color(0xFFE0485A);
       return Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           SizedBox(
-            width: 34,
+            width: fs * 2.6,
             child: Text(
               '${arabicNumber(filled)}/${arabicNumber(total)}',
               style: TextStyle(
                 fontFamily: kufi,
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-                color: loyal ? AppColors.loyalLight : AppColors.traitorLight,
+                fontSize: fs,
+                fontWeight: FontWeight.w800,
+                color: loyal ? const Color(0xFF8FB4FF) : const Color(0xFFFF9FB0),
+                height: 1.25,
               ),
             ),
           ),
           for (var i = 0; i < total; i++)
             Container(
-              width: 13,
-              height: 13,
-              margin: const EdgeInsetsDirectional.only(end: 3),
+              width: dot,
+              height: dot,
+              margin: EdgeInsetsDirectional.only(end: math.max(3.0, 6 * sc)),
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: i < filled ? color : const Color(0xFF0E0A1E),
-                border: Border.all(color: i == total - 1 ? AppColors.gold : color.withValues(alpha: .8), width: 1.5),
-                boxShadow: i < filled ? [BoxShadow(color: color.withValues(alpha: .7), blurRadius: 5)] : null,
+                color: i < filled ? null : const Color(0xFF1E120B).withValues(alpha: .35),
+                gradient: i < filled
+                    ? RadialGradient(
+                        center: const Alignment(-.3, -.4),
+                        colors: [Color.lerp(color, Colors.white, .5)!, color, Color.lerp(color, Colors.black, .35)!],
+                        stops: const [0, .5, 1],
+                      )
+                    : null,
+                border: Border.all(
+                  color: i == total - 1 ? const Color(0xFFF2C14E) : color,
+                  width: math.max(1.6, 2.6 * sc),
+                ),
+                boxShadow: i < filled ? [BoxShadow(color: color.withValues(alpha: .6), blurRadius: 5)] : null,
               ),
             ),
         ],
@@ -270,53 +289,47 @@ class MiniTracks extends StatelessWidget {
       button: true,
       label: 'لوحة النقاط',
       excludeSemantics: true,
-      child: GestureDetector(
+      child: GameHudPlank(
         onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.fromLTRB(8, 6, 8, 6),
-          decoration: BoxDecoration(
-            color: AppColors.panel.withValues(alpha: .85),
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: AppColors.gold.withValues(alpha: .35)),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              row(true, view.loyalPolicies, 5),
-              const SizedBox(height: 4),
-              row(false, view.traitorPolicies, 6),
-              // بعد ٣ قرارات للخونة: لو الزعيم صار وزير يفوزون. هنا بالزاوية (ما يغطي أحد)، وينبض وقت الترشيح والتصويت.
-              if (view.traitorPolicies >= 3 && view.phase != Phase.gameOver) ...[
-                const SizedBox(height: 4),
-                _LeaderDanger(
-                  mine: view.yourRole == Role.leader,
-                  active: view.phase == Phase.nomination || view.phase == Phase.election,
-                ),
-              ],
-              if (view.electionTracker > 0) ...[
-                const SizedBox(height: 3),
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Gfx('chaos', size: 13),
-                    const SizedBox(width: 2),
-                    for (var i = 0; i < 3; i++)
-                      Container(
-                        width: 6,
-                        height: 6,
-                        margin: const EdgeInsetsDirectional.only(end: 2),
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: i < view.electionTracker ? AppColors.gold : Colors.transparent,
-                          border: Border.all(color: AppColors.gold, width: 1),
-                        ),
-                      ),
-                  ],
-                ),
-              ],
+        radius: 14 * sc + 2,
+        padding: EdgeInsets.fromLTRB(10 * sc, 4 * sc, 8 * sc, 4 * sc),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            row(true, view.loyalPolicies, 5),
+            SizedBox(height: 2 * sc),
+            row(false, view.traitorPolicies, 6),
+            // بعد ٣ قرارات للخونة: لو الزعيم صار وزير يفوزون. هنا بالزاوية (ما يغطي أحد)، وينبض وقت الترشيح والتصويت.
+            if (view.traitorPolicies >= 3 && view.phase != Phase.gameOver) ...[
+              SizedBox(height: 4 * sc),
+              _LeaderDanger(
+                mine: view.yourRole == Role.leader,
+                active: view.phase == Phase.nomination || view.phase == Phase.election,
+              ),
             ],
-          ),
+            if (view.electionTracker > 0) ...[
+              SizedBox(height: 3 * sc),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Gfx('chaos', size: math.max(13.0, 20 * sc)),
+                  const SizedBox(width: 2),
+                  for (var i = 0; i < 3; i++)
+                    Container(
+                      width: 8,
+                      height: 8,
+                      margin: const EdgeInsetsDirectional.only(end: 3),
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: i < view.electionTracker ? AppColors.gold : Colors.transparent,
+                        border: Border.all(color: AppColors.gold, width: 1.4),
+                      ),
+                    ),
+                ],
+              ),
+            ],
+          ],
         ),
       ),
     );
@@ -369,11 +382,11 @@ class _LeaderDangerState extends State<_LeaderDanger> with SingleTickerProviderS
   Widget build(BuildContext context) => AnimatedBuilder(
     animation: _c,
     builder: (context, child) => Container(
-      padding: const EdgeInsetsDirectional.fromSTEB(2, 1, 7, 1),
+      padding: const EdgeInsetsDirectional.fromSTEB(2, 1, 8, 1),
       decoration: BoxDecoration(
-        color: Color.lerp(const Color(0xFF3A0A12), const Color(0xFF6B111C), _c.value),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: AppColors.traitor.withValues(alpha: .6 + _c.value * .4)),
+        color: Color.lerp(const Color(0xFF4A1018), const Color(0xFF7A1420), _c.value),
+        borderRadius: BorderRadius.circular(40),
+        border: Border.all(color: AppColors.traitor.withValues(alpha: .6 + _c.value * .4), width: 1.6),
         boxShadow: widget.active
             ? [BoxShadow(color: AppColors.traitor.withValues(alpha: .2 + _c.value * .4), blurRadius: 8)]
             : null,
@@ -383,23 +396,26 @@ class _LeaderDangerState extends State<_LeaderDanger> with SingleTickerProviderS
     child: Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        const LeaderSeal(size: 17),
+        const LeaderSeal(size: 18),
         const SizedBox(width: 3),
         Text.rich(
           TextSpan(
             children: [
               TextSpan(
                 text: widget.mine ? 'لو صرت وزير ' : 'الزعيم وزير ',
-                style: const TextStyle(color: AppColors.gold),
+                style: const TextStyle(color: AppColors.goldLight),
               ),
-              const TextSpan(text: '= '),
+              const TextSpan(
+                text: '= ',
+                style: TextStyle(color: Color(0xFFFFF3DA)),
+              ),
               const TextSpan(
                 text: 'فوز الخونة',
-                style: TextStyle(color: Color(0xFFFF8A8A)),
+                style: TextStyle(color: Color(0xFFFF9A9A)),
               ),
             ],
           ),
-          style: const TextStyle(fontFamily: kufi, fontSize: 10.5, fontWeight: FontWeight.w700),
+          style: const TextStyle(fontFamily: kufi, fontSize: 11, fontWeight: FontWeight.w800, height: 1.3),
         ),
       ],
     ),
@@ -414,38 +430,43 @@ void showTracksBoard(BuildContext context, GameView view) {
       title: const Text('لوحة النقاط', textAlign: TextAlign.center),
       content: SizedBox(
         width: 440,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            PolicyTracks(view: view),
-            const SizedBox(height: 10),
-            _DeckSum(view: view),
-            const SizedBox(height: 10),
-            const Text(
-              '٥ قرارات زرقا = فوز الأوفياء · ٦ حمرا = فوز الخونة\nكل قرار أحمر يعطي الرئيس قدرة:',
-              textAlign: TextAlign.center,
-              style: TextStyle(color: AppColors.muted, fontSize: 12.5, height: 1.6),
-            ),
-            const SizedBox(height: 4),
-            Wrap(
-              alignment: WrapAlignment.center,
-              spacing: 12,
-              children: [
-                for (final p in powerIcon.keys)
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Gfx(powerIcon[p]!, size: 20),
-                      const SizedBox(width: 3),
-                      Text(powerName[p]!, style: const TextStyle(color: AppColors.muted, fontSize: 12.5)),
-                    ],
-                  ),
-              ],
-            ),
-          ],
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              PolicyTracks(view: view),
+              const SizedBox(height: 10),
+              _DeckSum(view: view),
+              const SizedBox(height: 10),
+              const Text(
+                '٥ قرارات زرقا = فوز الأوفياء · ٦ حمرا = فوز الخونة\nكل قرار أحمر يعطي الرئيس قدرة:',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: Color(0xFFF1DDBB), fontSize: 12.5, height: 1.6, fontWeight: FontWeight.w700),
+              ),
+              const SizedBox(height: 4),
+              Wrap(
+                alignment: WrapAlignment.center,
+                spacing: 12,
+                children: [
+                  for (final p in powerIcon.keys)
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Gfx(powerIcon[p]!, size: 22),
+                        const SizedBox(width: 3),
+                        Text(
+                          powerName[p]!,
+                          style: const TextStyle(color: Color(0xFFFFF3DA), fontSize: 12.5, fontWeight: FontWeight.w800),
+                        ),
+                      ],
+                    ),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
-      actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('تمام'))],
+      actions: [GameButton(label: 'تمام', height: 44, fontSize: 16, onPressed: () => Navigator.pop(context))],
     ),
   );
 }
@@ -466,15 +487,21 @@ class _DeckSum extends StatelessWidget {
       children: [
         Text(
           arabicNumber(n),
-          style: const TextStyle(fontFamily: kufi, fontSize: 18, fontWeight: FontWeight.w700),
+          style: const TextStyle(fontFamily: kufi, fontSize: 19, fontWeight: FontWeight.w800, color: Color(0xFFFFF3DA)),
         ),
-        Text(label, style: const TextStyle(color: AppColors.muted, fontSize: 11)),
+        Text(
+          label,
+          style: const TextStyle(color: Color(0xFFE2CBA4), fontSize: 11, fontWeight: FontWeight.w700),
+        ),
       ],
     );
-    const plus = Text('+', style: TextStyle(color: AppColors.muted, fontSize: 16));
+    const plus = Text('+', style: TextStyle(color: Color(0xFFE2CBA4), fontSize: 16));
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(color: const Color(0xFF0E0A1E), borderRadius: BorderRadius.circular(12)),
+      decoration: BoxDecoration(
+        color: const Color(0xFF241209).withValues(alpha: .85),
+        borderRadius: BorderRadius.circular(14),
+      ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
@@ -485,7 +512,7 @@ class _DeckSum extends StatelessWidget {
           part('على اللوحة', board),
           plus,
           part('باليد', inHand),
-          const Text('=', style: TextStyle(color: AppColors.muted, fontSize: 16)),
+          const Text('=', style: TextStyle(color: Color(0xFFE2CBA4), fontSize: 16)),
           part('كل الأوراق', _total),
         ],
       ),

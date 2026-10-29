@@ -18,6 +18,8 @@ import '../services/sfx.dart';
 import '../services/telemetry.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
+import '../widgets/design.dart';
+import '../widgets/design_game.dart';
 import '../widgets/fx_sig.dart';
 import '../widgets/game/card_hand.dart';
 import '../widgets/game/game_log.dart';
@@ -27,6 +29,7 @@ import '../widgets/game/overlays.dart';
 import '../widgets/game/policy_card.dart';
 import '../widgets/game/reactions_sheet.dart';
 import '../widgets/game/scenes.dart';
+import '../widgets/game/table_art.dart';
 import '../widgets/game/share_card.dart';
 import '../widgets/game/tracks.dart';
 import '../widgets/majlis.dart';
@@ -65,14 +68,47 @@ const _tips = {
 /// نصايح الخطوات تبقى لين تسويها، ونصايح المعلومات تختفي بعد شوي.
 const _actionTips = {'tut_nominate', 'tut_vote', 'tut_discard', 'tut_claim'};
 
+/// حالة جاهزة للتصوير والاختبارات (بدون سيرفر): الشاشة تنعرض على هالبيانات وتوقف الاشتراكات.
+class GamePreview {
+  const GamePreview({
+    required this.view,
+    this.room,
+    this.resultsOpen = false,
+    this.tip,
+    this.pendingReaction,
+    this.sent,
+    this.scene,
+  });
+
+  final GameView view;
+  final Room? room;
+
+  /// نافذة النتيجة كاملة مفتوحة.
+  final bool resultsOpen;
+
+  /// نصيحة الراوي الظاهرة (مفتاحها من _tips).
+  final String? tip;
+  final TextReaction? pendingReaction;
+
+  /// كلمة «أرسلت حركتك» تحت (مثل: صوّتت موافق…).
+  final String? sent;
+
+  /// مشهد شغال فوق الطاولة.
+  final GameScene? scene;
+}
+
 /// شاشة الطاولة: كل اللعب يصير هنا.
 class GameScreen extends StatefulWidget {
-  const GameScreen({super.key, required this.code, this.watching});
+  const GameScreen({super.key, required this.code, this.watching}) : preview = null;
+
+  /// نسخة للتصوير والاختبارات: ما تتصل بالسيرفر وتعرض [preview] كما هو.
+  const GameScreen.preview({super.key, required GamePreview this.preview}) : code = 'preview', watching = null;
 
   final String code;
 
   /// تتفرج على لعبة صاحبك: هذا هو (يقعد تحت). بدون حركات ولا أسرار.
   final String? watching;
+  final GamePreview? preview;
 
   @override
   State<GameScreen> createState() => _GameScreenState();
@@ -83,10 +119,10 @@ class _GameScreenState extends State<GameScreen> {
 
   /// متفرج (صاحب أحد اللاعبين).
   bool get _spectating => widget.watching != null;
-  late final StreamSubscription<Map<String, dynamic>?> _viewSub;
-  late final StreamSubscription<Room?> _roomSub;
-  late final Timer _ticker;
-  late final Notes _notes = Notes(widget.code)..load();
+  StreamSubscription<Map<String, dynamic>?>? _viewSub;
+  StreamSubscription<Room?>? _roomSub;
+  Timer? _ticker;
+  late final Notes _notes = Notes(widget.code);
 
   GameView? _view;
   Room? _room;
@@ -148,6 +184,20 @@ class _GameScreenState extends State<GameScreen> {
   @override
   void initState() {
     super.initState();
+    if (widget.preview case final pre?) {
+      _view = pre.view;
+      _room = pre.room;
+      _roomLoaded = true;
+      _roleShown = true;
+      _introDone = true;
+      _resultsOpen = pre.resultsOpen;
+      _tip = pre.tip;
+      _pendingReaction = pre.pendingReaction;
+      if (pre.sent != null) _sent[_turnKey(pre.view)] = pre.sent!;
+      if (pre.scene != null) _scenes.add((scene: pre.scene!, lines: const [], onEnd: null));
+      return;
+    }
+    _notes.load();
     if (!_spectating) Push.enterGame(widget.code);
     Music.play('game');
     _viewSub = (_spectating ? _backend.watchSpectator(widget.code) : _backend.watchView(widget.code)).listen((data) {
@@ -363,19 +413,23 @@ class _GameScreenState extends State<GameScreen> {
   @override
   void dispose() {
     // طلعت من الطاولة بعد ما خلصت اللعبة (بالزر أو بالرجوع): الباقين يشوفون إنك طلعت.
-    if (_spectating) {
+    if (widget.preview != null) {
+      // عرض تجريبي: ما فيه شي نبلغ السيرفر عنه.
+    } else if (_spectating) {
       _backend.stopWatching(widget.code).ignore();
     } else if (_view?.phase == Phase.gameOver && !_leftTable) {
       _backend.leaveGame(widget.code).ignore();
     }
     _tipTimer?.cancel();
     _timeoutTimer?.cancel();
-    if (!_spectating) Push.leaveGame(widget.code);
-    Music.play('menu');
-    _viewSub.cancel();
-    _roomSub.cancel();
+    if (widget.preview == null) {
+      if (!_spectating) Push.leaveGame(widget.code);
+      Music.play('menu');
+    }
+    _viewSub?.cancel();
+    _roomSub?.cancel();
     _nextSub?.cancel();
-    _ticker.cancel();
+    _ticker?.cancel();
     _notes.dispose();
     super.dispose();
   }
@@ -842,8 +896,8 @@ class _GameScreenState extends State<GameScreen> {
     final hasOpinion = !over && (_room?.opinions[_backend.uid] ?? const {}).isNotEmpty;
     showModalBottomSheet<void>(
       context: context,
-      backgroundColor: AppColors.panel,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      // اللوحة (خشب أو مخمل) ترسمها ReactionsSheet نفسها.
+      backgroundColor: Colors.transparent,
       isScrollControlled: true,
       constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(context).height * .82, maxWidth: 760),
       builder: (context) => SizedBox(
@@ -1027,6 +1081,7 @@ class _GameScreenState extends State<GameScreen> {
     final over = v.phase == Phase.gameOver;
     // الإضاءة تحمر وترمش كل ما قرّبوا الخونة من الفوز.
     final tension = over ? 0.0 : _tensionByTraitorPolicies[v.traitorPolicies.clamp(0, 5)];
+    final safe = MediaQuery.paddingOf(context);
 
     return PopScope(
       canPop: over || _leaving || _spectating,
@@ -1037,239 +1092,273 @@ class _GameScreenState extends State<GameScreen> {
         backgroundColor: const Color(0xFF110905),
         body: Stack(
           children: [
-            // المكان ورا الطاولة: كل طاولة لها مكانها (البر، المدينة، القصر…)، والخاص في المجلس.
+            // المكان ورا الطاولة: خيمة الصحراء بالليل، وكل مستوى طاولة له طابعه (المدينة، القصر…).
             Positioned.fill(
-              child: MajlisRoom(tension: tension, venue: _room?.tour != null ? Venue.kings : venueOf(_room?.tierId)),
+              child: MajlisRoom(
+                tension: tension,
+                venue: _room?.tour != null ? Venue.kings : venueOf(_room?.tierId),
+                safe: safe,
+              ),
             ),
             SafeArea(
-              child: Stack(
-                children: [
-                  // الطاولة على الشاشة كلها، والباقي يطفو في الزوايا. القرار الأحمر يهزها.
-                  Positioned.fill(
-                    child: ValueListenableBuilder(
-                      valueListenable: sceneShake,
-                      builder: (context, shake, child) {
-                        if (shake == 0) return child!;
-                        final ms = DateTime.now().millisecondsSinceEpoch / 1000;
-                        return Transform.translate(
-                          offset: Offset(math.sin(ms * 83) * 10, math.cos(ms * 61) * 7) * shake,
-                          child: child,
-                        );
-                      },
-                      child: Padding(
-                        padding: tablePadding,
-                        child: GameTable(
+              child: LayoutBuilder(
+                builder: (context, box) {
+                  final st = Stage(box.biggest);
+                  // أزرار الشاشة وألواحها تكبر شوي على الجوال الصغير عشان تنقرأ وتنضغط.
+                  final hs = st.s.clamp(.5, 1.0);
+                  final status = _scenes.isEmpty ? _status(v, pickHint) : null;
+                  final powers =
+                      (!over && v.spyReady && !_sent.containsKey('spy') ? 1 : 0) +
+                      (!over && v.seerReady && !_sent.containsKey('seer') ? 1 : 0);
+                  return Stack(
+                    children: [
+                      // الطاولة على الشاشة كلها، والباقي يطفو في الزوايا. القرار الأحمر يهزها.
+                      Positioned.fill(
+                        child: ValueListenableBuilder(
+                          valueListenable: sceneShake,
+                          builder: (context, shake, child) {
+                            if (shake == 0) return child!;
+                            final ms = DateTime.now().millisecondsSinceEpoch / 1000;
+                            return Transform.translate(
+                              offset: Offset(math.sin(ms * 83) * 10, math.cos(ms * 61) * 7) * shake,
+                              child: child,
+                            );
+                          },
+                          child: GameTable(
+                            view: v,
+                            room: _room,
+                            notes: _notes,
+                            selectable: selectable,
+                            onSelect: onSelect,
+                            onNote: _editNote,
+                            onTapPlayer: (id) => _tapPlayer(v, id),
+                            spotlight: v.phase == Phase.election && pickHint == null
+                                ? {v.presidentId, ?v.nomineeId}
+                                : null,
+                            deaths: _deaths,
+                            hiddenDeaths: _hiddenDeaths,
+                            timer: v.deadline != null && !over ? (deadline: v.deadline!, total: _phaseTotal(v)) : null,
+                            ready: over ? _nextReady : const {},
+                            center: (context, stage) => over
+                                ? _ResultCenter(
+                                    view: v,
+                                    room: _room,
+                                    stage: stage,
+                                    onTap: _spectating ? () {} : () => setState(() => _resultsOpen = true),
+                                    onLies: () => showLiesReveal(context, v, _room),
+                                  )
+                                : _TableCenter(view: v, room: _room, stage: stage),
+                          ),
+                        ),
+                      ),
+                      Positioned.fill(child: TensionOverlay(tension: tension)),
+                      // فوق يسار: النقاط مصغرة على لوح، تنضغط وتكبر
+                      Positioned(
+                        left: 8 * hs,
+                        top: 8 * hs,
+                        child: _tip == 'tut_enacted'
+                            ? _Pulse(
+                                child: MiniTracks(view: v, scale: hs, onTap: () => showTracksBoard(context, v)),
+                              )
+                            : MiniTracks(view: v, scale: hs, onTap: () => showTracksBoard(context, v)),
+                      ),
+                      // فوق يمين: الجولة ودورك وزر الخروج
+                      Positioned(
+                        right: 8 * hs,
+                        top: 6 * hs,
+                        child: _RoundHud(
+                          view: v,
+                          scale: hs,
+                          roleName: _spectating ? 'متفرج' : roleName,
+                          roleColor: _spectating ? AppColors.muted : roleColor,
+                          special: _spectating ? null : special,
+                          onRole: _spectating ? () {} : _showRole,
+                          onBack: _spectating
+                              ? () => Navigator.of(context).pop()
+                              : (over ? _leaveTable : _confirmLeave),
+                        ),
+                      ),
+                      // كم واحد يتفرج (أصحاب اللاعبين).
+                      if ((_room?.watchers.length ?? 0) > 0)
+                        Positioned(
+                          right: 80 * hs,
+                          top: 118 * hs,
+                          child: _WatchersChip(count: _room!.watchers.length),
+                        ),
+                      // تحت يمين: التفاعل والعرّاف (والتفاعل يبقى بعد اللعبة للسوالف). المتفرج ما يتكلم.
+                      if (!_spectating)
+                        Positioned(
+                          right: 14 * hs,
+                          bottom: 12 * hs,
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              // ملصقاتك المفضلة بالطول فوق زر التفاعل (على حافة الشاشة، ما تغطي مقعد أحد).
+                              // كم واحد يطلع على قد المكان. المطرود ما يتكلم لين تخلص اللعبة.
+                              if (v.me.alive || over)
+                                ValueListenableBuilder(
+                                  valueListenable: _backend.profile,
+                                  builder: (context, p, _) => _FavoritesColumn(
+                                    ids: p.favorites,
+                                    max: _favoritesRoom(box.maxHeight, hs, powers, (_room?.watchers.length ?? 0) > 0),
+                                    scale: hs,
+                                    onSend: _react,
+                                    onRemove: (id) {
+                                      _saveFavorites([...p.favorites]..remove(id));
+                                      _toast('شلته من المفضلة');
+                                    },
+                                  ),
+                                ),
+                              if (!over && v.spyReady && !_sent.containsKey('spy')) ...[
+                                GameRoundButton(
+                                  size: 76 * hs,
+                                  semantics: 'الجاسوس: شوف أول كرت',
+                                  glow: const Color(0xFF7C5CFF),
+                                  active: true,
+                                  onTap: () => _spyPeek(v),
+                                  child: Gfx('eye', size: 76 * hs * .6),
+                                ),
+                                SizedBox(height: 8 * hs),
+                              ],
+                              if (!over && v.seerReady && !_sent.containsKey('seer')) ...[
+                                GameRoundButton(
+                                  size: 76 * hs,
+                                  semantics: 'كشف العراف',
+                                  glow: const Color(0xFF7C5CFF),
+                                  active: true,
+                                  onTap: () => setState(() {
+                                    _pendingReaction = null;
+                                    _seerPicking = !_seerPicking;
+                                  }),
+                                  child: Gfx('seer', size: 76 * hs * .6),
+                                ),
+                                SizedBox(height: 8 * hs),
+                              ],
+                              // المطرود يتفرج بس، ما يتكلم (لين تخلص اللعبة).
+                              if (!v.me.alive && !over)
+                                const SizedBox.shrink()
+                              else if (_tip == 'tut_chat')
+                                _Pulse(
+                                  child: GameRoundButton(
+                                    size: 94 * hs,
+                                    semantics: 'تفاعل',
+                                    active: true,
+                                    onTap: () {
+                                      _closeTip();
+                                      _openReactions();
+                                    },
+                                    child: Gfx('chat', size: 94 * hs * .62),
+                                  ),
+                                )
+                              else
+                                GameRoundButton(
+                                  size: 94 * hs,
+                                  semantics: 'تفاعل',
+                                  onTap: _openReactions,
+                                  child: Gfx('chat', size: 94 * hs * .62),
+                                ),
+                            ],
+                          ),
+                        ),
+                      // تحت يسار: الإعدادات والصوت والسجل
+                      Positioned(
+                        left: 12 * hs,
+                        bottom: 12 * hs,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          textDirection: TextDirection.ltr,
+                          children: [
+                            GameRoundButton(
+                              size: 74 * hs,
+                              semantics: 'الإعدادات',
+                              onTap: _showSettings,
+                              child: GearIcon(size: 74 * hs * .58),
+                            ),
+                            SizedBox(width: 10 * hs),
+                            ValueListenableBuilder(
+                              valueListenable: Sfx.muted,
+                              builder: (context, muted, _) => GameRoundButton(
+                                size: 74 * hs,
+                                semantics: muted ? 'شغّل الصوت' : 'اكتم الصوت',
+                                onTap: Sfx.toggle,
+                                child: Gfx(muted ? 'mute' : 'sound', size: 74 * hs * .6),
+                              ),
+                            ),
+                            SizedBox(width: 10 * hs),
+                            GameRoundButton(
+                              size: 74 * hs,
+                              semantics: 'السجل',
+                              onTap: () => showGameLog(context, v),
+                              child: Gfx('chat', size: 74 * hs * .6),
+                            ),
+                          ],
+                        ),
+                      ),
+                      // جنب أزرار تحت يسار: الادعاء اللي أجّلته (تحت، عشان ما يغطي مقعد أحد)
+                      if (!over && _canClaim(v) && !_claimPending(v))
+                        Positioned(
+                          left: 12 * hs + 3 * 84 * hs + 6,
+                          bottom: 16 * hs,
+                          child: _Pulse(child: _ClaimChip(onTap: () => setState(() => _claimOpen = _claimKey(v)))),
+                        ),
+                      // لوح الرسالة تحت الطاولة: وش يصير الحين، أو وش تسوي.
+                      if (status != null) _statusPlank(st, status),
+                      // حركتك أنت: بعد ما تخلص المشاهد، عشان ضغطتك ما تروح للمشهد وتحس إن الزر ما اشتغل.
+                      if (_scenes.isEmpty && !_spectating) ..._actionLayer(v, st),
+                      // المتفرج: على لعبة مين، وإنه ما يشوف الأدوار (تحت يمين مكان التفاعل، عشان ما يغطي مقعد صاحبه).
+                      if (_spectating)
+                        Positioned(
+                          right: 14 * hs,
+                          bottom: 12 * hs,
+                          child: _SpectatorBar(
+                            name: _room?.player(widget.watching!)?.name ?? v.player(widget.watching!).name,
+                          ),
+                        ),
+                      if (_claimPending(v))
+                        Center(
+                          child: _ClaimPrompt(
+                            count: v.claimCount!,
+                            truth: _truth(v),
+                            onClaim: (policies) => _claim(v, policies),
+                            onLater: () => setState(() {
+                              _claimLater = _claimKey(v);
+                              _claimOpen = null;
+                            }),
+                          ),
+                        ),
+                      if (_tip case final tip? when !over)
+                        Positioned(
+                          bottom: 8,
+                          left: 0,
+                          right: 0,
+                          child: Center(
+                            child: _CoachCard(key: ValueKey(tip), text: _tips[tip]!, onClose: _closeTip),
+                          ),
+                        ),
+                      if (over && _scenes.isEmpty && _resultsOpen)
+                        _GameOver(
                           view: v,
                           room: _room,
-                          notes: _notes,
-                          selectable: selectable,
-                          onSelect: onSelect,
-                          onNote: _editNote,
-                          onTapPlayer: (id) => _tapPlayer(v, id),
-                          spotlight: v.phase == Phase.election && pickHint == null
-                              ? {v.presidentId, ?v.nomineeId}
-                              : null,
-                          deaths: _deaths,
-                          hiddenDeaths: _hiddenDeaths,
-                          timer: v.deadline != null && !over ? (deadline: v.deadline!, total: _phaseTotal(v)) : null,
-                          ready: over ? _nextReady : const {},
-                          center: over
-                              ? _ResultCenter(
-                                  view: v,
-                                  room: _room,
-                                  onTap: _spectating ? () {} : () => setState(() => _resultsOpen = true),
-                                  onLies: () => showLiesReveal(context, v, _room),
-                                )
-                              : _TableCenter(view: v, room: _room),
+                          onPlayer: _editNote,
+                          onClose: () => setState(() => _resultsOpen = false),
+                          onLeave: _leaveTable,
+                          onLies: () => showLiesReveal(context, v, _room),
+                          onShare: () => showShareCard(context, v, _room),
+                          // لعبة الشرح وجولات البطولة ما تنعاد.
+                          onRematch: v.tutorial || _room?.tour != null || _rematching ? null : _rematch,
+                          rematchReady: _room?.next == null ? 0 : _nextReady.length,
                         ),
-                      ),
-                    ),
-                  ),
-                  Positioned.fill(child: TensionOverlay(tension: tension)),
-                  // فوق يمين: الجولة ودورك
-                  PositionedDirectional(
-                    top: 8,
-                    start: 10,
-                    child: _RoundHud(
-                      view: v,
-                      roleName: _spectating ? 'متفرج' : roleName,
-                      roleColor: _spectating ? AppColors.muted : roleColor,
-                      special: _spectating ? null : special,
-                      onRole: _spectating ? () {} : _showRole,
-                      onBack: _spectating ? () => Navigator.of(context).pop() : (over ? _leaveTable : _confirmLeave),
-                    ),
-                  ),
-                  // كم واحد يتفرج (أصحاب اللاعبين).
-                  if ((_room?.watchers.length ?? 0) > 0)
-                    PositionedDirectional(top: 62, start: 14, child: _WatchersChip(count: _room!.watchers.length)),
-                  // فوق يسار: النقاط مصغرة، تنضغط وتكبر
-                  PositionedDirectional(
-                    top: 8,
-                    end: 10,
-                    child: _tip == 'tut_enacted'
-                        ? _Pulse(
-                            child: MiniTracks(view: v, onTap: () => showTracksBoard(context, v)),
-                          )
-                        : MiniTracks(view: v, onTap: () => showTracksBoard(context, v)),
-                  ),
-                  // تحت يمين: التفاعل والعرّاف (والتفاعل يبقى بعد اللعبة للسوالف). المتفرج ما يتكلم.
-                  if (!_spectating)
-                    PositionedDirectional(
-                      bottom: 10,
-                      start: 10,
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          // ملصقاتك المفضلة بالطول فوق زر التفاعل (على حافة الشاشة، ما تغطي مقعد أحد).
-                          // كم واحد يطلع على قد المكان. المطرود ما يتكلم لين تخلص اللعبة.
-                          if (v.me.alive || over)
-                            ValueListenableBuilder(
-                              valueListenable: _backend.profile,
-                              builder: (context, p, _) => _FavoritesColumn(
-                                ids: p.favorites,
-                                max: _favoritesRoom(context, v, over),
-                                onSend: _react,
-                                onRemove: (id) {
-                                  _saveFavorites([...p.favorites]..remove(id));
-                                  _toast('شلته من المفضلة');
-                                },
-                              ),
-                            ),
-                          if (!over && v.spyReady && !_sent.containsKey('spy')) ...[
-                            _RoundButton(
-                              gfx: 'eye',
-                              label: 'الجاسوس: شوف أول كرت',
-                              color: const Color(0xFF7C5CFF),
-                              onTap: () => _spyPeek(v),
-                            ),
-                            const SizedBox(height: 10),
-                          ],
-                          if (!over && v.seerReady && !_sent.containsKey('seer')) ...[
-                            _RoundButton(
-                              gfx: 'seer',
-                              label: 'كشف العراف',
-                              color: const Color(0xFF7C5CFF),
-                              active: _seerPicking,
-                              onTap: () => setState(() {
-                                _pendingReaction = null;
-                                _seerPicking = !_seerPicking;
-                              }),
-                            ),
-                            const SizedBox(height: 10),
-                          ],
-                          // المطرود يتفرج بس، ما يتكلم (لين تخلص اللعبة).
-                          if (!v.me.alive && !over)
-                            const SizedBox.shrink()
-                          else if (_tip == 'tut_chat')
-                            _Pulse(
-                              child: _RoundButton(
-                                gfx: 'chat',
-                                label: 'تفاعل',
-                                color: AppColors.gold,
-                                active: true,
-                                onTap: () {
-                                  _closeTip();
-                                  _openReactions();
-                                },
-                              ),
-                            )
-                          else
-                            _RoundButton(gfx: 'chat', label: 'تفاعل', color: AppColors.gold, onTap: _openReactions),
-                        ],
-                      ),
-                    ),
-                  // تحت يسار جنب السجل: الادعاء اللي أجّلته (تحت، عشان ما يغطي مقعد أحد)
-                  if (!over && _canClaim(v) && !_claimPending(v))
-                    PositionedDirectional(
-                      bottom: 17,
-                      end: 158,
-                      child: _Pulse(child: _ClaimChip(onTap: () => setState(() => _claimOpen = _claimKey(v)))),
-                    ),
-                  // تحت يسار: السجل والصوت
-                  PositionedDirectional(
-                    bottom: 10,
-                    end: 10,
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        ValueListenableBuilder(
-                          valueListenable: Sfx.muted,
-                          builder: (context, muted, _) => _RoundButton(
-                            gfx: muted ? 'mute' : 'sound',
-                            label: muted ? 'شغّل الصوت' : 'اكتم الصوت',
-                            size: 40,
-                            onTap: Sfx.toggle,
+                      if (_scenes.isNotEmpty)
+                        Positioned.fill(
+                          child: SceneOverlay(
+                            key: ObjectKey(_scenes.first),
+                            scene: _scenes.first.scene,
+                            onDone: _nextScene,
                           ),
                         ),
-                        const SizedBox(width: 8),
-                        ValueListenableBuilder(
-                          valueListenable: Music.muted,
-                          builder: (context, muted, _) => _RoundButton(
-                            gfx: muted ? 'music_off' : 'music',
-                            label: muted ? 'شغّل الموسيقى' : 'اكتم الموسيقى',
-                            size: 40,
-                            onTap: Music.toggle,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        _RoundButton(gfx: 'log', label: 'السجل', size: 40, onTap: () => showGameLog(context, v)),
-                      ],
-                    ),
-                  ),
-                  // حركتك أنت: بعد ما تخلص المشاهد، عشان ضغطتك ما تروح للمشهد وتحس إن الزر ما اشتغل.
-                  if (_scenes.isEmpty && !_spectating) ..._actionLayer(v, pickHint),
-                  // المتفرج: على لعبة مين، وإنه ما يشوف الأدوار (تحت يمين مكان التفاعل، عشان ما يغطي مقعد صاحبه).
-                  if (_spectating)
-                    PositionedDirectional(
-                      bottom: 10,
-                      start: 10,
-                      child: _SpectatorBar(
-                        name: _room?.player(widget.watching!)?.name ?? v.player(widget.watching!).name,
-                      ),
-                    ),
-                  if (_claimPending(v))
-                    Center(
-                      child: _ClaimPrompt(
-                        count: v.claimCount!,
-                        truth: _truth(v),
-                        onClaim: (policies) => _claim(v, policies),
-                        onLater: () => setState(() {
-                          _claimLater = _claimKey(v);
-                          _claimOpen = null;
-                        }),
-                      ),
-                    ),
-                  if (_tip case final tip? when !over)
-                    Positioned(
-                      bottom: 8,
-                      left: 0,
-                      right: 0,
-                      child: Center(
-                        child: _CoachCard(key: ValueKey(tip), text: _tips[tip]!, onClose: _closeTip),
-                      ),
-                    ),
-                  if (over && _scenes.isEmpty && _resultsOpen)
-                    _GameOver(
-                      view: v,
-                      room: _room,
-                      onPlayer: _editNote,
-                      onClose: () => setState(() => _resultsOpen = false),
-                      onLeave: _leaveTable,
-                      onLies: () => showLiesReveal(context, v, _room),
-                      onShare: () => showShareCard(context, v, _room),
-                      // لعبة الشرح وجولات البطولة ما تنعاد.
-                      onRematch: v.tutorial || _room?.tour != null || _rematching ? null : _rematch,
-                      rematchReady: _room?.next == null ? 0 : _nextReady.length,
-                    ),
-                  if (_scenes.isNotEmpty)
-                    Positioned.fill(
-                      child: SceneOverlay(
-                        key: ObjectKey(_scenes.first),
-                        scene: _scenes.first.scene,
-                        onDone: _nextScene,
-                      ),
-                    ),
-                ],
+                    ],
+                  );
+                },
               ),
             ),
           ],
@@ -1279,13 +1368,170 @@ class _GameScreenState extends State<GameScreen> {
   }
 
   /// كم ملصق مفضل يطلع بالطول فوق زر التفاعل: على قد المكان بين لوحة الجولة فوق والأزرار تحت.
-  int _favoritesRoom(BuildContext context, GameView v, bool over) {
-    final h = MediaQuery.sizeOf(context).height - MediaQuery.paddingOf(context).vertical;
-    final powers =
-        (!over && v.spyReady && !_sent.containsKey('spy') ? 1 : 0) +
-        (!over && v.seerReady && !_sent.containsKey('seer') ? 1 : 0);
-    final top = 74 + ((_room?.watchers.length ?? 0) > 0 ? 30 : 0);
-    return ((h - top - 10 - 52 - powers * 62 - 4) / 47).floor().clamp(0, 5);
+  int _favoritesRoom(double height, double hs, int powers, bool watchers) {
+    final top = (118 + (watchers ? 40 : 0)) * hs;
+    final item = 88 * hs;
+    return ((height - top - 12 * hs - 100 * hs - powers * (76 + 8) * hs - 4) / item).floor().clamp(0, 5);
+  }
+
+  /// إعدادات الصوت وقت اللعب: المؤثرات والموسيقى.
+  void _showSettings() {
+    showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('الإعدادات', textAlign: TextAlign.center),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ValueListenableBuilder(
+              valueListenable: Sfx.muted,
+              builder: (context, muted, _) => SwitchListTile(
+                value: !muted,
+                onChanged: (_) => Sfx.toggle(),
+                title: const Text('المؤثرات والراوي', style: TextStyle(fontWeight: FontWeight.w800)),
+                secondary: Gfx(muted ? 'mute' : 'sound', size: 32),
+              ),
+            ),
+            ValueListenableBuilder(
+              valueListenable: Music.muted,
+              builder: (context, muted, _) => SwitchListTile(
+                value: !muted,
+                onChanged: (_) => Music.toggle(),
+                title: const Text('الموسيقى', style: TextStyle(fontWeight: FontWeight.w800)),
+                secondary: Gfx(muted ? 'music_off' : 'music', size: 32),
+              ),
+            ),
+          ],
+        ),
+        actions: [GameButton(label: 'تمام', height: 44, fontSize: 16, onPressed: () => Navigator.pop(context))],
+      ),
+    );
+  }
+
+  /// نص لوح الرسالة تحت: تعليمات دورك، أو وش يصير عند غيرك. null لو ما فيه شي نقوله.
+  ({String text, String? icon, bool dim, VoidCallback? onCancel}) _status(GameView v, String? pickHint) {
+    ({String text, String? icon, bool dim, VoidCallback? onCancel}) say(
+      String text, {
+      String? icon,
+      bool dim = false,
+      VoidCallback? onCancel,
+    }) => (text: text, icon: icon, dim: dim, onCancel: onCancel);
+    if (pickHint != null && !_spectating) {
+      return say(
+        pickHint,
+        onCancel: () => setState(() {
+          _pendingReaction = null;
+          _seerPicking = false;
+          _clearPick = false;
+        }),
+      );
+    }
+    if (v.phase == Phase.gameOver) {
+      return say(
+        v.winnerLoyal == null ? 'انتهت اللعبة' : (v.winnerLoyal! ? 'فاز الأوفياء!' : 'فاز الخونة!'),
+        icon: 'trophy',
+      );
+    }
+    final mine = !_spectating && v.me.alive;
+    // أرسلت حركتك: وش سويت لين يرد السيرفر.
+    final note = mine ? _sent[_turnKey(v)] : null;
+    if (note != null && note.isNotEmpty) return say(note, icon: 'check');
+    final president = v.nameOf(v.presidentId);
+    switch (v.phase) {
+      case Phase.nomination:
+        return mine && v.amPresident
+            ? say('أنت الرئيس! اضغط على اللاعب اللي تبيه وزير', icon: 'crown')
+            : say('$president يختار وزير…', dim: true);
+      case Phase.election:
+        return say(
+          mine && v.me.hasVoted ? 'ننتظر الباقين يصوتون…' : 'صوّتوا على الحكومة!',
+          icon: 'log',
+          dim: mine && v.me.hasVoted,
+        );
+      case Phase.presidentDiscard:
+        return mine && v.amPresident
+            ? say('اختار الكرت اللي بترميه', icon: 'games')
+            : say('$president يختار الكرت اللي بيرميه…', dim: true);
+      case Phase.chancellorEnact:
+        return mine && v.amNominee
+            ? say('اختار الكرت اللي بتمرره', icon: 'games')
+            : say('الكرتين راحوا للوزير', dim: true);
+      case Phase.vetoResponse:
+        return mine && v.amPresident
+            ? say('الوزير يبي يرمي الكرتين. توافق؟', icon: 'hand')
+            : say('الوزير طلب فيتو… ننتظر رد الرئيس', dim: true);
+      case Phase.power:
+        if (mine && v.amPresident) {
+          return v.pendingPower == Power.peek
+              ? say('أول ٣ كروت في الكومة (لك بس)', icon: 'eye')
+              : say('${powerName[v.pendingPower]}: اختر لاعب من الطاولة', icon: powerIcon[v.pendingPower]);
+        }
+        return say('$president يستخدم قدرته: ${powerName[v.pendingPower] ?? ''}', dim: true);
+      case Phase.gameOver:
+        return say('انتهت اللعبة');
+    }
+  }
+
+  /// لوح الرسالة: خشب غامق تحت الطاولة بالنص، وأيقونة المرحلة بطرفه.
+  Widget _statusPlank(Stage st, ({String text, String? icon, bool dim, VoidCallback? onCancel}) status) {
+    final s = st.s;
+    final fs = gameFont(34, s, min: 13);
+    final r = TablePos.plank;
+    final w = math.max(r.width * s, math.min(996 * s - 8, 330.0));
+    final h = math.max(r.height * s, fs * 1.4 + 14);
+    final c = st.at(r.center.dx, r.center.dy);
+    return Positioned(
+      left: c.dx - w / 2,
+      top: c.dy - h / 2,
+      width: w,
+      height: h,
+      child: GamePlank(
+        dim: status.dim,
+        radius: math.max(10, 16 * s),
+        padding: EdgeInsets.symmetric(horizontal: math.max(10, 18 * s), vertical: 2),
+        child: Row(
+          children: [
+            if (status.icon != null) ...[
+              Gfx(status.icon!, size: math.max(22, h * .55)),
+              SizedBox(width: math.max(6, 10 * s)),
+            ],
+            Expanded(
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  status.text,
+                  textAlign: TextAlign.center,
+                  maxLines: 1,
+                  style: TextStyle(
+                    fontFamily: kufi,
+                    fontWeight: FontWeight.w800,
+                    fontSize: fs,
+                    height: 1.3,
+                    color: status.dim ? const Color(0xFFF1DDBB).withValues(alpha: .85) : const Color(0xFFFFF6E6),
+                  ),
+                ),
+              ),
+            ),
+            if (status.onCancel != null)
+              GestureDetector(
+                onTap: status.onCancel,
+                child: Padding(
+                  padding: const EdgeInsets.only(right: 6, left: 6),
+                  child: Text(
+                    'إلغاء',
+                    style: TextStyle(
+                      fontFamily: kufi,
+                      fontWeight: FontWeight.w800,
+                      fontSize: math.max(12, fs * .8),
+                      color: AppColors.gold,
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
   }
 
   bool _leaving = false;
@@ -1373,72 +1619,29 @@ class _GameScreenState extends State<GameScreen> {
   /// شكل الكروت اللي لابسه اللاعب من المتجر.
   CardSkin get _skin => cardSkin(Backend.instance.profile.value.cards);
 
-  /// الأزرار والكروت اللي تطلع لما يكون الدور عليك: التصويت جنب مقعدك، والكروت في نص الطاولة.
-  List<Widget> _actionLayer(GameView v, String? pickHint) {
-    if (pickHint != null) {
-      return [
-        _banner(
-          pickHint,
-          onCancel: () => setState(() {
-            _pendingReaction = null;
-            _seerPicking = false;
-            _clearPick = false;
-          }),
-        ),
-      ];
-    }
+  /// الأزرار والكروت اللي تطلع لما يكون الدور عليك: التصويت تحت البيضاوي، والكروت في نص الطاولة.
+  /// التعليمات نفسها (وش تسوي) على لوح الرسالة تحت ([_status]).
+  List<Widget> _actionLayer(GameView v, Stage st) {
+    if (_pendingReaction != null || _seerPicking || _clearPick) return const [];
     if (!v.me.alive) return const [];
     // أرسلت حركتك: الأزرار تختفي ويطلع لك وش سويت لين يرد السيرفر.
-    if (_sent[_turnKey(v)] case final note?) return [if (note.isNotEmpty) _banner(note, icon: 'check')];
+    if (_sent[_turnKey(v)] != null) return const [];
     switch (v.phase) {
-      case Phase.nomination when v.amPresident:
-        return [_banner('أنت الرئيس! اضغط على اللاعب اللي تبيه وزير', icon: 'crown')];
       case Phase.election when !v.me.hasVoted:
         return [
-          _besideSeat(
-            below: v.judgeReady
-                ? GameButton(
-                    label: 'ألغِ التصويت',
-                    semantics: 'ألغِ التصويت',
-                    icon: const Gfx('scales', size: 22),
-                    tone: ButtonTone.purple,
-                    height: 42,
-                    fontSize: 14,
-                    onPressed: () => _judgeCancel(v),
-                  )
-                : null,
-            yes: GameButton(
-              label: 'موافق',
-              semantics: 'موافق',
-              tone: ButtonTone.green,
-              height: 50,
-              onPressed: () => _act({'type': 'vote', 'ja': true}, note: 'صوّتت موافق… ننتظر الباقين'),
-            ),
-            no: GameButton(
-              label: 'رافض',
-              semantics: 'رافض',
-              tone: ButtonTone.red,
-              height: 50,
-              onPressed: () => _act({'type': 'vote', 'ja': false}, note: 'صوّتت رافض… ننتظر الباقين'),
-            ),
+          _voteButtons(
+            st,
+            onYes: () => _act({'type': 'vote', 'ja': true}, note: 'صوّتت موافق… ننتظر الباقين'),
+            onNo: () => _act({'type': 'vote', 'ja': false}, note: 'صوّتت رافض… ننتظر الباقين'),
+            onJudge: v.judgeReady ? () => _judgeCancel(v) : null,
           ),
         ];
       case Phase.vetoResponse when v.amPresident:
         return [
-          _banner('الوزير يبي يرمي الكرتين. توافق؟', bottom: 184, icon: 'hand'),
-          _besideSeat(
-            yes: GameButton(
-              label: 'موافق',
-              tone: ButtonTone.green,
-              height: 50,
-              onPressed: () => _act({'type': 'respondVeto', 'accept': true}, note: 'وافقت على الفيتو'),
-            ),
-            no: GameButton(
-              label: 'رافض',
-              tone: ButtonTone.red,
-              height: 50,
-              onPressed: () => _act({'type': 'respondVeto', 'accept': false}, note: 'رفضت الفيتو'),
-            ),
+          _voteButtons(
+            st,
+            onYes: () => _act({'type': 'respondVeto', 'accept': true}, note: 'وافقت على الفيتو'),
+            onNo: () => _act({'type': 'respondVeto', 'accept': false}, note: 'رفضت الفيتو'),
           ),
         ];
       case Phase.presidentDiscard when v.amPresident:
@@ -1467,18 +1670,16 @@ class _GameScreenState extends State<GameScreen> {
               target: HandTarget.stamp,
               onPick: (i) => _act({'type': 'enact', 'index': i}, note: 'مرّرت القرار'),
               extra: v.canVeto
-                  ? Container(
-                      decoration: BoxDecoration(
-                        color: AppColors.panel.withValues(alpha: .92),
-                        borderRadius: BorderRadius.circular(14),
-                        border: Border.all(color: AppColors.gold.withValues(alpha: .5)),
-                      ),
-                      child: TextButton(
+                  ? SizedBox(
+                      width: 240,
+                      child: GameButton(
+                        label: 'اطلب فيتو (نرمي الاثنين)',
+                        semantics: 'اطلب فيتو',
+                        icon: const Gfx('hand', size: 22),
+                        tone: ButtonTone.purple,
+                        height: 42,
+                        fontSize: 14,
                         onPressed: () => _act({'type': 'proposeVeto'}, note: 'طلبت فيتو… ننتظر رد الرئيس'),
-                        child: const Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [Gfx('hand', size: 22), SizedBox(width: 4), Text('اطلب فيتو (نرمي الاثنين)')],
-                        ),
                       ),
                     )
                   : null,
@@ -1505,70 +1706,71 @@ class _GameScreenState extends State<GameScreen> {
             ),
           ),
         ];
-      case Phase.power when v.amPresident:
-        return [_banner('${powerName[v.pendingPower]}: اختر لاعب من الطاولة', icon: powerIcon[v.pendingPower])];
       default:
         return const [];
     }
   }
 
-  /// سطر تعليمات فوق مقعدك.
-  Widget _banner(String text, {VoidCallback? onCancel, double bottom = 112, String? icon}) => Positioned(
-    bottom: bottom,
-    left: 0,
-    right: 0,
-    child: Center(
-      child: Container(
-        padding: EdgeInsets.fromLTRB(14, 6, onCancel == null ? 14 : 6, 6),
-        decoration: BoxDecoration(
-          color: AppColors.panel.withValues(alpha: .92),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: AppColors.gold.withValues(alpha: .6), width: 1.5),
-          boxShadow: const [BoxShadow(color: Colors.black54, blurRadius: 10)],
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (icon != null) ...[Gfx(icon, size: 26), const SizedBox(width: 6)],
-            Text(
-              text,
-              style: const TextStyle(fontFamily: kufi, fontSize: 14, fontWeight: FontWeight.w700),
-            ),
-            if (onCancel != null) ...[
-              const SizedBox(width: 6),
-              TextButton(
-                style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
-                onPressed: onCancel,
-                child: const Text('إلغاء'),
+  /// زرين (موافق ورافض) على حافة البيضاوي تحت، عشان الصينية تبقى واضحة بالرئيس والوزير وأسمائهم.
+  /// [onJudge] زر ثالث تحتهم (القاضي: ألغِ التصويت).
+  Widget _voteButtons(Stage st, {required VoidCallback onYes, required VoidCallback onNo, VoidCallback? onJudge}) {
+    final s = st.s;
+    final bw = (190 * s).clamp(112.0, 200.0);
+    final bh = (70 * s).clamp(44.0, 72.0);
+    final fs = (32 * s).clamp(17.0, 30.0);
+    final c = st.at(TablePos.oval.dx, TablePos.oval.dy + 150);
+    const gap = 14.0;
+    return Positioned(
+      left: c.dx - bw - gap / 2,
+      top: c.dy - bh / 2,
+      width: bw * 2 + gap,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: GameButton(
+                  label: 'موافق',
+                  semantics: 'موافق',
+                  tone: ButtonTone.green,
+                  height: bh,
+                  fontSize: fs,
+                  onPressed: onYes,
+                ),
+              ),
+              const SizedBox(width: gap),
+              Expanded(
+                child: GameButton(
+                  label: 'رافض',
+                  semantics: 'رافض',
+                  tone: ButtonTone.red,
+                  height: bh,
+                  fontSize: fs,
+                  onPressed: onNo,
+                ),
               ),
             ],
-          ],
-        ),
-      ),
-    ),
-  );
-
-  /// زرين على جنبين السجادة (فوق كومتين الأوراق)، عشان الصينية تبقى واضحة بالرئيس والوزير وأسمائهم.
-  /// [below] زر ثالث تحت «رافض» (القاضي: ألغِ التصويت).
-  Widget _besideSeat({required Widget yes, required Widget no, Widget? below}) => Positioned.fill(
-    child: Stack(
-      children: [
-        Align(
-          alignment: const Alignment(.5, .1),
-          child: SizedBox(width: 130, child: yes),
-        ),
-        Align(
-          alignment: const Alignment(-.5, .1),
-          child: SizedBox(width: 130, child: no),
-        ),
-        if (below != null)
-          Align(
-            alignment: const Alignment(-.5, .5),
-            child: SizedBox(width: 150, child: below),
           ),
-      ],
-    ),
-  );
+          if (onJudge != null) ...[
+            const SizedBox(height: 4),
+            SizedBox(
+              width: bw * 1.25,
+              child: GameButton(
+                label: 'ألغِ التصويت',
+                semantics: 'ألغِ التصويت',
+                icon: const Gfx('scales', size: 22),
+                tone: ButtonTone.purple,
+                height: math.max(38.0, bh * .7),
+                fontSize: 14,
+                onPressed: onJudge,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
 
   /// القاضي: يلغي التصويت بدال ما يصوّت (مرة وحدة، وينكشف للكل).
   Future<void> _judgeCancel(GameView v) async {
@@ -1650,7 +1852,7 @@ class _GameScreenState extends State<GameScreen> {
   }
 }
 
-/// فوق يمين: الجولة، ودورك (تضغطه يطلع لك بطاقة دورك).
+/// فوق يمين: لوح الجولة (ودورك، تضغطه يطلع لك بطاقة دورك) وراية الخروج.
 class _RoundHud extends StatelessWidget {
   const _RoundHud({
     required this.view,
@@ -1658,6 +1860,7 @@ class _RoundHud extends StatelessWidget {
     required this.roleColor,
     required this.special,
     required this.onRole,
+    required this.scale,
     this.onBack,
   });
 
@@ -1668,55 +1871,60 @@ class _RoundHud extends StatelessWidget {
   final VoidCallback onRole;
   final VoidCallback? onBack;
 
+  /// مقياس الواجهة (١ = حجم التصميم).
+  final double scale;
+
   @override
   Widget build(BuildContext context) {
+    final sc = scale;
     final deadline = view.deadline;
     final left = deadline == null || view.phase == Phase.gameOver
         ? null
         : deadline.difference(DateTime.now()).inSeconds.clamp(0, 999);
-    final hud = Container(
-      padding: const EdgeInsets.fromLTRB(10, 4, 10, 6),
-      decoration: BoxDecoration(
-        color: AppColors.panel.withValues(alpha: .88),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.gold.withValues(alpha: .35)),
-      ),
+    final fs = math.max(13.0, 30 * sc);
+    final hud = GameHudPlank(
+      gold: true,
+      radius: 16 * sc + 2,
+      padding: EdgeInsets.fromLTRB(12 * sc, 4 * sc, 12 * sc, 6 * sc),
       child: Column(
         mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              if (view.quick) const Padding(padding: EdgeInsetsDirectional.only(end: 2), child: Gfx('bolt', size: 16)),
-              Text(
+              if (view.quick)
+                Padding(
+                  padding: const EdgeInsetsDirectional.only(end: 2),
+                  child: Gfx('bolt', size: fs),
+                ),
+              OutlinedText(
                 'الجولة ${arabicNumber(view.round)}',
-                style: const TextStyle(fontFamily: kufi, fontWeight: FontWeight.w700, fontSize: 15),
+                size: fs,
+                strokeWidth: math.max(2, fs * .14),
+                shadow: false,
               ),
               if (left != null) ...[
-                const SizedBox(width: 8),
-                const Gfx('hourglass', size: 16),
-                Text(
+                SizedBox(width: 10 * sc),
+                Gfx('hourglass', size: fs * .85),
+                OutlinedText(
                   arabicNumber(left),
-                  style: TextStyle(
-                    fontFamily: kufi,
-                    fontWeight: FontWeight.w700,
-                    fontSize: 13,
-                    color: left <= 5 ? AppColors.traitorLight : AppColors.gold,
-                  ),
+                  size: fs * .8,
+                  color: left <= 5 ? AppColors.traitorLight : AppColors.goldLight,
+                  strokeWidth: math.max(2, fs * .12),
+                  shadow: false,
                 ),
               ],
             ],
           ),
+          SizedBox(height: 2 * sc),
           GestureDetector(
             onTap: onRole,
             child: Container(
-              margin: const EdgeInsets.only(top: 2),
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 1),
+              padding: EdgeInsets.symmetric(horizontal: 14 * sc + 2, vertical: 1),
               decoration: BoxDecoration(
-                color: roleColor.withValues(alpha: .18),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: roleColor.withValues(alpha: .6)),
+                color: const Color(0xFF2B190E),
+                borderRadius: BorderRadius.circular(40),
+                border: Border.all(color: const Color(0xFFD9A84E), width: 2),
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
@@ -1724,14 +1932,18 @@ class _RoundHud extends StatelessWidget {
                   Text(
                     roleName,
                     style: TextStyle(
-                      color: roleColor == AppColors.loyal ? AppColors.loyalLight : AppColors.traitorLight,
+                      fontFamily: kufi,
+                      color: roleColor == AppColors.loyal
+                          ? const Color(0xFFFFE9A8)
+                          : (roleColor == AppColors.muted ? AppColors.muted : AppColors.traitorLight),
                       fontWeight: FontWeight.w800,
-                      fontSize: 12,
+                      fontSize: math.max(12.0, 24 * sc),
+                      height: 1.3,
                     ),
                   ),
                   if (special != null) ...[
-                    const SizedBox(width: 4),
-                    Gfx(special == Special.seer ? 'seer' : 'shield', size: 15),
+                    SizedBox(width: 4 * sc),
+                    Gfx(special == Special.seer ? 'seer' : 'shield', size: math.max(14.0, 24 * sc)),
                   ],
                 ],
               ),
@@ -1742,83 +1954,15 @@ class _RoundHud extends StatelessWidget {
     );
     final back = onBack;
     if (back == null) return hud;
-    // زر الخروج واضح ولحاله، عشان الكل يلقاه.
     return Row(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Semantics(
-          button: true,
-          label: 'خروج من اللعبة',
-          excludeSemantics: true,
-          child: GestureDetector(
-            onTap: back,
-            child: Container(
-              padding: const EdgeInsets.fromLTRB(8, 5, 10, 5),
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(colors: [Color(0xFF8E1B2B), Color(0xFF4A0B15)]),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: AppColors.traitorLight.withValues(alpha: .8), width: 1.6),
-                boxShadow: const [BoxShadow(color: Colors.black54, blurRadius: 8)],
-              ),
-              child: const Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Gfx('exit', size: 30),
-                  Text('خروج', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w800, height: 1.2)),
-                ],
-              ),
-            ),
-          ),
-        ),
-        const SizedBox(width: 8),
+        // زر الخروج واضح ولحاله، عشان الكل يلقاه.
+        ExitBanner(onTap: back, width: 90 * sc),
+        SizedBox(width: 6 * sc),
         hud,
       ],
-    );
-  }
-}
-
-/// زر دائري يطفو في الزاوية.
-class _RoundButton extends StatelessWidget {
-  const _RoundButton({
-    required this.label,
-    required this.onTap,
-    required this.gfx,
-    this.color = AppColors.muted,
-    this.size = 52,
-    this.active = false,
-  });
-
-  final String label;
-  final VoidCallback onTap;
-
-  /// أيقونة ملونة (assets/icons/gfx_*.png).
-  final String gfx;
-  final Color color;
-  final double size;
-  final bool active;
-
-  @override
-  Widget build(BuildContext context) {
-    return Semantics(
-      button: true,
-      label: label,
-      excludeSemantics: true,
-      child: GestureDetector(
-        onTap: onTap,
-        child: Container(
-          width: size,
-          height: size,
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: active ? color.withValues(alpha: .45) : AppColors.panel.withValues(alpha: .88),
-            border: Border.all(color: color.withValues(alpha: .8), width: 2),
-            boxShadow: [BoxShadow(color: active ? color : Colors.black54, blurRadius: active ? 14 : 8)],
-          ),
-          child: Gfx(gfx, size: size * .62),
-        ),
-      ),
     );
   }
 }
@@ -1826,22 +1970,25 @@ class _RoundButton extends StatelessWidget {
 /// مدة الدور كاملة بالثواني (الشرح أطول، والسريع نصها).
 double _phaseTotal(GameView v) => (_phaseSeconds[v.phase] ?? 30) * (v.tutorial ? 4 : (v.quick ? .5 : 1));
 
-/// الرسالة في نص الصينية: وش يصير الحين.
+/// نص البيضاوي: الرئيس يمين والوزير يسار، وبينهم أيقونة المرحلة، والكروت تحت اللي ماسكها.
+/// يرسم بإحداثيات المسرح ([Stage]) فوق البيضاوي الذهبي.
 class _TableCenter extends StatelessWidget {
-  const _TableCenter({required this.view, required this.room});
+  const _TableCenter({required this.view, required this.room, required this.stage});
 
   final GameView view;
   final Room? room;
+  final Stage stage;
 
   @override
   Widget build(BuildContext context) {
     final v = view;
-    // الصينية تشرح الوضع بالصور: الرئيس والوزير، وبينهم أيقونة المرحلة، والكروت تحت اللي ماسكها.
+    final st = stage;
+    final s = st.s;
     final (String icon, bool cardsWithPresident, bool cardsWithMinister) = switch (v.phase) {
       Phase.nomination => ('crown', false, false),
       Phase.election => ('ballot', false, false),
-      Phase.presidentDiscard => ('scroll', true, false),
-      Phase.chancellorEnact || Phase.vetoResponse => ('scroll', false, true),
+      Phase.presidentDiscard => ('log', true, false),
+      Phase.chancellorEnact || Phase.vetoResponse => ('log', false, true),
       Phase.power => (
         switch (v.pendingPower) {
           Power.investigate => 'search',
@@ -1856,47 +2003,212 @@ class _TableCenter extends StatelessWidget {
     };
     final showMinister = v.phase != Phase.power && v.phase != Phase.gameOver;
     String name(String? id) => id == null ? '' : v.nameOf(id);
-    return FittedBox(
-      fit: BoxFit.scaleDown,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
+    final d = 118 * s;
+    final fs = gameFont(27, s, min: 12);
+    Widget at(Offset p, Widget child) {
+      final c = st.at(p.dx, p.dy);
+      return Positioned(
+        left: c.dx,
+        top: c.dy,
+        child: FractionalTranslation(translation: const Offset(-.5, -.5), child: child),
+      );
+    }
+
+    Widget label(String text, {bool pill = false}) => pill
+        ? NamePill(text, size: fs)
+        : Text(
+            text,
+            maxLines: 1,
+            style: TextStyle(
+              fontFamily: kufi,
+              fontWeight: FontWeight.w800,
+              fontSize: fs,
+              color: const Color(0xFF4A2E08),
+              height: 1.25,
+            ),
+          );
+    Widget cards(int n) => SizedBox(
+      width: 54 * s + 24,
+      height: 40 * s + 14,
+      child: Stack(
+        alignment: Alignment.center,
         children: [
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              _TraySeat(
-                avatar: room?.player(v.presidentId)?.avatar,
-                name: name(v.presidentId),
-                crown: true,
-                cards: cardsWithPresident ? 3 : 0,
+          for (var i = 0; i < n; i++)
+            Transform.translate(
+              offset: Offset((i - (n - 1) / 2) * 16 * s, 0),
+              child: Transform.rotate(
+                angle: (i - (n - 1) / 2) * .22,
+                child: GameCardFace(kind: GameCardKind.discard, width: math.max(18, 30 * s)),
               ),
-              const SizedBox(width: 10),
-              _PhaseIcon(icon: icon, pulse: v.phase == Phase.election || v.phase == Phase.power),
-              if (showMinister) ...[
-                const SizedBox(width: 10),
-                _TraySeat(
-                  avatar: v.nomineeId == null ? null : room?.player(v.nomineeId!)?.avatar,
-                  name: v.nomineeId == null ? 'الوزير؟' : name(v.nomineeId),
-                  waiting: v.nomineeId == null,
-                  cards: cardsWithMinister ? 2 : 0,
-                ),
-              ],
-            ],
-          ),
+            ),
         ],
       ),
+    );
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        at(
+          TablePos.president,
+          TableAvatar(avatar: room?.player(v.presidentId)?.avatar ?? 'masked', size: d, ring: const Color(0xFFE8B54E)),
+        ),
+        at(Offset(TablePos.president.dx, TablePos.president.dy + 74), label(name(v.presidentId))),
+        if (cardsWithPresident) at(Offset(TablePos.president.dx + 82, TablePos.president.dy + 22), cards(3)),
+        if (showMinister) ...[
+          at(
+            TablePos.minister,
+            v.nomineeId == null
+                ? _Pulse(child: _HoodedUnknown(size: d * 1.15))
+                : TableAvatar(
+                    avatar: room?.player(v.nomineeId!)?.avatar ?? 'masked',
+                    size: d,
+                    ring: const Color(0xFFE8B54E),
+                  ),
+          ),
+          at(
+            Offset(TablePos.minister.dx, TablePos.minister.dy + 74),
+            label(v.nomineeId == null ? 'الوزير؟' : name(v.nomineeId), pill: v.nomineeId != null),
+          ),
+          if (cardsWithMinister) at(Offset(TablePos.minister.dx - 82, TablePos.minister.dy + 22), cards(2)),
+        ],
+        at(
+          TablePos.crownBadge,
+          _PhaseBadge(icon: icon, size: 70 * s, pulse: v.phase == Phase.election || v.phase == Phase.power),
+        ),
+      ],
     );
   }
 }
 
-/// نص الصينية بعد اللعبة: فزت أو خسرت، ومين فاز وليش، وجوائزك. تنضغط وتفتح النتيجة كاملة.
+/// شخص مجهول بغترة وعقال وعلامة استفهام: الوزير اللي ما انختار للحين.
+class _HoodedUnknown extends StatelessWidget {
+  const _HoodedUnknown({required this.size});
+
+  final double size;
+
+  @override
+  Widget build(BuildContext context) => SizedBox(
+    width: size,
+    height: size,
+    child: CustomPaint(painter: const _HoodPainter()),
+  );
+}
+
+class _HoodPainter extends CustomPainter {
+  const _HoodPainter();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    canvas.scale(size.width / 100);
+    final hood = Path()
+      ..moveTo(50, 4)
+      ..cubicTo(26, 4, 20, 26, 20, 42)
+      ..cubicTo(20, 62, 10, 78, 4, 96)
+      ..lineTo(96, 96)
+      ..cubicTo(90, 78, 80, 62, 80, 42)
+      ..cubicTo(80, 26, 74, 4, 50, 4)
+      ..close();
+    canvas.drawPath(
+      hood,
+      Paint()
+        ..shader = const LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [Color(0xFF3A3F78), Color(0xFF23264F)],
+        ).createShader(const Rect.fromLTWH(0, 0, 100, 100)),
+    );
+    final edge = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 3.2
+      ..strokeJoin = StrokeJoin.round
+      ..color = gameInk;
+    canvas.drawPath(hood, edge);
+    // الوجه
+    final face = Path()
+      ..moveTo(32, 30)
+      ..quadraticBezierTo(50, 22, 68, 30)
+      ..lineTo(68, 70)
+      ..quadraticBezierTo(50, 84, 32, 70)
+      ..close();
+    canvas.drawPath(face, Paint()..color = const Color(0xFFE2C98E));
+    canvas.drawPath(face, edge..strokeWidth = 2.4);
+    // عقال
+    canvas.drawPath(
+      Path()
+        ..moveTo(26, 22)
+        ..quadraticBezierTo(50, 10, 74, 22),
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 5
+        ..strokeCap = StrokeCap.round
+        ..color = gameInk,
+    );
+    canvas.drawPath(
+      Path()
+        ..moveTo(26, 22)
+        ..quadraticBezierTo(50, 10, 74, 22),
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2
+        ..strokeCap = StrokeCap.round
+        ..color = const Color(0xFFD9A84E),
+    );
+    final tp = TextPainter(
+      text: const TextSpan(
+        text: '؟',
+        style: TextStyle(fontFamily: kufi, fontSize: 52, fontWeight: FontWeight.w800, color: Color(0xFF7A5014)),
+      ),
+      textDirection: TextDirection.rtl,
+    )..layout();
+    tp.paint(canvas, Offset(50 - tp.width / 2, 52 - tp.height / 2));
+  }
+
+  @override
+  bool shouldRepaint(_HoodPainter old) => false;
+}
+
+/// دائرة ذهبية في نص البيضاوي فيها أيقونة المرحلة (التاج، صندوق التصويت، القدرة، الكأس…).
+class _PhaseBadge extends StatelessWidget {
+  const _PhaseBadge({required this.icon, required this.size, this.pulse = false});
+
+  final String icon;
+  final double size;
+  final bool pulse;
+
+  @override
+  Widget build(BuildContext context) {
+    final badge = Container(
+      width: size,
+      height: size,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        gradient: const RadialGradient(center: Alignment(-.3, -.4), colors: [Color(0xFFF2D27A), Color(0xFFD9A93C)]),
+        border: Border.all(color: const Color(0xFF9A6A14), width: math.max(2, size * .06)),
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: .25), blurRadius: 4, offset: const Offset(0, 2))],
+      ),
+      child: icon == 'crown'
+          ? GameIcon(icon, size: size * .52, color: const Color(0xFF6B4A12))
+          : Gfx(icon, size: size * .6),
+    );
+    return pulse ? _Pulse(child: badge) : badge;
+  }
+}
+
+/// نص البيضاوي بعد اللعبة: فزت أو خسرت، ومين فاز وليش، وجوائزك. تنضغط وتفتح النتيجة كاملة.
 class _ResultCenter extends StatelessWidget {
-  const _ResultCenter({required this.view, required this.room, required this.onTap, required this.onLies});
+  const _ResultCenter({
+    required this.view,
+    required this.room,
+    required this.onTap,
+    required this.onLies,
+    required this.stage,
+  });
 
   final GameView view;
   final Room? room;
   final VoidCallback onTap;
   final VoidCallback onLies;
+  final Stage stage;
 
   @override
   Widget build(BuildContext context) {
@@ -1905,208 +2217,111 @@ class _ResultCenter extends StatelessWidget {
     // المتفرج: الفريق الفايز بدال فزت أو خسرت، وبدون جوائز.
     final spectator = view.spectator;
     final r = spectator ? null : room?.results[view.you];
-    return Semantics(
-      container: true,
-      child: GestureDetector(
-        onTap: onTap,
-        child: FittedBox(
-          fit: BoxFit.scaleDown,
-          child: Container(
-            padding: const EdgeInsets.fromLTRB(18, 8, 18, 10),
-            decoration: BoxDecoration(
-              color: const Color(0xE60B0818),
-              borderRadius: BorderRadius.circular(18),
-              border: Border.all(color: AppColors.gold.withValues(alpha: .55), width: 1.5),
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Row(
+    final c = stage.at(TablePos.oval.dx, TablePos.oval.dy);
+    final w = (TablePos.ovalRx * 2 - 100) * stage.s, h = (TablePos.ovalRy * 2 - 96) * stage.s;
+    return Stack(
+      children: [
+        Positioned(
+          left: c.dx - w / 2,
+          top: c.dy - h / 2,
+          width: w,
+          height: h,
+          child: Semantics(
+            container: true,
+            child: GestureDetector(
+              onTap: onTap,
+              behavior: HitTestBehavior.opaque,
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    iWon && !spectator ? const Gfx('trophy', size: 40) : Seal(loyal: loyalWon, size: 40),
-                    const SizedBox(width: 6),
-                    GoldText(
-                      spectator
-                          ? (loyalWon ? 'فاز الأوفياء' : 'فاز الخونة')
-                          : iWon
-                          ? 'فزت!'
-                          : 'خسرت',
-                      size: 30,
-                    ),
-                  ],
-                ),
-                Text(
-                  '${loyalWon ? 'فاز الأوفياء' : 'فاز الخونة'} · ${winReasons[view.winReason] ?? ''}',
-                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Color(0xFFD9CFFF)),
-                ),
-                if (r != null) ...[
-                  const SizedBox(height: 6),
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      if (r.coins > 0) ...[
-                        Amount('coin', '+${arabicNumber(r.coins)}', size: 18, style: _rewardStyle(AppColors.gold)),
-                        if (r.boost > 1)
-                          Text(' ×${arabicNumber(r.boost)}', style: _rewardStyle(const Color(0xFFFF8A3C))),
-                        const SizedBox(width: 12),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        iWon && !spectator ? const Gfx('trophy', size: 44) : Seal(loyal: loyalWon, size: 44),
+                        const SizedBox(width: 8),
+                        GoldText(
+                          spectator
+                              ? (loyalWon ? 'فاز الأوفياء' : 'فاز الخونة')
+                              : iWon
+                              ? 'فزت!'
+                              : 'خسرت',
+                          size: 38,
+                        ),
                       ],
-                      Amount('xp', '+${arabicNumber(r.xp)}', size: 18, style: _rewardStyle(AppColors.diamond)),
-                    ],
-                  ),
-                ],
-                const SizedBox(height: 6),
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (!spectator) ...[
-                      Semantics(
-                        button: true,
-                        label: 'النتيجة كاملة',
-                        excludeSemantics: true,
-                        child: _chip('النتيجة كاملة', AppColors.gold),
+                    ),
+                    Text(
+                      '${loyalWon ? 'فاز الأوفياء' : 'فاز الخونة'} · ${winReasons[view.winReason] ?? ''}',
+                      style: const TextStyle(
+                        fontFamily: kufi,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w800,
+                        color: Color(0xFF4A2E08),
                       ),
-                      const SizedBox(width: 6),
+                    ),
+                    if (r != null) ...[
+                      const SizedBox(height: 6),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (r.coins > 0) ...[
+                            _Reward(
+                              r.boost > 1
+                                  ? '+${arabicNumber(r.coins)} ×${arabicNumber(r.boost)}'
+                                  : '+${arabicNumber(r.coins)}',
+                              AppColors.goldLight,
+                              icon: 'coin',
+                            ),
+                            const SizedBox(width: 8),
+                          ],
+                          _Reward('+${arabicNumber(r.xp)}', AppColors.diamond, icon: 'xp'),
+                        ],
+                      ),
                     ],
-                    Semantics(
-                      button: true,
-                      label: 'مين كذب؟',
-                      excludeSemantics: true,
-                      child: GestureDetector(onTap: onLies, child: _chip('مين كذب؟', const Color(0xFFFF8A3C))),
+                    const SizedBox(height: 8),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (!spectator) ...[
+                          Semantics(
+                            button: true,
+                            label: 'النتيجة كاملة',
+                            excludeSemantics: true,
+                            child: _chip('النتيجة كاملة', const Color(0xFF3F7A2A)),
+                          ),
+                          const SizedBox(width: 8),
+                        ],
+                        Semantics(
+                          button: true,
+                          label: 'مين كذب؟',
+                          excludeSemantics: true,
+                          child: GestureDetector(onTap: onLies, child: _chip('مين كذب؟', const Color(0xFFB04A12))),
+                        ),
+                      ],
                     ),
                   ],
                 ),
-              ],
+              ),
             ),
           ),
         ),
-      ),
+      ],
     );
   }
 
-  static TextStyle _rewardStyle(Color color) => TextStyle(color: color, fontWeight: FontWeight.w800, fontSize: 15);
-
   static Widget _chip(String text, Color color) => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
+    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 3),
     decoration: BoxDecoration(
-      color: Colors.black.withValues(alpha: .35),
-      borderRadius: BorderRadius.circular(14),
-      border: Border.all(color: color.withValues(alpha: .6)),
+      color: const Color(0xFFFFF3D0).withValues(alpha: .55),
+      borderRadius: BorderRadius.circular(16),
+      border: Border.all(color: color, width: 2),
     ),
     child: Text(
       text,
-      style: TextStyle(color: color, fontWeight: FontWeight.w800, fontSize: 12.5),
+      style: TextStyle(fontFamily: kufi, color: color, fontWeight: FontWeight.w800, fontSize: 15),
     ),
   );
-}
-
-/// صورة في الصينية: الرئيس بتاج مرسوم فوقه، أو الوزير، أو دائرة فاضية تنبض لين يختاره الرئيس.
-class _TraySeat extends StatelessWidget {
-  const _TraySeat({required this.avatar, required this.name, this.crown = false, this.waiting = false, this.cards = 0});
-
-  final String? avatar;
-
-  /// الاسم تحت الصورة، لأن اثنين ممكن يختارون نفس الشخصية.
-  final String name;
-  final bool crown;
-  final bool waiting;
-  final int cards;
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: 76,
-      height: 108,
-      child: Stack(
-        clipBehavior: Clip.none,
-        alignment: Alignment.topCenter,
-        children: [
-          Positioned(
-            top: 14,
-            child: waiting
-                ? const _Pulse(
-                    child: CircleAvatar(
-                      radius: 26,
-                      backgroundColor: Color(0x33000000),
-                      child: Text(
-                        '؟',
-                        style: TextStyle(fontFamily: kufi, fontSize: 26, color: AppColors.goldInk),
-                      ),
-                    ),
-                  )
-                : PlayerAvatar(
-                    avatar: avatar ?? 'masked',
-                    frame: crown ? AppColors.gold : const Color(0xFFA78BFA),
-                    size: 52,
-                  ),
-          ),
-          if (crown) const Positioned(top: 0, child: GameIcon('crown', size: 22, color: Color(0xFFB8801F))),
-          Positioned(
-            top: 71,
-            child: SizedBox(
-              width: 76,
-              child: Text(
-                name,
-                textAlign: TextAlign.center,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w800,
-                  color: AppColors.goldInk,
-                  height: 1.2,
-                ),
-              ),
-            ),
-          ),
-          if (cards > 0)
-            Positioned(
-              bottom: 0,
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  for (var i = 0; i < cards; i++)
-                    Container(
-                      width: 12,
-                      height: 17,
-                      margin: const EdgeInsets.symmetric(horizontal: 1.5),
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(3),
-                        gradient: const LinearGradient(colors: [Color(0xFF4A3592), Color(0xFF1C1638)]),
-                        border: Border.all(color: AppColors.gold, width: 1),
-                      ),
-                    ),
-                ],
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-}
-
-/// أيقونة المرحلة بين الرئيس والوزير (صندوق التصويت، القدرة، الكأس…).
-class _PhaseIcon extends StatelessWidget {
-  const _PhaseIcon({required this.icon, this.pulse = false});
-
-  final String icon;
-  final bool pulse;
-
-  @override
-  Widget build(BuildContext context) {
-    final badge = Container(
-      width: 40,
-      height: 40,
-      alignment: Alignment.center,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        color: const Color(0x22000000),
-        border: Border.all(color: const Color(0xFF9C6A1C), width: 1.5),
-      ),
-      child: GameIcon(icon, size: 24, color: const Color(0xFF5A3A08)),
-    );
-    return pulse ? _Pulse(child: badge) : badge;
-  }
 }
 
 /// لعبة الشرح: الراوي (الشيبة) ينزل بنصيحة قصيرة تحت، بعيد عن المقاعد اللي تختار منها.
@@ -2131,40 +2346,50 @@ class _CoachCard extends StatelessWidget {
       child: Semantics(
         liveRegion: true,
         label: 'الراوي: $text',
-        child: Container(
+        child: ConstrainedBox(
           constraints: BoxConstraints(maxWidth: maxW),
-          padding: const EdgeInsetsDirectional.fromSTEB(8, 7, 4, 7),
-          decoration: BoxDecoration(
-            gradient: const LinearGradient(colors: [Color(0xF22B1F5C), Color(0xF21A1240)]),
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: AppColors.gold, width: 1.8),
-            boxShadow: [BoxShadow(color: AppColors.gold.withValues(alpha: .3), blurRadius: 18)],
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const PlayerAvatar(avatar: 'sheikh', frame: AppColors.gold, size: 40),
-              const SizedBox(width: 8),
-              Flexible(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'الراوي',
-                      style: TextStyle(color: AppColors.gold, fontSize: 11, fontWeight: FontWeight.w800, height: 1.1),
-                    ),
-                    Text(text, style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, height: 1.4)),
-                  ],
+          child: GamePlank(
+            padding: const EdgeInsetsDirectional.fromSTEB(8, 6, 4, 6),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const TableAvatar(avatar: 'sheikh', size: 46, ring: Color(0xFFE8B54E)),
+                const SizedBox(width: 10),
+                Flexible(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'الراوي',
+                        style: TextStyle(
+                          fontFamily: kufi,
+                          color: AppColors.gold,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w800,
+                          height: 1.1,
+                        ),
+                      ),
+                      Text(
+                        text,
+                        style: const TextStyle(
+                          fontSize: 13.5,
+                          fontWeight: FontWeight.w700,
+                          height: 1.4,
+                          color: Color(0xFFFFF6E6),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-              IconButton(
-                tooltip: 'إخفاء النصيحة',
-                visualDensity: VisualDensity.compact,
-                onPressed: onClose,
-                icon: const Gfx('cross', size: 22),
-              ),
-            ],
+                IconButton(
+                  tooltip: 'إخفاء النصيحة',
+                  visualDensity: VisualDensity.compact,
+                  onPressed: onClose,
+                  icon: const Gfx('cross', size: 22),
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -2193,7 +2418,7 @@ class _PulseState extends State<_Pulse> with SingleTickerProviderStateMixin {
 
   @override
   Widget build(BuildContext context) => ScaleTransition(
-    scale: Tween(begin: .92, end: 1.06).animate(CurvedAnimation(parent: _c, curve: Curves.easeInOut)),
+    scale: Tween(begin: .94, end: 1.06).animate(CurvedAnimation(parent: _c, curve: Curves.easeInOut)),
     child: widget.child,
   );
 }
@@ -2236,57 +2461,67 @@ class _ClaimPrompt extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final truth = this.truth;
-    return Container(
-      constraints: const BoxConstraints(maxWidth: 620),
-      margin: const EdgeInsets.all(8),
-      padding: const EdgeInsets.fromLTRB(18, 12, 12, 14),
-      decoration: BoxDecoration(
-        color: AppColors.panel.withValues(alpha: .97),
-        borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: AppColors.gold.withValues(alpha: .6), width: 2),
-        boxShadow: const [BoxShadow(color: Colors.black87, blurRadius: 24)],
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Row(
+    return ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: 640),
+      child: Padding(
+        padding: const EdgeInsets.all(8),
+        child: VelvetPanel(
+          corners: false,
+          radius: 22,
+          padding: const EdgeInsets.fromLTRB(18, 12, 14, 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              const Gfx('megaphone', size: 32),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    GoldText(count == 3 ? 'وش تقول إنه وصلك وأنت رئيس؟' : 'وش تقول إنه وصلك وأنت وزير؟', size: 19),
-                    Text(
-                      'وصلك ${arabicNumber(count)} كروت. اللي تختاره يطلع للكل… قول الصدق أو اكذب',
-                      style: const TextStyle(color: AppColors.muted, fontSize: 12.5),
+              Row(
+                children: [
+                  const Gfx('megaphone', size: 38),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        GoldText(
+                          count == 3 ? 'وش تقول إنه وصلك وأنت رئيس؟' : 'وش تقول إنه وصلك وأنت وزير؟',
+                          size: 21,
+                          align: TextAlign.start,
+                        ),
+                        Text(
+                          'وصلك ${arabicNumber(count)} كروت. اللي تختاره يطلع للكل… قول الصدق أو اكذب',
+                          style: const TextStyle(color: Color(0xFFF1DDBB), fontSize: 12.5, fontWeight: FontWeight.w700),
+                        ),
+                      ],
                     ),
-                  ],
-                ),
+                  ),
+                  const SizedBox(width: 8),
+                  SizedBox(
+                    width: 92,
+                    child: GameButton(
+                      label: 'بعدين',
+                      tone: ButtonTone.ghost,
+                      height: 38,
+                      fontSize: 15,
+                      onPressed: onLater,
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(width: 8),
-              SizedBox(
-                width: 92,
-                child: GameButton(label: 'بعدين', tone: ButtonTone.ghost, height: 38, fontSize: 15, onPressed: onLater),
+              const SizedBox(height: 16),
+              Wrap(
+                spacing: 12,
+                runSpacing: 16,
+                alignment: WrapAlignment.center,
+                children: [
+                  for (final option in _options[count]!)
+                    _ClaimOption(
+                      option: option,
+                      truth: truth != null && _traitors(truth) == _traitors(option),
+                      onTap: () => onClaim(option),
+                    ),
+                ],
               ),
             ],
           ),
-          const SizedBox(height: 14),
-          Wrap(
-            spacing: 10,
-            runSpacing: 14,
-            alignment: WrapAlignment.center,
-            children: [
-              for (final option in _options[count]!)
-                _ClaimOption(
-                  option: option,
-                  truth: truth != null && _traitors(truth) == _traitors(option),
-                  onTap: () => onClaim(option),
-                ),
-            ],
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -2309,7 +2544,6 @@ class _ClaimOptionState extends State<_ClaimOption> {
 
   @override
   Widget build(BuildContext context) {
-    final edge = widget.truth ? AppColors.green : AppColors.goldDark;
     return Semantics(
       button: true,
       label: 'ادعاء ${widget.option.map((p) => p.code).join()}${widget.truth ? ' (الصدق)' : ''}',
@@ -2327,57 +2561,69 @@ class _ClaimOptionState extends State<_ClaimOption> {
             clipBehavior: Clip.none,
             alignment: Alignment.topCenter,
             children: [
-              Container(
-                width: 128,
-                padding: const EdgeInsets.fromLTRB(6, 12, 6, 10),
+              DecoratedBox(
                 decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [Color(0xFFFBF1DA), AppColors.parchmentDark],
-                  ),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: edge, width: widget.truth ? 3 : 2),
-                  boxShadow: [
-                    BoxShadow(
-                      color: widget.truth ? AppColors.green.withValues(alpha: .45) : Colors.black45,
-                      blurRadius: widget.truth ? 14 : 6,
-                    ),
-                  ],
+                  borderRadius: BorderRadius.circular(24),
+                  boxShadow: widget.truth
+                      ? [BoxShadow(color: AppColors.green.withValues(alpha: .65), blurRadius: 16, spreadRadius: 1)]
+                      : null,
                 ),
-                child: Column(
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
+                child: SizedBox(
+                  width: 132,
+                  child: ParchmentCard(
+                    radius: 14,
+                    padding: const EdgeInsets.fromLTRB(6, 14, 6, 10),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
                       children: [
-                        for (final p in widget.option)
-                          Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 1),
-                            child: Seal(loyal: p == Policy.loyal, size: 34),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            for (final p in widget.option)
+                              Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 1),
+                                child: Seal(loyal: p == Policy.loyal, size: 34),
+                              ),
+                          ],
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          _claimLabel(widget.option),
+                          style: const TextStyle(
+                            fontFamily: kufi,
+                            color: AppColors.ink,
+                            fontSize: 14.5,
+                            fontWeight: FontWeight.w800,
                           ),
+                        ),
                       ],
                     ),
-                    const SizedBox(height: 6),
-                    Text(
-                      _claimLabel(widget.option),
-                      style: const TextStyle(color: AppColors.ink, fontSize: 13.5, fontWeight: FontWeight.w800),
-                    ),
-                  ],
+                  ),
                 ),
               ),
               if (widget.truth)
                 Positioned(
-                  top: -11,
+                  top: -12,
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 1),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 1),
                     decoration: BoxDecoration(
-                      color: AppColors.green,
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: const Color(0xFF0B3A22), width: 1.5),
+                      gradient: const LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [Color(0xFF6FD66A), Color(0xFF2E9A3C)],
+                      ),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: const Color(0xFF0B3A22), width: 2),
                     ),
                     child: const Text(
                       'الصدق',
-                      style: TextStyle(color: Color(0xFF062814), fontSize: 12, fontWeight: FontWeight.w900),
+                      style: TextStyle(
+                        fontFamily: kufi,
+                        color: Color(0xFF062814),
+                        fontSize: 13,
+                        fontWeight: FontWeight.w900,
+                        height: 1.3,
+                      ),
                     ),
                   ),
                 ),
@@ -2389,7 +2635,6 @@ class _ClaimOptionState extends State<_ClaimOption> {
   }
 }
 
-/// زر الادعاء لما تأجله: يبقى تحت لين تقول وش وصلك.
 /// كم واحد يتفرج على اللعبة (أصحاب اللاعبين).
 class _WatchersChip extends StatelessWidget {
   const _WatchersChip({required this.count});
@@ -2401,11 +2646,11 @@ class _WatchersChip extends StatelessWidget {
     label: '${arabicNumber(count)} يتفرجون',
     excludeSemantics: true,
     child: Container(
-      padding: const EdgeInsetsDirectional.fromSTEB(6, 2, 10, 2),
+      padding: const EdgeInsetsDirectional.fromSTEB(6, 2, 12, 2),
       decoration: BoxDecoration(
-        color: AppColors.panel.withValues(alpha: .88),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.white.withValues(alpha: .18)),
+        color: const Color(0xFF241209).withValues(alpha: .9),
+        borderRadius: BorderRadius.circular(40),
+        border: Border.all(color: const Color(0xFF8A5E3B), width: 2),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -2414,7 +2659,12 @@ class _WatchersChip extends StatelessWidget {
           const SizedBox(width: 4),
           Text(
             '${arabicNumber(count)} يتفرجون',
-            style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w800, color: AppColors.text),
+            style: const TextStyle(
+              fontFamily: kufi,
+              fontSize: 12.5,
+              fontWeight: FontWeight.w800,
+              color: Color(0xFFFFF3DA),
+            ),
           ),
         ],
       ),
@@ -2429,48 +2679,58 @@ class _SpectatorBar extends StatelessWidget {
   final String name;
 
   @override
-  Widget build(BuildContext context) => Container(
-    constraints: const BoxConstraints(maxWidth: 160),
-    padding: const EdgeInsetsDirectional.fromSTEB(10, 5, 12, 5),
-    decoration: BoxDecoration(
-      color: AppColors.panel.withValues(alpha: .92),
-      borderRadius: BorderRadius.circular(16),
-      border: Border.all(color: const Color(0xFFA48BFF), width: 1.5),
-      boxShadow: const [BoxShadow(color: Colors.black54, blurRadius: 10)],
-    ),
-    child: Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        const Gfx('eye', size: 24),
-        const SizedBox(width: 6),
-        Flexible(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'تتفرج على $name',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontFamily: kufi, fontSize: 13, fontWeight: FontWeight.w700),
-              ),
-              const Text('بدون ما تشوف الأدوار', style: TextStyle(fontSize: 11, color: AppColors.muted)),
-            ],
+  Widget build(BuildContext context) => ConstrainedBox(
+    constraints: const BoxConstraints(maxWidth: 170),
+    child: GamePlank(
+      radius: 14,
+      padding: const EdgeInsetsDirectional.fromSTEB(10, 5, 12, 5),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Gfx('eye', size: 26),
+          const SizedBox(width: 6),
+          Flexible(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'تتفرج على $name',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontFamily: kufi,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w800,
+                    color: Color(0xFFFFF6E6),
+                    height: 1.25,
+                  ),
+                ),
+                const Text('بدون ما تشوف الأدوار', style: TextStyle(fontSize: 11, color: Color(0xFFE2CBA4))),
+              ],
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     ),
   );
 }
 
-/// صف الملصقات المفضلة جنب زر التفاعل: ضغطة ترسل، وضغطة مطوّلة تشيله من المفضلة.
+/// ملصقاتك المفضلة بالطول فوق زر التفاعل: ضغطة ترسل، وضغطة مطوّلة تشيله من المفضلة.
 class _FavoritesColumn extends StatelessWidget {
-  const _FavoritesColumn({required this.ids, required this.max, required this.onSend, required this.onRemove});
+  const _FavoritesColumn({
+    required this.ids,
+    required this.max,
+    required this.scale,
+    required this.onSend,
+    required this.onRemove,
+  });
 
   final List<String> ids;
 
   /// كم واحد يطلع (على قد المكان).
   final int max;
+  final double scale;
   final void Function(String id) onSend;
   final void Function(String id) onRemove;
 
@@ -2479,14 +2739,19 @@ class _FavoritesColumn extends StatelessWidget {
     final list = [for (final id in ids) ?stickerById(id)].take(max).toList();
     if (list.isEmpty) return const SizedBox.shrink();
     return Padding(
-      padding: const EdgeInsets.only(bottom: 4),
+      padding: EdgeInsets.only(bottom: 4 * scale),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           for (final s in list)
             Padding(
-              padding: const EdgeInsets.only(bottom: 5),
-              child: _FavoriteButton(sticker: s, onTap: () => onSend(s.id), onLongPress: () => onRemove(s.id)),
+              padding: EdgeInsets.only(bottom: 8 * scale),
+              child: _FavoriteButton(
+                sticker: s,
+                size: 80 * scale,
+                onTap: () => onSend(s.id),
+                onLongPress: () => onRemove(s.id),
+              ),
             ),
         ],
       ),
@@ -2494,51 +2759,24 @@ class _FavoritesColumn extends StatelessWidget {
   }
 }
 
-class _FavoriteButton extends StatefulWidget {
-  const _FavoriteButton({required this.sticker, required this.onTap, required this.onLongPress});
+class _FavoriteButton extends StatelessWidget {
+  const _FavoriteButton({required this.sticker, required this.size, required this.onTap, required this.onLongPress});
 
   final Sticker sticker;
+  final double size;
   final VoidCallback onTap;
   final VoidCallback onLongPress;
 
   @override
-  State<_FavoriteButton> createState() => _FavoriteButtonState();
-}
-
-class _FavoriteButtonState extends State<_FavoriteButton> {
-  bool _down = false;
-
-  @override
-  Widget build(BuildContext context) => Semantics(
-    button: true,
-    label: 'ملصق مفضل ${widget.sticker.id}',
-    excludeSemantics: true,
-    child: GestureDetector(
-      onTapDown: (_) => setState(() => _down = true),
-      onTapUp: (_) => setState(() => _down = false),
-      onTapCancel: () => setState(() => _down = false),
-      onTap: () {
-        HapticFeedback.selectionClick();
-        widget.onTap();
-      },
-      onLongPress: widget.onLongPress,
-      child: AnimatedScale(
-        scale: _down ? .86 : 1,
-        duration: const Duration(milliseconds: 90),
-        child: Container(
-          width: 42,
-          height: 42,
-          padding: const EdgeInsets.all(3),
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: AppColors.panel.withValues(alpha: .9),
-            border: Border.all(color: AppColors.gold.withValues(alpha: .65), width: 1.5),
-            boxShadow: const [BoxShadow(color: Colors.black54, blurRadius: 6)],
-          ),
-          child: Image.asset(widget.sticker.asset, filterQuality: FilterQuality.medium),
-        ),
-      ),
-    ),
+  Widget build(BuildContext context) => GameRoundButton(
+    size: size,
+    semantics: 'ملصق مفضل ${sticker.id}',
+    onTap: () {
+      HapticFeedback.selectionClick();
+      onTap();
+    },
+    onLongPress: onLongPress,
+    child: Image.asset(sticker.asset, width: size * .68, height: size * .68, filterQuality: FilterQuality.medium),
   );
 }
 
@@ -2557,9 +2795,9 @@ class _ClaimChip extends StatelessWidget {
       child: Container(
         padding: const EdgeInsetsDirectional.fromSTEB(8, 4, 14, 4),
         decoration: BoxDecoration(
-          color: AppColors.panel.withValues(alpha: .92),
-          borderRadius: BorderRadius.circular(22),
-          border: Border.all(color: AppColors.gold, width: 2),
+          color: const Color(0xFF241209).withValues(alpha: .94),
+          borderRadius: BorderRadius.circular(40),
+          border: Border.all(color: AppColors.gold, width: 2.4),
           boxShadow: [BoxShadow(color: AppColors.gold.withValues(alpha: .5), blurRadius: 12)],
         ),
         child: const Row(
@@ -2569,7 +2807,7 @@ class _ClaimChip extends StatelessWidget {
             SizedBox(width: 6),
             Text(
               'وش وصلك؟',
-              style: TextStyle(fontFamily: kufi, fontSize: 14, fontWeight: FontWeight.w700),
+              style: TextStyle(fontFamily: kufi, fontSize: 14.5, fontWeight: FontWeight.w800, color: Color(0xFFFFF3DA)),
             ),
           ],
         ),
@@ -2578,6 +2816,7 @@ class _ClaimChip extends StatelessWidget {
   );
 }
 
+/// جائزة صغيرة (ذهب، خبرة، تصنيف) على شريط غامق.
 class _Reward extends StatelessWidget {
   const _Reward(this.text, this.color, {required this.icon});
 
@@ -2587,17 +2826,17 @@ class _Reward extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+    padding: const EdgeInsetsDirectional.fromSTEB(6, 2, 12, 2),
     decoration: BoxDecoration(
-      color: Colors.black.withValues(alpha: .35),
-      borderRadius: BorderRadius.circular(20),
-      border: Border.all(color: color.withValues(alpha: .7), width: 1.5),
+      color: const Color(0xFF1E120B).withValues(alpha: .94),
+      borderRadius: BorderRadius.circular(40),
+      border: Border.all(color: const Color(0xFF6B4A2C), width: 2),
     ),
     child: Amount(
       icon,
       text,
-      size: 20,
-      style: TextStyle(color: color, fontWeight: FontWeight.w800, fontSize: 16),
+      size: 22,
+      style: TextStyle(fontFamily: kufi, color: color, fontWeight: FontWeight.w800, fontSize: 16),
     ),
   );
 }
@@ -2610,13 +2849,9 @@ class _TutorialDone extends StatelessWidget {
       valueListenable: Backend.instance.profile,
       builder: (context, p, _) {
         final gift = p.gifts.any((g) => g.tutorial);
-        return Container(
+        return GamePlank(
+          radius: 14,
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-          decoration: BoxDecoration(
-            color: AppColors.gold.withValues(alpha: .14),
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: AppColors.gold.withValues(alpha: .7)),
-          ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -2625,7 +2860,12 @@ class _TutorialDone extends StatelessWidget {
               Flexible(
                 child: Text(
                   gift ? 'خلّصت الشرح! هديتك تنتظرك في الرئيسية' : 'خلّصت الشرح! الحين أنت جاهز تلعب مع الناس',
-                  style: const TextStyle(color: AppColors.gold, fontWeight: FontWeight.w800, fontSize: 13.5),
+                  style: const TextStyle(
+                    fontFamily: kufi,
+                    color: AppColors.goldLight,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 13.5,
+                  ),
                 ),
               ),
             ],
@@ -2636,6 +2876,7 @@ class _TutorialDone extends StatelessWidget {
   }
 }
 
+/// نتيجة اللعبة كاملة: لوحة مخمل فيها الفايزين وجوائزك وأزرار (العب مرة ثانية، مين كذب، شارك…)، وجنبها الأدوار الحقيقية.
 class _GameOver extends StatelessWidget {
   const _GameOver({
     required this.view,
@@ -2671,7 +2912,8 @@ class _GameOver extends StatelessWidget {
   Widget build(BuildContext context) {
     final loyalWon = view.winnerLoyal ?? false;
     final iWon = (view.yourRole == Role.loyal) == loyalWon;
-    final teamColor = loyalWon ? AppColors.loyal : AppColors.traitor;
+    // الجوال الصغير (٣٦٠ بالطول): كل شي أصغر شوي عشان تنحشر الأزرار كلها.
+    final compact = MediaQuery.sizeOf(context).height < 430;
     final roles = [
       for (final p in view.players)
         InkWell(
@@ -2687,7 +2929,7 @@ class _GameOver extends StatelessWidget {
                   child: Text(
                     view.nameOf(p.id),
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontWeight: FontWeight.w700),
+                    style: const TextStyle(fontWeight: FontWeight.w800, color: AppColors.ink),
                   ),
                 ),
                 if (p.knownSpecial != null)
@@ -2699,8 +2941,8 @@ class _GameOver extends StatelessWidget {
                   roleInfo[p.knownRole]!.$1,
                   style: TextStyle(
                     fontFamily: kufi,
-                    color: p.knownRole == Role.loyal ? AppColors.loyalLight : AppColors.traitorLight,
-                    fontWeight: FontWeight.w700,
+                    color: p.knownRole == Role.loyal ? AppColors.loyalDark : AppColors.traitorDark,
+                    fontWeight: FontWeight.w800,
                   ),
                 ),
               ],
@@ -2710,198 +2952,225 @@ class _GameOver extends StatelessWidget {
     ];
     return GestureDetector(
       onTap: onClose,
-      child: Container(
-        color: Colors.black.withValues(alpha: .78),
-        padding: const EdgeInsets.all(12),
-        child: Center(
-          child: GestureDetector(
-            onTap: () {},
-            child: TweenAnimationBuilder<double>(
-              tween: Tween(begin: .8, end: 1),
-              duration: const Duration(milliseconds: 600),
-              curve: Curves.elasticOut,
-              builder: (context, s, child) => Transform.scale(scale: s, child: child),
-              child: Container(
-                constraints: const BoxConstraints(maxWidth: 680),
-                padding: const EdgeInsets.fromLTRB(18, 14, 18, 14),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(26),
-                  gradient: RadialGradient(
-                    center: const AlignmentDirectional(-.6, -1).resolve(Directionality.of(context)),
-                    radius: 1.4,
-                    colors: [teamColor.withValues(alpha: .45), AppColors.panel],
-                  ),
-                  border: Border.all(color: AppColors.gold.withValues(alpha: .6), width: 2),
-                ),
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(context).height - 50),
-                  child: Row(
-                    children: [
-                      // النتيجة
-                      Expanded(
-                        child: SingleChildScrollView(
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  iWon ? const Gfx('trophy', size: 46) : Seal(loyal: loyalWon, size: 46),
-                                  const SizedBox(width: 6),
-                                  GoldText(iWon ? 'فزت!' : 'خسرت', size: 32),
-                                ],
-                              ),
-                              Text(
-                                '${loyalWon ? 'فاز الأوفياء' : 'فاز الخونة'} · ${winReasons[view.winReason] ?? ''}',
-                                textAlign: TextAlign.center,
-                                style: const TextStyle(fontSize: 13, color: Color(0xFFD9CFFF)),
-                              ),
-                              if (view.tutorial) ...[const SizedBox(height: 8), _TutorialDone()],
-                              if (room?.results[view.you] case final r?) ...[
-                                const SizedBox(height: 10),
-                                Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
+      child: Stack(
+        children: [
+          Positioned.fill(child: ColoredBox(color: Colors.black.withValues(alpha: .72))),
+          Positioned.fill(
+            child: SunRays(color: loyalWon ? const Color(0xFFBFD8FF) : const Color(0xFFFFC0B0), opacity: .13),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(10),
+            child: Center(
+              child: GestureDetector(
+                onTap: () {},
+                child: TweenAnimationBuilder<double>(
+                  tween: Tween(begin: .85, end: 1),
+                  duration: const Duration(milliseconds: 600),
+                  curve: Curves.elasticOut,
+                  builder: (context, s, child) => Transform.scale(scale: s, child: child),
+                  child: SizedBox(
+                    width: math.min(700, MediaQuery.sizeOf(context).width - 24),
+                    height: math.min(MediaQuery.sizeOf(context).height - 28, 430),
+                    child: VelvetPanel(
+                      padding: const EdgeInsets.fromLTRB(18, 12, 18, 12),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          // النتيجة
+                          Expanded(
+                            child: Center(
+                              child: SingleChildScrollView(
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    if (r.coins > 0)
-                                      _Reward(
-                                        r.boost > 1
-                                            ? '+${arabicNumber(r.coins)} (×${arabicNumber(r.boost)})'
-                                            : '+${arabicNumber(r.coins)}',
-                                        AppColors.gold,
-                                        icon: 'coin',
+                                    // على الشاشة القصيرة جداً نوفّر مكانه (النتيجة تحته تقول من فاز).
+                                    if (MediaQuery.sizeOf(context).height >= 340) ...[
+                                      FittedBox(
+                                        fit: BoxFit.scaleDown,
+                                        child: RibbonTitle(
+                                          loyalWon ? 'فاز الأوفياء!' : 'فاز الخونة!',
+                                          size: compact ? 16 : 22,
+                                        ),
                                       ),
-                                    if (r.coins > 0) const SizedBox(width: 10),
-                                    _Reward('+${arabicNumber(r.xp)}', AppColors.diamond, icon: 'xp'),
-                                    if (r.rank case final rank? when rank != 0) ...[
-                                      const SizedBox(width: 10),
-                                      _Reward(
-                                        '${rank > 0 ? '+' : '−'}${arabicNumber(rank.abs())} تصنيف',
-                                        rank > 0 ? AppColors.green : AppColors.traitorLight,
-                                        icon: 'rank_${RankTier.of(Backend.instance.profile.value.rankPoints).id}',
+                                      const SizedBox(height: 4),
+                                    ],
+                                    Row(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        iWon
+                                            ? Gfx('trophy', size: compact ? 34 : 44)
+                                            : Seal(loyal: loyalWon, size: compact ? 34 : 44),
+                                        const SizedBox(width: 6),
+                                        GoldText(iWon ? 'فزت!' : 'خسرت', size: compact ? 28 : 34),
+                                      ],
+                                    ),
+                                    Text(
+                                      winReasons[view.winReason] ?? '',
+                                      textAlign: TextAlign.center,
+                                      style: const TextStyle(
+                                        fontFamily: kufi,
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w700,
+                                        color: Color(0xFFF1DDBB),
+                                      ),
+                                    ),
+                                    if (view.tutorial) ...[const SizedBox(height: 8), _TutorialDone()],
+                                    if (room?.results[view.you] case final r?) ...[
+                                      const SizedBox(height: 8),
+                                      Wrap(
+                                        alignment: WrapAlignment.center,
+                                        spacing: 8,
+                                        runSpacing: 6,
+                                        children: [
+                                          if (r.coins > 0)
+                                            _Reward(
+                                              r.boost > 1
+                                                  ? '+${arabicNumber(r.coins)} (×${arabicNumber(r.boost)})'
+                                                  : '+${arabicNumber(r.coins)}',
+                                              AppColors.goldLight,
+                                              icon: 'coin',
+                                            ),
+                                          _Reward('+${arabicNumber(r.xp)}', AppColors.diamond, icon: 'xp'),
+                                          if (r.rank case final rank? when rank != 0)
+                                            _Reward(
+                                              '${rank > 0 ? '+' : '−'}${arabicNumber(rank.abs())} تصنيف',
+                                              rank > 0 ? const Color(0xFF7BE0A0) : AppColors.traitorLight,
+                                              icon: 'rank_${RankTier.of(Backend.instance.profile.value.rankPoints).id}',
+                                            ),
+                                        ],
                                       ),
                                     ],
+                                    // البطولة: تأهلت للدور الجاي، أو طلعت، أو صرت البطل.
+                                    if (room?.results[view.you]?.tour case final t?) ...[
+                                      const SizedBox(height: 6),
+                                      Text(
+                                        t.champion
+                                            ? 'صرت بطل الأسبوع!'
+                                            : t.out
+                                            ? 'طلعت من البطولة هالأسبوع'
+                                            : 'تأهلت لـ${tourStageNames[t.stage]}!',
+                                        style: TextStyle(
+                                          fontFamily: kufi,
+                                          fontWeight: FontWeight.w800,
+                                          color: t.out ? AppColors.traitorLight : AppColors.goldLight,
+                                        ),
+                                      ),
+                                    ],
+                                    SizedBox(height: compact ? 6 : 10),
+                                    if (!view.tutorial && room?.tour == null) ...[
+                                      GameButton(
+                                        label: rematchReady > 0
+                                            ? 'العب مرة ثانية (${arabicNumber(rematchReady)} جاهزين)'
+                                            : 'العب مرة ثانية',
+                                        icon: const Gfx('games', size: 26),
+                                        semantics: 'العب مرة ثانية',
+                                        tone: ButtonTone.green,
+                                        height: compact ? 38 : 46,
+                                        fontSize: compact ? 14 : 16,
+                                        onPressed: onRematch,
+                                      ),
+                                      const SizedBox(height: 6),
+                                    ],
+                                    Row(
+                                      children: [
+                                        Expanded(
+                                          child: GameButton(
+                                            label: 'مين كذب؟',
+                                            icon: const Gfx('liar', size: 22),
+                                            semantics: 'مين كذب؟',
+                                            tone: ButtonTone.purple,
+                                            height: compact ? 34 : 40,
+                                            fontSize: 13,
+                                            onPressed: onLies,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Expanded(
+                                          child: GameButton(
+                                            label: 'شارك',
+                                            icon: const Gfx('link', size: 22),
+                                            semantics: 'شارك',
+                                            tone: ButtonTone.gold,
+                                            height: compact ? 34 : 40,
+                                            fontSize: 13,
+                                            onPressed: onShare,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Row(
+                                      children: [
+                                        Expanded(
+                                          child: GameButton(
+                                            label: 'ارجع للطاولة',
+                                            icon: const Gfx('chat', size: 22),
+                                            semantics: 'ارجع للطاولة',
+                                            tone: ButtonTone.ghost,
+                                            height: compact ? 34 : 40,
+                                            fontSize: 13,
+                                            onPressed: onClose,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Expanded(
+                                          child: GameButton(
+                                            label: 'خروج',
+                                            icon: const Gfx('exit', size: 22),
+                                            semantics: 'خروج',
+                                            tone: ButtonTone.ghost,
+                                            height: compact ? 34 : 40,
+                                            fontSize: 13,
+                                            onPressed: onLeave,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
                                   ],
                                 ),
-                              ],
-                              const SizedBox(height: 10),
-                              // البطولة: تأهلت للدور الجاي، أو طلعت، أو صرت البطل.
-                              if (room?.results[view.you]?.tour case final t?) ...[
-                                const SizedBox(height: 6),
-                                Text(
-                                  t.champion
-                                      ? 'صرت بطل الأسبوع!'
-                                      : t.out
-                                      ? 'طلعت من البطولة هالأسبوع'
-                                      : 'تأهلت لـ${tourStageNames[t.stage]}!',
-                                  style: TextStyle(
-                                    fontFamily: kufi,
-                                    fontWeight: FontWeight.w700,
-                                    color: t.out ? AppColors.traitorLight : AppColors.goldLight,
-                                  ),
-                                ),
-                              ],
-                              if (!view.tutorial && room?.tour == null) ...[
-                                GameButton(
-                                  label: rematchReady > 0
-                                      ? 'العب مرة ثانية (${arabicNumber(rematchReady)} جاهزين)'
-                                      : 'العب مرة ثانية',
-                                  icon: const Gfx('games', size: 26),
-                                  semantics: 'العب مرة ثانية',
-                                  height: 46,
-                                  fontSize: 16,
-                                  onPressed: onRematch,
-                                ),
-                                const SizedBox(height: 8),
-                              ],
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: GameButton(
-                                      label: 'مين كذب؟',
-                                      icon: const Gfx('liar', size: 22),
-                                      semantics: 'مين كذب؟',
-                                      tone: ButtonTone.purple,
-                                      height: 40,
-                                      fontSize: 14,
-                                      onPressed: onLies,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    child: GameButton(
-                                      label: 'شارك',
-                                      icon: const Gfx('link', size: 22),
-                                      semantics: 'شارك',
-                                      tone: ButtonTone.green,
-                                      height: 40,
-                                      fontSize: 14,
-                                      onPressed: onShare,
-                                    ),
-                                  ),
-                                ],
                               ),
-                              const SizedBox(height: 8),
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: GameButton(
-                                      label: 'ارجع للطاولة',
-                                      icon: const Gfx('chat', size: 22),
-                                      semantics: 'ارجع للطاولة',
-                                      tone: ButtonTone.ghost,
-                                      height: 40,
-                                      fontSize: 14,
-                                      onPressed: onClose,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    child: GameButton(
-                                      label: 'خروج',
-                                      icon: const Gfx('exit', size: 22),
-                                      semantics: 'خروج',
-                                      tone: ButtonTone.ghost,
-                                      height: 40,
-                                      fontSize: 14,
-                                      onPressed: onLeave,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ],
+                            ),
                           ),
-                        ),
-                      ),
-                      SizedBox(
-                        height: 180,
-                        child: VerticalDivider(width: 28, color: AppColors.gold.withValues(alpha: .25)),
-                      ),
-                      // الأدوار الحقيقية
-                      Expanded(
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Text(
-                              'الأدوار الحقيقية',
-                              style: TextStyle(fontFamily: kufi, fontWeight: FontWeight.w700, fontSize: 16),
-                            ),
-                            const SizedBox(height: 6),
-                            Flexible(
-                              child: ConstrainedBox(
-                                constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(context).height - 110),
-                                child: SingleChildScrollView(child: Column(children: roles)),
+                          const SizedBox(width: 14),
+                          // الأدوار الحقيقية
+                          Expanded(
+                            child: Center(
+                              child: ParchmentCard(
+                                radius: 14,
+                                padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+                                child: ConstrainedBox(
+                                  constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(context).height - 100),
+                                  child: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      const Text(
+                                        'الأدوار الحقيقية',
+                                        style: TextStyle(
+                                          fontFamily: kufi,
+                                          fontWeight: FontWeight.w800,
+                                          fontSize: 17,
+                                          color: AppColors.ink,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Flexible(
+                                        child: SingleChildScrollView(child: Column(children: roles)),
+                                      ),
+                                    ],
+                                  ),
+                                ),
                               ),
                             ),
-                          ],
-                        ),
+                          ),
+                        ],
                       ),
-                    ],
+                    ),
                   ),
                 ),
               ),
             ),
           ),
-        ),
+        ],
       ),
     );
   }

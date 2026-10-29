@@ -5,6 +5,10 @@ import '../../models/shop.dart';
 import '../../theme.dart';
 import '../bubble.dart';
 import '../common.dart';
+import '../design.dart';
+import '../design_dialogs.dart';
+import '../design_game.dart';
+import '../ui.dart';
 
 /// لوحة الردود في اللعبة: الكلام بفقاعتك، وباقات الملصقات (المقفلة تطلع باهتة مع وين تنكسب).
 /// بدون [onText] (الدردشة): الملصقات بس.
@@ -80,38 +84,64 @@ class _ReactionsSheetState extends State<ReactionsSheet> {
   @override
   Widget build(BuildContext context) {
     final p = widget.profile;
-    return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(10, 10, 10, 6),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // التبويبات: الكلام ثم الباقات
-            SizedBox(
-              width: 74,
-              child: ListView(
-                children: [
-                  if (widget.onText != null)
-                    _TabButton(
-                      selected: _tab == 0,
-                      label: 'كلام',
-                      onTap: () => setState(() => _tab = 0),
-                      child: ChatBubble(style: bubbleStyle(p.bubble), text: 'هلا', fontSize: 11, maxWidth: 60),
+    // اللوحة (خشب بحافة ذهبية) ترسمها هالنافذة نفسها، والشيت اللي فوقها شفاف.
+    return SheetPanel(
+      child: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(14, 13, 14, 8),
+          child: Column(
+            children: [
+              const SheetHandle(),
+              const SizedBox(height: 8),
+              Expanded(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // التبويبات: الكلام ثم الباقات (شريط غامق على الجنب مثل أقسام المتجر)
+                    SizedBox(
+                      width: 84,
+                      child: _Inset(
+                        child: ListView(
+                          padding: const EdgeInsets.fromLTRB(5, 6, 5, 0),
+                          children: [
+                            if (widget.onText != null)
+                              _TabButton(
+                                selected: _tab == 0,
+                                label: 'كلام',
+                                onTap: () => setState(() => _tab = 0),
+                                child: ChatBubble(
+                                  style: bubbleStyle(p.bubble),
+                                  text: 'هلا',
+                                  fontSize: 11,
+                                  maxWidth: 60,
+                                ),
+                              ),
+                            for (final (i, pack) in _packs.indexed)
+                              _TabButton(
+                                selected: _tab == i + 1,
+                                label: pack.name,
+                                locked: !p.owns(pack.id),
+                                onTap: () => setState(() => _tab = i + 1),
+                                child: Image.asset(stickerById(pack.stickers!.first)!.asset, width: 40, height: 40),
+                              ),
+                          ],
+                        ),
+                      ),
                     ),
-                  for (final (i, pack) in _packs.indexed)
-                    _TabButton(
-                      selected: _tab == i + 1,
-                      label: pack.name,
-                      locked: !p.owns(pack.id),
-                      onTap: () => setState(() => _tab = i + 1),
-                      child: Image.asset(stickerById(pack.stickers!.first)!.asset, width: 40, height: 40),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: _Inset(
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+                          child: _tab == 0 ? _texts(p) : _stickers(p, _packs[_tab - 1]),
+                        ),
+                      ),
                     ),
-                ],
+                  ],
+                ),
               ),
-            ),
-            const VerticalDivider(color: AppColors.line, width: 14),
-            Expanded(child: _tab == 0 ? _texts(p) : _stickers(p, _packs[_tab - 1])),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -146,13 +176,25 @@ class _ReactionsSheetState extends State<ReactionsSheet> {
         ),
         if (!p.owns('pack_phrases')) ...[
           const SizedBox(height: 14),
-          const _LockedNote('فيه ٧ جمل زيادة في باقة "سوالف المجلس" بالمتجر'),
+          const Align(
+            alignment: AlignmentDirectional.centerStart,
+            child: _LockedNote('فيه ٧ جمل زيادة في باقة "سوالف المجلس" بالمتجر'),
+          ),
         ],
         if (widget.onClearOpinion != null) ...[
-          const SizedBox(height: 10),
+          const SizedBox(height: 12),
           Align(
             alignment: AlignmentDirectional.centerStart,
-            child: TextButton(onPressed: widget.onClearOpinion, child: const Text('أشيل رأيي في لاعب')),
+            child: SizedBox(
+              width: 200,
+              child: GameButton(
+                label: 'أشيل رأيي في لاعب',
+                tone: ButtonTone.red,
+                height: 40,
+                fontSize: 14.5,
+                onPressed: widget.onClearOpinion,
+              ),
+            ),
           ),
         ],
       ],
@@ -166,46 +208,38 @@ class _ReactionsSheetState extends State<ReactionsSheet> {
       children: [
         Row(
           children: [
-            Text(
-              pack.name,
-              style: const TextStyle(fontFamily: kufi, fontSize: 17, fontWeight: FontWeight.w700),
-            ),
-            const SizedBox(width: 8),
-            if (!owned) Expanded(child: _LockedNote(pack.buyable ? 'من المتجر (تبويب الملصقات)' : pack.source)),
+            GoldTitle(pack.name, size: 19),
+            const SizedBox(width: 10),
+            if (!owned)
+              Expanded(
+                child: Align(
+                  alignment: AlignmentDirectional.centerStart,
+                  child: _LockedNote(pack.buyable ? 'من المتجر (تبويب الملصقات)' : pack.source),
+                ),
+              ),
             if (owned && widget.onFavorites != null)
               Expanded(
-                child: AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 200),
-                  child: Row(
-                    key: ValueKey(_favNote),
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(Icons.star_rounded, color: AppColors.gold, size: 18),
-                      const SizedBox(width: 3),
-                      Flexible(
-                        child: Text(
-                          _favNote ?? 'اضغط مطوّل على ملصق وتحطه بالمفضلة',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            color: _favNote == null ? AppColors.muted : AppColors.goldLight,
-                            fontSize: 12.5,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ),
-                    ],
+                child: Align(
+                  alignment: AlignmentDirectional.centerStart,
+                  child: AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 200),
+                    child: NotePill(
+                      _favNote ?? 'اضغط مطوّل على ملصق وتحطه بالمفضلة',
+                      key: ValueKey(_favNote),
+                      icon: const Icon(Icons.star_rounded, color: AppColors.gold, size: 18),
+                      color: _favNote == null ? const Color(0xFFE7CFA6) : AppColors.goldLight,
+                    ),
                   ),
                 ),
               ),
           ],
         ),
-        const SizedBox(height: 6),
+        const SizedBox(height: 8),
         Expanded(
           child: GridView.count(
             crossAxisCount: 6,
-            mainAxisSpacing: 6,
-            crossAxisSpacing: 6,
+            mainAxisSpacing: 7,
+            crossAxisSpacing: 7,
             children: [
               for (final id in pack.stickers!)
                 Semantics(
@@ -218,21 +252,38 @@ class _ReactionsSheetState extends State<ReactionsSheet> {
                     child: Stack(
                       clipBehavior: Clip.none,
                       children: [
+                        // خانة الملصق: رق خفيف تحت الصورة، وحدها ذهبي لو بالمفضلة
                         Positioned.fill(
-                          child: Opacity(
-                            opacity: owned ? 1 : .38,
-                            child: StickerView(sticker: stickerById(id)!, pop: false),
+                          child: DecoratedBox(
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(14),
+                              color: const Color(0xFFE9D3A4).withValues(alpha: owned ? .9 : .35),
+                              border: Border.all(
+                                color: _favorites.contains(id) ? AppColors.gold : const Color(0xFF4E331F),
+                                width: _favorites.contains(id) ? 2.4 : 1.8,
+                              ),
+                            ),
+                            child: Padding(
+                              padding: const EdgeInsets.all(5),
+                              child: Opacity(
+                                opacity: owned ? 1 : .42,
+                                child: StickerView(sticker: stickerById(id)!, pop: false),
+                              ),
+                            ),
                           ),
                         ),
                         if (_favorites.contains(id))
                           const PositionedDirectional(
-                            top: -4,
-                            end: -2,
+                            top: -5,
+                            end: -3,
                             child: Icon(
                               Icons.star_rounded,
                               color: AppColors.gold,
-                              size: 22,
-                              shadows: [Shadow(color: Colors.black, blurRadius: 4)],
+                              size: 24,
+                              shadows: [
+                                Shadow(color: gameInk, blurRadius: 3),
+                                Shadow(color: gameInk, blurRadius: 1),
+                              ],
                             ),
                           ),
                       ],
@@ -245,6 +296,23 @@ class _ReactionsSheetState extends State<ReactionsSheet> {
       ],
     );
   }
+}
+
+/// حفرة غامقة بحد بني (خلف التبويبات والمحتوى).
+class _Inset extends StatelessWidget {
+  const _Inset({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => DecoratedBox(
+    decoration: BoxDecoration(
+      color: const Color(0xFF140B06).withValues(alpha: .55),
+      borderRadius: BorderRadius.circular(16),
+      border: Border.all(color: const Color(0xFF0F0805), width: 2),
+    ),
+    child: ClipRRect(borderRadius: BorderRadius.circular(14), child: child),
+  );
 }
 
 class _TabButton extends StatelessWidget {
@@ -270,41 +338,41 @@ class _TabButton extends StatelessWidget {
     excludeSemantics: true,
     child: GestureDetector(
       onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        margin: const EdgeInsets.only(bottom: 6),
-        padding: const EdgeInsets.symmetric(vertical: 5),
-        decoration: BoxDecoration(
-          color: selected ? AppColors.gold.withValues(alpha: .16) : AppColors.card,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: selected ? AppColors.gold : AppColors.line, width: selected ? 1.6 : 1),
-        ),
-        child: Column(
-          children: [
-            Opacity(
-              opacity: locked ? .45 : 1,
-              child: SizedBox(height: 40, child: Center(child: child)),
-            ),
-            const SizedBox(height: 2),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                if (locked) const Padding(padding: EdgeInsetsDirectional.only(end: 2), child: Gfx('lock', size: 11)),
-                Flexible(
-                  child: Text(
-                    label,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: 10.5,
-                      fontWeight: FontWeight.w700,
-                      color: selected ? AppColors.gold : AppColors.muted,
+      behavior: HitTestBehavior.opaque,
+      child: Padding(
+        padding: const EdgeInsets.only(bottom: 7),
+        // لوح خشب، والمختار بحافة ذهبية (مثل أقسام المتجر)
+        child: GameHudPlank(
+          gold: selected,
+          radius: 13,
+          padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 1),
+          child: Column(
+            children: [
+              Opacity(
+                opacity: locked ? .5 : 1,
+                child: SizedBox(height: 40, child: Center(child: child)),
+              ),
+              const SizedBox(height: 2),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  if (locked) const Padding(padding: EdgeInsetsDirectional.only(end: 2), child: Gfx('lock', size: 11)),
+                  Flexible(
+                    child: Text(
+                      label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.w800,
+                        color: selected ? AppColors.goldLight : const Color(0xFFE7CFA6),
+                      ),
                     ),
                   ),
-                ),
-              ],
-            ),
-          ],
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     ),
@@ -317,14 +385,5 @@ class _LockedNote extends StatelessWidget {
   final String text;
 
   @override
-  Widget build(BuildContext context) => Row(
-    mainAxisSize: MainAxisSize.min,
-    children: [
-      const Gfx('lock', size: 16),
-      const SizedBox(width: 5),
-      Flexible(
-        child: Text(text, style: const TextStyle(color: AppColors.muted, fontSize: 12.5)),
-      ),
-    ],
-  );
+  Widget build(BuildContext context) => NotePill(text, icon: const Gfx('lock', size: 16));
 }
