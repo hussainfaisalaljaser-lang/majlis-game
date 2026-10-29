@@ -400,9 +400,9 @@ class _OfferBanner extends StatelessWidget {
   Widget _chip(String label, String name) => Container(
     padding: const EdgeInsets.fromLTRB(10, 4, 12, 5),
     decoration: BoxDecoration(
-      color: Colors.black.withValues(alpha: .35),
+      color: const Color(0xFF241209).withValues(alpha: .88),
       borderRadius: BorderRadius.circular(20),
-      border: Border.all(color: const Color(0xFFF2C75A).withValues(alpha: .6)),
+      border: Border.all(color: const Color(0xFFE8B54E).withValues(alpha: .6)),
     ),
     child: FittedBox(
       fit: BoxFit.scaleDown,
@@ -449,59 +449,73 @@ class _OfferBanner extends StatelessWidget {
                     ],
                   ),
           );
+    // خلفية الشريط حسب أندر غرض فيه (مثل المتجر): نادر جليد، ملحمي بنفسجي، أسطوري ذهب
+    final rarity = offer.items.map((i) => i.rarity).reduce((a, b) => a.index >= b.index ? a : b);
     return Semantics(
       label: 'عرض ${offer.id}',
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
+        child: DecoratedBox(
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(20),
-            gradient: const LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [Color(0xFF4A1830), Color(0xFF220A16)],
-            ),
-            border: Border.all(color: const Color(0xFFE8B54E), width: 2.4),
+            color: const Color(0xFF2B190E),
+            border: Border.all(color: rarity == Rarity.common ? const Color(0xFF4E331F) : rarity.color, width: 2.4),
             boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: .5), blurRadius: 10, offset: const Offset(0, 5))],
           ),
-          child: Row(
-            children: [
-              SizedBox(
-                width: 120,
-                height: 120,
-                child: Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    const Positioned.fill(
-                      child: ClipOval(
-                        child: ShopSunburst(color: Color(0x44FFD27A), rays: 14, center: Alignment.center, fade: .6),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(17.6),
+            child: Stack(
+              children: [
+                Positioned.fill(
+                  child: rarity == Rarity.common
+                      ? const ColoredBox(color: AppColors.parchmentDark)
+                      : RarityBackdrop(rarity),
+                ),
+                PositionedDirectional(top: 8, end: 10, child: ShopRarityTag(rarity)),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
+                  child: Row(
+                    children: [
+                      SizedBox(
+                        width: 120,
+                        height: 120,
+                        child: Center(
+                          child: PlayerAvatar(avatar: offer.avatar.avatar!, style: offer.frame.frame, size: 80, animate: false),
+                        ),
                       ),
-                    ),
-                    PlayerAvatar(avatar: offer.avatar.avatar!, style: offer.frame.frame, size: 76, animate: false),
-                  ],
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              offer.name,
+                              style: const TextStyle(
+                                fontFamily: kufi,
+                                color: AppColors.ink,
+                                fontSize: 25,
+                                fontWeight: FontWeight.w800,
+                                height: 1.2,
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            Wrap(
+                              spacing: 6,
+                              runSpacing: 6,
+                              children: [_chip('شخصية', offer.avatar.name), _chip('إطار', offer.frame.name)],
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      SizedBox(width: 150, child: action),
+                    ],
+                  ),
                 ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    GoldTitle(offer.name, size: 24, align: TextAlign.start),
-                    const SizedBox(height: 6),
-                    Wrap(
-                      spacing: 6,
-                      runSpacing: 6,
-                      children: [_chip('شخصية', offer.avatar.name), _chip('إطار', offer.frame.name)],
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 10),
-              SizedBox(width: 150, child: action),
-            ],
+              ],
+            ),
           ),
         ),
       ),
