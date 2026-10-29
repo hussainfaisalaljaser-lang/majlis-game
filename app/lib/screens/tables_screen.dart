@@ -6,6 +6,8 @@ import '../models/table_tier.dart';
 import '../services/backend.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
+import '../widgets/design.dart';
+import '../widgets/design_season.dart';
 import '../widgets/mode_theme.dart';
 import '../widgets/ui.dart';
 import '../widgets/venues.dart';
@@ -30,8 +32,6 @@ class _TablesScreenState extends State<TablesScreen> {
 
   /// الوضع السريع: نفس اللعبة بنص الوقت (حوالي ٥ دقايق).
   bool _quick = false;
-
-  bool _locked(Profile p, TableTier t) => t.requiredLevel > p.level || (t.vipOnly && !p.vip);
 
   /// ينفذ طلب للسيرفر ويفتح غرفة الانتظار. بدون سيرفر (نسخة الويب) يفتح العرض التجريبي.
   Future<void> _enter(Future<String> Function()? request, {TableTier? tier}) async {
@@ -59,130 +59,202 @@ class _TablesScreenState extends State<TablesScreen> {
   }
 
   @override
-  Widget build(BuildContext context) {
-    final mode = widget.mode;
-    return NightScaffold(
-      background: ModeBackdrop(mode: mode),
-      shade: .25,
-      appBar: AppBar(
-        title: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Gfx('games', size: 30),
-            const SizedBox(width: 8),
-            const Text('عشوائي · مع لاعبين من كل مكان', style: TextStyle(fontWeight: FontWeight.w800)),
-            const SizedBox(width: 12),
-            ModeChip(mode: mode, onTap: () => Navigator.of(context).maybePop()),
-          ],
+  Widget build(BuildContext context) => ValueListenableBuilder(
+    valueListenable: Backend.instance.profile,
+    builder: (context, profile, _) => TablesView(
+      mode: widget.mode,
+      profile: profile,
+      playerCount: _playerCount,
+      onCount: (n) => setState(() => _playerCount = n),
+      tier: _tier,
+      onTier: (t) => setState(() => _tier = t),
+      quick: _quick,
+      onQuick: (q) => setState(() => _quick = q),
+      busy: _busy,
+      onPlay: () => _enter(
+        () => Backend.instance.quickMatch(
+          maxPlayers: _playerCount,
+          tierId: _tier.id,
+          quick: _quick,
+          roles: widget.mode.roles,
         ),
+        tier: _tier,
+      ),
+    ),
+  );
+}
+
+/// شاشة الطاولات بدون سيرفر: الخيارات يسار، ومستويات الطاولات يمين.
+class TablesView extends StatelessWidget {
+  const TablesView({
+    super.key,
+    required this.mode,
+    required this.profile,
+    required this.playerCount,
+    required this.onCount,
+    required this.tier,
+    required this.onTier,
+    required this.quick,
+    required this.onQuick,
+    required this.busy,
+    required this.onPlay,
+  });
+
+  final ModeTheme mode;
+  final Profile profile;
+  final int playerCount;
+  final ValueChanged<int> onCount;
+  final TableTier tier;
+  final ValueChanged<TableTier> onTier;
+  final bool quick;
+  final ValueChanged<bool> onQuick;
+  final bool busy;
+  final VoidCallback onPlay;
+
+  bool _locked(TableTier t) => t.requiredLevel > profile.level || (t.vipOnly && !profile.vip);
+
+  @override
+  Widget build(BuildContext context) {
+    final tone = mode.roles ? SnTone.blue : SnTone.orange;
+    return NightScaffold(
+      appBar: SnTopBar(
+        title: 'عشوائي',
+        icon: const Gfx('games', size: 30),
+        middle: [
+          const Text(
+            'مع لاعبين من كل مكان',
+            style: TextStyle(color: Color(0xFFE8D3AE), fontWeight: FontWeight.w800, fontSize: 14),
+          ),
+          ModeChip(mode: mode, onTap: () => Navigator.of(context).maybePop()),
+        ],
+        trailing: [SnWallet(coins: profile.coins, diamonds: profile.diamonds, infinite: profile.dev)],
       ),
       body: SafeArea(
         top: false,
-        child: Row(
-          children: [
-            // عدد اللاعبين والأزرار
-            SizedBox(
-              width: 290,
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-                child: Theme(
-                  data: mode.segmented(context),
-                  child: Column(
-                  children: [
-                    SegmentedButton<int>(
-                      showSelectedIcon: false,
-                      segments: [
-                        for (final n in playerCounts) ButtonSegment(value: n, label: Text('${arabicNumber(n)} لاعبين')),
-                      ],
-                      selected: {_playerCount},
-                      onSelectionChanged: (s) => setState(() => _playerCount = s.first),
+        child: LayoutBuilder(
+          builder: (context, box) {
+            final leftW = (box.maxWidth * .31).clamp(230.0, 310.0);
+            return Padding(
+              padding: const EdgeInsets.fromLTRB(8, 4, 8, 8),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: WoodPanel(
+                      padding: const EdgeInsets.fromLTRB(14, 16, 14, 12),
+                      child: LayoutBuilder(
+                        builder: (context, box) {
+                          final h = ((box.maxHeight - 9 * (tableTiers.length - 1)) / tableTiers.length).clamp(
+                            62.0,
+                            88.0,
+                          );
+                          return ListView.builder(
+                            itemCount: tableTiers.length,
+                            itemBuilder: (context, i) {
+                              final t = tableTiers[i];
+                              final locked = _locked(t);
+                              final poor = !profile.dev && profile.coins < t.entryFee;
+                              return Padding(
+                                padding: const EdgeInsets.only(bottom: 9),
+                                child: _TierTile(
+                                  height: h,
+                                  tier: t,
+                                  mode: mode,
+                                  players: playerCount,
+                                  locked: locked,
+                                  poor: poor,
+                                  selected: t == tier,
+                                  onTap: locked || poor ? null : () => onTier(t),
+                                ),
+                              );
+                            },
+                          );
+                        },
+                      ),
                     ),
-                    const SizedBox(height: 8),
-                    SegmentedButton<bool>(
-                      showSelectedIcon: false,
-                      segments: const [
-                        ButtonSegment(value: false, label: Text('عادي'), icon: Gfx('hourglass', size: 18)),
-                        ButtonSegment(value: true, label: Text('سريع'), icon: Gfx('bolt', size: 18)),
-                      ],
-                      selected: {_quick},
-                      onSelectionChanged: (s) => setState(() => _quick = s.first),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      _quick ? 'نص الوقت لكل دور، واللعبة حوالي ٥ دقايق' : 'الوقت العادي، واللعبة حوالي ١٠ دقايق',
-                      style: const TextStyle(color: AppColors.muted, fontSize: 11.5),
-                    ),
-                    const SizedBox(height: 10),
-                    ModeSummary(mode: mode),
-                    const Spacer(),
-                    const WeekendChip(),
-                    const SizedBox(height: 6),
-                    const Text(
-                      'الطاولات العامة تحسب في تصنيفك',
-                      style: TextStyle(color: AppColors.muted, fontSize: 11.5),
-                    ),
-                    const SizedBox(height: 4),
-                    GameButton(
-                      label: _busy ? 'لحظة…' : 'العب الحين',
-                      icon: const Gfx('games', size: 28),
-                      semantics: 'العب الحين',
-                      tone: mode.button,
-                      onPressed: _busy
-                          ? null
-                          : () => _enter(
-                              () => Backend.instance.quickMatch(
-                                maxPlayers: _playerCount,
-                                tierId: _tier.id,
-                                quick: _quick,
-                                roles: mode.roles,
-                              ),
-                              tier: _tier,
-                            ),
-                    ),
-                  ],
                   ),
-                ),
+                  const SizedBox(width: 8),
+                  SizedBox(width: leftW, child: _controls(tone)),
+                ],
               ),
-            ),
-            // مستويات الطاولات
-            Expanded(
-              child: ValueListenableBuilder(
-                valueListenable: Backend.instance.profile,
-                builder: (context, profile, _) => GridView.builder(
-                  padding: const EdgeInsets.fromLTRB(12, 0, 16, 12),
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 2,
-                    mainAxisSpacing: 9,
-                    crossAxisSpacing: 9,
-                    mainAxisExtent: 70,
-                  ),
-                  itemCount: tableTiers.length,
-                  itemBuilder: (context, i) {
-                    final t = tableTiers[i];
-                    final locked = _locked(profile, t);
-                    final poor = !profile.dev && profile.coins < t.entryFee;
-                    return _TierTile(
-                      tier: t,
-                      mode: mode,
-                      players: _playerCount,
-                      locked: locked,
-                      poor: poor,
-                      selected: t == _tier,
-                      onTap: locked || poor ? null : () => setState(() => _tier = t),
-                    );
-                  },
-                ),
-              ),
-            ),
-          ],
+            );
+          },
         ),
       ),
     );
   }
+
+  /// عدد اللاعبين والوقت وزر اللعب (لوحة المخمل).
+  Widget _controls(SnTone tone) => VelvetPanel(
+    padding: EdgeInsets.zero,
+    child: Stack(
+      children: [
+        Positioned.fill(
+          child: SnSunburst(alignment: const Alignment(0, -.2), color: mode.accentLight, opacity: .16),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
+          child: Column(
+            children: [
+              Expanded(
+                child: SingleChildScrollView(
+                  child: Column(
+                    children: [
+                      SnTabBar(
+                        labels: [for (final n in playerCounts) '${arabicNumber(n)} لاعبين'],
+                        selected: playerCounts.indexOf(playerCount),
+                        onChanged: (i) => onCount(playerCounts[i]),
+                        height: 32,
+                        fontSize: 13,
+                        spacing: 6,
+                      ),
+                      const SizedBox(height: 9),
+                      SnTabBar(
+                        labels: const ['عادي', 'سريع'],
+                        icons: const ['hourglass', 'bolt'],
+                        selected: quick ? 1 : 0,
+                        onChanged: (i) => onQuick(i == 1),
+                        height: 32,
+                        fontSize: 14,
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        quick ? 'نص الوقت لكل دور، واللعبة حوالي ٥ دقايق' : 'الوقت العادي، واللعبة حوالي ١٠ دقايق',
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(color: Color(0xFFF1DDBA), fontSize: 11.5, fontWeight: FontWeight.w700),
+                      ),
+                      const SizedBox(height: 10),
+                      ModeSummary(mode: mode),
+                    ],
+                  ),
+                ),
+              ),
+              const WeekendChip(),
+              const SizedBox(height: 6),
+              const Text(
+                'الطاولات العامة تحسب في تصنيفك',
+                style: TextStyle(color: Color(0xFFF1DDBA), fontSize: 11.5, fontWeight: FontWeight.w700),
+              ),
+              const SizedBox(height: 8),
+              SnButton(
+                label: busy ? 'لحظة…' : 'العب الحين',
+                semantics: 'العب الحين',
+                icon: const Gfx('games', size: 30),
+                tone: tone,
+                height: 50,
+                fontSize: 20,
+                onPressed: busy ? null : onPlay,
+              ),
+            ],
+          ),
+        ),
+      ],
+    ),
+  );
 }
 
 class _TierTile extends StatelessWidget {
   const _TierTile({
+    required this.height,
     required this.tier,
     required this.mode,
     required this.players,
@@ -192,6 +264,7 @@ class _TierTile extends StatelessWidget {
     this.onTap,
   });
 
+  final double height;
   final TableTier tier;
 
   /// الطاولة المختارة بلون الطور.
@@ -209,66 +282,120 @@ class _TierTile extends StatelessWidget {
         : poor
         ? 'ما عندك ذهب كافي'
         : null;
-    return Opacity(
-      opacity: locked || poor ? .45 : 1,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
-        child: Ink(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-          decoration: BoxDecoration(
-            color: selected ? mode.selectBg : AppColors.card,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: selected ? mode.select : AppColors.line, width: selected ? 2 : 1.5),
-            boxShadow: selected ? [BoxShadow(color: mode.select.withValues(alpha: .3), blurRadius: 14)] : null,
-          ),
-          child: Stack(
-            clipBehavior: Clip.none,
-            children: [
-              // مكان الطاولة ورا الكلام: لمحة من اللي بتشوفه لما تدخل.
-              Positioned.fill(
-                left: -14,
-                right: -14,
-                top: -12,
-                bottom: -12,
-                child: _VenuePeek(tier: tier, tint: selected ? mode.selectBg : AppColors.card),
+    const base = Color(0xFF3A2416);
+    return Semantics(
+      button: true,
+      enabled: onTap != null,
+      selected: selected,
+      label: tier.name,
+      excludeSemantics: true,
+      child: Opacity(
+        opacity: locked || poor ? .5 : 1,
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: onTap,
+          child: Container(
+            height: height,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(16),
+              color: const Color(0xFF130B06),
+              boxShadow: [
+                BoxShadow(color: Colors.black.withValues(alpha: .4), blurRadius: 6, offset: const Offset(0, 3)),
+                if (selected) BoxShadow(color: mode.select.withValues(alpha: .35), blurRadius: 14),
+              ],
+            ),
+            padding: const EdgeInsets.all(2),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(14),
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: base,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(
+                    color: selected ? mode.select : const Color(0xFF5A3A24),
+                    width: selected ? 2.5 : 1.5,
+                  ),
+                ),
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    // مكان الطاولة ورا الكلام: لمحة من اللي بتشوفه لما تدخل.
+                    _VenuePeek(tier: tier, tint: base),
+                    Padding(padding: const EdgeInsets.symmetric(horizontal: 12), child: _row(hint)),
+                  ],
+                ),
               ),
-              _tileRow(hint),
-            ],
+            ),
           ),
         ),
       ),
     );
   }
 
-  Widget _tileRow(String? hint) => Row(
+  Widget _row(String? hint) => Row(
     children: [
-      Opacity(opacity: locked ? .5 : 1, child: Gfx(tier.icon, size: 40)),
-      const SizedBox(width: 10),
+      Opacity(opacity: locked ? .5 : 1, child: Gfx(tier.icon, size: 44)),
+      const SizedBox(width: 12),
       Expanded(
         child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               children: [
-                Text(tier.name, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
+                Flexible(
+                  child: Text(
+                    tier.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontFamily: kufi,
+                      fontWeight: FontWeight.w800,
+                      fontSize: 18,
+                      height: 1.2,
+                      color: Color(0xFFFFF3DA),
+                    ),
+                  ),
+                ),
                 if (locked) ...[const SizedBox(width: 5), const Gfx('lock', size: 18)],
               ],
             ),
-            if (hint != null) Text(hint, style: const TextStyle(color: AppColors.muted, fontSize: 12)),
+            if (hint != null)
+              Text(
+                hint,
+                style: const TextStyle(color: Color(0xFFD9C29B), fontSize: 12, fontWeight: FontWeight.w700),
+              ),
           ],
         ),
       ),
       Column(
+        mainAxisAlignment: MainAxisAlignment.center,
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
-          Amount('coin', arabicNumber(tier.entryFee), size: 16),
+          Amount(
+            'coin',
+            arabicNumber(tier.entryFee),
+            size: 17,
+            style: const TextStyle(
+              fontFamily: kufi,
+              fontWeight: FontWeight.w800,
+              fontSize: 15,
+              height: 1.2,
+              color: Color(0xFFFFF3DA),
+            ),
+          ),
           Amount(
             'trophy',
             // نهاية الأسبوع: الجائزة مضاعفة.
             arabicNumber(tier.pot(players) * Weekend.at(DateTime.now()).boost),
-            size: 15,
-            style: const TextStyle(color: AppColors.green, fontSize: 12, fontWeight: FontWeight.w700),
+            size: 16,
+            style: const TextStyle(
+              fontFamily: kufi,
+              color: Color(0xFF8FE05F),
+              fontSize: 13,
+              height: 1.2,
+              fontWeight: FontWeight.w800,
+            ),
           ),
         ],
       ),
@@ -286,30 +413,27 @@ class _VenuePeek extends StatelessWidget {
   final Color tint;
 
   @override
-  Widget build(BuildContext context) => ClipRRect(
-    borderRadius: BorderRadius.circular(15),
-    child: Stack(
-      fit: StackFit.expand,
-      children: [
-        FittedBox(
-          fit: BoxFit.cover,
-          child: SizedBox(
-            width: 400,
-            height: 225,
-            child: RepaintBoundary(child: CustomPaint(painter: venueBackdrop(venueOf(tier.id)), isComplex: true)),
+  Widget build(BuildContext context) => Stack(
+    fit: StackFit.expand,
+    children: [
+      FittedBox(
+        fit: BoxFit.cover,
+        child: SizedBox(
+          width: 400,
+          height: 225,
+          child: RepaintBoundary(child: CustomPaint(painter: venueBackdrop(venueOf(tier.id)), isComplex: true)),
+        ),
+      ),
+      DecoratedBox(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: AlignmentDirectional.centerStart,
+            end: AlignmentDirectional.centerEnd,
+            colors: [tint.withValues(alpha: .97), tint.withValues(alpha: .62), tint.withValues(alpha: .9)],
+            stops: const [.28, .62, 1],
           ),
         ),
-        DecoratedBox(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: AlignmentDirectional.centerStart,
-              end: AlignmentDirectional.centerEnd,
-              colors: [tint.withValues(alpha: .97), tint.withValues(alpha: .62), tint.withValues(alpha: .9)],
-              stops: const [.28, .62, 1],
-            ),
-          ),
-        ),
-      ],
-    ),
+      ),
+    ],
   );
 }

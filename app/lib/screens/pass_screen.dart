@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import '../models/leaderboard.dart';
@@ -8,7 +10,8 @@ import '../services/backend.dart';
 import '../services/telemetry.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
-import '../widgets/gifts.dart';
+import '../widgets/design.dart';
+import '../widgets/design_season.dart';
 import '../widgets/item_preview.dart';
 import '../widgets/ui.dart';
 import 'missions_screen.dart';
@@ -22,18 +25,7 @@ class PassScreen extends StatefulWidget {
 }
 
 class _PassScreenState extends State<PassScreen> {
-  static const _cell = 112.0;
-  late final _scroll = ScrollController(
-    initialScrollOffset: ((Backend.instance.profile.value.pass.tier - 2).clamp(0, season.tiers) * (_cell + 8))
-        .toDouble(),
-  );
   bool _busy = false;
-
-  @override
-  void dispose() {
-    _scroll.dispose();
-    super.dispose();
-  }
 
   Future<void> _claim() async {
     setState(() => _busy = true);
@@ -43,15 +35,25 @@ class _PassScreenState extends State<PassScreen> {
       if (got.coins + got.diamonds + got.items.length == 0) return;
       await showDialog<void>(
         context: context,
-        builder: (context) => AlertDialog(
-          backgroundColor: AppColors.panel,
-          title: const Text('استلمت!', textAlign: TextAlign.center),
-          content: RewardView(coins: got.coins, diamonds: got.diamonds, items: got.items),
-          actions: [
-            Center(
-              child: TextButton(onPressed: () => Navigator.pop(context), child: const Text('تمام')),
-            ),
-          ],
+        builder: (context) => SnPopup(
+          title: 'استلمت!',
+          width: 460,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SeasonRewardChips(
+                profile: Backend.instance.profile.value,
+                coins: got.coins,
+                diamonds: got.diamonds,
+                items: got.items,
+              ),
+              const SizedBox(height: 14),
+              SizedBox(
+                width: 170,
+                child: SnButton(label: 'تمام', tone: SnTone.green, onPressed: () => Navigator.pop(context)),
+              ),
+            ],
+          ),
         ),
       );
     } on BackendException catch (e) {
@@ -65,42 +67,39 @@ class _PassScreenState extends State<PassScreen> {
   /// يرجّع وش اختار: false العادي، true الكامل، null ولا شي. [owned]: عنده العادي (الكامل بالفرق بس).
   Future<bool?> _pickOption(Profile p, {required String title, bool owned = false}) => showDialog<bool>(
     context: context,
-    builder: (context) => AlertDialog(
-      backgroundColor: AppColors.panel,
-      title: Text(title, textAlign: TextAlign.center),
-      content: SizedBox(
-        width: 520,
-        child: IntrinsicHeight(
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              if (!owned) ...[
-                Expanded(
-                  child: _Option(
-                    title: 'الباتل باس',
-                    lines: ['المسار المدفوع وكل مكافآته', 'هدية: ${arabicNumber(season.bonusTiers)} درجات على طول'],
-                    price: p.dev ? null : season.price,
-                    tone: ButtonTone.gold,
-                    onPick: () => Navigator.pop(context, false),
-                  ),
-                ),
-                const SizedBox(width: 10),
-              ],
+    builder: (context) => SnPopup(
+      title: title,
+      width: 560,
+      child: IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (!owned) ...[
               Expanded(
-                child: _Option(
-                  title: 'الباتل باس كامل',
-                  lines: [
-                    'المسار المدفوع وكل مكافآته',
-                    'كل الدرجات الـ${arabicNumber(season.tiers)} مفتوحة على طول',
-                    if (owned) 'تدفع الفرق بس',
-                  ],
-                  price: p.dev ? null : (owned ? season.fullPrice - season.price : season.fullPrice),
-                  tone: ButtonTone.purple,
-                  onPick: () => Navigator.pop(context, true),
+                child: SeasonOption(
+                  title: 'الباتل باس',
+                  lines: ['المسار المدفوع وكل مكافآته', 'هدية: ${arabicNumber(season.bonusTiers)} درجات على طول'],
+                  price: p.dev ? null : season.price,
+                  tone: SnTone.orange,
+                  onPick: () => Navigator.pop(context, false),
                 ),
               ),
+              const SizedBox(width: 12),
             ],
-          ),
+            Expanded(
+              child: SeasonOption(
+                title: 'الباتل باس كامل',
+                lines: [
+                  'المسار المدفوع وكل مكافآته',
+                  'كل الدرجات الـ${arabicNumber(season.tiers)} مفتوحة على طول',
+                  if (owned) 'تدفع الفرق بس',
+                ],
+                price: p.dev ? null : (owned ? season.fullPrice - season.price : season.fullPrice),
+                tone: SnTone.blue,
+                onPick: () => Navigator.pop(context, true),
+              ),
+            ),
+          ],
         ),
       ),
     ),
@@ -127,36 +126,19 @@ class _PassScreenState extends State<PassScreen> {
   Future<void> _gift(Profile p) async {
     final friend = await showDialog<LeaderboardEntry>(
       context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: AppColors.panel,
-        title: const Text('أهدِ الباتل باس لصاحبك', textAlign: TextAlign.center),
-        content: SizedBox(
-          width: 420,
-          height: 220,
+      builder: (context) => SnPopup(
+        title: 'أهدِ الباتل باس لصاحبك',
+        width: 460,
+        child: SizedBox(
+          height: 210,
           child: p.friends.isEmpty
-              ? const Center(
-                  child: Text(
-                    'ما عندك أصحاب للحين. ضيفهم من «الأصدقاء» وبعدين أهدهم.',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(color: AppColors.muted),
-                  ),
-                )
+              ? const SeasonFriendList(friends: [])
               : FutureBuilder(
                   future: Future.wait(p.friends.map(Backend.instance.fetchPlayer)),
                   builder: (context, snap) {
                     final list = [for (final e in snap.data ?? const <LeaderboardEntry?>[]) ?e];
                     if (!snap.hasData) return const Center(child: CircularProgressIndicator(color: AppColors.gold));
-                    return ListView(
-                      children: [
-                        for (final e in list)
-                          ListTile(
-                            leading: PlayerAvatar(avatar: e.avatar, size: 40, animate: false),
-                            title: Text(e.name, style: const TextStyle(fontWeight: FontWeight.w800)),
-                            subtitle: Text('مستوى ${arabicNumber(e.level)}'),
-                            onTap: () => Navigator.pop(context, e),
-                          ),
-                      ],
-                    );
+                    return SeasonFriendList(friends: list, onPick: (e) => Navigator.pop(context, e));
                   },
                 ),
         ),
@@ -187,120 +169,372 @@ class _PassScreenState extends State<PassScreen> {
     }
   }
 
+  void _missions(Profile p, {int? tab}) => Navigator.of(context).push(
+    MaterialPageRoute(
+      builder: (_) => MissionsScreen(
+        tab:
+            tab ??
+            (!weeklyMissions.any(p.passMissions.isClaimable) && seasonMissions.any(p.passMissions.isClaimable) ? 2 : 1),
+      ),
+    ),
+  );
+
+  @override
+  Widget build(BuildContext context) => ValueListenableBuilder(
+    valueListenable: Backend.instance.profile,
+    builder: (context, p, _) => SeasonView(
+      profile: p,
+      busy: _busy,
+      onBuy: () => _buy(p),
+      onClaim: _claim,
+      onGift: () => _gift(p),
+      onMissions: () => _missions(p),
+      onDailyMissions: () => _missions(p, tab: 0),
+    ),
+  );
+}
+
+/// اسم الموسم بالعنوان: «الموسم ١» (من رقم معرّفه)، ولو ما فيه رقم نعرض اسمه كامل.
+String seasonTitle() {
+  final n = RegExp(r'\d+').firstMatch(season.id)?.group(0);
+  return n == null ? season.name : 'الموسم ${arabicNumber(int.parse(n))}';
+}
+
+/// شاشة الموسم بدون حالة ولا سيرفر: كل شي ياخذه من ملف اللاعب وردود الفعل، فتنرسم بأي ملف (للتصوير والتجربة).
+class SeasonView extends StatefulWidget {
+  const SeasonView({
+    super.key,
+    required this.profile,
+    required this.busy,
+    required this.onBuy,
+    required this.onClaim,
+    required this.onGift,
+    required this.onMissions,
+    required this.onDailyMissions,
+    this.now,
+  });
+
+  final Profile profile;
+  final bool busy;
+  final VoidCallback onBuy;
+  final VoidCallback onClaim;
+  final VoidCallback onGift;
+  final VoidCallback onMissions;
+  final VoidCallback onDailyMissions;
+
+  /// الوقت الحالي (للتصوير بس، عشان العدّاد يطلع ثابت).
+  final DateTime? now;
+
+  @override
+  State<SeasonView> createState() => _SeasonViewState();
+}
+
+class _SeasonViewState extends State<SeasonView> {
+  final _scroll = ScrollController();
+  bool _placed = false;
+
+  @override
+  void dispose() {
+    _scroll.dispose();
+    super.dispose();
+  }
+
+  /// أول ما تنرسم القائمة: نوقف عند الدرجة الحالية (قبلها بدرجتين عشان يبان اللي فاتت).
+  void _place(double pitch) {
+    if (_placed) return;
+    _placed = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_scroll.hasClients) return;
+      final at = (widget.profile.pass.tier - 2).clamp(0, season.tiers) * pitch;
+      _scroll.jumpTo(at.clamp(0.0, _scroll.position.maxScrollExtent));
+    });
+  }
+
+  String _countdown() {
+    final left = season.end.difference(widget.now ?? DateTime.now());
+    if (left.isNegative) return 'انتهى الموسم';
+    if (left.inDays < 1) return 'ينتهي اليوم';
+    return 'ينتهي بعد ${arabicNumber(left.inDays)} يوم';
+  }
+
   @override
   Widget build(BuildContext context) {
-    final left = season.end.difference(DateTime.now());
+    final p = widget.profile;
+    final active = season.active;
     return NightScaffold(
-      glow: const Color(0xFF0F5C58),
-      appBar: AppBar(
-        title: Row(
+      appBar: SnTopBar(
+        title: seasonTitle(),
+        icon: const SnChest(size: 27),
+        middle: [
+          SnPill(
+            padding: const EdgeInsets.symmetric(horizontal: 22),
+            child: Text(
+              _countdown(),
+              style: const TextStyle(
+                fontFamily: kufi,
+                fontWeight: FontWeight.w800,
+                fontSize: 15,
+                height: 1.2,
+                color: Color(0xFFFFF3DA),
+              ),
+            ),
+          ),
+          SnPillButton(label: 'المهام', icon: 'missions', badge: p.claimablePassMissions, onTap: widget.onMissions),
+          SnPillButton(label: 'أهدِ صاحبك', icon: 'gift', onTap: widget.busy || !active ? null : widget.onGift),
+        ],
+        trailing: [SnWallet(coins: p.coins, diamonds: p.diamonds, infinite: p.dev)],
+      ),
+      body: SafeArea(
+        top: false,
+        child: LayoutBuilder(
+          builder: (context, box) {
+            final leftW = (box.maxWidth * .273).clamp(184.0, 272.0);
+            return Padding(
+              padding: const EdgeInsets.fromLTRB(8, 4, 8, 8),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: _Board(
+                      profile: p,
+                      busy: widget.busy,
+                      controller: _scroll,
+                      onPlace: _place,
+                      onClaim: widget.onClaim,
+                      onDailyMissions: widget.onDailyMissions,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  SizedBox(
+                    width: leftW,
+                    child: _GoldPassPanel(pass: p.pass, dev: p.dev, busy: widget.busy, onBuy: widget.onBuy),
+                  ),
+                ],
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+
+/// لوحة المسار الذهبي (يسار): صندوق وأشعة، وميزاته، وزر الفتح.
+class _GoldPassPanel extends StatelessWidget {
+  const _GoldPassPanel({required this.pass, required this.dev, required this.busy, required this.onBuy});
+
+  final PassState pass;
+  final bool dev;
+  final bool busy;
+  final VoidCallback onBuy;
+
+  @override
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, box) {
+      final k = (box.maxHeight / 477).clamp(.55, 1.0);
+      final w = box.maxWidth;
+      final owned = pass.premium;
+      final complete = pass.tier >= season.tiers;
+      Widget bullet(String text) => Padding(
+        padding: EdgeInsets.only(bottom: 12.5 * k),
+        child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Gfx('pass', size: 34),
-            const SizedBox(width: 8),
-            Flexible(child: Text(season.name, overflow: TextOverflow.ellipsis)),
+            Gfx('check', size: 20 * k),
+            SizedBox(width: 7 * k),
+            Flexible(
+              child: OutlinedText(
+                text,
+                size: math.max(11, 15.5 * k),
+                maxLines: 1,
+                stroke: const Color(0xFF260A10),
+                strokeWidth: 2.6,
+                shadow: false,
+                align: TextAlign.start,
+              ),
+            ),
           ],
         ),
-        actions: [
-          ValueListenableBuilder(
-            valueListenable: Backend.instance.profile,
-            builder: (context, p, _) => TextButton.icon(
-              onPressed: () => Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (_) => MissionsScreen(
-                    tab:
-                        !weeklyMissions.any(p.passMissions.isClaimable) &&
-                            seasonMissions.any(p.passMissions.isClaimable)
-                        ? 2
-                        : 1,
+      );
+      return VelvetPanel(
+        padding: EdgeInsets.zero,
+        child: Stack(
+          children: [
+            const Positioned.fill(child: SnSunburst(alignment: Alignment(0, -.44))),
+            Padding(
+              padding: EdgeInsets.fromLTRB(math.max(14.0, w * .09), 14 * k, math.max(14.0, w * .09), 16 * k),
+              child: Column(
+                children: [
+                  Expanded(
+                    child: Align(
+                      alignment: const Alignment(0, .3),
+                      child: SnChest(size: 92 * k),
+                    ),
                   ),
-                ),
+                  GoldTitle('المسار الذهبي', size: math.max(17, 25 * k)),
+                  SizedBox(height: 6 * k),
+                  Align(
+                    alignment: AlignmentDirectional.centerStart,
+                    child: Padding(
+                      padding: EdgeInsetsDirectional.only(start: 4 * k),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          bullet('إطارات وشخصيات حصرية'),
+                          bullet('ضعف الذهب من الجوائز'),
+                          bullet('ملصقات ما تنباع'),
+                        ],
+                      ),
+                    ),
+                  ),
+                  SizedBox(height: 14 * k),
+                  if (complete && owned)
+                    Padding(
+                      padding: EdgeInsets.only(bottom: 6 * k),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Gfx('check', size: 22 * k),
+                          SizedBox(width: 6 * k),
+                          Flexible(
+                            child: OutlinedText(
+                              'عندك الباتل باس كامل',
+                              size: math.max(12, 15 * k),
+                              color: const Color(0xFFB6F08C),
+                              maxLines: 1,
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
+                  else ...[
+                    OutlinedText(
+                      owned ? 'مسارك الذهبي مفتوح' : 'افتح المسار الذهبي',
+                      size: math.max(12.5, 17 * k),
+                      stroke: const Color(0xFF260A10),
+                      maxLines: 1,
+                    ),
+                    SizedBox(height: 9 * k),
+                    SnButton(
+                      label: owned ? 'كمّل كل الدرجات' : (dev ? 'ببلاش' : arabicNumber(season.price)),
+                      semantics: owned ? 'كمّل كل الدرجات' : 'اشترِ الباتل باس',
+                      icon: owned && !dev ? null : Gfx('gem', size: 28 * k),
+                      tone: owned ? SnTone.blue : SnTone.orange,
+                      height: 54 * k,
+                      fontSize: owned ? math.max(14, 18 * k) : math.max(16, 30 * k),
+                      onPressed: busy || !season.active ? null : onBuy,
+                    ),
+                  ],
+                ],
               ),
-              icon: const Gfx('missions', size: 22),
-              label: Text(
-                p.claimablePassMissions > 0 ? 'المهام (${arabicNumber(p.claimablePassMissions)})' : 'المهام',
-                style: const TextStyle(color: AppColors.gold, fontWeight: FontWeight.w800),
-              ),
             ),
-          ),
-          TextButton.icon(
-            onPressed: _busy || !season.active ? null : () => _gift(Backend.instance.profile.value),
-            icon: const Gfx('gift', size: 22),
-            label: const Text(
-              'أهدِ صاحبك',
-              style: TextStyle(color: AppColors.gold, fontWeight: FontWeight.w800),
-            ),
-          ),
-          Container(
-            margin: const EdgeInsetsDirectional.only(end: 14),
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-            decoration: BoxDecoration(
-              color: Colors.black.withValues(alpha: .3),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Row(
-              children: [
-                const Gfx('hourglass', size: 20),
-                const SizedBox(width: 5),
-                Text(
-                  left.isNegative ? 'انتهى الموسم' : 'باقي ${arabicNumber(left.inDays)} يوم',
-                  style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-      body: ValueListenableBuilder(
-        valueListenable: Backend.instance.profile,
-        builder: (context, p, _) {
-          final s = p.pass;
-          return Padding(
-            padding: const EdgeInsets.fromLTRB(14, 0, 14, 10),
+          ],
+        ),
+      );
+    },
+  );
+}
+
+/// أحجام اللوح: بالشاشة الكبيرة [k] ١، وتصغر كل ما قصر الارتفاع (مع حدود دنيا للكلام والشرايط عشان تبقى مقروءة).
+class _Dims {
+  const _Dims(this.k);
+
+  final double k;
+
+  double get th => 110 * k;
+  double get tw => 84 * k;
+  double get pitch => tw + 15 * k;
+  double get node => 40 * k;
+  double get ropeTop => 13 * k;
+  double get ropeH => node + ropeTop + 25 * k;
+  double get head => math.max(28, 38 * k);
+  double get label => math.max(16, 22 * k);
+  double get gap => math.max(4, 6 * k);
+  double get plank => math.max(32, 46 * k);
+  double get missions => label + gap + plank;
+  double get total => head + th * 2 + ropeH + missions;
+
+  /// أكبر مقياس يتسع في الارتفاع [h] (ويترك شوي فراغ بين الأقسام).
+  static _Dims fit(double h) {
+    for (var k = 1.0; k > .45; k -= .01) {
+      if (_Dims(k).total + 8 <= h) return _Dims(k);
+    }
+    return const _Dims(.45);
+  }
+}
+
+/// اللوح الكبير (يمين): تقدّمك وزر «استلم الكل»، ومسار الجوائز (مجاني فوق وذهبي تحت وبينهم الحبل)، ومهمات اليوم.
+class _Board extends StatelessWidget {
+  const _Board({
+    required this.profile,
+    required this.busy,
+    required this.controller,
+    required this.onPlace,
+    required this.onClaim,
+    required this.onDailyMissions,
+  });
+
+  final Profile profile;
+  final bool busy;
+  final ScrollController controller;
+  final void Function(double pitch) onPlace;
+  final VoidCallback onClaim;
+  final VoidCallback onDailyMissions;
+
+  @override
+  Widget build(BuildContext context) {
+    final s = profile.pass;
+    return WoodPanel(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+      child: LayoutBuilder(
+        builder: (context, box) {
+          final d = _Dims.fit(box.maxHeight);
+          final k = d.k, th = d.th, ropeH = d.ropeH;
+          final tabW = (30 * k).clamp(24.0, 32.0);
+          onPlace(d.pitch);
+          Widget tabsColumn() => SizedBox(
+            width: tabW,
             child: Column(
               children: [
                 SizedBox(
-                  height: 150,
-                  child: _Header(p: p, busy: _busy, onBuy: () => _buy(p), onClaim: _claim),
+                  height: th,
+                  child: SnSideTab(label: 'مجاني', width: tabW, fontSize: math.max(11, 14 * k)),
                 ),
-                const SizedBox(height: 8),
-                Expanded(
-                  child: Row(
-                    children: [
-                      // عناوين المسارين
-                      const SizedBox(
-                        width: 64,
-                        child: Column(
-                          children: [
-                            SizedBox(height: 34),
-                            Expanded(
-                              child: _TrackLabel(label: 'مجاني', icon: 'gift', color: AppColors.muted),
-                            ),
-                            SizedBox(height: 8),
-                            Expanded(
-                              child: _TrackLabel(label: 'الباتل باس', icon: 'pass', color: AppColors.gold),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: 6),
-                      Expanded(
-                        child: ListView.separated(
-                          controller: _scroll,
-                          scrollDirection: Axis.horizontal,
-                          itemCount: season.tiers,
-                          separatorBuilder: (_, _) => const SizedBox(width: 8),
-                          itemBuilder: (context, i) => SizedBox(
-                            width: _cell,
-                            child: _TierColumn(tier: i + 1, state: s),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
+                SizedBox(height: ropeH),
+                SizedBox(
+                  height: th,
+                  child: SnSideTab(label: 'ذهبي', gold: true, width: tabW, fontSize: math.max(11, 14 * k)),
                 ),
               ],
             ),
+          );
+          return Column(
+            children: [
+              _Header(state: s, busy: busy, onClaim: onClaim, d: d),
+              const Spacer(flex: 3),
+              SizedBox(
+                height: th * 2 + ropeH,
+                // تبويبي مجاني وذهبي على اليمين (جهة البداية)، والدرجات تمشي ناحية اليسار.
+                child: Row(
+                  children: [
+                    tabsColumn(),
+                    SizedBox(width: 8 * k),
+                    Expanded(
+                      child: ListView.builder(
+                        controller: controller,
+                        scrollDirection: Axis.horizontal,
+                        itemExtent: d.pitch,
+                        itemCount: season.tiers,
+                        itemBuilder: (context, i) => _TierColumn(tier: i + 1, state: s, profile: profile, d: d),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Spacer(flex: 2),
+              _DailyMissions(profile: profile, onAll: onDailyMissions, d: d, tail: tabW + 8 * k),
+              const Spacer(),
+            ],
           );
         },
       ),
@@ -308,110 +542,296 @@ class _PassScreenState extends State<PassScreen> {
   }
 }
 
+/// أعلى اللوح: «الدرجة ٧ من ٣٠» وشريط نقاطك، و«استلم الكل».
 class _Header extends StatelessWidget {
-  const _Header({required this.p, required this.busy, required this.onBuy, required this.onClaim});
+  const _Header({required this.state, required this.busy, required this.onClaim, required this.d});
 
-  final Profile p;
+  final PassState state;
   final bool busy;
-  final VoidCallback onBuy;
   final VoidCallback onClaim;
+  final _Dims d;
 
   @override
   Widget build(BuildContext context) {
-    final s = p.pass;
-    final finalAvatar = shopItem('avatar_s1c')!;
-    return Container(
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(colors: [Color(0xFF134E4A), Color(0xFF1E1B4B)]),
-        borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: AppColors.gold.withValues(alpha: .6), width: 1.5),
-      ),
-      padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
-      child: Row(
-        children: [
-          PlayerAvatar(avatar: finalAvatar.avatar!, style: frameStyle('frame_s1c'), size: 100),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Row(
-                  children: [
+    final k = d.k;
+    final done = state.tier >= season.tiers;
+    final fs = math.max(11.0, 14 * k);
+    final hint = d.head >= 34;
+    return Padding(
+      padding: EdgeInsets.symmetric(horizontal: 22 * k),
+      child: SizedBox(
+        height: d.head,
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      OutlinedText(
+                        'الدرجة ${arabicNumber(state.tier)}',
+                        size: fs + 1,
+                        color: const Color(0xFFF9D277),
+                        maxLines: 1,
+                        shadow: false,
+                      ),
+                      SizedBox(width: 5 * k),
+                      Text(
+                        'من ${arabicNumber(season.tiers)}',
+                        style: TextStyle(
+                          color: AppColors.muted,
+                          fontSize: math.max(10.0, 12 * k),
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      SizedBox(width: 12 * k),
+                      Flexible(
+                        child: ConstrainedBox(
+                          constraints: BoxConstraints(maxWidth: 190 * k),
+                          child: SnProgressBar(
+                            value: done ? 1 : state.pointsInTier / season.tierPoints,
+                            height: math.max(7.0, 9 * k),
+                          ),
+                        ),
+                      ),
+                      SizedBox(width: 8 * k),
+                      Text(
+                        done ? '' : '${arabicNumber(state.pointsInTier)}/${arabicNumber(season.tierPoints)}',
+                        textDirection: TextDirection.ltr,
+                        style: TextStyle(
+                          color: const Color(0xFFE8C98A),
+                          fontSize: math.max(10.0, 12 * k),
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ],
+                  ),
+                  if (hint) ...[
+                    SizedBox(height: 2 * k),
                     Text(
-                      'الدرجة ${arabicNumber(s.tier)}',
-                      style: const TextStyle(fontFamily: kufi, fontSize: 22, fontWeight: FontWeight.w700),
-                    ),
-                    Text(
-                      ' من ${arabicNumber(season.tiers)}',
-                      style: const TextStyle(color: AppColors.muted, fontSize: 14),
+                      done ? 'خلصت كل الدرجات!' : 'كل لعبة +٢٠ نقطة، والفوز +٣٠، والمهام نقاط أكثر',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(color: AppColors.muted, fontSize: math.max(9.5, 11 * k)),
                     ),
                   ],
+                ],
+              ),
+            ),
+            SizedBox(width: 10 * k),
+            SizedBox(
+              width: math.max(96.0, 116 * k),
+              child: SnButton(
+                label: 'استلم الكل',
+                tone: SnTone.green,
+                height: math.max(26.0, 32 * k),
+                fontSize: math.max(11.5, 14.5 * k),
+                onPressed: busy || !state.claimable ? null : onClaim,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// عمود درجة: جائزة المجاني فوق، وعقدة الرقم على الحبل، وجائزة الذهبي تحت.
+class _TierColumn extends StatelessWidget {
+  const _TierColumn({required this.tier, required this.state, required this.profile, required this.d});
+
+  final int tier;
+  final PassState state;
+  final Profile profile;
+  final _Dims d;
+
+  double get k => d.k;
+
+  @override
+  Widget build(BuildContext context) {
+    final cur = state.tier;
+    final reached = tier <= cur;
+    final th = d.th, tw = d.tw, node = d.node, ropeTop = d.ropeTop, ropeH = d.ropeH;
+    final free = season.free[tier];
+    final prem = season.premium[tier];
+    return Column(
+      children: [
+        SizedBox(
+          height: th,
+          child: Center(
+            child: SizedBox(
+              width: tw,
+              height: th,
+              child: _rewardTile(free, claimed: state.free >= tier, locked: false, reached: reached, gold: false),
+            ),
+          ),
+        ),
+        SizedBox(
+          height: ropeH,
+          child: Stack(
+            children: [
+              Positioned(
+                top: ropeTop,
+                height: node,
+                left: 0,
+                right: 0,
+                child: SnRopeSegment(
+                  solidStart: reached,
+                  solidEnd: tier < cur,
+                  first: tier == 1,
+                  last: tier == season.tiers,
+                  thickness: math.max(5.0, 8 * k),
                 ),
-                const SizedBox(height: 6),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(6),
-                  child: LinearProgressIndicator(
-                    value: s.pointsInTier / season.tierPoints,
-                    minHeight: 10,
-                    backgroundColor: Colors.black.withValues(alpha: .4),
-                    color: AppColors.gold,
+              ),
+              Positioned(
+                top: ropeTop,
+                left: 0,
+                right: 0,
+                child: Center(
+                  child: SnLevelNode(level: tier, reached: reached, current: tier == cur, size: node),
+                ),
+              ),
+            ],
+          ),
+        ),
+        SizedBox(
+          height: th,
+          child: Center(
+            child: SizedBox(
+              width: tw,
+              height: th,
+              child: _rewardTile(
+                prem,
+                claimed: state.premium && state.prem >= tier,
+                locked: !state.premium,
+                reached: reached,
+                gold: true,
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _rewardTile(
+    LevelReward? r, {
+    required bool claimed,
+    required bool locked,
+    required bool reached,
+    required bool gold,
+  }) {
+    if (r == null) return SnRewardTile(art: const SizedBox(), label: '', empty: true, gold: gold, k: k);
+    final (art, label, color) = seasonRewardArt(r, profile, k);
+    return SnRewardTile(
+      art: art,
+      label: label,
+      gold: gold,
+      claimed: claimed,
+      locked: locked,
+      ready: reached && !claimed && !locked,
+      labelColor: gold ? color : null,
+      k: k,
+    );
+  }
+}
+
+/// رسمة جائزة الدرجة واسمها (ولون الاسم على البطاقة الغامقة).
+(Widget, String, Color) seasonRewardArt(LevelReward r, Profile p, double k) {
+  const tan = Color(0xFFC9A765);
+  if (r.items.isNotEmpty) {
+    final item = shopItem(r.items.first)!;
+    final label = r.items.length > 1 ? '${item.name} +' : item.name;
+    if (item.slot == ShopSlot.reactions && item.stickers != null) return (SnSealStamp(size: 52 * k), label, tan);
+    return (ItemPreview(item: item, profile: p), label, tan);
+  }
+  if (r.diamonds > 0) return (Gfx('gem', size: 54 * k), arabicNumber(r.diamonds), const Color(0xFF7FA6DA));
+  return (SnCoinPile(count: snCoinCount(r.coins), size: 58 * k), arabicNumber(r.coins), tan);
+}
+
+/// «مهمات اليوم»: لوح لكل مهمة (تقدّمك وعدّادها). الضغط يفتح صفحة المهام.
+class _DailyMissions extends StatelessWidget {
+  const _DailyMissions({required this.profile, required this.onAll, required this.d, required this.tail});
+
+  final Profile profile;
+  final VoidCallback onAll;
+  final _Dims d;
+
+  /// مساحة تبويبات الجوائز على الطرف (عشان الألواح تنتهي معها).
+  final double tail;
+
+  @override
+  Widget build(BuildContext context) {
+    final daily = profile.missions;
+    final k = d.k;
+    return SizedBox(
+      height: d.missions,
+      child: Column(
+        children: [
+          SizedBox(
+            height: d.label,
+            child: Row(
+              children: [
+                Padding(
+                  padding: EdgeInsetsDirectional.only(start: tail + 4 * k),
+                  child: Text(
+                    'مهمات اليوم',
+                    style: TextStyle(
+                      fontFamily: kufi,
+                      fontWeight: FontWeight.w800,
+                      fontSize: math.max(12.0, 16 * k),
+                      height: 1.2,
+                      color: const Color(0xFFFCBD49),
+                      shadows: const [Shadow(color: Color(0xFF1A0D06), offset: Offset(0, 2), blurRadius: 2)],
+                    ),
                   ),
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  s.tier >= season.tiers
-                      ? 'خلصت كل الدرجات!'
-                      : '${arabicNumber(s.pointsInTier)} / ${arabicNumber(season.tierPoints)} نقطة · كل لعبة +٢٠، والفوز +٣٠، والمهام نقاط أكثر',
-                  style: const TextStyle(color: AppColors.muted, fontSize: 12),
+                const Spacer(),
+                GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: onAll,
+                  child: Text(
+                    'كل المهام ‹',
+                    style: TextStyle(
+                      color: const Color(0xFFE8C98A),
+                      fontSize: math.max(10.5, 12.5 * k),
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
                 ),
               ],
             ),
           ),
-          const SizedBox(width: 12),
-          SizedBox(
-            width: 190,
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                if (!s.premium)
-                  GameButton(
-                    label: 'اشترِ الباتل باس',
-                    icon: const Gfx('gem', size: 24),
-                    height: 46,
-                    fontSize: 15,
-                    onPressed: busy || !season.active ? null : onBuy,
-                  )
-                else if (s.tier < season.tiers)
-                  GameButton(
-                    label: 'كمّل كل الدرجات',
-                    icon: const Gfx('gem', size: 24),
-                    tone: ButtonTone.purple,
-                    height: 46,
-                    fontSize: 15,
-                    onPressed: busy || !season.active ? null : onBuy,
-                  )
-                else
-                  const Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Gfx('check', size: 22),
-                      SizedBox(width: 6),
-                      Text(
-                        'عندك الباتل باس كامل',
-                        style: TextStyle(color: AppColors.green, fontWeight: FontWeight.w800),
-                      ),
-                    ],
-                  ),
-                const SizedBox(height: 8),
-                GameButton(
-                  label: 'استلم الكل',
-                  tone: ButtonTone.green,
-                  height: 42,
-                  fontSize: 15,
-                  onPressed: busy || !s.claimable ? null : onClaim,
-                ),
-              ],
+          SizedBox(height: d.gap),
+          Expanded(
+            child: Padding(
+              padding: EdgeInsetsDirectional.only(start: tail),
+              child: LayoutBuilder(
+                builder: (context, box) {
+                  final w = (box.maxWidth - 2 * 12 * k) / 3;
+                  return ListView.separated(
+                    scrollDirection: Axis.horizontal,
+                    itemCount: missionDefs.length,
+                    separatorBuilder: (_, _) => SizedBox(width: 12 * k),
+                    itemBuilder: (context, i) {
+                      final m = missionDefs[i];
+                      return SizedBox(
+                        width: w,
+                        child: SnMissionPlank(
+                          title: m.title,
+                          progress: daily.progressOf(m),
+                          target: m.target,
+                          done: daily.isDone(m),
+                          onTap: onAll,
+                          k: k,
+                        ),
+                      );
+                    },
+                  );
+                },
+              ),
             ),
           ),
         ],
@@ -420,172 +840,52 @@ class _Header extends StatelessWidget {
   }
 }
 
-class _TrackLabel extends StatelessWidget {
-  const _TrackLabel({required this.label, required this.icon, required this.color});
-
-  final String label;
-  final String icon;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) => Container(
-    decoration: BoxDecoration(
-      color: color.withValues(alpha: .1),
-      borderRadius: BorderRadius.circular(14),
-      border: Border.all(color: color.withValues(alpha: .4)),
-    ),
-    child: Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Gfx(icon, size: 30),
-        const SizedBox(height: 4),
-        Text(
-          label,
-          textAlign: TextAlign.center,
-          style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.w800),
-        ),
-      ],
-    ),
-  );
-}
-
-class _TierColumn extends StatelessWidget {
-  const _TierColumn({required this.tier, required this.state});
-
-  final int tier;
-  final PassState state;
-
-  @override
-  Widget build(BuildContext context) {
-    final reached = state.tier >= tier;
-    return Column(
-      children: [
-        Container(
-          height: 26,
-          margin: const EdgeInsets.only(bottom: 8),
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            gradient: reached ? const LinearGradient(colors: [Color(0xFFFFE08A), Color(0xFFF2B53A)]) : null,
-            color: reached ? null : AppColors.card,
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: Text(
-            arabicNumber(tier),
-            style: TextStyle(
-              fontFamily: kufi,
-              fontWeight: FontWeight.w700,
-              color: reached ? AppColors.goldInk : AppColors.muted,
-            ),
-          ),
-        ),
-        Expanded(
-          child: _Cell(reward: season.free[tier], reached: reached, claimed: state.free >= tier, locked: false),
-        ),
-        const SizedBox(height: 8),
-        Expanded(
-          child: _Cell(
-            reward: season.premium[tier],
-            reached: reached,
-            claimed: state.premium && state.prem >= tier,
-            locked: !state.premium,
-            premium: true,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _Cell extends StatelessWidget {
-  const _Cell({
-    required this.reward,
-    required this.reached,
-    required this.claimed,
-    required this.locked,
-    this.premium = false,
+/// جوائز النافذة «استلمت!»: بطاقات ورق صغيرة لكل جائزة.
+class SeasonRewardChips extends StatelessWidget {
+  const SeasonRewardChips({
+    super.key,
+    required this.profile,
+    required this.coins,
+    required this.diamonds,
+    required this.items,
   });
 
-  final LevelReward? reward;
-  final bool reached;
-  final bool claimed;
-  final bool locked;
-  final bool premium;
+  final Profile profile;
+  final int coins;
+  final int diamonds;
+  final List<String> items;
 
   @override
   Widget build(BuildContext context) {
-    final r = reward;
-    final border = premium ? AppColors.gold : AppColors.line;
-    final ready = reached && !claimed && !locked && r != null;
-    Widget content = const SizedBox();
-    String label = '';
-    if (r != null) {
-      if (r.items.isNotEmpty) {
-        final item = shopItem(r.items.first)!;
-        content = ItemPreview(item: item, profile: Backend.instance.profile.value);
-        label = r.items.length > 1 ? '${item.name} +' : item.name;
-      } else if (r.diamonds > 0) {
-        content = const Gfx('gem', size: 54);
-        label = '${arabicNumber(r.diamonds)} جوهرة';
-      } else {
-        content = const Gfx('coin', size: 54);
-        label = '${arabicNumber(r.coins)} ذهب';
-      }
-    }
-    return Container(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: premium ? [const Color(0xFF3B2A0C), AppColors.card] : [AppColors.card, AppColors.card],
-        ),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: ready ? AppColors.green : border.withValues(alpha: r == null ? .2 : .55),
-          width: ready ? 2 : 1.2,
-        ),
-        boxShadow: [if (ready) BoxShadow(color: AppColors.green.withValues(alpha: .4), blurRadius: 12)],
-      ),
-      child: r == null
-          ? null
-          : Stack(
-              children: [
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(6, 6, 6, 4),
-                  child: Column(
-                    children: [
-                      Expanded(
-                        child: Opacity(
-                          opacity: locked ? .5 : 1,
-                          child: FittedBox(fit: BoxFit.scaleDown, child: content),
-                        ),
-                      ),
-                      Text(
-                        label,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w800),
-                      ),
-                    ],
-                  ),
-                ),
-                if (claimed)
-                  Positioned.fill(
-                    child: Container(
-                      color: Colors.black.withValues(alpha: .45),
-                      alignment: Alignment.center,
-                      child: const Gfx('check', size: 34),
-                    ),
-                  ),
-                if (locked) const PositionedDirectional(top: 4, end: 4, child: Gfx('lock', size: 18)),
-              ],
+    Widget tile(Widget art, String label) => SizedBox(
+      width: 92,
+      height: 108,
+      child: SnRewardTile(art: art, label: label),
+    );
+    return Wrap(
+      alignment: WrapAlignment.center,
+      spacing: 10,
+      runSpacing: 10,
+      children: [
+        for (final id in items)
+          if (shopItem(id) case final item?)
+            tile(
+              item.slot == ShopSlot.reactions && item.stickers != null
+                  ? const SnSealStamp(size: 52)
+                  : ItemPreview(item: item, profile: profile),
+              item.name,
             ),
+        if (coins > 0) tile(SnCoinPile(count: snCoinCount(coins), size: 58), arabicNumber(coins)),
+        if (diamonds > 0) tile(const Gfx('gem', size: 54), arabicNumber(diamonds)),
+      ],
     );
   }
 }
 
 /// خيار شراء في نافذة الباتل باس: اسمه ووش فيه وسعره.
-class _Option extends StatelessWidget {
-  const _Option({
+class SeasonOption extends StatelessWidget {
+  const SeasonOption({
+    super.key,
     required this.title,
     required this.lines,
     required this.price,
@@ -598,25 +898,26 @@ class _Option extends StatelessWidget {
 
   /// بالجواهر (null: ببلاش للمطور).
   final int? price;
-  final ButtonTone tone;
+  final SnTone tone;
   final VoidCallback onPick;
 
   @override
-  Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.all(12),
-    decoration: BoxDecoration(
-      color: AppColors.card,
-      borderRadius: BorderRadius.circular(16),
-      border: Border.all(color: tone == ButtonTone.purple ? const Color(0xFFA48BFF) : AppColors.gold, width: 1.5),
-    ),
+  Widget build(BuildContext context) => ParchmentCard(
+    padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
     child: Column(
       mainAxisSize: MainAxisSize.min,
       children: [
         const Gfx('pass', size: 40),
-        const SizedBox(height: 4),
+        const SizedBox(height: 2),
         Text(
           title,
-          style: const TextStyle(fontFamily: kufi, fontSize: 17, fontWeight: FontWeight.w700),
+          style: const TextStyle(
+            fontFamily: kufi,
+            fontSize: 18,
+            fontWeight: FontWeight.w800,
+            height: 1.25,
+            color: AppColors.ink,
+          ),
         ),
         const SizedBox(height: 6),
         for (final l in lines)
@@ -625,19 +926,88 @@ class _Option extends StatelessWidget {
             child: Text(
               l,
               textAlign: TextAlign.center,
-              style: const TextStyle(color: AppColors.muted, fontSize: 12.5),
+              style: const TextStyle(
+                color: Color(0xFF5A3B1C),
+                fontSize: 12.5,
+                fontWeight: FontWeight.w700,
+                height: 1.3,
+              ),
             ),
           ),
+        const Spacer(),
         const SizedBox(height: 8),
-        GameButton(
+        SnButton(
           label: price == null ? 'ببلاش (مطور)' : arabicNumber(price!),
-          icon: const Gfx('gem', size: 22),
+          icon: const Gfx('gem', size: 24),
           tone: tone,
           height: 42,
-          fontSize: 15,
+          fontSize: 18,
           onPressed: onPick,
         ),
       ],
     ),
   );
+}
+
+/// قائمة أصحابك في نافذة الإهداء: كل صاحب على لوح خشب بصورته ومستواه.
+class SeasonFriendList extends StatelessWidget {
+  const SeasonFriendList({super.key, required this.friends, this.onPick});
+
+  final List<LeaderboardEntry> friends;
+  final ValueChanged<LeaderboardEntry>? onPick;
+
+  @override
+  Widget build(BuildContext context) {
+    if (friends.isEmpty) {
+      return const Center(
+        child: Text(
+          'ما عندك أصحاب للحين. ضيفهم من «الأصدقاء» وبعدين أهدهم.',
+          textAlign: TextAlign.center,
+          style: TextStyle(color: AppColors.muted, height: 1.5),
+        ),
+      );
+    }
+    return ListView.separated(
+      itemCount: friends.length,
+      separatorBuilder: (_, _) => const SizedBox(height: 8),
+      itemBuilder: (context, i) {
+        final e = friends[i];
+        return GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: onPick == null ? null : () => onPick!(e),
+          child: PlankBar(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            child: Row(
+              children: [
+                GoldRingAvatar(avatar: e.avatar, size: 36, animate: false),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        e.name,
+                        style: const TextStyle(
+                          fontFamily: kufi,
+                          fontWeight: FontWeight.w800,
+                          fontSize: 16,
+                          height: 1.2,
+                          color: Color(0xFFFFF3DA),
+                        ),
+                      ),
+                      Text(
+                        'مستوى ${arabicNumber(e.level)}',
+                        style: const TextStyle(color: Color(0xFFE8C98A), fontSize: 12, fontWeight: FontWeight.w700),
+                      ),
+                    ],
+                  ),
+                ),
+                const Gfx('gift', size: 24),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
 }
