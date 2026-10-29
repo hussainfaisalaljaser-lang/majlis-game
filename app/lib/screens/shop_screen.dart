@@ -364,7 +364,8 @@ const _offers = [
   _Offer('offer_emir', 'عرض الأمير', 'avatar_emir', 'frame_sun'),
 ];
 
-/// قسم العروض: كروت عريضة، كل كرت فيه الشخصية لابسة إطارها، وزر شراء بسعر المجموع.
+/// قسم العروض: شريط عريض لكل عرض (التصميم ١): الشخصية لابسة إطارها على أشعة، وبجنبها الاسم والغرضين،
+/// وعلى الطرف الثاني السعر وزر الشراء. الضغط على الشريط يفتح تفاصيل العرض.
 class _OffersGrid extends StatelessWidget {
   const _OffersGrid({super.key, required this.busy, required this.onBuy});
 
@@ -374,100 +375,136 @@ class _OffersGrid extends StatelessWidget {
   @override
   Widget build(BuildContext context) => ValueListenableBuilder(
     valueListenable: Backend.instance.profile,
-    builder: (context, p, _) => LayoutBuilder(
-      builder: (context, box) {
-        final cols = math.max(1, ((box.maxWidth - 8) / 190).floor());
-        return GridView.builder(
-          padding: const EdgeInsets.fromLTRB(10, 8, 10, 14),
-          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: cols,
-            mainAxisSpacing: 11,
-            crossAxisSpacing: 11,
-            childAspectRatio: shopCardWideW / shopCardH,
-          ),
-          itemCount: _offers.length,
-          itemBuilder: (context, i) => _offerCard(context, _offers[i], p, busy: busy, onBuy: () => onBuy(_offers[i], p)),
-        );
-      },
-    ),
-  );
-}
-
-Widget _offerCard(BuildContext context, _Offer o, Profile p, {required String? busy, required VoidCallback onBuy}) {
-  final todo = [for (final i in o.items) if (!p.owns(i.id)) i];
-  final coins = todo.fold<int>(0, (n, i) => n + (i.coins ?? 0));
-  final gems = todo.fold<int>(0, (n, i) => n + (i.diamonds ?? 0));
-  final rarity = o.items.map((i) => i.rarity).reduce((a, b) => a.index >= b.index ? a : b);
-  final dark = shopDarkCard(o.frame);
-  return ShopItemCard(
-    key: ValueKey(o.id),
-    semantics: 'عرض ${o.id}',
-    art: _OfferArt(offer: o, dark: dark),
-    rarity: rarity,
-    name: o.name,
-    dark: dark,
-    wide: true,
-    onTap: onBuy,
-    onPreview: onBuy,
-    action: Semantics(
-      label: 'زر ${o.id}',
-      child: ShopActionButton(
-        state: todo.isEmpty ? ShopItemState.owned : ShopItemState.buy,
-        passive: 'عندك العرض',
-        icon: coins > 0 ? 'coin' : 'gem',
-        price: coins > 0 ? coins : gems,
-        busy: busy == o.id,
-        onTap: onBuy,
+    builder: (context, p, _) => ListView.separated(
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 16),
+      itemCount: _offers.length,
+      separatorBuilder: (_, _) => const SizedBox(height: 12),
+      itemBuilder: (context, i) => Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 760),
+          child: _OfferBanner(offer: _offers[i], profile: p, busy: busy == _offers[i].id, onTap: () => onBuy(_offers[i], p)),
+        ),
       ),
     ),
   );
 }
 
-/// رسمة العرض: الشخصية لابسة الإطار، وجنبها لوح غامق فيه اسم الشخصية واسم الإطار (يبان على كل الخلفيات).
-class _OfferArt extends StatelessWidget {
-  const _OfferArt({required this.offer, required this.dark});
+class _OfferBanner extends StatelessWidget {
+  const _OfferBanner({required this.offer, required this.profile, required this.busy, required this.onTap});
 
   final _Offer offer;
-  final bool dark;
+  final Profile profile;
+  final bool busy;
+  final VoidCallback onTap;
+
+  Widget _chip(String label, String name) => Container(
+    padding: const EdgeInsets.fromLTRB(10, 4, 12, 5),
+    decoration: BoxDecoration(
+      color: Colors.black.withValues(alpha: .35),
+      borderRadius: BorderRadius.circular(20),
+      border: Border.all(color: const Color(0xFFF2C75A).withValues(alpha: .6)),
+    ),
+    child: FittedBox(
+      fit: BoxFit.scaleDown,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(label, style: const TextStyle(color: Color(0xFFF2C75A), fontSize: 12.5, fontWeight: FontWeight.w800)),
+          const SizedBox(width: 6),
+          Text(
+            name,
+            style: const TextStyle(fontFamily: kufi, color: Color(0xFFFFF3DA), fontSize: 16, fontWeight: FontWeight.w800),
+          ),
+        ],
+      ),
+    ),
+  );
 
   @override
   Widget build(BuildContext context) {
-    Widget line(String label, String name) => Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(label, style: const TextStyle(color: Color(0xFFF2C75A), fontSize: 12, fontWeight: FontWeight.w800, height: 1.1)),
-        Text(
-          name,
-          style: const TextStyle(
-            fontFamily: kufi,
-            color: Color(0xFFFFF3DA),
-            fontSize: 16,
-            fontWeight: FontWeight.w800,
-            height: 1.15,
-          ),
-        ),
-      ],
-    );
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        PlayerAvatar(avatar: offer.avatar.avatar!, style: offer.frame.frame, size: 60, animate: false),
-        const SizedBox(width: 12),
-        Container(
-          padding: const EdgeInsets.fromLTRB(10, 4, 12, 5),
+    final todo = [for (final i in offer.items) if (!profile.owns(i.id)) i];
+    final coins = todo.fold<int>(0, (n, i) => n + (i.coins ?? 0));
+    final gems = todo.fold<int>(0, (n, i) => n + (i.diamonds ?? 0));
+    final owned = todo.isEmpty;
+    final icon = coins > 0 ? 'coin' : 'gem';
+    final price = coins > 0 ? coins : gems;
+    final Widget action = busy
+        ? const ShopActionButton(state: ShopItemState.buy, busy: true, height: 44)
+        : owned
+        ? const ShopActionButton(state: ShopItemState.owned, passive: 'عندك العرض', height: 44, fontSize: 17)
+        : ShopButton(
+            height: 44,
+            semantics: 'اشتر العرض',
+            onPressed: onTap,
+            child: profile.dev
+                ? const OutlinedText('اشتر', size: 18, maxLines: 1, stroke: Color(0xFF143A0B), strokeWidth: 3.2)
+                : Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const OutlinedText('اشتر', size: 17, maxLines: 1, stroke: Color(0xFF143A0B), strokeWidth: 3.2),
+                      const SizedBox(width: 10),
+                      OutlinedText(arabicNumber(price), size: 19, maxLines: 1, stroke: const Color(0xFF143A0B), strokeWidth: 3.2),
+                      const SizedBox(width: 5),
+                      Gfx(icon, size: 24),
+                    ],
+                  ),
+          );
+    return Semantics(
+      label: 'عرض ${offer.id}',
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
           decoration: BoxDecoration(
-            color: const Color(0xFF241209).withValues(alpha: .86),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: const Color(0xFFE8B54E).withValues(alpha: .55)),
+            borderRadius: BorderRadius.circular(20),
+            gradient: const LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [Color(0xFF4A1830), Color(0xFF220A16)],
+            ),
+            border: Border.all(color: const Color(0xFFE8B54E), width: 2.4),
+            boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: .5), blurRadius: 10, offset: const Offset(0, 5))],
           ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [line('شخصية', offer.avatar.name), const SizedBox(height: 3), line('إطار', offer.frame.name)],
+          child: Row(
+            children: [
+              SizedBox(
+                width: 120,
+                height: 120,
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    const Positioned.fill(
+                      child: ClipOval(
+                        child: ShopSunburst(color: Color(0x44FFD27A), rays: 14, center: Alignment.center, fade: .6),
+                      ),
+                    ),
+                    PlayerAvatar(avatar: offer.avatar.avatar!, style: offer.frame.frame, size: 76, animate: false),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    GoldTitle(offer.name, size: 24, align: TextAlign.start),
+                    const SizedBox(height: 6),
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 6,
+                      children: [_chip('شخصية', offer.avatar.name), _chip('إطار', offer.frame.name)],
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 10),
+              SizedBox(width: 150, child: action),
+            ],
           ),
         ),
-      ],
+      ),
     );
   }
 }
