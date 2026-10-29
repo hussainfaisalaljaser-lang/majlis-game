@@ -128,6 +128,9 @@ class _GameScreenState extends State<GameScreen> {
 
   /// متفرج (صاحب أحد اللاعبين).
   bool get _spectating => widget.watching != null;
+
+  /// مكان الطاولة: حسب مستواها (والبطولة في قاعة الملوك). منه الخلفية والجو.
+  Venue get _venue => _room?.tour != null ? Venue.kings : venueOf(_room?.tierId);
   StreamSubscription<Map<String, dynamic>?>? _viewSub;
   StreamSubscription<Room?>? _roomSub;
   Timer? _ticker;
@@ -1120,15 +1123,11 @@ class _GameScreenState extends State<GameScreen> {
           children: [
             // المكان ورا الطاولة: خيمة الصحراء بالليل، وكل مستوى طاولة له طابعه (المدينة، القصر…).
             Positioned.fill(
-              child: MajlisRoom(
-                tension: tension,
-                venue: _room?.tour != null ? Venue.kings : venueOf(_room?.tierId),
-                safe: safe,
-              ),
+              child: MajlisRoom(tension: tension, venue: _venue, safe: safe),
             ),
             // جو الطاولة (نجوم وشرار) وراء الطاولة
             Positioned.fill(
-              child: TableAtmosphere(code: widget.code, safe: safe),
+              child: TableAtmosphere(venue: _venue, safe: safe),
             ),
             SafeArea(
               child: LayoutBuilder(
@@ -1182,7 +1181,7 @@ class _GameScreenState extends State<GameScreen> {
                         ),
                       ),
                       // الطقس (مطر، رمل، برق) فوق الطاولة وتحت الأزرار
-                      Positioned.fill(child: TableAtmosphere(code: widget.code, front: true)),
+                      Positioned.fill(child: TableAtmosphere(venue: _venue, front: true)),
                       Positioned.fill(child: TensionOverlay(tension: tension)),
                       // فوق يسار: النقاط مصغرة على لوح، تنضغط وتكبر
                       Positioned(
@@ -1292,7 +1291,7 @@ class _GameScreenState extends State<GameScreen> {
                             ],
                           ),
                         ),
-                      // تحت يسار: الإعدادات والصوت والسجل
+                      // تحت يسار: الإعدادات (فيها الصوت) والسجل
                       Positioned(
                         left: 12 * hs,
                         bottom: 12 * hs,
@@ -1307,16 +1306,6 @@ class _GameScreenState extends State<GameScreen> {
                               child: GearIcon(size: 74 * hs * .58),
                             ),
                             SizedBox(width: 10 * hs),
-                            ValueListenableBuilder(
-                              valueListenable: Sfx.muted,
-                              builder: (context, muted, _) => GameRoundButton(
-                                size: 74 * hs,
-                                semantics: muted ? 'شغّل الصوت' : 'اكتم الصوت',
-                                onTap: Sfx.toggle,
-                                child: Gfx(muted ? 'mute' : 'sound', size: 74 * hs * .6),
-                              ),
-                            ),
-                            SizedBox(width: 10 * hs),
                             GameRoundButton(
                               size: 74 * hs,
                               semantics: 'السجل',
@@ -1329,7 +1318,7 @@ class _GameScreenState extends State<GameScreen> {
                       // جنب أزرار تحت يسار: الادعاء اللي أجّلته (تحت، عشان ما يغطي مقعد أحد)
                       if (!over && _canClaim(v) && !_claimPending(v))
                         Positioned(
-                          left: 12 * hs + 3 * 84 * hs + 6,
+                          left: 12 * hs + 2 * 84 * hs + 6,
                           bottom: 16 * hs,
                           child: _Pulse(child: _ClaimChip(onTap: () => setState(() => _claimOpen = _claimKey(v)))),
                         ),
@@ -1461,7 +1450,7 @@ class _GameScreenState extends State<GameScreen> {
       case Phase.vetoResponse:
         return mine && v.amPresident
             ? say('الوزير يبي يرمي الكرتين. توافق؟', icon: 'hand')
-            : say('الوزير طلب فيتو… ننتظر رد الرئيس', dim: true);
+            : say('الوزير طلب النقض… ننتظر رد الرئيس', dim: true);
       case Phase.power:
         if (mine && v.amPresident) {
           return v.pendingPower == Power.peek
@@ -1642,8 +1631,8 @@ class _GameScreenState extends State<GameScreen> {
         return [
           _voteButtons(
             st,
-            onYes: () => _act({'type': 'respondVeto', 'accept': true}, note: 'وافقت على الفيتو'),
-            onNo: () => _act({'type': 'respondVeto', 'accept': false}, note: 'رفضت الفيتو'),
+            onYes: () => _act({'type': 'respondVeto', 'accept': true}, note: 'وافقت على النقض'),
+            onNo: () => _act({'type': 'respondVeto', 'accept': false}, note: 'رفضت النقض'),
           ),
         ];
       case Phase.presidentDiscard when v.amPresident:
@@ -1675,13 +1664,13 @@ class _GameScreenState extends State<GameScreen> {
                   ? SizedBox(
                       width: 240,
                       child: GameButton(
-                        label: 'اطلب فيتو (نرمي الاثنين)',
-                        semantics: 'اطلب فيتو',
+                        label: 'اطلب النقض (نرمي الاثنين)',
+                        semantics: 'اطلب النقض',
                         icon: const Gfx('hand', size: 22),
                         tone: ButtonTone.purple,
                         height: 42,
                         fontSize: 14,
-                        onPressed: () => _act({'type': 'proposeVeto'}, note: 'طلبت فيتو… ننتظر رد الرئيس'),
+                        onPressed: () => _act({'type': 'proposeVeto'}, note: 'طلبت النقض… ننتظر رد الرئيس'),
                       ),
                     )
                   : null,

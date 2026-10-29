@@ -29,13 +29,13 @@ abstract final class AppColors {
   static const diamond = Color(0xFF7DD8FF);
 }
 
-/// خط العناوين والأزرار (Baloo Bhaijaan 2، مثل التصميم).
-const kufi = 'Baloo';
+/// خط العناوين والأزرار (المسيري). وخط الكلام العادي ريدكس برو.
+const kufi = 'ElMessiri';
 
 ThemeData buildTheme() {
   final base = ThemeData(
     brightness: Brightness.dark,
-    fontFamily: 'Tajawal',
+    fontFamily: 'ReadexPro',
     scaffoldBackgroundColor: AppColors.bg,
     colorScheme: const ColorScheme.dark(
       primary: AppColors.gold,
@@ -79,7 +79,7 @@ ThemeData buildTheme() {
     ),
     snackBarTheme: const SnackBarThemeData(
       backgroundColor: Color(0xFF3B2414),
-      contentTextStyle: TextStyle(fontFamily: 'Tajawal', color: AppColors.text, fontWeight: FontWeight.w700),
+      contentTextStyle: TextStyle(fontFamily: 'ReadexPro', color: AppColors.text, fontWeight: FontWeight.w700),
       behavior: SnackBarBehavior.floating,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.all(Radius.circular(14)),
@@ -118,7 +118,7 @@ ThemeData buildTheme() {
     textButtonTheme: TextButtonThemeData(
       style: TextButton.styleFrom(
         foregroundColor: AppColors.gold,
-        textStyle: const TextStyle(fontFamily: 'Tajawal', fontWeight: FontWeight.w800),
+        textStyle: const TextStyle(fontFamily: 'ReadexPro', fontWeight: FontWeight.w800),
       ),
     ),
     inputDecorationTheme: InputDecorationTheme(

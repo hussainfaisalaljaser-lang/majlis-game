@@ -42,7 +42,7 @@ class _GameLog extends StatelessWidget {
     }
     final claims = view.claims;
     final entries = rounds.entries.toList().reversed.toList();
-    // عداد الحكومات الفاشلة وقت كل حدث (تصويت رُفض أو انلغى، أو فيتو). أي قرار يتمرر يصفّره.
+    // عداد الحكومات الفاشلة وقت كل حدث (تصويت رُفض أو انلغى، أو النقض). أي قرار يتمرر يصفّره.
     final failed = <GameEvent, int>{};
     var tracker = 0;
     for (final e in view.log) {
@@ -231,11 +231,11 @@ class _RoundCard extends StatelessWidget {
         case 'vetoed':
           final gov = (d['government'] as Map?) ?? const {};
           final who = gov['chancellor'] is String && gov['president'] is String
-              ? 'الوزير ${name(gov['chancellor'] as String)} طلب فيتو ووافق الرئيس ${name(gov['president'] as String)}'
-              : 'الوزير طلب فيتو ووافق الرئيس';
+              ? 'الوزير ${name(gov['chancellor'] as String)} طلب النقض ووافق الرئيس ${name(gov['president'] as String)}'
+              : 'الوزير طلب النقض ووافق الرئيس';
           lines.add(line('hand', '$who: انرمت الكروت كلها بدون قرار${_failNote(e)}'));
         case 'vetoRejected':
-          lines.add(line('cross', 'الرئيس رفض الفيتو، والوزير لازم يمرر قرار'));
+          lines.add(line('cross', 'الرئيس رفض النقض، والوزير لازم يمرر قرار'));
         case 'investigated':
           lines.add(line('search', '${name(d['by'] as String)} حقق مع ${name(d['target'] as String)}'));
         case 'peeked':

@@ -3,7 +3,7 @@ import type { Action, GameState, PlayerId } from './types.js';
 
 /**
  * الحركات اللي يسويها السيرفر بدال اللاعب اللي خلص وقته.
- * التصويت الافتراضي رفض، والفيتو يترفض، وباقي الاختيارات عشوائية.
+ * التصويت الافتراضي رفض، والنقض يترفض، وباقي الاختيارات عشوائية.
  */
 export function timeoutActions(s: GameState, random: () => number): [PlayerId, Action][] {
   const pick = <T>(xs: T[]): T => xs[Math.floor(random() * xs.length)];

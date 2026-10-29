@@ -15,7 +15,6 @@ import 'package:majlis/screens/game_screen.dart';
 import 'package:majlis/services/backend.dart';
 import 'package:majlis/services/music.dart';
 import 'package:majlis/widgets/fx.dart';
-import 'package:majlis/widgets/game/atmosphere.dart';
 import 'package:majlis/widgets/game/overlays.dart';
 import 'package:majlis/widgets/game/scenes.dart';
 import 'package:majlis/widgets/majlis.dart';
@@ -118,17 +117,27 @@ List<Map<String, dynamic>> _stickerReactions(Map<String, int> from) => [
     {'from': e.key, 'kind': stickers[e.value].id, 'at': DateTime.now().millisecondsSinceEpoch - 600},
 ];
 
+/// مستوى الطاولة لكل مكان (الجو والخلفية يتبعونه).
+const venueTier = {
+  Venue.desert: 'starter',
+  Venue.city: 'city',
+  Venue.palace: 'palace',
+  Venue.kings: 'kings',
+  Venue.vip: 'vip',
+};
+
 Room _room({
   bool finished = false,
   List<String> watchers = const [],
   List<Map<String, dynamic>> reactions = const [],
+  String? tier,
 }) => Room.fromJson({
   'code': 'ABCD',
   'hostId': 'me',
   'status': finished ? 'finished' : 'playing',
   'isPrivate': false,
   'maxPlayers': 7,
-  'tierId': null,
+  'tierId': tier,
   'players': [
     for (final id in _names.keys)
       {'uid': id, 'name': _names[id], 'avatar': _avatars[id], 'frame': _frames[id], 'bot': false},
@@ -418,28 +427,32 @@ void main() {
     }
   });
 
-  // الأجواء الثلاثة على الطاولة (الليل، العاصفة، المطر مع لحظة برق)، على الجوال وعلى الشاشة الكبيرة
+  // جو كل مستوى طاولة (على الجوال وعلى الشاشة الكبيرة)، والمطر عند لحظة برق
   testWidgets('atmospheres', (tester) async {
     final bolt = 2 + 4 * rnd(0, 61) + .05;
-    for (final (name, choice, t) in [
-      ('night', AtmoChoice.night, 7.3),
-      ('sand', AtmoChoice.sand, 5.0),
-      ('rain', AtmoChoice.rain, bolt),
-      ('rain_calm', AtmoChoice.rain, bolt + 3),
+    for (final (name, venue, t) in [
+      ('majlis', Venue.majlis, 7.3),
+      ('desert', Venue.desert, 5.0),
+      ('city', Venue.city, bolt),
+      ('city_calm', Venue.city, bolt + 3),
+      ('palace', Venue.palace, 4.0),
+      ('kings', Venue.kings, 3.0),
+      ('vip', Venue.vip, 6.0),
     ]) {
-      Atmosphere.choice.value = choice;
       FxClock.manual.value = t;
       for (final size in const [Size(960, 540), Size(800, 360)]) {
         await screen(
           tester,
           'game_atmo_${name}_${size.width.toInt()}',
-          GamePreview(view: _view(_viewJson()), room: _room()),
+          GamePreview(
+            view: _view(_viewJson()),
+            room: _room(tier: venueTier[venue]),
+          ),
           size: size,
           frames: 8,
         );
       }
     }
-    Atmosphere.choice.value = AtmoChoice.auto;
   });
 
   testWidgets('extras', (tester) async {

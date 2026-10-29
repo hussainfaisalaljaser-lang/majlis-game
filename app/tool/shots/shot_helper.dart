@@ -17,9 +17,8 @@ final _outDir = Platform.environment['SHOT_DIR'] ?? 'build/shots';
 Future<void> loadFonts() async {
   Sounds.silent = true;
   final fonts = <String, List<String>>{
-    'Tajawal': ['Tajawal-Regular', 'Tajawal-Medium', 'Tajawal-Bold', 'Tajawal-ExtraBold'],
-    'Marhey': ['Marhey-Bold'],
-    'Baloo': ['BalooBhaijaan2-Bold', 'BalooBhaijaan2-ExtraBold'],
+    'ReadexPro': ['ReadexPro-Regular', 'ReadexPro-Medium', 'ReadexPro-Bold'],
+    'ElMessiri': ['ElMessiri-Regular', 'ElMessiri-Bold'],
   };
   for (final e in fonts.entries) {
     final loader = FontLoader(e.key);

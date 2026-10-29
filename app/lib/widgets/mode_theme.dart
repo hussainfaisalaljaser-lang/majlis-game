@@ -62,7 +62,7 @@ class ModeTheme {
 
   static const classic = ModeTheme._(
     roles: false,
-    name: 'كلاسيك',
+    name: 'الكلاسيكي',
     tagline: 'اللعبة الأصلية: أوفياء وخونة وزعيم متخبّي',
     hint: 'الزعيم والخونة والأوفياء بس، بدون أدوار خاصة',
     icon: 'dagger',
@@ -85,7 +85,7 @@ class ModeTheme {
 
   static const advanced = ModeTheme._(
     roles: true,
-    name: 'شخصيات',
+    name: 'المطوّر',
     tagline: 'أدوار سرية بقدرات تقلب الموازين',
     hint: 'فيه العرّاف والحارس والقاضي والشيخ والجاسوس',
     icon: 'seer',
@@ -122,7 +122,7 @@ class ModeTheme {
           (s) => s.contains(WidgetState.selected) ? Colors.white : AppColors.text.withValues(alpha: .85),
         ),
         side: WidgetStatePropertyAll(BorderSide(color: accentLight.withValues(alpha: .45))),
-        textStyle: const WidgetStatePropertyAll(TextStyle(fontFamily: 'Tajawal', fontWeight: FontWeight.w800)),
+        textStyle: const WidgetStatePropertyAll(TextStyle(fontFamily: 'ReadexPro', fontWeight: FontWeight.w800)),
       ),
     ),
   );
@@ -173,9 +173,7 @@ class ModeBackdrop extends StatelessWidget {
         ),
       ),
       RepaintBoundary(
-        child: FxClock(
-          builder: (context, time) => CustomPaint(painter: _ParticlesPainter(mode, time, density)),
-        ),
+        child: FxClock(builder: (context, time) => CustomPaint(painter: _ParticlesPainter(mode, time, density))),
       ),
       if (dim > 0) ColoredBox(color: Colors.black.withValues(alpha: dim)),
     ],

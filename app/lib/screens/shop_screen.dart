@@ -27,7 +27,7 @@ const _sections = [
   (icon: 'sticker', name: 'الملصقات', slot: ShopSlot.reactions),
   (icon: 'table', name: 'الطاولات', slot: ShopSlot.table),
   (icon: 'cards', name: 'الكروت', slot: ShopSlot.cards),
-  (icon: 'death', name: 'تأثير الموت', slot: ShopSlot.death),
+  (icon: 'death', name: 'الطرد', slot: ShopSlot.death),
   (icon: 'ids', name: 'الرموز', slot: null),
   (icon: 'gems', name: 'الجواهر', slot: null),
 ];

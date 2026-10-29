@@ -1568,7 +1568,7 @@ String shopRevealTitle(ShopSlot slot) => switch (slot) {
   ShopSlot.table => 'طاولتك الجديدة',
   ShopSlot.cards => 'كروتك الجديدة',
   ShopSlot.bubble => 'فقاعتك الجديدة',
-  ShopSlot.death => 'تأثير موتك الجديد',
+  ShopSlot.death => 'تأثير طردك الجديد',
   ShopSlot.reactions => 'ملصقاتك الجديدة',
 };
 

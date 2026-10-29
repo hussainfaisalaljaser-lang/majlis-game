@@ -14,7 +14,7 @@
 html, body { margin: 0; min-height: 100%; }
 html { background: var(--bg); }
 body {
-  font-family: 'Tajawal', system-ui, sans-serif;
+  font-family: 'Readex Pro', system-ui, sans-serif;
   color: var(--text);
   background: radial-gradient(120% 90% at 70% 10%, #4a3394 0%, #231a52 45%, var(--bg) 100%) fixed;
   display: flex;
@@ -36,7 +36,7 @@ main {
 .icon { width: 96px; height: 96px; border-radius: 24px; box-shadow: 0 8px 24px rgba(0, 0, 0, .5); }
 .hero { width: 100%; border-radius: 18px; display: block; margin: 0 0 14px; }
 h1 {
-  font-family: 'Marhey', 'Tajawal', sans-serif;
+  font-family: 'El Messiri', 'Readex Pro', sans-serif;
   font-size: 30px;
   line-height: 1.3;
   margin: 14px 0 6px;
@@ -61,7 +61,7 @@ p { margin: 0 0 12px; line-height: 1.7; font-weight: 500; }
 .btn {
   display: block;
   text-decoration: none;
-  font-family: 'Marhey', 'Tajawal', sans-serif;
+  font-family: 'El Messiri', 'Readex Pro', sans-serif;
   font-weight: 700;
   font-size: 20px;
   border-radius: 18px;
@@ -91,7 +91,7 @@ footer { color: var(--muted); font-size: 12px; margin-top: 18px; }
 /* صفحات النصوص الطويلة (الخصوصية، الشروط، الحذف) */
 main.doc { max-width: 760px; text-align: right; }
 main.doc h1 { text-align: center; }
-main.doc h2 { font-family: 'Marhey', 'Tajawal', sans-serif; color: var(--gold); font-size: 20px; margin: 24px 0 8px; }
+main.doc h2 { font-family: 'El Messiri', 'Readex Pro', sans-serif; color: var(--gold); font-size: 20px; margin: 24px 0 8px; }
 main.doc p, main.doc li { line-height: 1.9; font-size: 16px; }
 main.doc ul { padding-inline-start: 22px; margin: 0 0 12px; }
 main.doc .date { color: var(--muted); text-align: center; font-size: 14px; }

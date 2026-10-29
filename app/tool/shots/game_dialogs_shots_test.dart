@@ -112,7 +112,7 @@ List<Map<String, dynamic>> _log() => [
   {'type': 'gameOver', 'round': 3, 'winner': 'loyal', 'reason': 'loyalPolicies'},
 ];
 
-/// أحداث أندر: فيتو، قاضي، تحقيق، تلصص، فوضى، انتخاب خاص، حارس.
+/// أحداث أندر: النقض، قاضي، تحقيق، تلصص، فوضى، انتخاب خاص، حارس.
 List<Map<String, dynamic>> _logRare() => [
   {'type': 'nominated', 'round': 4, 'president': 'jood', 'chancellor': 'badr'},
   {

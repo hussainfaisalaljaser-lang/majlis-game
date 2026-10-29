@@ -179,7 +179,7 @@ class _HowToPlayScreenState extends State<HowToPlayScreen> {
         ('التلصص', 'الاطلاع على القرارات الثلاثة القادمة.', AppColors.gold),
         ('الانتخاب الخاص', 'يختار الرئيس من يكون الرئيس القادم.', AppColors.gold),
         (
-          'حق الفيتو',
+          'حق النقض',
           'بعد ٥ قرارات حمراء، يطلب الوزير رفض القرارين، وإذا وافق الرئيس تُلغى الحكومة وتنتقل الرئاسة للاعب التالي.',
           AppColors.gold,
         ),
@@ -862,7 +862,7 @@ class _DetectArt extends StatelessWidget {
   }
 }
 
-/// قدرات الرئيس، والفيتو.
+/// قدرات الرئيس، والنقض.
 class _PowersArt extends StatelessWidget {
   const _PowersArt();
 
@@ -896,7 +896,7 @@ class _PowersArt extends StatelessWidget {
         ),
         Row(
           mainAxisSize: MainAxisSize.min,
-          children: [tile(powerIcon[Power.specialElection]!, powerName[Power.specialElection]!), tile('hand', 'فيتو')],
+          children: [tile(powerIcon[Power.specialElection]!, powerName[Power.specialElection]!), tile('hand', 'النقض')],
         ),
       ],
     );

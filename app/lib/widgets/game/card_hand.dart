@@ -47,7 +47,7 @@ class CardHand extends StatefulWidget {
   final String verb;
   final HandTarget target;
 
-  /// جنب الكروت (طلب الفيتو أو زر تمام).
+  /// جنب الكروت (طلب النقض أو زر تمام).
   final Widget? extra;
 
   @override

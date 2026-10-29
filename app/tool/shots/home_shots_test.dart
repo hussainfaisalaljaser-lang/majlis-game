@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:majlis/screens/home_screen.dart';
+import 'package:majlis/screens/mode_screen.dart';
 import 'package:majlis/widgets/splash.dart';
 
 import 'shot_helper.dart';
@@ -29,6 +30,12 @@ void main() {
       act: (t) => t.tap(find.bySemanticsLabel(RegExp('القائمة'))),
     );
     semantics.dispose();
+  });
+
+  // اختيار الطور بعد «العب الآن»
+  testWidgets('mode screen', (tester) async {
+    await shot(tester, 'mode', const ModeScreen());
+    await shot(tester, 'mode_small', const ModeScreen(), size: const Size(800, 360));
   });
 
   testWidgets('splash', (tester) async {

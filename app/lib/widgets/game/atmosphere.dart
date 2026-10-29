@@ -3,78 +3,33 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../services/sounds.dart';
 import '../design_game.dart' show Stage;
 import '../fx.dart';
+import '../venues.dart' show Venue;
 
-/// جو الطاولة: ليل صحراء هادئ، أو عاصفة رمل، أو مطر وبرق. يتغير من طاولة لطاولة، واللاعب يقدر يثبّت واحد أو يطفيه.
-enum AtmoKind { night, sand, rain }
-
-/// اللي يختاره اللاعب في الإعدادات.
-enum AtmoChoice {
-  auto('تلقائي', 'يتغير من طاولة لطاولة'),
-  night('ليل صحراء', 'نجوم ونيزك وشرار من النار'),
-  sand('عاصفة رمل', 'ريح وغبار وتعتيم دافي'),
-  rain('مطر وبرق', 'مطر وبرق وإضاءة باردة'),
-  off('بدون جو', 'الطاولة بدون مؤثرات');
-
-  const AtmoChoice(this.label, this.hint);
-
-  final String label, hint;
-}
+/// جو الطاولة: كل مستوى طاولة له جو خفيف يناسبه. الطاولات الخاصة ليل هادئ.
+/// مبتدئ: ليل صحراء وريح رمل خفيفة · المدينة: مطر وبرق خفيف · القصر: غبار ذهبي وأشعة · الملوك: شرر ذهبي ولمعة · النخبة: شفق أرجواني.
+enum AtmoKind { night, desert, city, palace, kings, vip }
 
 abstract final class Atmosphere {
-  static const _key = 'table_atmo';
-
-  /// اختيار اللاعب (يتحفظ في الجوال).
-  static final choice = ValueNotifier<AtmoChoice>(AtmoChoice.auto);
-
-  static Future<void> init() async {
-    try {
-      final i = (await SharedPreferences.getInstance()).getInt(_key);
-      if (i != null && i >= 0 && i < AtmoChoice.values.length) choice.value = AtmoChoice.values[i];
-    } catch (_) {}
-  }
-
-  static Future<void> setChoice(AtmoChoice c) async {
-    choice.value = c;
-    try {
-      (await SharedPreferences.getInstance()).setInt(_key, c.index);
-    } catch (_) {}
-  }
-
-  /// الجو اللي يبان في طاولة رمزها [code]، أو null لو مطفي. التلقائي يطلع نفسه لكل اللاعبين في نفس الطاولة.
-  static AtmoKind? kindFor(String code, AtmoChoice c) => switch (c) {
-    AtmoChoice.off => null,
-    AtmoChoice.night => AtmoKind.night,
-    AtmoChoice.sand => AtmoKind.sand,
-    AtmoChoice.rain => AtmoKind.rain,
-    AtmoChoice.auto => byCode(code),
+  static AtmoKind kindFor(Venue v) => switch (v) {
+    Venue.majlis => AtmoKind.night,
+    Venue.desert => AtmoKind.desert,
+    Venue.city => AtmoKind.city,
+    Venue.palace => AtmoKind.palace,
+    Venue.kings => AtmoKind.kings,
+    Venue.vip => AtmoKind.vip,
   };
-
-  /// أغلب الطاولات ليل هادئ، وأحياناً عاصفة رمل أو مطر.
-  static AtmoKind byCode(String code) {
-    var h = 0;
-    for (final u in code.codeUnits) {
-      h = (h * 31 + u) & 0x7fffffff;
-    }
-    final r = h % 100;
-    return r < 55
-        ? AtmoKind.night
-        : r < 80
-        ? AtmoKind.sand
-        : AtmoKind.rain;
-  }
 }
 
-/// طبقة الجو. الخلفية ([front] false) ترسم اللي وراء الطاولة (النجوم والشرار)، والأمامية الطقس فوقها (مطر، رمل، برق).
+/// طبقة الجو. الخلفية ([front] false) ترسم اللي وراء الطاولة (النجوم والشفق)، والأمامية الطقس والغبار فوقها.
 /// تنطفي لما تكون «حركات خفيفة» شغالة.
 class TableAtmosphere extends StatefulWidget {
-  const TableAtmosphere({super.key, required this.code, this.front = false, this.safe = EdgeInsets.zero});
+  const TableAtmosphere({super.key, required this.venue, this.front = false, this.safe = EdgeInsets.zero});
 
-  final String code;
+  final Venue venue;
   final bool front;
   final EdgeInsets safe;
 
@@ -94,28 +49,23 @@ class _TableAtmosphereState extends State<TableAtmosphere> with SingleTickerProv
   @override
   Widget build(BuildContext context) => ValueListenableBuilder(
     valueListenable: FxClock.lite,
-    builder: (context, lite, _) => lite
-        ? const SizedBox.shrink()
-        : ValueListenableBuilder(
-            valueListenable: Atmosphere.choice,
-            builder: (context, choice, _) {
-              final kind = Atmosphere.kindFor(widget.code, choice);
-              if (kind == null) return const SizedBox.shrink();
-              return IgnorePointer(
-                child: RepaintBoundary(
-                  child: FxClock(
-                    builder: (context, time) => Stack(
-                      fit: StackFit.expand,
-                      children: [
-                        CustomPaint(painter: _AtmoPainter(kind, time, _fade, widget.front, widget.safe)),
-                        if (widget.front && kind == AtmoKind.rain) _ThunderSound(time: time),
-                      ],
-                    ),
-                  ),
-                ),
-              );
-            },
+    builder: (context, lite, _) {
+      if (lite) return const SizedBox.shrink();
+      final kind = Atmosphere.kindFor(widget.venue);
+      return IgnorePointer(
+        child: RepaintBoundary(
+          child: FxClock(
+            builder: (context, time) => Stack(
+              fit: StackFit.expand,
+              children: [
+                CustomPaint(painter: _AtmoPainter(kind, time, _fade, widget.front, widget.safe)),
+                if (widget.front && kind == AtmoKind.city) _ThunderSound(time: time),
+              ],
+            ),
           ),
+        ),
+      );
+    },
   );
 }
 
@@ -209,10 +159,16 @@ class _AtmoPainter extends CustomPainter {
     switch (kind) {
       case AtmoKind.night:
         front ? _nightFront(canvas, e, t, a) : _nightBack(canvas, e, t, a);
-      case AtmoKind.sand:
-        if (front) _sand(canvas, e, t, a);
-      case AtmoKind.rain:
-        if (front) _rain(canvas, e, t, a);
+      case AtmoKind.desert:
+        front ? _sand(canvas, e, t, a * .55) : _nightBack(canvas, e, t, a);
+      case AtmoKind.city:
+        if (front) _rain(canvas, e, t, a * .8);
+      case AtmoKind.palace:
+        if (front) _palace(canvas, e, t, a);
+      case AtmoKind.kings:
+        if (front) _kings(canvas, e, t, a);
+      case AtmoKind.vip:
+        front ? _vipFront(canvas, e, t, a) : _vipBack(canvas, e, t, a);
     }
     canvas.restore();
   }
@@ -228,8 +184,8 @@ class _AtmoPainter extends CustomPainter {
     );
   }
 
-  /// وراء الطاولة: النجوم تلمع على نفس مواقع نجوم الخلفية، ونيزك، وقمر ينبض، وشرار عالي من النار.
-  void _nightBack(Canvas c, _Ext e, double t, double a) {
+  /// النجوم تلمع على نفس مواقع نجوم الخلفية (venues.dart → _stars).
+  void _stars(Canvas c, _Ext e, double t, double a) {
     final w = e.r - e.l;
     // نفس مواقع نجوم الخلفية (venues.dart → _stars) فتلمع هي نفسها
     for (var i = 0; i < 90; i += 2) {
@@ -248,6 +204,12 @@ class _AtmoPainter extends CustomPainter {
         c.drawLine(o - Offset(0, l), o + Offset(0, l), _p);
       }
     }
+  }
+
+  /// وراء الطاولة: النجوم تلمع على نفس مواقع نجوم الخلفية، ونيزك، وقمر ينبض، وشرار عالي من النار.
+  void _nightBack(Canvas c, _Ext e, double t, double a) {
+    final w = e.r - e.l;
+    _stars(c, e, t, a);
     // القمر ينبض
     _glow(c, _moon, 190, const Color(0xFFFFE9A8), (.16 + .06 * math.sin(t * 1.3)) * a);
     // نيزك كل ٣٫٦ ثانية
@@ -458,6 +420,135 @@ class _AtmoPainter extends CustomPainter {
             ..color = Colors.white.withValues(alpha: _c01(f * a)),
         );
       }
+    }
+  }
+
+  /// قصر: أشعة ضو ناعمة مائلة، وغبار ذهبي يطلع ويلمع.
+  void _palace(Canvas c, _Ext e, double t, double a) {
+    final w = e.r - e.l, h = e.b - e.t;
+    for (var k = 0; k < 3; k++) {
+      final x = e.l + (.16 + .3 * k) * w + math.sin(t * .35 + k * 2.1) * 40;
+      final path = Path()
+        ..moveTo(x, e.t)
+        ..lineTo(x + 170, e.t)
+        ..lineTo(x + 440, e.t + h * .78)
+        ..lineTo(x + 150, e.t + h * .78)
+        ..close();
+      c.drawPath(
+        path,
+        Paint()
+          ..shader = ui.Gradient.linear(Offset(x, e.t), Offset(x + 290, e.t + h * .78), [
+            const Color(0xFFFFE2A0).withValues(alpha: (.09 + .03 * math.sin(t * .8 + k)) * a),
+            const Color(0x00FFE2A0),
+          ]),
+      );
+    }
+    for (var i = 0; i < 46; i++) {
+      final x = e.l + ((rnd(i, 71) + math.sin(t * .3 + i) * .02) % 1) * w;
+      final y = e.t + (1 - ((rnd(i, 72) + t * (.012 + .02 * rnd(i, 73))) % 1)) * h;
+      final tw = .5 + .5 * math.sin(t * 2 + i);
+      c.drawCircle(
+        Offset(x, y),
+        2 + 3 * rnd(i, 74),
+        Paint()
+          ..blendMode = BlendMode.plus
+          ..color = const Color(0xFFFFD36A).withValues(alpha: (.15 + .35 * tw) * a),
+      );
+    }
+  }
+
+  /// الملوك: شرر ذهبي يطلع من تحت، ولمعة تمر بالشاشة كل ٩ ثواني.
+  void _kings(Canvas c, _Ext e, double t, double a) {
+    final w = e.r - e.l, h = e.b - e.t;
+    for (var i = 0; i < 34; i++) {
+      final pr = (t * (.07 + .1 * rnd(i, 81)) + rnd(i, 82)) % 1;
+      final x = e.l + rnd(i, 83) * w + math.sin(pr * 8 + i) * 34;
+      final y = e.b - pr * h * .95;
+      final al = math.sin(math.pi * pr) * a;
+      final sz = 2.4 + 3.4 * rnd(i, 84);
+      final col = Color.lerp(const Color(0xFFFFE9A0), const Color(0xFFFFB02E), rnd(i, 85))!;
+      c.drawCircle(
+        Offset(x, y),
+        sz * 3.2,
+        Paint()
+          ..blendMode = BlendMode.plus
+          ..color = col.withValues(alpha: .16 * al),
+      );
+      c.drawCircle(Offset(x, y), sz, _p..color = col.withValues(alpha: .9 * al));
+    }
+    final sp = (t % 9) / 2.6;
+    if (sp < 1) {
+      final x = _lerp(e.l - 400, e.r + 200, sp);
+      final f = math.sin(math.pi * sp);
+      final band = Path()
+        ..moveTo(x, e.t)
+        ..lineTo(x + 130, e.t)
+        ..lineTo(x - 90, e.b)
+        ..lineTo(x - 220, e.b)
+        ..close();
+      c.drawPath(
+        band,
+        Paint()
+          ..blendMode = BlendMode.plus
+          ..shader = ui.Gradient.linear(
+            Offset(x - 60, e.t),
+            Offset(x + 60, e.t),
+            [const Color(0x00FFE9A0), const Color(0xFFFFE9A0).withValues(alpha: .13 * f * a), const Color(0x00FFE9A0)],
+            const [0, .5, 1],
+          ),
+      );
+    }
+  }
+
+  /// النخبة (وراء الطاولة): نجوم تلمع وشفق بنفسجي وذهبي يتموج في السما.
+  void _vipBack(Canvas c, _Ext e, double t, double a) {
+    _stars(c, e, t, a);
+    final w = e.r - e.l;
+    for (var k = 0; k < 3; k++) {
+      final top = Path();
+      final low = <Offset>[];
+      for (var x = 0.0; x <= w; x += 40) {
+        final yy = 215 + 46 * k + math.sin(x * .004 + t * (.32 + .1 * k) + k * 1.7) * 36;
+        final th = 60 + 22 * math.sin(x * .006 + t * .5 + k);
+        if (x == 0) {
+          top.moveTo(e.l, yy);
+        } else {
+          top.lineTo(e.l + x, yy);
+        }
+        low.add(Offset(e.l + x, yy + th));
+      }
+      for (final o in low.reversed) {
+        top.lineTo(o.dx, o.dy);
+      }
+      top.close();
+      final col = k.isEven ? const Color(0xFFA77BFF) : const Color(0xFFFFC85A);
+      c.drawPath(
+        top,
+        Paint()
+          ..shader = ui.Gradient.linear(Offset(0, 200.0 + 46 * k), Offset(0, 330.0 + 46 * k), [
+            col.withValues(alpha: .26 * a),
+            col.withValues(alpha: 0),
+          ]),
+      );
+    }
+  }
+
+  /// النخبة (فوق الطاولة): لون بنفسجي خفيف ولمعات بنفسجية وذهبية تطير.
+  void _vipFront(Canvas c, _Ext e, double t, double a) {
+    final w = e.r - e.l, h = e.b - e.t;
+    c.drawRect(Rect.fromLTRB(e.l, e.t, e.r, e.b), _p..color = const Color(0xFF3A1A6E).withValues(alpha: .08 * a));
+    for (var i = 0; i < 26; i++) {
+      final x = e.l + ((rnd(i, 91) + math.sin(t * .4 + i) * .015) % 1) * w;
+      final y = e.t + (1 - ((rnd(i, 92) + t * (.01 + .018 * rnd(i, 93))) % 1)) * h;
+      final tw = .5 + .5 * math.sin(t * 2.4 + i * 1.3);
+      final col = i.isEven ? const Color(0xFFC9A8FF) : const Color(0xFFFFD36A);
+      c.drawCircle(
+        Offset(x, y),
+        2 + 2.6 * rnd(i, 94),
+        Paint()
+          ..blendMode = BlendMode.plus
+          ..color = col.withValues(alpha: (.12 + .34 * tw) * a),
+      );
     }
   }
 

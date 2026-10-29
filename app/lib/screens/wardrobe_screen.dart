@@ -26,7 +26,7 @@ const _tabs = [
   (icon: 'sticker', name: 'الملصقات', slot: ShopSlot.reactions, shop: ShopScreen.stickersTab),
   (icon: 'table', name: 'الطاولات', slot: ShopSlot.table, shop: 4),
   (icon: 'cards', name: 'الكروت', slot: ShopSlot.cards, shop: 5),
-  (icon: 'death', name: 'تأثير الموت', slot: ShopSlot.death, shop: ShopScreen.deathsTab),
+  (icon: 'death', name: 'الطرد', slot: ShopSlot.death, shop: ShopScreen.deathsTab),
 ];
 
 /// غرفة التبديل: كل اللي تملكه بمكان واحد (الإطارات، الشخصيات، الفقاعات، الملصقات، الطاولات، الكروت، تأثير الموت)،

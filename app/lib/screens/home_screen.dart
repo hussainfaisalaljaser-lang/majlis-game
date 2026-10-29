@@ -2,7 +2,6 @@ import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/events.dart';
 import '../models/leaderboard.dart';
@@ -18,7 +17,6 @@ import '../widgets/design.dart';
 import '../widgets/design_icons.dart';
 import '../widgets/fx.dart';
 import '../widgets/gifts.dart';
-import '../widgets/mode_theme.dart';
 import '../widgets/reward_fly.dart';
 import '../widgets/ui.dart';
 import '../widgets/volume_panel.dart';
@@ -26,18 +24,18 @@ import '../widgets/weekend.dart';
 import 'clans_screen.dart';
 import 'friends_screen.dart';
 import 'how_to_play_screen.dart';
+import 'mode_screen.dart';
 import 'leaderboard_screen.dart';
 import 'missions_screen.dart';
 import 'pass_screen.dart';
 import 'private_screen.dart';
 import 'profile_screen.dart';
 import 'shop_screen.dart';
-import 'tables_screen.dart';
 import 'tournament_screen.dart';
 import 'wardrobe_screen.dart';
 
 /// الرئيسية (مثل التصميم): فوق اسمك وفلوسك، وعلى اليمين شخصيتك وزر «العب» والطور،
-/// وعلى اليسار الروم الخاص على المخمل وتحته كروت الديوان والموسم والمتجر.
+/// وعلى اليسار «خاص» على المخمل وتحته كروت الديوان والموسم والمتجر.
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
@@ -46,33 +44,8 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  static const _modeKey = 'last_mode_roles';
-
-  /// الطور اللي بيلعبه (عشوائي أو خاص). يتذكر آخر اختيار.
-  ModeTheme _mode = ModeTheme.classic;
-
   /// أماكن الرصيد وصورتك ولوح مستواك (منها وإليها تطير المكافأة بعد اللعبة).
   final _pillKey = GlobalKey(), _meKey = GlobalKey(), _plankKey = GlobalKey();
-
-  @override
-  void initState() {
-    super.initState();
-    _loadMode();
-  }
-
-  Future<void> _loadMode() async {
-    try {
-      final roles = (await SharedPreferences.getInstance()).getBool(_modeKey) ?? false;
-      if (mounted) setState(() => _mode = roles ? ModeTheme.advanced : ModeTheme.classic);
-    } catch (_) {}
-  }
-
-  Future<void> _setMode(ModeTheme mode) async {
-    setState(() => _mode = mode);
-    try {
-      await (await SharedPreferences.getInstance()).setBool(_modeKey, mode.roles);
-    } catch (_) {}
-  }
 
   void _push(Widget page) => Navigator.of(context).push(MaterialPageRoute(builder: (_) => page));
 
@@ -155,9 +128,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             flex: 7,
                             child: _Hero(
                               meKey: _meKey,
-                              mode: _mode,
-                              onMode: _setMode,
-                              onPlay: () => _play(() => _push(TablesScreen(mode: _mode))),
+                              onPlay: () => _play(() => _push(const ModeScreen())),
                               onWardrobe: () => _push(const WardrobeScreen()),
                             ),
                           ),
@@ -170,7 +141,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                 Expanded(
                                   flex: 3,
                                   child: _PrivatePanel(
-                                    onCreate: () => _play(() => _push(PrivateScreen(mode: _mode))),
+                                    onCreate: () => _play(() => _push(const ModeScreen(private: true))),
                                     onCode: () => _play(() => joinRoomByCode(context)),
                                     onFriends: () => _push(FriendsScreen.forProfile(Backend.instance.profile.value)),
                                   ),
@@ -364,7 +335,6 @@ class _Header extends StatelessWidget {
                 ),
               ),
             ),
-            const GoldTitle('مجلس الخونة', size: 33),
             Expanded(
               child: FittedBox(
                 fit: BoxFit.scaleDown,
@@ -652,8 +622,6 @@ class _Dot extends StatelessWidget {
 /// شخصيتك وزر «العب» (أونلاين مع ناس من كل مكان)، وتحته الطور.
 class _Hero extends StatelessWidget {
   const _Hero({
-    required this.mode,
-    required this.onMode,
     required this.onPlay,
     required this.onWardrobe,
     required this.meKey,
@@ -661,8 +629,6 @@ class _Hero extends StatelessWidget {
 
   /// صورتك: منها تطلع عملات المكافأة.
   final GlobalKey meKey;
-  final ModeTheme mode;
-  final ValueChanged<ModeTheme> onMode;
   final VoidCallback onPlay;
   final VoidCallback onWardrobe;
 
@@ -687,7 +653,7 @@ class _Hero extends StatelessWidget {
                   children: [
                     SizedBox(
                       width: box.maxWidth * .82,
-                      child: GameButton(label: 'العب', semantics: 'العب الحين', height: 74, fontSize: 40, onPressed: onPlay),
+                      child: GameButton(label: 'العب الآن', semantics: 'العب الآن', height: 74, fontSize: 36, onPressed: onPlay),
                     ),
                     // نهاية الأسبوع: الذهب مضاعف.
                     SizedBox(
@@ -703,7 +669,6 @@ class _Hero extends StatelessWidget {
                         ),
                       ),
                     ),
-                    SizedBox(width: box.maxWidth * .76, child: _ModeToggle(mode: mode, onChanged: onMode)),
                   ],
                 ),
               ),
@@ -746,14 +711,27 @@ class _Me extends StatelessWidget {
                       bottom: -glow,
                       child: const IgnorePointer(child: _HeroGlow()),
                     ),
-                    // تضغط على نفسك: غرفة التبديل (كل اللي تملكه بمكان واحد).
+                    // تضغط على نفسك: غرفة التبديل (كل اللي تملكه بمكان واحد). علامة المشجب ثابتة تدل على كذا.
                     Semantics(
                       button: true,
                       label: 'غرفة التبديل',
                       excludeSemantics: true,
                       child: GestureDetector(
                         onTap: onWardrobe,
-                        child: GoldRingAvatar(avatar: p.avatar, style: frameStyle(p.frame), size: av, gems: true),
+                        child: Stack(
+                          clipBehavior: Clip.none,
+                          children: [
+                            GoldRingAvatar(avatar: p.avatar, style: frameStyle(p.frame), size: av, gems: true),
+                            PositionedDirectional(
+                              bottom: av * .02,
+                              start: -av * .04,
+                              child: GoldCircle(
+                                size: math.max(30, av * .3),
+                                child: CustomPaint(size: Size.square(math.max(18, av * .19)), painter: const _HangerPainter()),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ],
@@ -769,30 +747,39 @@ class _Me extends StatelessWidget {
                 ),
               ],
             ),
-            PositionedDirectional(
-              top: 10,
-              start: 4,
-              child: Semantics(
-                button: true,
-                label: 'غرفة التبديل',
-                excludeSemantics: true,
-                child: GestureDetector(
-                  onTap: onWardrobe,
-                  child: const Column(
-                    children: [
-                      GoldCircle(size: 40, child: Gfx('cat_frame', size: 27)),
-                      SizedBox(height: 2),
-                      OutlinedText('غرفة\nالتبديل', size: 11.5, strokeWidth: 3, maxLines: 2),
-                    ],
-                  ),
-                ),
-              ),
-            ),
           ],
         );
       },
     ),
   );
+}
+
+/// علامة المشجب (غرفة التبديل): خطاف ومثلث، بحد غامق. ثابتة ما تتحرك.
+class _HangerPainter extends CustomPainter {
+  const _HangerPainter();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final w = size.width, h = size.height;
+    final p = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = w * .12
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round
+      ..color = const Color(0xFF3A1A05);
+    final path = Path()
+      ..moveTo(w * .5, h * .38)
+      ..lineTo(w * .5, h * .3)
+      ..cubicTo(w * .5, h * .12, w * .66, h * .1, w * .66, h * .22)
+      ..moveTo(w * .5, h * .38)
+      ..lineTo(w * .06, h * .84)
+      ..lineTo(w * .94, h * .84)
+      ..close();
+    canvas.drawPath(path, p);
+  }
+
+  @override
+  bool shouldRepaint(_HangerPainter old) => false;
 }
 
 class _HeroGlow extends StatelessWidget {
@@ -848,69 +835,7 @@ class _RaysPainter extends CustomPainter {
   bool shouldRepaint(_RaysPainter old) => false;
 }
 
-/// اختيار الطور: الكلاسيكي أو المطوّر (للعشوائي والخاص).
-class _ModeToggle extends StatelessWidget {
-  const _ModeToggle({required this.mode, required this.onChanged});
-
-  final ModeTheme mode;
-  final ValueChanged<ModeTheme> onChanged;
-
-  @override
-  Widget build(BuildContext context) => Container(
-    height: 42,
-    padding: const EdgeInsets.all(3),
-    decoration: BoxDecoration(
-      color: const Color(0xFF1A0F08).withValues(alpha: .92),
-      borderRadius: BorderRadius.circular(20),
-      border: Border.all(color: const Color(0xFF5A3B22), width: 2),
-    ),
-    child: Row(
-      children: [
-        for (final m in const [ModeTheme.classic, ModeTheme.advanced])
-          Expanded(
-            child: Semantics(
-              button: true,
-              selected: m == mode,
-              label: 'الطور ${m.name}',
-              excludeSemantics: true,
-              child: GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTap: () => onChanged(m),
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 180),
-                  alignment: Alignment.center,
-                  decoration: m == mode
-                      ? BoxDecoration(
-                          borderRadius: BorderRadius.circular(16),
-                          gradient: const LinearGradient(
-                            begin: Alignment.topCenter,
-                            end: Alignment.bottomCenter,
-                            colors: [Color(0xFFFFC266), Color(0xFFF08A1C), Color(0xFFC4610C)],
-                          ),
-                          border: Border.all(color: const Color(0xFF5A2C02), width: 1.5),
-                        )
-                      : null,
-                  child: m == mode
-                      ? OutlinedText(m.name, size: 15, stroke: const Color(0xFF5A2C02), strokeWidth: 3)
-                      : Text(
-                          m.name,
-                          style: const TextStyle(
-                            fontFamily: kufi,
-                            fontSize: 15,
-                            fontWeight: FontWeight.w700,
-                            color: Color(0xFFCDB590),
-                          ),
-                        ),
-                ),
-              ),
-            ),
-          ),
-      ],
-    ),
-  );
-}
-
-/// الروم الخاص على المخمل: تسوي روم لربعك (أو تدخل روم صاحبك بكوده)، وجنبه صور أصحابك.
+/// «خاص» على المخمل: تسوي طاولة لأصحابك (أو تدخل طاولة صاحبك برمزها)، وجنبه صور أصحابك.
 class _PrivatePanel extends StatelessWidget {
   const _PrivatePanel({required this.onCreate, required this.onCode, required this.onFriends});
 
@@ -933,10 +858,13 @@ class _PrivatePanel extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const GoldTitle('روم خاص', size: 38, align: TextAlign.start),
-                  const Text(
-                    'العب مع ربعك بس',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: Color(0xFFF6E2BC)),
+                  const GoldTitle('خاص', size: 38, align: TextAlign.start),
+                  const SizedBox(
+                    width: 230,
+                    child: Text(
+                      'العب مع أصحابك فقط، تقدر تضيف بوتات',
+                      style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: Color(0xFFF6E2BC), height: 1.3),
+                    ),
                   ),
                   const SizedBox(height: 18),
                   Row(

@@ -90,7 +90,7 @@ class _Cell extends StatelessWidget {
               child: BubbleArt(look: look, text: text, fontSize: fs, maxWidth: w - 10, time: t == null ? null : ValueNotifier(t!)),
             ),
           ),
-          Text(item.name, style: const TextStyle(fontFamily: 'Baloo', fontSize: 13, color: Color(0xFF3A2210), fontWeight: FontWeight.w800)),
+          Text(item.name, style: const TextStyle(fontFamily: 'ElMessiri', fontSize: 13, color: Color(0xFF3A2210), fontWeight: FontWeight.w800)),
           const SizedBox(height: 4),
         ],
       ),

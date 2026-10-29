@@ -752,7 +752,7 @@ class GameCardFace extends StatelessWidget {
     width: width,
     height: height,
     child: CustomPaint(
-      painter: GameCardPainter(kind: kind, stamp: stamp, colors: colors, glow: glow),
+      painter: GameCardPainter(kind: kind, stamp: stamp, colors: colors, glow: glow, drawMark: emblem == null),
       child: emblem == null
           ? null
           : Align(
@@ -770,12 +770,18 @@ class GameCardFace extends StatelessWidget {
 }
 
 class GameCardPainter extends CustomPainter {
-  const GameCardPainter({required this.kind, this.stamp, this.colors, this.glow = false});
+  const GameCardPainter({required this.kind, this.stamp, this.colors, this.glow = false, this.drawMark = true});
 
   final GameCardKind kind;
   final double? stamp;
   final (Color, Color, Color)? colors;
   final bool glow;
+
+  /// يرسم الرمز الأصلي (نجمة الأوفياء أو خنجر الخونة). يطفى لما الرمز من شكل كروت المتجر، عشان ما يتداخلون.
+  final bool drawMark;
+
+  /// كروت القرار (أوفياء وخونة) ورقة بيضاء نظيفة فيها الرمز بس. كومتا السحب والرمي ظهر الكرت بألوانه.
+  bool get _paper => kind == GameCardKind.loyal || kind == GameCardKind.traitor;
 
   /// (حافة الورق، جسم فوق، جسم تحت، لون الرمز).
   (Color, Color, Color, Color) get _palette => switch (kind) {
@@ -811,6 +817,11 @@ class GameCardPainter extends CustomPainter {
     }
     final seed = kind.index * 11 + 3;
     final rect = Offset.zero & size;
+    if (_paper) {
+      _paintPaper(canvas, size, u, top);
+      _paintMark(canvas, size, mark);
+      return;
+    }
     final outer = tornRect(rect.deflate(1.5 * u), 9 * u, 1.6 * u, seed);
     if (glow) {
       canvas.drawPath(
@@ -887,7 +898,56 @@ class GameCardPainter extends CustomPainter {
         ..strokeJoin = StrokeJoin.round
         ..color = const Color(0xFF2A1A10),
     );
-    // الرمز
+    _paintMark(canvas, size, mark);
+  }
+
+  /// ورقة بيضاء: ظل خفيف، وحد غامق، وإطار رفيع بلون الفريق (أزرق للأوفياء وأحمر للخونة).
+  void _paintPaper(Canvas canvas, Size size, double u, Color team) {
+    final rect = Offset.zero & size;
+    final rr = RRect.fromRectAndRadius(rect.deflate(1.5 * u), Radius.circular(10 * u));
+    if (glow) {
+      canvas.drawRRect(
+        rr,
+        Paint()
+          ..color = AppColors.gold.withValues(alpha: .8)
+          ..maskFilter = MaskFilter.blur(BlurStyle.normal, 10 * u),
+      );
+    }
+    canvas.drawRRect(
+      rr.shift(Offset(0, 3 * u)),
+      Paint()
+        ..color = Colors.black.withValues(alpha: .38)
+        ..maskFilter = MaskFilter.blur(BlurStyle.normal, 3.5 * u),
+    );
+    canvas.drawRRect(
+      rr,
+      Paint()
+        ..shader = const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFFFFFFFF), Color(0xFFF7F1E3)],
+        ).createShader(rect),
+    );
+    canvas.drawRRect(
+      rr.deflate(7 * u),
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.6 * u
+        ..color = team.withValues(alpha: .85),
+    );
+    canvas.drawRRect(
+      rr,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2.4 * u
+        ..color = const Color(0xFF2A1A10),
+    );
+  }
+
+  /// الرمز في نص الكرت (ونزوله من فوق في مشهد الختم).
+  void _paintMark(Canvas canvas, Size size, Color mark) {
+    if (!drawMark) return;
+    final w = size.width;
     final k = stamp ?? 1;
     if (k <= 0) return;
     canvas.save();
@@ -898,10 +958,12 @@ class GameCardPainter extends CustomPainter {
     final layer = k < 1 ? Rect.fromCenter(center: Offset.zero, width: w * 2, height: w * 2) : null;
     if (layer != null) canvas.saveLayer(layer, Paint()..color = Color.fromRGBO(255, 255, 255, k));
     switch (kind) {
-      case GameCardKind.loyal || GameCardKind.draw:
+      case GameCardKind.loyal:
+        paintCompassStar(canvas, w * .36, const Color(0xFF3F6DB3), const Color(0xFF1B2F63));
+      case GameCardKind.draw:
         paintCompassStar(canvas, w * .36, mark, const Color(0xFF3D2A0A));
       case GameCardKind.traitor:
-        paintCompassStar(canvas, w * .36, const Color(0xFF8E1A14), const Color(0xFF3B0A08), inner: false);
+        paintCompassStar(canvas, w * .36, const Color(0xFFC0382A), const Color(0xFF3B0A08), inner: false);
         paintDagger(canvas, w * .46);
       case GameCardKind.discard:
         paintCrest(canvas, w * .3, mark);
@@ -912,7 +974,7 @@ class GameCardPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(GameCardPainter old) =>
-      old.kind != kind || old.stamp != stamp || old.glow != glow || old.colors != colors;
+      old.kind != kind || old.stamp != stamp || old.glow != glow || old.colors != colors || old.drawMark != drawMark;
 }
 
 /// نجمة بوصلة ثمانية (رمز كرت الأوفياء): الرؤوس الأربعة الرئيسية أطول من الباقي.

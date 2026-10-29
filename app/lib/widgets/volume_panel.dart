@@ -122,6 +122,18 @@ class _VolumeRow extends StatelessWidget {
   /// [save] صح لما يفلت اللاعب الشريط.
   final void Function(double value, {required bool save}) onChanged;
 
+  /// المستوى قبل الكتم، عشان ضغطة ثانية ترجّعه.
+  static final _before = <ValueNotifier<double>, double>{};
+
+  void _toggleMute(double v) {
+    if (v > 0) {
+      _before[level] = v;
+      onChanged(0, save: true);
+    } else {
+      onChanged(_before[level] ?? .5, save: true);
+    }
+  }
+
   @override
   Widget build(BuildContext context) => ValueListenableBuilder(
     valueListenable: level,
@@ -129,8 +141,18 @@ class _VolumeRow extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
         children: [
-          Gfx(v <= 0 ? offIcon : icon, size: 30),
-          const SizedBox(width: 10),
+          // ضغطة الأيقونة تكتم، وضغطة ثانية ترجّع المستوى اللي كان
+          Semantics(
+            button: true,
+            label: v <= 0 ? 'شغّل $label' : 'اكتم $label',
+            excludeSemantics: true,
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: () => _toggleMute(v),
+              child: Padding(padding: const EdgeInsets.all(4), child: Gfx(v <= 0 ? offIcon : icon, size: 30)),
+            ),
+          ),
+          const SizedBox(width: 6),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,

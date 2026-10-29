@@ -1,16 +1,72 @@
+import 'dart:async';
+import 'dart:math' as math;
 import 'dart:ui' as ui;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../theme.dart';
 import 'design.dart';
+import 'fx.dart';
 
-/// شاشة الافتتاح (مثل أول الفيديو): اسم اللعبة بالذهب على خلفية الخيمة المطموسة، وخط زخرفي تحته.
-/// [loading]: دائرة تحميل صغيرة تحت (لما ننتظر السيرفر).
-class SplashView extends StatelessWidget {
+/// جمل تطلع تحت شريط التحميل، كل مرة وحدة عشوائية وتتبدل وهم ينتظرون: نصايح، وكلام عن المجلس، ومزح خفيفة.
+const loadingLines = [
+  // نصايح
+  'الخاين دايم يقول «أنا بريء» أول',
+  'راقب مين يصوّت ضد مين، التصويت يفضح',
+  'لو صرت رئيس، اختر وزيرك بعناية',
+  'الأوفياء أكثر، بس الخونة يعرفون بعض',
+  'لا تكشف دورك بدري',
+  'ثلاث حكومات فاشلة ورا بعض، وتتمرر أول ورقة تلقائياً',
+  'لو صار الزعيم وزير بعد ثلاث قرارات حمرا، يفوز الخونة',
+  'اضغط على أي لاعب تشوف ملفه',
+  'الملصقات تعبّر عنك أسرع من الكلام',
+  'جرّب الطور المطوّر: العرّاف والحارس والقاضي',
+  // المجلس
+  'نفرش السجادة ونعلّق الفوانيس…',
+  'القهوة جاهزة… والخاين بينكم',
+  'المجلس ما يكمل إلا بأصحابك',
+  'نجهّز الكروت ونخلطها…',
+  // مزح
+  'اللي يضحك أول، يمكن هو الخاين',
+  'اسأل نفسك: مين اللي ما تكلم؟',
+  'ثقتك غالية، لا تعطيها بسرعة',
+  'ما كل واحد يبتسم صديق',
+  'الخاين بينك وبين أقرب صاحب',
+];
+
+/// شاشة الافتتاح والتحميل: أيقونة اللعبة تطفو، واسمها بالذهب، وشريط تعبئة، وتحتها جملة عشوائية تتبدل.
+/// [loading]: الشريط والجملة (لما ننتظر السيرفر).
+class SplashView extends StatefulWidget {
   const SplashView({super.key, this.loading = true});
 
   final bool loading;
+
+  @override
+  State<SplashView> createState() => _SplashViewState();
+}
+
+class _SplashViewState extends State<SplashView> {
+  final _rng = math.Random();
+  late int _line = _rng.nextInt(loadingLines.length);
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.loading) {
+      _timer = Timer.periodic(const Duration(milliseconds: 3200), (_) {
+        if (!mounted) return;
+        setState(() => _line = (_line + 1 + _rng.nextInt(loadingLines.length - 1)) % loadingLines.length);
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -25,41 +81,77 @@ class SplashView extends StatelessWidget {
           ),
           const DecoratedBox(
             decoration: BoxDecoration(
-              gradient: RadialGradient(
-                radius: 1.1,
-                colors: [Color(0x00160A05), Color(0xB3160A05)],
-                stops: [.35, 1],
-              ),
+              gradient: RadialGradient(radius: 1.1, colors: [Color(0x00160A05), Color(0xCC160A05)], stops: [.3, 1]),
             ),
           ),
-          // ضو دافي ورا العنوان
-          const Center(
-            child: SizedBox(
-              width: 460,
-              height: 300,
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  gradient: RadialGradient(colors: [Color(0x66FFC85A), Color(0x00FFC85A)]),
+          // جمر وغبار ذهبي يطلع بشويش
+          RepaintBoundary(
+            child: FxClock(builder: (context, time) => CustomPaint(painter: _EmberPainter(time))),
+          ),
+          LayoutBuilder(
+            builder: (context, box) {
+              final s = (box.maxHeight / 540).clamp(.55, 1.35);
+              return Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // الأيقونة تطفو وتنبض عيونها (ضو ذهبي وراها)
+                    FxClock(
+                      builder: (context, time) => ValueListenableBuilder<double>(
+                        valueListenable: time,
+                        builder: (context, t, _) => Transform.translate(
+                          offset: Offset(0, math.sin(t * 1.3) * 5 * s),
+                          child: Container(
+                            width: 150 * s,
+                            height: 150 * s,
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(34 * s),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: const Color(0xFFFFC85A).withValues(alpha: .28 + .14 * math.sin(t * 2)),
+                                  blurRadius: 34 * s,
+                                  spreadRadius: 2,
+                                ),
+                              ],
+                            ),
+                            child: Image.asset('assets/logo.png', width: 150 * s, height: 150 * s),
+                          ),
+                        ),
+                      ),
+                    ),
+                    SizedBox(height: 14 * s),
+                    FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: GoldTitle('مجلس الخونة', size: 60 * s),
+                    ),
+                    SizedBox(height: 16 * s),
+                    if (widget.loading) ...[
+                      _Bar(width: 260 * s, height: 12 * s),
+                      SizedBox(height: 14 * s),
+                      SizedBox(
+                        height: 44 * s,
+                        width: math.min(box.maxWidth - 40, 460),
+                        child: AnimatedSwitcher(
+                          duration: const Duration(milliseconds: 500),
+                          child: Text(
+                            loadingLines[_line],
+                            key: ValueKey(_line),
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 16 * s,
+                              fontWeight: FontWeight.w700,
+                              color: const Color(0xFFF6E2BC),
+                              height: 1.4,
+                              shadows: const [Shadow(color: Color(0xCC000000), blurRadius: 4)],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
-              ),
-            ),
-          ),
-          Center(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const FittedBox(fit: BoxFit.scaleDown, child: GoldTitle('مجلس الخونة', size: 82)),
-                const SizedBox(height: 4),
-                const _Divider(),
-                SizedBox(height: loading ? 22 : 0),
-                if (loading)
-                  const SizedBox(
-                    width: 26,
-                    height: 26,
-                    child: CircularProgressIndicator(strokeWidth: 3, color: AppColors.gold),
-                  ),
-              ],
-            ),
+              );
+            },
           ),
         ],
       ),
@@ -67,55 +159,91 @@ class SplashView extends StatelessWidget {
   }
 }
 
-/// خط بني بنص منه معين ذهبي.
-class _Divider extends StatelessWidget {
-  const _Divider();
+/// شريط تعبئة ذهبي بلمعة تمر عليه (ما يعرف النسبة، يدل بس إننا نحمّل).
+class _Bar extends StatelessWidget {
+  const _Bar({required this.width, required this.height});
+
+  final double width, height;
 
   @override
-  Widget build(BuildContext context) => SizedBox(
-    width: 280,
-    height: 16,
-    child: CustomPaint(painter: _DividerPainter()),
+  Widget build(BuildContext context) => FxClock(
+    builder: (context, time) => ValueListenableBuilder<double>(
+      valueListenable: time,
+      builder: (context, t, _) {
+        final p = (t * .55) % 1;
+        return Container(
+          width: width,
+          height: height,
+          padding: EdgeInsets.all(height * .16),
+          decoration: BoxDecoration(
+            color: const Color(0xFF1A0F08),
+            borderRadius: BorderRadius.circular(height),
+            border: Border.all(color: const Color(0xFF5A3B22), width: height * .22),
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(height),
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                const DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: goldRingColors,
+                    ),
+                  ),
+                ),
+                Align(
+                  alignment: Alignment(-1.6 + 3.2 * p, 0),
+                  child: FractionallySizedBox(
+                    widthFactor: .3,
+                    heightFactor: 1,
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [
+                            Colors.white.withValues(alpha: 0),
+                            Colors.white.withValues(alpha: .7),
+                            Colors.white.withValues(alpha: 0),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    ),
   );
 }
 
-class _DividerPainter extends CustomPainter {
+class _EmberPainter extends CustomPainter {
+  _EmberPainter(this.time) : super(repaint: time);
+
+  final ValueListenable<double> time;
+
   @override
   void paint(Canvas canvas, Size size) {
-    final c = size.center(Offset.zero);
-    canvas.drawLine(
-      Offset(0, c.dy),
-      Offset(size.width, c.dy),
-      Paint()
-        ..strokeWidth = 3
-        ..strokeCap = StrokeCap.round
-        ..color = const Color(0xFF4A2A12),
-    );
-    final d = Path()
-      ..moveTo(c.dx, c.dy - 7)
-      ..lineTo(c.dx + 7, c.dy)
-      ..lineTo(c.dx, c.dy + 7)
-      ..lineTo(c.dx - 7, c.dy)
-      ..close();
-    canvas.drawPath(
-      d,
-      Paint()
-        ..shader = const LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: goldRingColors,
-        ).createShader(Rect.fromCenter(center: c, width: 14, height: 14)),
-    );
-    canvas.drawPath(
-      d,
-      Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 2
-        ..strokeJoin = StrokeJoin.round
-        ..color = const Color(0xFF4A2A12),
-    );
+    final t = time.value;
+    final p = Paint()..maskFilter = const MaskFilter.blur(BlurStyle.normal, 1.6);
+    for (var i = 0; i < 34; i++) {
+      final speed = .04 + rnd(i, 1) * .06;
+      final u = (t * speed + rnd(i, 2)) % 1;
+      final x = rnd(i, 3) * size.width + math.sin(t * (.5 + rnd(i, 4)) + i) * 16;
+      final y = size.height * (1.04 - u * 1.08);
+      p.color = Color.lerp(
+        const Color(0xFFFFD27A),
+        const Color(0xFFFF7A2A),
+        rnd(i, 7),
+      )!.withValues(alpha: math.sin(u * math.pi) * (.35 + .4 * rnd(i, 5)));
+      canvas.drawCircle(Offset(x, y), 1.4 + rnd(i, 6) * 2.4, p);
+    }
   }
 
   @override
-  bool shouldRepaint(_DividerPainter old) => false;
+  bool shouldRepaint(_EmberPainter old) => false;
 }
