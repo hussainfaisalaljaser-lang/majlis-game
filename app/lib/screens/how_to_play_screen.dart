@@ -10,8 +10,10 @@ import '../theme.dart';
 import '../widgets/bubble.dart';
 import '../widgets/common.dart';
 import '../widgets/game/policy_card.dart';
+import '../widgets/design.dart';
+import '../widgets/design_social.dart';
 import '../widgets/game/tracks.dart';
-import '../widgets/ui.dart';
+import '../widgets/ui.dart' show LeaderSeal, Seal;
 import 'game_screen.dart';
 
 /// مكافأة أول لعبة شرح (نفس functions/src/economy.ts → TUTORIAL_REWARD).
@@ -24,17 +26,18 @@ Future<void> startTutorialGame(BuildContext context, {bool replace = false}) asy
   if (!backend.isReady) return;
   final navigator = Navigator.of(context);
   final messenger = ScaffoldMessenger.of(context);
-  showDialog<void>(
-    context: context,
-    barrierDismissible: false,
-    builder: (_) => const AlertDialog(
-      content: Row(
-        children: [
-          CircularProgressIndicator(color: AppColors.gold),
-          SizedBox(width: 16),
-          Text('نجهّز مجلس الشرح…'),
-        ],
-      ),
+  showSocDialog<void>(
+    context,
+    title: 'الشرح',
+    width: 380,
+    dismissible: false,
+    builder: (_) => const Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        CircularProgressIndicator(color: AppColors.goldDark),
+        SizedBox(width: 16),
+        SocPopupText('نجهّز مجلس الشرح…'),
+      ],
     ),
   );
   try {
@@ -215,35 +218,34 @@ class _HowToPlayScreenState extends State<HowToPlayScreen> {
 
   /// يتخطى الشرح الإجباري بعد ما يأكد (يعرف يلعب، أو حساب جديد على جوال جديد).
   Future<void> _skip() async {
-    final sure = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('تتخطى الشرح؟'),
-        content: Text(
-          'الشرح يعلّمك اللعبة في كم دقيقة، ولما تخلص لعبة الشرح تاخذ ${arabicNumber(tutorialReward)} ذهب.\n'
-          'تخطّه بس إذا تعرف تلعب (مثلاً نقلت لجوال جديد أو سوّيت حساب جديد).',
-          style: const TextStyle(height: 1.6),
-        ),
-        actions: [
-          Row(
+    final sure = await showSocDialog<bool>(
+      context,
+      title: 'تتخطى الشرح؟',
+      width: 480,
+      builder: (context) => Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SocPopupText(
+            'الشرح يعلّمك اللعبة في كم دقيقة، ولما تخلص لعبة الشرح تاخذ ${arabicNumber(tutorialReward)} ذهب.\n'
+            'تخطّه بس إذا تعرف تلعب (مثلاً نقلت لجوال جديد أو سوّيت حساب جديد).',
+            size: 14.5,
+          ),
+          const SizedBox(height: 14),
+          SocActions(
             children: [
-              Expanded(
-                child: GameButton(
-                  label: 'تخطّي',
-                  tone: ButtonTone.ghost,
-                  height: 44,
-                  fontSize: 15,
-                  onPressed: () => Navigator.pop(context, true),
-                ),
+              SocButton(
+                label: 'تخطّي',
+                tone: SocTone.grey,
+                height: 44,
+                fontSize: 16,
+                onPressed: () => Navigator.pop(context, true),
               ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: GameButton(
-                  label: 'أكمل الشرح',
-                  height: 44,
-                  fontSize: 15,
-                  onPressed: () => Navigator.pop(context, false),
-                ),
+              SocButton(
+                label: 'أكمل الشرح',
+                tone: SocTone.green,
+                height: 44,
+                fontSize: 16,
+                onPressed: () => Navigator.pop(context, false),
               ),
             ],
           ),
@@ -271,135 +273,134 @@ class _HowToPlayScreenState extends State<HowToPlayScreen> {
       onPopInvokedWithResult: (didPop, _) {
         if (!didPop) _skip();
       },
-      child: NightScaffold(
-        body: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 10),
-            child: Column(
-              children: [
-                Row(
-                  children: [
-                    const Gfx('guide', size: 34),
-                    const SizedBox(width: 8),
-                    GoldText(onboarding ? 'أهلاً في المجلس!' : 'كيف ألعب؟', size: 24),
-                    if (onboarding) ...[
-                      const SizedBox(width: 12),
-                      Flexible(
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(12),
-                            color: Colors.black.withValues(alpha: .3),
-                            border: Border.all(color: AppColors.gold.withValues(alpha: .4)),
-                          ),
-                          child: Text(
+      child: WoodWall(
+        child: Scaffold(
+          backgroundColor: Colors.transparent,
+          body: SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(12, 4, 12, 8),
+              child: Column(
+                children: [
+                  Row(
+                    children: [
+                      const Gfx('guide', size: 34),
+                      const SizedBox(width: 8),
+                      GoldTitle(onboarding ? 'أهلاً في المجلس!' : 'كيف ألعب؟', size: 26),
+                      if (onboarding) ...[
+                        const SizedBox(width: 12),
+                        Flexible(
+                          child: SocChip(
                             last ? 'الخطوة ٢ من ٢: لعبة تجريبية مع البوتات' : 'الخطوة ١ من ٢: تعلّم القوانين',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(color: AppColors.gold, fontSize: 12.5, fontWeight: FontWeight.w800),
+                            kind: SocChipKind.gold,
                           ),
                         ),
+                      ],
+                      const Spacer(),
+                      if (onboarding)
+                        SocButton(label: 'تخطّي الشرح', tone: SocTone.grey, height: 34, fontSize: 14, onPressed: _skip)
+                      else
+                        SocButton(
+                          label: 'إغلاق',
+                          tone: SocTone.red,
+                          icon: const Gfx('cross', size: 20),
+                          height: 34,
+                          fontSize: 14,
+                          onPressed: () => Navigator.of(context).maybePop(),
+                        ),
+                    ],
+                  ),
+                  Expanded(
+                    child: PageView(
+                      controller: _pages,
+                      onPageChanged: (i) {
+                        setState(() => _page = i);
+                        _say(i);
+                      },
+                      children: [for (final s in _slides) _SlideView(slide: s)],
+                    ),
+                  ),
+                  Row(
+                    children: [
+                      SizedBox(
+                        width: 130,
+                        child: _page == 0
+                            ? null
+                            : SocButton(
+                                label: 'السابق',
+                                tone: SocTone.grey,
+                                height: 42,
+                                fontSize: 16,
+                                onPressed: () => _go(_page - 1),
+                              ),
+                      ),
+                      Expanded(
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            for (var i = 0; i < _slides.length; i++)
+                              AnimatedContainer(
+                                duration: const Duration(milliseconds: 250),
+                                margin: const EdgeInsets.symmetric(horizontal: 3),
+                                width: i == _page ? 24 : 9,
+                                height: 9,
+                                decoration: BoxDecoration(
+                                  color: i == _page ? const Color(0xFFF2B33E) : const Color(0xFF3A231B),
+                                  border: Border.all(color: const Color(0xFF160B06), width: 1.6),
+                                  borderRadius: BorderRadius.circular(5),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                      SizedBox(
+                        width: last ? 230 : 130,
+                        child: last
+                            ? SocButton(
+                                label: 'يالله نجرّب!',
+                                semantics: 'ابدأ لعبة الشرح',
+                                icon: const Gfx('games', size: 26),
+                                tone: SocTone.green,
+                                height: 44,
+                                fontSize: 18,
+                                onPressed: () {
+                                  Sfx.hush();
+                                  startTutorialGame(context, replace: onboarding);
+                                },
+                              )
+                            : SocButton(
+                                label: 'التالي',
+                                tone: SocTone.orange,
+                                height: 42,
+                                fontSize: 17,
+                                onPressed: () => _go(_page + 1),
+                              ),
                       ),
                     ],
-                    const Spacer(),
-                    if (onboarding)
-                      TextButton(
-                        onPressed: _skip,
-                        child: const Text(
-                          'تخطّي الشرح',
-                          style: TextStyle(color: AppColors.muted, fontWeight: FontWeight.w700),
-                        ),
-                      )
-                    else
-                      TextButton.icon(
-                        onPressed: () => Navigator.of(context).maybePop(),
-                        icon: const Gfx('cross', size: 22),
-                        label: const Text(
-                          'إغلاق',
-                          style: TextStyle(color: AppColors.muted, fontWeight: FontWeight.w700),
-                        ),
-                      ),
-                  ],
-                ),
-                Expanded(
-                  child: PageView(
-                    controller: _pages,
-                    onPageChanged: (i) {
-                      setState(() => _page = i);
-                      _say(i);
-                    },
-                    children: [for (final s in _slides) _SlideView(slide: s)],
                   ),
-                ),
-                Row(
-                  children: [
-                    SizedBox(
-                      width: 130,
-                      child: _page == 0
-                          ? null
-                          : GameButton(
-                              label: 'السابق',
-                              tone: ButtonTone.ghost,
-                              height: 44,
-                              fontSize: 15,
-                              onPressed: () => _go(_page - 1),
-                            ),
-                    ),
-                    Expanded(
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          for (var i = 0; i < _slides.length; i++)
-                            AnimatedContainer(
-                              duration: const Duration(milliseconds: 250),
-                              margin: const EdgeInsets.symmetric(horizontal: 3),
-                              width: i == _page ? 22 : 8,
-                              height: 8,
-                              decoration: BoxDecoration(
-                                color: i == _page ? AppColors.gold : AppColors.line,
-                                borderRadius: BorderRadius.circular(4),
+                  ValueListenableBuilder(
+                    valueListenable: Backend.instance.profile,
+                    builder: (context, p, _) => AnimatedSize(
+                      duration: const Duration(milliseconds: 200),
+                      child: last && !p.tutorialDone
+                          ? Padding(
+                              padding: const EdgeInsets.only(top: 4),
+                              child: Amount(
+                                'coin',
+                                'خلّص لعبة الشرح وخذ ${arabicNumber(tutorialReward)} ذهب',
+                                size: 18,
+                                style: const TextStyle(
+                                  color: socGoldHi,
+                                  fontFamily: kufi,
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 14,
+                                ),
                               ),
-                            ),
-                        ],
-                      ),
-                    ),
-                    SizedBox(
-                      width: last ? 230 : 130,
-                      child: last
-                          ? GameButton(
-                              label: 'يالله نجرّب!',
-                              semantics: 'ابدأ لعبة الشرح',
-                              icon: const Gfx('games', size: 26),
-                              tone: ButtonTone.green,
-                              height: 44,
-                              fontSize: 16,
-                              onPressed: () {
-                                Sfx.hush();
-                                startTutorialGame(context, replace: onboarding);
-                              },
                             )
-                          : GameButton(label: 'التالي', height: 44, fontSize: 15, onPressed: () => _go(_page + 1)),
+                          : const SizedBox(width: double.infinity),
                     ),
-                  ],
-                ),
-                ValueListenableBuilder(
-                  valueListenable: Backend.instance.profile,
-                  builder: (context, p, _) => AnimatedSize(
-                    duration: const Duration(milliseconds: 200),
-                    child: last && !p.tutorialDone
-                        ? Padding(
-                            padding: const EdgeInsets.only(top: 6),
-                            child: Amount(
-                              'coin',
-                              'خلّص لعبة الشرح وخذ ${arabicNumber(tutorialReward)} ذهب',
-                              size: 18,
-                              style: const TextStyle(color: AppColors.gold, fontWeight: FontWeight.w800, fontSize: 13),
-                            ),
-                          )
-                        : const SizedBox(width: double.infinity),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
@@ -413,7 +414,13 @@ class _SlideView extends StatelessWidget {
 
   final _Slide slide;
 
-  static const _text = TextStyle(fontSize: 15, height: 1.6, fontWeight: FontWeight.w700);
+  static const _text = TextStyle(
+    fontFamily: kufi,
+    fontSize: 15.5,
+    height: 1.6,
+    fontWeight: FontWeight.w700,
+    color: socCream,
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -423,16 +430,7 @@ class _SlideView extends StatelessWidget {
         children: [
           Expanded(
             flex: 5,
-            child: Container(
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(24),
-                gradient: const RadialGradient(
-                  center: Alignment(0, -.3),
-                  radius: 1.1,
-                  colors: [Color(0xFF4A3394), Color(0xFF1E1645)],
-                ),
-                border: Border.all(color: AppColors.gold.withValues(alpha: .4), width: 2),
-              ),
+            child: VelvetPanel(
               padding: const EdgeInsets.all(12),
               child: Center(child: FittedBox(child: slide.art)),
             ),
@@ -447,7 +445,7 @@ class _SlideView extends StatelessWidget {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    GoldText(slide.title, size: 24, align: TextAlign.start),
+                    GoldTitle(slide.title, size: 26, align: TextAlign.start),
                     const SizedBox(height: 8),
                     if (slide.body.isNotEmpty) Text(slide.body, style: _text),
                     for (final (label, text, color) in slide.points)
@@ -480,25 +478,23 @@ class _SlideView extends StatelessWidget {
                         ),
                       ),
                     if (slide.note case final note?)
-                      Container(
-                        margin: const EdgeInsets.only(top: 10),
-                        padding: const EdgeInsets.fromLTRB(10, 6, 12, 6),
-                        decoration: BoxDecoration(
-                          color: AppColors.gold.withValues(alpha: .12),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: AppColors.gold.withValues(alpha: .6)),
-                        ),
-                        child: Row(
-                          children: [
-                            const Gfx('warning', size: 24),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                note,
-                                style: _text.copyWith(color: AppColors.gold, fontWeight: FontWeight.w800),
+                      Padding(
+                        padding: const EdgeInsets.only(top: 10),
+                        child: SocCard(
+                          gold: true,
+                          padding: const EdgeInsets.fromLTRB(10, 6, 12, 6),
+                          child: Row(
+                            children: [
+                              const Gfx('warning', size: 24),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  note,
+                                  style: _text.copyWith(color: socGoldHi, fontWeight: FontWeight.w800),
+                                ),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
                       ),
                     const SizedBox(height: 10),
@@ -542,7 +538,7 @@ class _Replay extends StatelessWidget {
               const SizedBox(width: 4),
               Text(
                 muted ? 'شغّل صوت الراوي' : 'اسمعها مرة ثانية',
-                style: const TextStyle(color: AppColors.muted, fontSize: 12.5, fontWeight: FontWeight.w700),
+                style: const TextStyle(color: socMuted, fontSize: 13, fontFamily: kufi, fontWeight: FontWeight.w700),
               ),
             ],
           ),

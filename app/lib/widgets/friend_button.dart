@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../services/backend.dart';
 import 'common.dart';
-import 'ui.dart';
+import 'design_social.dart';
 
 void _toast(BuildContext context, String text) =>
     ScaffoldMessenger.maybeOf(context)?.showSnackBar(SnackBar(content: Text(text)));
@@ -35,38 +35,8 @@ class _FriendButtonState extends State<FriendButton> {
 
   /// صديقك: الضغط يسألك تشيله من أصدقائك.
   Future<void> _remove(Backend backend) async {
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text('تشيل ${widget.name} من أصدقائك؟', textAlign: TextAlign.center),
-        actions: [
-          Row(
-            children: [
-              Expanded(
-                child: GameButton(
-                  label: 'لا',
-                  tone: ButtonTone.ghost,
-                  height: 44,
-                  fontSize: 15,
-                  onPressed: () => Navigator.pop(context, false),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: GameButton(
-                  label: 'شيله',
-                  tone: ButtonTone.red,
-                  height: 44,
-                  fontSize: 15,
-                  onPressed: () => Navigator.pop(context, true),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-    if (ok == true && mounted) await _run(() => backend.removeFriend(widget.uid));
+    final ok = await socConfirm(context, title: 'تشيل ${widget.name} من أصدقائك؟', yes: 'شيله', danger: true);
+    if (ok && mounted) await _run(() => backend.removeFriend(widget.uid));
   }
 
   @override
@@ -77,12 +47,12 @@ class _FriendButtonState extends State<FriendButton> {
       builder: (context, p, _) {
         if (widget.uid == backend.uid) return const SizedBox.shrink();
         final (label, icon, tone, action) = p.friends.contains(widget.uid)
-            ? ('صديقك', 'check', ButtonTone.ghost, () => _remove(backend))
+            ? ('صديقك', 'check', SocTone.grey, () => _remove(backend))
             : p.friendReqs.containsKey(widget.uid)
             ? (
                 'قبول الصداقة',
                 'friends',
-                ButtonTone.green,
+                SocTone.green,
                 () => _run(() async {
                   final messenger = ScaffoldMessenger.maybeOf(context);
                   await backend.friendRespond(widget.uid, true);
@@ -90,11 +60,11 @@ class _FriendButtonState extends State<FriendButton> {
                 }),
               )
             : p.sentReqs.contains(widget.uid)
-            ? ('انرسل الطلب', 'hourglass', ButtonTone.ghost, null)
+            ? ('انرسل الطلب', 'hourglass', SocTone.grey, null)
             : (
                 'أضف صديق',
                 'addfriend',
-                ButtonTone.green,
+                SocTone.green,
                 () => _run(() async {
                   final messenger = ScaffoldMessenger.maybeOf(context);
                   final status = await backend.friendRequest(widget.uid);
@@ -102,16 +72,14 @@ class _FriendButtonState extends State<FriendButton> {
                   messenger?.showSnackBar(SnackBar(content: Text(text)));
                 }),
               );
-        return SizedBox(
+        return SocButton(
+          label: label,
+          icon: Gfx(icon, size: 20),
+          tone: tone,
           width: widget.width,
-          child: GameButton(
-            label: label,
-            icon: Gfx(icon, size: 22),
-            tone: tone,
-            height: 42,
-            fontSize: 14,
-            onPressed: _busy ? null : action,
-          ),
+          height: 40,
+          fontSize: 15,
+          onPressed: _busy ? null : action,
         );
       },
     );

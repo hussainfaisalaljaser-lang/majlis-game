@@ -12,14 +12,16 @@ import '../services/backend.dart';
 import '../theme.dart';
 import '../widgets/clan_crest.dart';
 import '../widgets/common.dart';
+import '../widgets/design.dart';
+import '../widgets/design_social.dart';
 import '../widgets/friend_button.dart';
 import '../widgets/pid.dart';
 import '../widgets/player_card.dart';
-import '../widgets/ui.dart';
 import 'chat_screen.dart';
 import 'game_screen.dart';
+import 'waiting_screen.dart';
 
-/// الأصدقاء: قائمتك، ومحادثاتك، والطلبات اللي وصلتك، وتضيف أحد برمزه.
+/// الأصدقاء: قائمتك، ومحادثاتك، والطلبات اللي وصلتك، وتضيف أحد برمزه. المحادثة تنفتح جنب القائمة.
 class FriendsScreen extends StatefulWidget {
   const FriendsScreen({super.key, this.tab = friendsTab});
 
@@ -31,6 +33,7 @@ class FriendsScreen extends StatefulWidget {
           ? chatsTab
           : friendsTab;
 
+  /// [addTab]: يفتح نافذة «أضف صديق بالكود» على طول.
   static const friendsTab = 0, chatsTab = 1, requestsTab = 2, addTab = 3;
 
   final int tab;
@@ -39,8 +42,28 @@ class FriendsScreen extends StatefulWidget {
   State<FriendsScreen> createState() => _FriendsScreenState();
 }
 
+/// المحادثة المفتوحة جنب القائمة: صاحب، أو الديوان.
+typedef _OpenChat = ({ChatFriend? friend, ClanTag? clan});
+
 class _FriendsScreenState extends State<FriendsScreen> {
   final _backend = Backend.instance;
+  late int _tab = widget.tab == FriendsScreen.addTab ? FriendsScreen.friendsTab : widget.tab;
+  _OpenChat? _open;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.tab == FriendsScreen.addTab) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) showAddFriend(context);
+      });
+    }
+  }
+
+  void _openFriend(String uid, LeaderboardEntry? e) {
+    if (e == null) return;
+    setState(() => _open = (friend: (uid: uid, name: e.name, avatar: e.avatar, frame: e.frame), clan: null));
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -48,40 +71,46 @@ class _FriendsScreenState extends State<FriendsScreen> {
       valueListenable: _backend.profile,
       builder: (context, p, _) {
         final reqs = p.friendReqs.entries.toList()..sort((a, b) => b.value.compareTo(a.value));
-        return DefaultTabController(
-          length: 4,
-          initialIndex: widget.tab,
-          child: NightScaffold(
-            appBar: AppBar(
-              title: const Row(children: [Gfx('friends', size: 30), SizedBox(width: 8), Text('الأصدقاء')]),
-              bottom: TabBar(
-                tabs: [
-                  Tab(text: p.friends.isEmpty ? 'أصدقائي' : 'أصدقائي (${arabicNumber(p.friends.length)})'),
-                  Tab(text: p.unreadDms == 0 ? 'الدردشات' : 'الدردشات (${arabicNumber(p.unreadDms)})'),
-                  Tab(text: reqs.isEmpty ? 'الطلبات' : 'الطلبات (${arabicNumber(reqs.length)})'),
-                  const Tab(text: 'أضف صديق'),
-                ],
-              ),
+        final open = _open;
+        final selected = open?.friend?.uid;
+        return SocScaffold(
+          title: 'الأصدقاء',
+          icon: SocAvatar(avatar: p.avatar, style: frameStyle(p.frame), size: 26),
+          body: SocTwoPanels(
+            main: FriendsPanelView(
+              tab: _tab,
+              onTab: (t) => setState(() => _tab = t),
+              chatsBadge: p.unreadDms,
+              requestsBadge: reqs.length,
+              onAdd: () => showAddFriend(context),
+              child: switch (_tab) {
+                FriendsScreen.chatsTab => _ChatsList(
+                  profile: p,
+                  selected: open?.clan != null ? 'clan' : selected,
+                  onFriend: _openFriend,
+                  onClan: (tag) => setState(() => _open = (friend: null, clan: tag)),
+                ),
+                FriendsScreen.requestsTab =>
+                  reqs.isEmpty
+                      ? const FriendsEmpty(icon: 'invite', text: 'ما فيه طلبات صداقة')
+                      : ListView(
+                          padding: const EdgeInsets.only(top: 6),
+                          children: [for (final r in reqs) _RequestRow(uid: r.key)],
+                        ),
+                _ =>
+                  p.friends.isEmpty
+                      ? FriendsEmpty(
+                          icon: 'friends',
+                          text: 'ما عندك أصدقاء للحين.\nضيفهم برمزهم من «أضف صديق بالكود»، أو من بطاقة أي لاعب في الطاولة.',
+                        )
+                      : _FriendsList(uids: p.friends, unread: p.dmUnread, selected: selected, onOpen: _openFriend),
+              },
             ),
-            body: TabBarView(
-              children: [
-                p.friends.isEmpty
-                    ? _Empty(
-                        icon: 'friends',
-                        text: 'ما عندك أصدقاء للحين.\nضيفهم برمزهم من «أضف صديق»، أو من بطاقة أي لاعب في الطاولة.',
-                        action: ('أضف صديق', () => DefaultTabController.of(context).animateTo(FriendsScreen.addTab)),
-                      )
-                    : _FriendsList(uids: p.friends, unread: p.dmUnread),
-                _ChatsList(profile: p),
-                reqs.isEmpty
-                    ? const _Empty(icon: 'invite', text: 'ما فيه طلبات صداقة')
-                    : ListView(
-                        padding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
-                        children: [for (final r in reqs) _RequestRow(uid: r.key)],
-                      ),
-                const _AddFriend(),
-              ],
-            ),
+            side: switch (open) {
+              (friend: final f?, clan: _) => ChatPanel.friend(key: ValueKey('dm_${f.uid}'), friend: f),
+              (friend: _, clan: final c?) => ChatPanel.clan(key: ValueKey('clan_${c.id}'), clan: c),
+              _ => const ChatPlaceholder(),
+            },
           ),
         );
       },
@@ -89,30 +118,109 @@ class _FriendsScreenState extends State<FriendsScreen> {
   }
 }
 
-class _Empty extends StatelessWidget {
-  const _Empty({required this.icon, required this.text, this.action});
-
-  final String icon;
-  final String text;
-  final (String, VoidCallback)? action;
+/// مكان المحادثة لما ما فيه محادثة مفتوحة.
+class ChatPlaceholder extends StatelessWidget {
+  const ChatPlaceholder({super.key});
 
   @override
-  Widget build(BuildContext context) => Center(
+  Widget build(BuildContext context) => const WoodPanel(
+    child: Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Opacity(opacity: .75, child: Gfx('chat', size: 64)),
+          SizedBox(height: 10),
+          Text(
+            'اختر صاحب من القائمة وسولف معه',
+            style: TextStyle(color: socMuted, fontFamily: kufi, fontWeight: FontWeight.w700, fontSize: 16),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
+/// لوحة الأصدقاء (مخمل): تبويبات، والمحتوى، وزر «أضف صديق بالكود» تحت (في تبويب الأصدقاء).
+/// ما تلمس السيرفر (تنشاف بالتصوير ببيانات تجريبية).
+class FriendsPanelView extends StatelessWidget {
+  const FriendsPanelView({
+    super.key,
+    required this.tab,
+    required this.onTab,
+    required this.chatsBadge,
+    required this.requestsBadge,
+    required this.onAdd,
+    required this.child,
+  });
+
+  final int tab;
+  final ValueChanged<int> onTab;
+  final int chatsBadge;
+  final int requestsBadge;
+  final VoidCallback onAdd;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => VelvetPanel(
+    padding: const EdgeInsets.fromLTRB(18, 14, 18, 12),
     child: Column(
-      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Opacity(opacity: .8, child: Gfx(icon, size: 64)),
-        const SizedBox(height: 10),
-        Text(
-          text,
-          textAlign: TextAlign.center,
-          style: const TextStyle(color: AppColors.muted, height: 1.6),
+        Padding(
+          padding: const EdgeInsets.only(top: 4),
+          child: LayoutBuilder(
+            builder: (context, box) {
+              // التبويبات بعرض ثابت (١٢٠) وتضيق لو الشاشة صغيرة.
+              final w = ((box.maxWidth - 16) / 3).clamp(60.0, 120.0);
+              return Row(
+                children: [
+                  SizedBox(
+                    width: w,
+                    child: SocTabPill(
+                      label: 'الأصدقاء',
+                      selected: tab == FriendsScreen.friendsTab,
+                      onTap: () => onTab(FriendsScreen.friendsTab),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  SizedBox(
+                    width: w,
+                    child: SocTabPill(
+                      label: 'الدردشات',
+                      selected: tab == FriendsScreen.chatsTab,
+                      badge: chatsBadge,
+                      onTap: () => onTab(FriendsScreen.chatsTab),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  SizedBox(
+                    width: w,
+                    child: SocTabPill(
+                      label: 'الطلبات',
+                      selected: tab == FriendsScreen.requestsTab,
+                      badge: requestsBadge,
+                      onTap: () => onTab(FriendsScreen.requestsTab),
+                    ),
+                  ),
+                ],
+              );
+            },
+          ),
         ),
-        if (action case (final label, final onTap)) ...[
-          const SizedBox(height: 12),
-          SizedBox(
-            width: 200,
-            child: GameButton(label: label, height: 44, fontSize: 15, onPressed: onTap),
+        const SizedBox(height: 8),
+        Expanded(child: child),
+        if (tab == FriendsScreen.friendsTab) ...[
+          const SizedBox(height: 6),
+          Center(
+            child: SocButton(
+              label: 'أضف صديق بالكود',
+              tone: SocTone.orange,
+              height: 46,
+              fontSize: 21,
+              width: 250,
+              semantics: 'أضف صديق بالكود',
+              onPressed: onAdd,
+            ),
           ),
         ],
       ],
@@ -120,126 +228,126 @@ class _Empty extends StatelessWidget {
   );
 }
 
-/// سطر لاعب: صورته واسمه ومستواه ورمزه، والضغط يفتح بطاقته. [trailing] أزرار على الطرف.
-class _PlayerRow extends StatelessWidget {
-  const _PlayerRow({
-    required this.uid,
-    required this.entry,
-    this.trailing = const [],
-    this.playing = false,
-    this.status,
-    this.online,
-  });
+class FriendsEmpty extends StatelessWidget {
+  const FriendsEmpty({super.key, required this.icon, required this.text});
 
-  final String uid;
-  final LeaderboardEntry? entry;
-  final List<Widget> trailing;
-
-  /// يلعب الحين (نقطة خضرا وسطر تحت اسمه).
-  final bool playing;
-
-  /// حالة الاتصال تحت اسمه (متصل، آخر ظهور…)، ونقطة على صورته: خضرا متصل، ورمادية لا (null: بدون نقطة).
-  final String? status;
-  final bool? online;
+  final String icon;
+  final String text;
 
   @override
-  Widget build(BuildContext context) {
-    final e = entry;
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Panel(
-        padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
-        child: Row(
-          children: [
-            Expanded(
-              child: Semantics(
-                button: true,
-                label: 'ملف ${e?.name ?? 'لاعب'}',
-                excludeSemantics: true,
-                child: InkWell(
-                  borderRadius: BorderRadius.circular(14),
-                  onTap: e == null
-                      ? null
-                      : () => showPlayerCard(context, uid: uid, name: e.name, avatar: e.avatar, frame: e.frame),
-                  child: Row(
-                    children: [
-                      Stack(
-                        clipBehavior: Clip.none,
-                        children: [
-                          PlayerAvatar(
-                            avatar: e?.avatar ?? 'masked',
-                            style: frameStyle(e?.frame),
-                            size: 46,
-                            animate: false,
-                          ),
-                          if (online != null)
-                            PositionedDirectional(
-                              bottom: 0,
-                              end: 0,
-                              child: Container(
-                                width: 14,
-                                height: 14,
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  color: online! ? AppColors.green : const Color(0xFF6B6785),
-                                  border: Border.all(color: AppColors.panel, width: 2.5),
-                                ),
-                              ),
-                            ),
-                        ],
-                      ),
-                      const SizedBox(width: 10),
-                      Flexible(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              e?.name ?? '…',
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15.5),
-                            ),
-                            if (e != null)
-                              Text(
-                                playing
-                                    ? 'يلعب الحين'
-                                    : status == null
-                                    ? 'مستوى ${arabicNumber(e.level)}'
-                                    : '$status · مستوى ${arabicNumber(e.level)}',
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                  color: playing || (online ?? false) ? AppColors.green : AppColors.muted,
-                                  fontSize: 12,
-                                  fontWeight: playing || (online ?? false) ? FontWeight.w800 : null,
-                                ),
-                              ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      if (e != null) PidBadge(pid: e.pid, tier: e.pidTier, size: 12, copy: false),
-                    ],
+  Widget build(BuildContext context) => Center(
+    child: Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Opacity(opacity: .8, child: Gfx(icon, size: 56)),
+        const SizedBox(height: 8),
+        Text(
+          text,
+          textAlign: TextAlign.center,
+          style: const TextStyle(
+            color: socMuted,
+            height: 1.6,
+            fontFamily: kufi,
+            fontWeight: FontWeight.w700,
+            fontSize: 14.5,
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+/// سطر صاحب: صورته بنقطة حالة، واسمه وحالته، والأزرار على الطرف. [selected] المحادثة المفتوحة (حد ذهبي).
+class FriendRowView extends StatelessWidget {
+  const FriendRowView({
+    super.key,
+    required this.name,
+    required this.avatar,
+    required this.status,
+    required this.dot,
+    this.statusColor = socMuted,
+    this.style,
+    this.unread = 0,
+    this.selected = false,
+    this.trailing = const [],
+    this.onTap,
+    this.onAvatar,
+  });
+
+  final String name;
+  final String avatar;
+  final FrameStyle? style;
+  final String status;
+  final Color statusColor;
+
+  /// نقطة الحالة على الصورة (null: بدون).
+  final Color? dot;
+  final int unread;
+  final bool selected;
+  final List<Widget> trailing;
+  final VoidCallback? onTap;
+  final VoidCallback? onAvatar;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.only(bottom: 6),
+    child: SocPlankRow(
+      selected: selected,
+      onTap: onTap,
+      semantics: 'محادثة $name',
+      padding: const EdgeInsets.fromLTRB(10, 5, 10, 5),
+      child: Row(
+        children: [
+          GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: onAvatar,
+            child: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                SocAvatar(avatar: avatar, style: style, size: 42, dot: dot),
+                if (unread > 0) PositionedDirectional(top: -4, start: -4, child: SocBadge(unread, size: 18)),
+              ],
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                OutlinedText(name, size: 19, maxLines: 1, align: TextAlign.start),
+                Text(
+                  status,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontFamily: kufi,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 13.5,
+                    color: statusColor,
+                    height: 1.15,
                   ),
                 ),
-              ),
+              ],
             ),
-            for (final t in trailing) Padding(padding: const EdgeInsetsDirectional.only(start: 8), child: t),
-          ],
-        ),
+          ),
+          for (final t in trailing) Padding(padding: const EdgeInsetsDirectional.only(start: 8), child: t),
+        ],
       ),
-    );
-  }
+    ),
+  );
 }
 
 /// أصحابي: المتصلين أول (واللي يلعبون بعدهم)، وبعدين غير المتصلين من آخر ظهور. الحالة تتحدث مباشرة.
 class _FriendsList extends StatefulWidget {
-  const _FriendsList({required this.uids, required this.unread});
+  const _FriendsList({required this.uids, required this.unread, required this.selected, required this.onOpen});
 
   final List<String> uids;
 
   /// رسائل ما قريتها من كل صاحب.
   final Map<String, int> unread;
+  final String? selected;
+  final void Function(String uid, LeaderboardEntry? e) onOpen;
 
   @override
   State<_FriendsList> createState() => _FriendsListState();
@@ -312,45 +420,130 @@ class _FriendsListState extends State<_FriendsList> {
         }
         return order[b]!.compareTo(order[a]!);
       });
-    final online = sorted.where(_online).toList();
-    final offline = sorted.where((u) => !_online(u)).toList();
-    Widget header(String text, int n, Color color) => Padding(
-      padding: const EdgeInsets.fromLTRB(4, 4, 4, 6),
-      child: Row(
-        children: [
-          Container(
-            width: 9,
-            height: 9,
-            decoration: BoxDecoration(shape: BoxShape.circle, color: color),
-          ),
-          const SizedBox(width: 6),
-          Text(
-            '$text (${arabicNumber(n)})',
-            style: TextStyle(color: color, fontWeight: FontWeight.w800, fontSize: 13),
-          ),
-        ],
-      ),
-    );
     return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
+      padding: const EdgeInsets.only(top: 6),
       children: [
-        if (online.isNotEmpty) header('متصلين الحين', online.length, AppColors.green),
-        for (final uid in online)
+        for (final uid in sorted)
           _FriendRow(
             key: ValueKey(uid),
             uid: uid,
             entry: _entries[uid],
             presence: _presence[uid],
             unread: widget.unread[uid] ?? 0,
+            selected: widget.selected == uid,
+            onOpen: () => widget.onOpen(uid, _entries[uid]),
           ),
-        if (offline.isNotEmpty) header('غير متصلين', offline.length, AppColors.muted),
-        for (final uid in offline)
-          _FriendRow(
-            key: ValueKey(uid),
-            uid: uid,
-            entry: _entries[uid],
-            presence: _presence[uid],
-            unread: widget.unread[uid] ?? 0,
+      ],
+    );
+  }
+}
+
+class _FriendRow extends StatefulWidget {
+  const _FriendRow({
+    super.key,
+    required this.uid,
+    required this.entry,
+    required this.presence,
+    required this.unread,
+    required this.selected,
+    required this.onOpen,
+  });
+
+  final String uid;
+  final LeaderboardEntry? entry;
+  final Presence? presence;
+  final int unread;
+  final bool selected;
+  final VoidCallback onOpen;
+
+  @override
+  State<_FriendRow> createState() => _FriendRowState();
+}
+
+class _FriendRowState extends State<_FriendRow> {
+  bool _busy = false;
+
+  /// تتفرج على لعبته وهي شغالة.
+  Future<void> _watch() async {
+    setState(() => _busy = true);
+    try {
+      final code = await Backend.instance.spectate(widget.uid);
+      if (mounted) {
+        await Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => GameScreen(code: code, watching: widget.uid),
+          ),
+        );
+      }
+    } on BackendException catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  /// ندعوه لروم خاص جديد (٥ لاعبين، الكلاسيكي): نسوي الروم ونرسل له الدعوة وندخل غرفة الانتظار.
+  Future<void> _invite() async {
+    setState(() => _busy = true);
+    final navigator = Navigator.of(context);
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      final code = await Backend.instance.createRoom(maxPlayers: 5);
+      await Backend.instance.inviteFriend(widget.uid, code);
+      navigator.push(MaterialPageRoute(builder: (_) => WaitingScreen(tier: null, playerCount: 5, code: code)));
+    } on BackendException catch (e) {
+      messenger.showSnackBar(SnackBar(content: Text(e.message)));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final e = widget.entry;
+    final playing = e?.playing ?? false;
+    final p = widget.presence;
+    final online = playing || (p?.online ?? false);
+    final (status, color) = playing
+        ? ('يلعب الحين', socOrangeText)
+        : online
+        ? ('متصل الحين', socGreenText)
+        : (p?.at == null ? 'غير متصل' : agoText(DateTime.now().difference(p!.at!)), socMuted);
+    return FriendRowView(
+      name: e?.name ?? '…',
+      avatar: e?.avatar ?? 'masked',
+      style: frameStyle(e?.frame),
+      status: status,
+      statusColor: color,
+      dot: playing
+          ? SocDot.playing
+          : online
+          ? SocDot.online
+          : SocDot.offline,
+      unread: widget.unread,
+      selected: widget.selected,
+      onTap: e == null ? null : widget.onOpen,
+      onAvatar: e == null
+          ? null
+          : () => showPlayerCard(context, uid: widget.uid, name: e.name, avatar: e.avatar, frame: e.frame),
+      trailing: [
+        if (playing)
+          SocButton(
+            label: _busy ? 'لحظة…' : 'تفرّج',
+            tone: SocTone.blue,
+            height: 36,
+            fontSize: 17,
+            width: 86,
+            onPressed: _busy ? null : _watch,
+          )
+        else if (online)
+          SocButton(
+            label: _busy ? 'لحظة…' : 'ادعُ',
+            tone: SocTone.green,
+            height: 36,
+            fontSize: 17,
+            width: 86,
+            onPressed: _busy || !Backend.instance.isReady ? null : _invite,
           ),
       ],
     );
@@ -360,9 +553,14 @@ class _FriendsListState extends State<_FriendsList> {
 /// محادثاتك: دردشة ديوانك (لو أنت في ديوان)، ومحادثاتك مع أصحابك (الأحدث فوق)، وكل وحدة فيها آخر رسالة
 /// ومتى، وكم رسالة ما قريتها.
 class _ChatsList extends StatefulWidget {
-  const _ChatsList({required this.profile});
+  const _ChatsList({required this.profile, required this.selected, required this.onFriend, required this.onClan});
 
   final Profile profile;
+
+  /// المفتوحة الحين: uid الصاحب أو 'clan'.
+  final String? selected;
+  final void Function(String uid, LeaderboardEntry? e) onFriend;
+  final ValueChanged<ClanTag> onClan;
 
   @override
   State<_ChatsList> createState() => _ChatsListState();
@@ -394,15 +592,16 @@ class _ChatsListState extends State<_ChatsList> {
     final uids = _uids;
     uids.forEach(_fetch);
     if (p.clan == null && uids.isEmpty) {
-      return const _Empty(
+      return const FriendsEmpty(
         icon: 'chat',
-        text: 'ما فيه محادثات للحين.\nابدأ دردشة مع أي صاحب من «أصدقائي»، أو ادخل ديوان وسولف مع ربعك.',
+        text: 'ما فيه محادثات للحين.\nابدأ دردشة مع أي صاحب من «الأصدقاء»، أو ادخل ديوان وسولف مع ربعك.',
       );
     }
     return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
+      padding: const EdgeInsets.only(top: 6),
       children: [
-        if (p.clan case final clan?) _ClanChatRow(clan: clan),
+        if (p.clan case final clan?)
+          _ClanChatRow(clan: clan, selected: widget.selected == 'clan', onTap: () => widget.onClan(clan)),
         for (final uid in uids)
           _ChatRow(
             key: ValueKey(uid),
@@ -411,6 +610,8 @@ class _ChatsListState extends State<_ChatsList> {
             last: p.dmLast[uid],
             unread: p.dmUnread[uid] ?? 0,
             me: Backend.instance.uid,
+            selected: widget.selected == uid,
+            onTap: () => widget.onFriend(uid, _entries[uid]),
           ),
       ],
     );
@@ -418,8 +619,9 @@ class _ChatsListState extends State<_ChatsList> {
 }
 
 /// سطر محادثة: الصورة والاسم، وآخر رسالة ومتى، وعدد اللي ما قريته.
-class _ChatTile extends StatelessWidget {
-  const _ChatTile({
+class ChatTileView extends StatelessWidget {
+  const ChatTileView({
+    super.key,
     required this.leading,
     required this.title,
     required this.preview,
@@ -428,6 +630,7 @@ class _ChatTile extends StatelessWidget {
     this.at,
     this.unread = 0,
     this.fresh = false,
+    this.selected = false,
   });
 
   final Widget leading;
@@ -441,98 +644,77 @@ class _ChatTile extends StatelessWidget {
 
   /// فيه جديد (دردشة الديوان ما تنعد، بس نعلّمها).
   final bool fresh;
+  final bool selected;
   final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     final hot = unread > 0 || fresh;
     final sticker = previewSticker == null ? null : stickerById(previewSticker!);
-    return Semantics(
-      button: true,
-      label: 'محادثة $title',
-      excludeSemantics: true,
-      child: Padding(
-        padding: const EdgeInsets.only(bottom: 8),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(16),
-          onTap: onTap,
-          child: Container(
-            padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
-            decoration: BoxDecoration(
-              color: hot ? AppColors.gold.withValues(alpha: .08) : AppColors.card,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: hot ? AppColors.gold.withValues(alpha: .5) : AppColors.line),
-            ),
-            child: Row(
-              children: [
-                leading,
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: SocPlankRow(
+        selected: selected,
+        onTap: onTap,
+        semantics: 'محادثة $title',
+        padding: const EdgeInsets.fromLTRB(10, 6, 12, 6),
+        child: Row(
+          children: [
+            leading,
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  OutlinedText(title, size: 18, maxLines: 1, align: TextAlign.start),
+                  Row(
                     children: [
-                      Text(
-                        title,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15),
-                      ),
-                      Row(
-                        children: [
-                          if (sticker != null) ...[
-                            Image.asset(sticker.asset, width: 22, height: 22, filterQuality: FilterQuality.medium),
-                            const SizedBox(width: 4),
-                          ],
-                          Flexible(
-                            child: Text(
-                              preview,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                color: hot ? AppColors.text : AppColors.muted,
-                                fontWeight: hot ? FontWeight.w800 : FontWeight.w600,
-                                fontSize: 13,
-                              ),
-                            ),
+                      if (sticker != null) ...[
+                        Image.asset(sticker.asset, width: 20, height: 20, filterQuality: FilterQuality.medium),
+                        const SizedBox(width: 4),
+                      ],
+                      Flexible(
+                        child: Text(
+                          preview,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: hot ? socCream : socMuted,
+                            fontFamily: kufi,
+                            fontWeight: hot ? FontWeight.w800 : FontWeight.w700,
+                            fontSize: 13.5,
+                            height: 1.2,
                           ),
-                        ],
+                        ),
                       ),
                     ],
                   ),
-                ),
-                const SizedBox(width: 8),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    if (at != null)
-                      Text(
-                        agoText(DateTime.now().difference(at!)),
-                        style: TextStyle(color: hot ? AppColors.goldLight : AppColors.muted, fontSize: 11.5),
-                      ),
-                    const SizedBox(height: 4),
-                    if (unread > 0)
-                      Container(
-                        constraints: const BoxConstraints(minWidth: 22),
-                        height: 22,
-                        padding: const EdgeInsets.symmetric(horizontal: 6),
-                        alignment: Alignment.center,
-                        decoration: BoxDecoration(color: AppColors.traitor, borderRadius: BorderRadius.circular(11)),
-                        child: Text(
-                          arabicNumber(unread),
-                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w900, height: 1.1),
-                        ),
-                      )
-                    else if (fresh)
-                      Container(
-                        width: 10,
-                        height: 10,
-                        decoration: const BoxDecoration(shape: BoxShape.circle, color: AppColors.traitor),
-                      ),
-                  ],
-                ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (at != null)
+                  Text(
+                    agoText(DateTime.now().difference(at!)),
+                    style: TextStyle(
+                      color: hot ? socGoldHi : socMuted,
+                      fontSize: 12,
+                      fontFamily: kufi,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                if (unread > 0)
+                  Padding(padding: const EdgeInsets.only(top: 3), child: SocBadge(unread, size: 20))
+                else if (fresh)
+                  const Padding(padding: EdgeInsets.only(top: 3), child: SocBadge(0, size: 12)),
               ],
             ),
-          ),
+          ],
         ),
       ),
     );
@@ -547,9 +729,11 @@ String _previewOf({required String text, required String? sticker, required bool
 }
 
 class _ClanChatRow extends StatefulWidget {
-  const _ClanChatRow({required this.clan});
+  const _ClanChatRow({required this.clan, required this.selected, required this.onTap});
 
   final ClanTag clan;
+  final bool selected;
+  final VoidCallback onTap;
 
   @override
   State<_ClanChatRow> createState() => _ClanChatRowState();
@@ -569,6 +753,7 @@ class _ClanChatRowState extends State<_ClanChatRow> {
   void didUpdateWidget(_ClanChatRow old) {
     super.didUpdateWidget(old);
     if (old.clan.id != widget.clan.id) _last = Backend.instance.watchClanLast(widget.clan.id);
+    if (old.selected && !widget.selected) _loadSeen();
   }
 
   Future<void> _loadSeen() async {
@@ -581,7 +766,7 @@ class _ClanChatRowState extends State<_ClanChatRow> {
     stream: _last,
     builder: (context, snap) {
       final m = snap.data;
-      return _ChatTile(
+      return ChatTileView(
         leading: ClanCrest.of(widget.clan, size: 44),
         title: 'ديوان ${widget.clan.name}',
         preview: m == null
@@ -591,11 +776,9 @@ class _ClanChatRowState extends State<_ClanChatRow> {
             : _previewOf(text: m.text, sticker: m.sticker, mine: m.uid == Backend.instance.uid, name: m.name),
         previewSticker: m?.sticker,
         at: m?.at,
-        fresh: m != null && _seen != null && m.at.isAfter(_seen!) && m.uid != Backend.instance.uid,
-        onTap: () async {
-          await Navigator.of(context).push(MaterialPageRoute(builder: (_) => ChatScreen.clan(clan: widget.clan)));
-          _loadSeen();
-        },
+        selected: widget.selected,
+        fresh: !widget.selected && m != null && _seen != null && m.at.isAfter(_seen!) && m.uid != Backend.instance.uid,
+        onTap: widget.onTap,
       );
     },
   );
@@ -609,6 +792,8 @@ class _ChatRow extends StatelessWidget {
     required this.last,
     required this.unread,
     required this.me,
+    required this.selected,
+    required this.onTap,
   });
 
   final String uid;
@@ -616,135 +801,22 @@ class _ChatRow extends StatelessWidget {
   final ChatLast? last;
   final int unread;
   final String me;
+  final bool selected;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final e = entry;
     final l = last;
-    return _ChatTile(
-      leading: PlayerAvatar(avatar: e?.avatar ?? 'masked', style: frameStyle(e?.frame), size: 44, animate: false),
+    return ChatTileView(
+      leading: SocAvatar(avatar: e?.avatar ?? 'masked', style: frameStyle(e?.frame), size: 40),
       title: e?.name ?? '…',
       preview: l == null ? 'رسائل جديدة' : _previewOf(text: l.text, sticker: l.sticker, mine: l.from == me),
       previewSticker: l?.sticker,
       at: l?.at,
-      unread: unread,
-      onTap: e == null
-          ? null
-          : () => Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (_) => ChatScreen.friend(friend: (uid: uid, name: e.name, avatar: e.avatar, frame: e.frame)),
-              ),
-            ),
-    );
-  }
-}
-
-class _FriendRow extends StatefulWidget {
-  const _FriendRow({super.key, required this.uid, required this.entry, required this.presence, required this.unread});
-
-  final String uid;
-  final LeaderboardEntry? entry;
-  final Presence? presence;
-  final int unread;
-
-  @override
-  State<_FriendRow> createState() => _FriendRowState();
-}
-
-class _FriendRowState extends State<_FriendRow> {
-  bool _busy = false;
-
-  /// تتفرج على لعبته وهي شغالة.
-  Future<void> _watch() async {
-    setState(() => _busy = true);
-    try {
-      final code = await Backend.instance.spectate(widget.uid);
-      if (mounted) {
-        await Navigator.of(context).push(
-          MaterialPageRoute(
-            builder: (_) => GameScreen(code: code, watching: widget.uid),
-          ),
-        );
-      }
-    } on BackendException catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
-    } finally {
-      if (mounted) setState(() => _busy = false);
-    }
-  }
-
-  void _chat() {
-    final e = widget.entry;
-    if (e == null) return;
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => ChatScreen.friend(friend: (uid: widget.uid, name: e.name, avatar: e.avatar, frame: e.frame)),
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final e = widget.entry;
-    final playing = e?.playing ?? false;
-    final p = widget.presence;
-    final online = playing || (p?.online ?? false);
-    return _PlayerRow(
-      uid: widget.uid,
-      entry: e,
-      playing: playing,
-      online: online,
-      status: online ? 'متصل' : (p?.lastSeen ?? 'غير متصل'),
-      trailing: [
-        if (playing)
-          SizedBox(
-            width: 104,
-            child: GameButton(
-              label: _busy ? 'لحظة…' : 'تفرّج',
-              icon: const Gfx('eye', size: 20),
-              tone: ButtonTone.purple,
-              height: 40,
-              fontSize: 14,
-              onPressed: _busy ? null : _watch,
-            ),
-          ),
-        Stack(
-          clipBehavior: Clip.none,
-          children: [
-            SizedBox(
-              width: 96,
-              child: GameButton(
-                label: 'دردشة',
-                icon: const Gfx('chat', size: 20),
-                tone: widget.unread > 0 ? ButtonTone.gold : ButtonTone.ghost,
-                height: 40,
-                fontSize: 14,
-                onPressed: e == null ? null : _chat,
-              ),
-            ),
-            if (widget.unread > 0)
-              PositionedDirectional(
-                top: -6,
-                end: -4,
-                child: Container(
-                  constraints: const BoxConstraints(minWidth: 20),
-                  height: 20,
-                  padding: const EdgeInsets.symmetric(horizontal: 5),
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    color: AppColors.traitor,
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: AppColors.bg, width: 1.5),
-                  ),
-                  child: Text(
-                    arabicNumber(widget.unread),
-                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w900, height: 1.1),
-                  ),
-                ),
-              ),
-          ],
-        ),
-      ],
+      unread: selected ? 0 : unread,
+      selected: selected,
+      onTap: e == null ? null : onTap,
     );
   }
 }
@@ -777,30 +849,33 @@ class _RequestRowState extends State<_RequestRow> {
   Widget build(BuildContext context) => FutureBuilder(
     future: _entry,
     builder: (context, snap) {
-      final name = snap.data?.name ?? 'لاعب';
-      return _PlayerRow(
-        uid: widget.uid,
-        entry: snap.data,
+      final e = snap.data;
+      final name = e?.name ?? 'لاعب';
+      return FriendRowView(
+        name: e?.name ?? '…',
+        avatar: e?.avatar ?? 'masked',
+        style: frameStyle(e?.frame),
+        status: e == null ? '' : 'يبي يصير صديقك · مستوى ${arabicNumber(e.level)}',
+        dot: null,
+        onAvatar: e == null
+            ? null
+            : () => showPlayerCard(context, uid: widget.uid, name: e.name, avatar: e.avatar, frame: e.frame),
         trailing: [
-          SizedBox(
-            width: 96,
-            child: GameButton(
-              label: 'قبول',
-              tone: ButtonTone.green,
-              height: 40,
-              fontSize: 14,
-              onPressed: _busy ? null : () => _respond(true, name),
-            ),
+          SocButton(
+            label: 'قبول',
+            tone: SocTone.green,
+            height: 36,
+            fontSize: 16,
+            width: 80,
+            onPressed: _busy ? null : () => _respond(true, name),
           ),
-          SizedBox(
-            width: 84,
-            child: GameButton(
-              label: 'رفض',
-              tone: ButtonTone.ghost,
-              height: 40,
-              fontSize: 14,
-              onPressed: _busy ? null : () => _respond(false, name),
-            ),
+          SocButton(
+            label: 'رفض',
+            tone: SocTone.grey,
+            height: 36,
+            fontSize: 16,
+            width: 70,
+            onPressed: _busy ? null : () => _respond(false, name),
           ),
         ],
       );
@@ -811,7 +886,10 @@ class _RequestRowState extends State<_RequestRow> {
 void _toast(BuildContext context, String text) =>
     ScaffoldMessenger.maybeOf(context)?.showSnackBar(SnackBar(content: Text(text)));
 
-/// أضف صديق برمزه، وشارك رمزك.
+/// أضف صديق برمزه، وشارك رمزك (نافذة).
+Future<void> showAddFriend(BuildContext context) =>
+    showSocDialog<void>(context, title: 'أضف صديق بالكود', width: 520, builder: (_) => const _AddFriend());
+
 class _AddFriend extends StatefulWidget {
   const _AddFriend();
 
@@ -863,66 +941,68 @@ class _AddFriendState extends State<_AddFriend> {
   Widget build(BuildContext context) {
     return ValueListenableBuilder(
       valueListenable: _backend.profile,
-      builder: (context, p, _) => ListView(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+      builder: (context, p, _) => Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Panel(
-            padding: const EdgeInsets.all(14),
-            child: Row(
-              children: [
-                const Gfx('idcard', size: 40),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'رمزك',
-                        style: TextStyle(fontFamily: kufi, fontSize: 16, fontWeight: FontWeight.w700),
-                      ),
-                      const Text(
-                        'أعطه لأصدقائك عشان يضيفونك (اضغطه وينسخ)',
-                        style: TextStyle(color: AppColors.muted, fontSize: 12),
-                      ),
-                      const SizedBox(height: 6),
-                      Align(
-                        alignment: AlignmentDirectional.centerStart,
-                        child: PidBadge(pid: p.pid, tier: p.pidTier, size: 17),
-                      ),
-                    ],
-                  ),
-                ),
-                Column(
+          Row(
+            children: [
+              const Gfx('idcard', size: 40),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    SizedBox(
-                      width: 150,
-                      child: GameButton(
-                        label: 'شارك رمزك',
-                        icon: const Gfx('invite', size: 22),
-                        tone: ButtonTone.green,
-                        height: 40,
-                        fontSize: 14,
-                        onPressed: p.pid.isEmpty ? null : () => _share(p.pid),
+                    const Text(
+                      'رمزك',
+                      style: TextStyle(
+                        fontFamily: kufi,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800,
+                        color: socInk,
+                        height: 1.2,
+                      ),
+                    ),
+                    const Text(
+                      'أعطه لأصدقائك عشان يضيفونك (اضغطه وينسخ)',
+                      style: TextStyle(
+                        color: Color(0xFF7A5A3A),
+                        fontSize: 12.5,
+                        fontFamily: kufi,
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
                     const SizedBox(height: 6),
-                    SizedBox(
-                      width: 150,
-                      child: GameButton(
-                        label: 'رمز مميز',
-                        icon: const Gfx('gem', size: 22),
-                        tone: ButtonTone.purple,
-                        height: 40,
-                        fontSize: 14,
-                        onPressed: () => showPremiumIds(context),
-                      ),
-                    ),
+                    PidBadge(pid: p.pid, tier: p.pidTier, size: 17),
                   ],
                 ),
-              ],
-            ),
+              ),
+              Column(
+                children: [
+                  SocButton(
+                    label: 'شارك رمزك',
+                    tone: SocTone.green,
+                    icon: const Gfx('invite', size: 22),
+                    height: 38,
+                    fontSize: 14.5,
+                    width: 150,
+                    onPressed: p.pid.isEmpty ? null : () => _share(p.pid),
+                  ),
+                  const SizedBox(height: 4),
+                  SocButton(
+                    label: 'رمز مميز',
+                    tone: SocTone.blue,
+                    icon: const Gfx('gem', size: 22),
+                    height: 38,
+                    fontSize: 14.5,
+                    width: 150,
+                    onPressed: () => showPremiumIds(context),
+                  ),
+                ],
+              ),
+            ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 10),
           Row(
             children: [
               Expanded(
@@ -933,25 +1013,19 @@ class _AddFriendState extends State<_AddFriend> {
                   textAlign: TextAlign.center,
                   maxLength: 8,
                   onSubmitted: (_) => _search(),
-                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, letterSpacing: 2),
-                  decoration: const InputDecoration(
-                    counterText: '',
-                    hintText: 'اكتب رمز صديقك',
-                    border: OutlineInputBorder(),
-                    isDense: true,
-                  ),
+                  style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800, letterSpacing: 2, color: socInk),
+                  decoration: socParchInput(hint: 'اكتب رمز صديقك', dense: false),
                 ),
               ),
               const SizedBox(width: 10),
-              SizedBox(
-                width: 120,
-                child: GameButton(
-                  label: 'دوّر',
-                  icon: const Gfx('search', size: 22),
-                  height: 46,
-                  fontSize: 15,
-                  onPressed: _busy ? null : _search,
-                ),
+              SocButton(
+                label: 'دوّر',
+                tone: SocTone.orange,
+                icon: const Gfx('search', size: 22),
+                height: 46,
+                fontSize: 17,
+                width: 110,
+                onPressed: _busy ? null : _search,
               ),
             ],
           ),
@@ -960,17 +1034,55 @@ class _AddFriendState extends State<_AddFriend> {
               padding: const EdgeInsets.only(top: 8),
               child: Text(
                 _error!,
-                style: const TextStyle(color: AppColors.traitorLight, fontWeight: FontWeight.w700),
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: Color(0xFFB3261E), fontWeight: FontWeight.w800, fontFamily: kufi),
               ),
             ),
-          if (_found case final e?) ...[
-            const SizedBox(height: 10),
-            _PlayerRow(
-              uid: e.uid,
-              entry: e,
-              trailing: [FriendButton(uid: e.uid, name: e.name)],
+          if (_found case final e?)
+            Padding(
+              padding: const EdgeInsets.only(top: 10),
+              child: Row(
+                children: [
+                  SocAvatar(avatar: e.avatar, style: frameStyle(e.frame), size: 42),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          e.name,
+                          style: const TextStyle(
+                            fontFamily: kufi,
+                            fontWeight: FontWeight.w800,
+                            fontSize: 17,
+                            color: socInk,
+                            height: 1.2,
+                          ),
+                        ),
+                        Text(
+                          'مستوى ${arabicNumber(e.level)}',
+                          style: const TextStyle(
+                            color: Color(0xFF7A5A3A),
+                            fontSize: 12.5,
+                            fontFamily: kufi,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  FriendButton(uid: e.uid, name: e.name),
+                ],
+              ),
             ),
-          ],
+          const SizedBox(height: 12),
+          SocButton(
+            label: 'تمام',
+            tone: SocTone.grey,
+            height: 42,
+            fontSize: 16,
+            onPressed: () => Navigator.pop(context),
+          ),
         ],
       ),
     );
@@ -978,13 +1090,11 @@ class _AddFriendState extends State<_AddFriend> {
 }
 
 /// من الروم: تدعو أصدقاءك (توصلهم الدعوة في اللعبة وبإشعار).
-Future<void> showInviteFriends(BuildContext context, String code) => showModalBottomSheet<void>(
-  context: context,
-  backgroundColor: AppColors.panel,
-  isScrollControlled: true,
-  shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
-  constraints: BoxConstraints(maxWidth: 620, maxHeight: MediaQuery.sizeOf(context).height * .9),
-  builder: (context) => _InviteSheet(code: code),
+Future<void> showInviteFriends(BuildContext context, String code) => showSocDialog<void>(
+  context,
+  title: 'ادعُ أصدقاءك',
+  width: 520,
+  builder: (_) => _InviteSheet(code: code),
 );
 
 class _InviteSheet extends StatefulWidget {
@@ -1015,71 +1125,89 @@ class _InviteSheetState extends State<_InviteSheet> {
   @override
   Widget build(BuildContext context) {
     final friends = Backend.instance.profile.value.friends.reversed.toList();
-    return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 14, 16, 10),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            const Text(
-              'ادعُ أصدقاءك',
-              textAlign: TextAlign.center,
-              style: TextStyle(fontFamily: kufi, fontSize: 19, fontWeight: FontWeight.w700),
-            ),
-            const Text(
-              'توصلهم الدعوة في اللعبة وبإشعار، ويدخلون الروم بضغطة',
-              textAlign: TextAlign.center,
-              style: TextStyle(color: AppColors.muted, fontSize: 12.5),
-            ),
-            const SizedBox(height: 10),
-            if (friends.isEmpty)
-              _Empty(
-                icon: 'friends',
-                text: 'ما عندك أصدقاء للحين',
-                action: (
-                  'أضف أصدقاء',
-                  () {
-                    Navigator.pop(context);
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const FriendsScreen(tab: FriendsScreen.addTab)),
-                    );
-                  },
-                ),
-              )
-            else
-              Flexible(
-                child: ListView(
-                  shrinkWrap: true,
-                  children: [
-                    for (final uid in friends)
-                      FutureBuilder(
-                        future: Backend.instance.fetchPlayer(uid).catchError((_) => null),
-                        builder: (context, snap) => _PlayerRow(
-                          uid: uid,
-                          entry: snap.data,
-                          trailing: [
-                            SizedBox(
-                              width: 112,
-                              child: GameButton(
-                                label: _sent.contains(uid) ? 'انرسلت' : 'ادعُ',
-                                icon: Gfx(_sent.contains(uid) ? 'check' : 'invite', size: 20),
-                                tone: _sent.contains(uid) ? ButtonTone.ghost : ButtonTone.green,
-                                height: 40,
-                                fontSize: 14,
-                                onPressed: _sent.contains(uid) || _busy.contains(uid) ? null : () => _invite(uid),
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const SocPopupText('توصلهم الدعوة في اللعبة وبإشعار، ويدخلون الروم بضغطة', size: 13.5, muted: true),
+        const SizedBox(height: 8),
+        if (friends.isEmpty) ...[
+          const SocPopupText('ما عندك أصدقاء للحين'),
+          const SizedBox(height: 10),
+          SocButton(
+            label: 'أضف أصدقاء',
+            tone: SocTone.orange,
+            height: 44,
+            fontSize: 17,
+            onPressed: () {
+              Navigator.pop(context);
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const FriendsScreen(tab: FriendsScreen.addTab)),
+              );
+            },
+          ),
+        ] else
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxHeight: 220),
+            child: ListView(
+              shrinkWrap: true,
+              children: [
+                for (final uid in friends)
+                  FutureBuilder(
+                    future: Backend.instance.fetchPlayer(uid).catchError((_) => null),
+                    builder: (context, snap) {
+                      final e = snap.data;
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 4),
+                        child: Row(
+                          children: [
+                            GestureDetector(
+                              onTap: e == null
+                                  ? null
+                                  : () => showPlayerCard(
+                                      context,
+                                      uid: uid,
+                                      name: e.name,
+                                      avatar: e.avatar,
+                                      frame: e.frame,
+                                    ),
+                              child: SocAvatar(avatar: e?.avatar ?? 'masked', style: frameStyle(e?.frame), size: 40),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                e?.name ?? '…',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontFamily: kufi,
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 17,
+                                  color: socInk,
+                                ),
                               ),
+                            ),
+                            SocButton(
+                              label: _sent.contains(uid) ? 'انرسلت' : 'ادعُ',
+                              icon: Gfx(_sent.contains(uid) ? 'check' : 'invite', size: 20),
+                              tone: _sent.contains(uid) ? SocTone.grey : SocTone.green,
+                              height: 36,
+                              fontSize: 15,
+                              width: 112,
+                              onPressed: _sent.contains(uid) || _busy.contains(uid) ? null : () => _invite(uid),
                             ),
                           ],
                         ),
-                      ),
-                  ],
-                ),
-              ),
-          ],
-        ),
-      ),
+                      );
+                    },
+                  ),
+              ],
+            ),
+          ),
+        const SizedBox(height: 10),
+        SocButton(label: 'تمام', tone: SocTone.grey, height: 42, fontSize: 16, onPressed: () => Navigator.pop(context)),
+      ],
     );
   }
 }
