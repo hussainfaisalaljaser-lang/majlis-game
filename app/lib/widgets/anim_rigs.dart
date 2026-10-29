@@ -330,7 +330,7 @@ class AvatarRig {
           for (var i = 0; i < 3; i++) {
             final q = _frac(t * 1.1 + i / 3);
             c.drawArc(
-              Rect.fromCircle(center: const Offset(100, 74), radius: 22 + 40 * q),
+              Rect.fromCircle(center: const Offset(100, 56), radius: 36 + 34 * q),
               -math.pi * .78,
               math.pi * .56,
               false,
@@ -494,31 +494,35 @@ class AvatarRig {
       _img('head', head),
       if (_p.blink && turn < .2) _img('blink', head),
       _img('glasses', head),
-      _fx(head, (c) => _sparkle(c, const Offset(66, 88), 3.4, _pulse(3.4, .45, 1))),
+      _fx(head, (c) => _sparkle(c, const Offset(64, 86), 3.4, _pulse(3.4, .45, 1))),
       _img('book', _body),
       _fx(_body, (c) {
         if (page == null || page < .3) return;
         final q = Curves.easeInOut.transform(((page - .3) / .45).clamp(0.0, 1.0));
         if (q >= 1) return;
         c.save();
-        c.translate(146, 170);
+        c.translate(131, 167);
         c.rotate(-12 * math.pi / 180);
-        final x = 22 * math.cos(math.pi * q);
+        final x = 26 * math.cos(math.pi * q);
         final lift = 4 * math.sin(math.pi * q);
         final leaf = Path()
-          ..moveTo(0, -14)
-          ..lineTo(x, -14 - lift)
-          ..lineTo(x, 14 - lift)
-          ..lineTo(0, 14)
+          ..moveTo(0, -17.5)
+          ..lineTo(x, -17.5 - lift)
+          ..lineTo(x, 17.5 - lift)
+          ..lineTo(0, 17.5)
           ..close();
-        c.drawPath(leaf, Paint()..color = const Color(0xFFFFF8E7));
+        c.drawPath(leaf, Paint()..color = const Color(0xFFFFF7E2));
         c.drawPath(
           leaf,
           Paint()
             ..style = PaintingStyle.stroke
-            ..strokeWidth = 1.2
-            ..color = const Color(0xFFC9B48A),
+            ..strokeWidth = 1.4
+            ..strokeJoin = StrokeJoin.round
+            ..color = const Color(0xFF2A1520),
         );
+        c.drawLine(Offset(x * .2, -11 - lift * .8), Offset(x * .8, -11 - lift * .8), Paint()..color = const Color(0xFF9E7A52)..strokeWidth = 1.2);
+        c.drawLine(Offset(x * .2, -4 - lift * .8), Offset(x * .8, -4 - lift * .8), Paint()..color = const Color(0xFF9E7A52)..strokeWidth = 1.2);
+        c.drawLine(Offset(x * .2, 3 - lift * .8), Offset(x * .8, 3 - lift * .8), Paint()..color = const Color(0xFF9E7A52)..strokeWidth = 1.2);
         c.restore();
       }),
     ];
@@ -534,8 +538,8 @@ class AvatarRig {
       _img('head', head),
       if (_p.blink) _img('blink', head),
       _fx(head, (c) {
-        _sparkle(c, const Offset(140, 62), 4.2, _pulse(2.4, .5));
-        _sparkle(c, const Offset(62, 116), 3.6, _pulse(2.4, .5, 1.2));
+        _sparkle(c, const Offset(131, 74), 4.2, _pulse(2.4, .5));
+        _sparkle(c, const Offset(62, 112), 3.6, _pulse(2.4, .5, 1.2));
       }),
     ];
   }
@@ -555,7 +559,7 @@ class AvatarRig {
         head,
         (c) => _glow(
           c,
-          const Offset(100, 75),
+          const Offset(100, 64),
           12 * (1 + .25 * math.sin(t * 3)) + 8 * roar,
           const Color(0xFFF43F5E),
           .55 + .3 * roar,
@@ -570,7 +574,7 @@ class AvatarRig {
     final burst = _pulse(6, 1.2, 1);
     final flap = .5 + .5 * math.sin(t * 2.6);
     final crest = head.multiplied(
-      _xf(rot: .05 * math.sin(t * 5.2), pivot: const Offset(100, 66), sy: 1 + .06 * math.sin(t * 7.3)),
+      _xf(rot: .05 * math.sin(t * 5.2), pivot: const Offset(100, 72), sy: 1 + .06 * math.sin(t * 7.3)),
     );
     return [
       _img('wings', _xf(pivot: const Offset(100, 200), sx: 1 + .07 * flap, sy: 1 + .03 * flap)),
@@ -579,7 +583,7 @@ class AvatarRig {
       _img('head', head),
       if (_p.blink) _img('blink', head),
       _fx(crest, (c) {
-        for (final (i, at) in const [Offset(72, 40), Offset(100, 10), Offset(128, 40)].indexed) {
+        for (final (i, at) in const [Offset(74, 26), Offset(104, 14), Offset(126, 26)].indexed) {
           _sparkle(c, at, 4, _pulse(3, .5, i * .7), glow: const Color(0xFFFDE68A));
         }
       }),
