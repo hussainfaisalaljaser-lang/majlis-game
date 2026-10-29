@@ -9,6 +9,13 @@ abstract final class Music {
   static const _key = 'music_muted';
   static const _volume = .28;
   static const _duckedVolume = .08;
+  static const _volumeKey = 'music_volume';
+
+  /// مستوى اللاعب (٠–١): ٠٫٥ هو المستوى الأصلي، فوقه أعلى وتحته أخفض، و٠ يسكتها.
+  static final volume = ValueNotifier<double>(.5);
+
+  static double get _level => _volume * volume.value * 2;
+  static double get _duckedLevel => _duckedVolume * volume.value * 2;
 
   static AudioPlayer? _player;
   static String? _track;
@@ -24,7 +31,9 @@ abstract final class Music {
 
   static Future<void> init() async {
     try {
-      muted.value = (await SharedPreferences.getInstance()).getBool(_key) ?? false;
+      final prefs = await SharedPreferences.getInstance();
+      muted.value = prefs.getBool(_key) ?? false;
+      volume.value = (prefs.getDouble(_volumeKey) ?? .5).clamp(0.0, 1.0);
     } catch (_) {}
     _lifecycle = AppLifecycleListener(
       onHide: () {
@@ -68,7 +77,7 @@ abstract final class Music {
         ..setReleaseMode(ReleaseMode.loop);
       await player.stop();
       _playing = track;
-      await player.play(AssetSource('music/$track.mp3'), volume: _ducked ? _duckedVolume : _volume);
+      await player.play(AssetSource('music/$track.mp3'), volume: _ducked ? _duckedLevel : _level);
     } catch (_) {}
   }
 
@@ -76,7 +85,17 @@ abstract final class Music {
   static void duck(bool on) {
     if (_ducked == on) return;
     _ducked = on;
-    _player?.setVolume(on ? _duckedVolume : _volume).catchError((_) {});
+    _player?.setVolume(on ? _duckedLevel : _level).catchError((_) {});
+  }
+
+  /// يغيّر مستوى الموسيقى. [save] false وهو يسحب الشريط، وبعدها يحفظ مرة وحدة.
+  static Future<void> setVolume(double v, {bool save = true}) async {
+    volume.value = v.clamp(0.0, 1.0);
+    _player?.setVolume(_ducked ? _duckedLevel : _level).catchError((_) {});
+    if (!save) return;
+    try {
+      (await SharedPreferences.getInstance()).setDouble(_volumeKey, volume.value);
+    } catch (_) {}
   }
 
   static Future<void> toggle() async {

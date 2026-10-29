@@ -7,6 +7,7 @@ import '../theme.dart';
 import 'common.dart';
 import 'design_social.dart';
 import 'fx.dart';
+import 'volume_panel.dart';
 
 /// رقم النسخة من البناء (CI يمرره: --dart-define=BUILD=رقم التشغيل).
 const appBuild = String.fromEnvironment('BUILD', defaultValue: 'dev');
@@ -97,6 +98,7 @@ class SettingsCard extends StatelessWidget {
             ),
           ),
         ),
+        item('sound', 'مستوى الصوت (الموسيقى والمعلق والمؤثرات)', () => showVolumeDialog(context)),
         item(
           'lock',
           profile.blocked.isEmpty ? 'المحظورين' : 'المحظورين (${arabicNumber(profile.blocked.length)})',

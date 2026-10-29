@@ -11,7 +11,6 @@ import '../models/profile.dart';
 import '../models/shop.dart';
 import '../services/backend.dart';
 import '../services/links.dart';
-import '../services/music.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
 import '../widgets/daily_reward.dart';
@@ -21,6 +20,7 @@ import '../widgets/fx.dart';
 import '../widgets/gifts.dart';
 import '../widgets/mode_theme.dart';
 import '../widgets/ui.dart';
+import '../widgets/volume_panel.dart';
 import '../widgets/weekend.dart';
 import 'clans_screen.dart';
 import 'friends_screen.dart';
@@ -1243,21 +1243,15 @@ class _MenuDialog extends StatelessWidget {
                           item(_MenuItem.rank, 'rank', 'الترتيب', badge: false),
                           item(_MenuItem.tour, 'trophy', 'البطولة', badge: alerts[_MenuItem.tour] ?? false),
                           item(_MenuItem.guide, 'guide', 'كيف ألعب', badge: alerts[_MenuItem.guide] ?? false),
-                          ValueListenableBuilder(
-                            valueListenable: Music.muted,
-                            builder: (context, muted, _) => Semantics(
-                              button: true,
-                              label: muted ? 'شغّل الموسيقى' : 'اكتم الموسيقى',
-                              excludeSemantics: true,
-                              child: GestureDetector(
-                                behavior: HitTestBehavior.opaque,
-                                onTap: Music.toggle,
-                                child: _MenuCell(
-                                  label: 'الموسيقى',
-                                  badge: false,
-                                  child: Gfx(muted ? 'music_off' : 'music', size: 34),
-                                ),
-                              ),
+                          // الصوت: نافذة فيها شريط للموسيقى وللمعلق وللمؤثرات (بدل زر كتم الموسيقى)
+                          Semantics(
+                            button: true,
+                            label: 'مستوى الصوت',
+                            excludeSemantics: true,
+                            child: GestureDetector(
+                              behavior: HitTestBehavior.opaque,
+                              onTap: () => showVolumeDialog(context),
+                              child: const _MenuCell(label: 'الصوت', badge: false, child: Gfx('sound', size: 34)),
                             ),
                           ),
                         ],

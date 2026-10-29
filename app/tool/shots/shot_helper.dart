@@ -32,7 +32,13 @@ Future<void> loadFonts() async {
 }
 
 /// شاشة بحجم جوال بالعرض (٩٦٠×٥٤٠) وكثافة ٢، فتطلع الصورة ١٩٢٠×١٠٨٠ مثل الفيديو.
-Future<void> shot(WidgetTester tester, String name, Widget screen, {Size size = const Size(960, 540)}) async {
+Future<void> shot(
+  WidgetTester tester,
+  String name,
+  Widget screen, {
+  Size size = const Size(960, 540),
+  Future<void> Function(WidgetTester tester)? act,
+}) async {
   final key = GlobalKey();
   tester.view.physicalSize = size * 2;
   tester.view.devicePixelRatio = 2;
@@ -54,6 +60,14 @@ Future<void> shot(WidgetTester tester, String name, Widget screen, {Size size = 
   for (var i = 0; i < 6; i++) {
     await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 120)));
     await tester.pump(const Duration(milliseconds: 250));
+  }
+  // حركة قبل التصوير (مثل ضغطة تفتح قائمة)
+  if (act != null) {
+    await act(tester);
+    for (var i = 0; i < 4; i++) {
+      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 120)));
+      await tester.pump(const Duration(milliseconds: 250));
+    }
   }
   await tester.runAsync(() async {
     final boundary = key.currentContext!.findRenderObject()! as RenderRepaintBoundary;

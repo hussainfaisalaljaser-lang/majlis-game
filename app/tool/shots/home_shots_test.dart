@@ -17,6 +17,20 @@ void main() {
     await shot(tester, 'home_small', const HomeScreen(), size: const Size(800, 360));
   });
 
+  // القائمة اللي تنفتح من لوح اسمك (فيها خانة «الصوت»)، ومنها نافذة مستوى الصوت
+  testWidgets('home menu', (tester) async {
+    final semantics = tester.ensureSemantics();
+    await shot(tester, 'home_menu', const HomeScreen(), act: (t) => t.tap(find.bySemanticsLabel(RegExp('القائمة'))));
+    await shot(
+      tester,
+      'home_menu_small',
+      const HomeScreen(),
+      size: const Size(640, 360),
+      act: (t) => t.tap(find.bySemanticsLabel(RegExp('القائمة'))),
+    );
+    semantics.dispose();
+  });
+
   testWidgets('splash', (tester) async {
     await shot(tester, 'splash', const SplashView());
   });

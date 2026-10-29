@@ -37,6 +37,7 @@ import '../widgets/majlis.dart';
 import '../widgets/player_card.dart';
 import '../widgets/ui.dart';
 import '../widgets/venues.dart';
+import '../widgets/volume_panel.dart';
 import 'waiting_screen.dart';
 
 /// مشهد ينتظر دوره فوق الطاولة، ومعه جمل الراوي، ووش يصير لما يخلص.
@@ -1392,39 +1393,8 @@ class _GameScreenState extends State<GameScreen> {
     return ((height - top - 12 * hs - 100 * hs - powers * (76 + 8) * hs - 4) / item).floor().clamp(0, 5);
   }
 
-  /// إعدادات الصوت وقت اللعب: المؤثرات والموسيقى.
-  void _showSettings() {
-    showDialog<void>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('الإعدادات', textAlign: TextAlign.center),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ValueListenableBuilder(
-              valueListenable: Sfx.muted,
-              builder: (context, muted, _) => SwitchListTile(
-                value: !muted,
-                onChanged: (_) => Sfx.toggle(),
-                title: const Text('المؤثرات والراوي', style: TextStyle(fontWeight: FontWeight.w800)),
-                secondary: Gfx(muted ? 'mute' : 'sound', size: 32),
-              ),
-            ),
-            ValueListenableBuilder(
-              valueListenable: Music.muted,
-              builder: (context, muted, _) => SwitchListTile(
-                value: !muted,
-                onChanged: (_) => Music.toggle(),
-                title: const Text('الموسيقى', style: TextStyle(fontWeight: FontWeight.w800)),
-                secondary: Gfx(muted ? 'music_off' : 'music', size: 32),
-              ),
-            ),
-          ],
-        ),
-        actions: [GameButton(label: 'تمام', height: 44, fontSize: 16, onPressed: () => Navigator.pop(context))],
-      ),
-    );
-  }
+  /// إعدادات الصوت وقت اللعب: مستوى الموسيقى والمعلق والمؤثرات.
+  void _showSettings() => showVolumeDialog(context);
 
   /// نص لوح الرسالة تحت: تعليمات دورك، أو وش يصير عند غيرك. null لو ما فيه شي نقوله.
   ({String text, String? icon, bool dim, VoidCallback? onCancel}) _status(GameView v, String? pickHint) {

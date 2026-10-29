@@ -1,4 +1,6 @@
 import 'package:audioplayers/audioplayers.dart';
+import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'music.dart';
 import 'sfx.dart';
@@ -57,12 +59,26 @@ abstract final class Sounds {
   static Future<void> init() async {
     if (silent) return;
     try {
+      volume.value = ((await SharedPreferences.getInstance()).getDouble(_volumeKey) ?? .35).clamp(0.0, 1.0);
+    } catch (_) {}
+    try {
       await AudioPlayer.global.setAudioContext(_context);
     } catch (_) {}
   }
 
-  /// مستوى كل المؤثرات (١ = بأعلى مستوى للملف). نزّلناه عشان ما يغطي على الموسيقى والراوي.
-  static const master = .55;
+  static const _volumeKey = 'fx_volume';
+
+  /// مستوى المؤثرات (٠–١) من إعدادات اللاعب. ملفات الصوت نفسها بأعلى مستوى، فهذا اللي يحدد قد إيش تنسمع.
+  static final volume = ValueNotifier<double>(.35);
+
+  /// يغيّر مستوى المؤثرات. [save] false وهو يسحب الشريط، وبعدها يحفظ مرة وحدة.
+  static Future<void> setVolume(double v, {bool save = true}) async {
+    volume.value = v.clamp(0.0, 1.0);
+    if (!save) return;
+    try {
+      (await SharedPreferences.getInstance()).setDouble(_volumeKey, volume.value);
+    } catch (_) {}
+  }
 
   static const _pool = 6;
   static final _players = <AudioPlayer>[];
@@ -80,7 +96,9 @@ abstract final class Sounds {
           : _players[_next];
       if (_players.length < _pool) _players.add(player);
       _next = (_next + 1) % _pool;
-      player.play(AssetSource('sfx/$name.wav'), volume: (volume * master).clamp(0.0, 1.0)).catchError((_) {});
+      player
+          .play(AssetSource('sfx/$name.wav'), volume: (volume * Sounds.volume.value).clamp(0.0, 1.0))
+          .catchError((_) {});
     } catch (_) {}
   }
 }
