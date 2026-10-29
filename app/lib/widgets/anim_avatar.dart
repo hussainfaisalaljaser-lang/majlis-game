@@ -49,7 +49,7 @@ class AnimAvatar extends StatelessWidget {
               'falconer',
               'pop_wing',
               rot: -.35 * env + .42 * math.sin(f / .16 * math.pi * 6) * env - .1,
-              pivot: const Offset(163, 113),
+              pivot: const Offset(168.6, 96),
               shift: lift,
               scale: .82 + .18 * env,
             ),
@@ -75,8 +75,8 @@ class AnimAvatar extends StatelessWidget {
         _layer('falconer', 'glove', shift: body),
         _layer('falconer', 'bird', shift: lift),
         if (!flapping) _layer('falconer', 'wing', shift: lift),
-        _layer('falconer', 'head', rot: head, pivot: const Offset(156, 112), shift: lift),
-        if (birdBlink) _layer('falconer', 'head_blink', rot: head, pivot: const Offset(156, 112), shift: lift),
+        _layer('falconer', 'head', rot: head, pivot: const Offset(156.6, 94), shift: lift),
+        if (birdBlink) _layer('falconer', 'head_blink', rot: head, pivot: const Offset(156.6, 94), shift: lift),
       ],
     );
   }
@@ -135,8 +135,8 @@ class _Feathers extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final k = avatar / 200;
     for (var i = 0; i < 2; i++) {
-      final x = (186 + i * 12 + math.sin(p * 9 + i * 2) * 7) * k;
-      final y = (92 + i * 6 + p * (48 + i * 10)) * k;
+      final x = (190 + i * 12 + math.sin(p * 9 + i * 2) * 7) * k;
+      final y = (84 + i * 6 + p * (52 + i * 10)) * k;
       final a = math.sin(p * 8 + i * 1.7) * .7 + .4;
       final fade = (1 - p).clamp(0.0, 1.0);
       canvas.save();
