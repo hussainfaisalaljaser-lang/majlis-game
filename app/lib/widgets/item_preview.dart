@@ -31,11 +31,12 @@ class ItemPreview extends StatelessWidget {
       ),
       ShopSlot.frame => PlayerAvatar(avatar: profile.avatar, style: item.frame, size: 70 * k),
       ShopSlot.avatar => PlayerAvatar(avatar: item.avatar!, style: frameStyle(profile.frame), size: 74 * k),
+      // الفقاعة المصورة تبان أكبر بكروت المتجر ونوافذه (الكرت يصغرها لو ما كفت)، وبمكافآت الموسم تبقى بحجمها
       ShopSlot.bubble => ChatBubble(
         style: item.bubble!,
         text: big ? 'أشك في سلمان!' : 'أشك فيه',
-        fontSize: 13 * k,
-        maxWidth: 260,
+        fontSize: big ? 28 : 13 * (scale == 1 ? 1 : 1.75) * scale,
+        maxWidth: 320,
       ),
       ShopSlot.table => TablePreview(skin: item.table!, width: big ? 420 : null),
       ShopSlot.death => DeathPreview(fx: item.death!, avatar: profile.avatar, frame: profile.frame, size: 52 * k),
