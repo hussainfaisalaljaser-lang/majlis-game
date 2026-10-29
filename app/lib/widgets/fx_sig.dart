@@ -3,8 +3,10 @@ import 'package:flutter/material.dart';
 
 import '../models/shop.dart';
 import 'frames/epic.dart';
+import 'frames/epic2.dart';
 import 'frames/kit.dart';
 import 'frames/legendary.dart';
+import 'frames/legendary2.dart';
 import 'frames/rare.dart';
 
 export 'frames/kit.dart' show Moments, SigLayer, momentSeconds;
