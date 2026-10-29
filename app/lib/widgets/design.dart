@@ -514,3 +514,115 @@ class NamePill extends StatelessWidget {
     ),
   );
 }
+
+/// شريط الشاشات الداخلية (مثل التصميم): السهم والعنوان والأيقونة على اليمين، وعلى اليسار الجواهر والذهب وأزرار صغيرة.
+/// ما له خلفية: الجدار الخشب اللي وراه هو الخلفية. [pills]: القطع اللي على اليسار (من اليمين لليسار).
+class DesignAppBar extends StatelessWidget implements PreferredSizeWidget {
+  const DesignAppBar({super.key, required this.title, this.icon, this.pills = const [], this.onBack});
+
+  final String title;
+
+  /// أيقونة جنب العنوان (مثل بسطة المتجر).
+  final Widget? icon;
+  final List<Widget> pills;
+  final VoidCallback? onBack;
+
+  @override
+  Size get preferredSize => const Size.fromHeight(54);
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      bottom: false,
+      child: SizedBox(
+        height: 54,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 10),
+          child: Row(
+            children: [
+              Semantics(
+                button: true,
+                label: 'رجوع',
+                excludeSemantics: true,
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: onBack ?? () => Navigator.of(context).maybePop(),
+                  child: const SizedBox(width: 46, height: 46, child: CustomPaint(painter: _BackArrowPainter())),
+                ),
+              ),
+              const SizedBox(width: 10),
+              if (icon != null) ...[icon!, const SizedBox(width: 8)],
+              OutlinedText(title, size: 30, stroke: const Color(0xFF5A1A10), strokeWidth: 5),
+              const Spacer(),
+              for (final (i, w) in pills.indexed) ...[if (i > 0) const SizedBox(width: 8), w],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// سهم الرجوع: خط وراس سهم مزدوج بلون الكريم وحد بني أحمر.
+class _BackArrowPainter extends CustomPainter {
+  const _BackArrowPainter();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final c = size.center(Offset.zero);
+    final w = size.width * .62;
+    final shaft = Path()
+      ..moveTo(c.dx - w / 2, c.dy)
+      ..lineTo(c.dx + w / 2 - 4, c.dy);
+    final head = Path()
+      ..moveTo(c.dx + w * .05, c.dy - w * .34)
+      ..lineTo(c.dx + w / 2, c.dy)
+      ..lineTo(c.dx + w * .05, c.dy + w * .34);
+    for (final (width, color) in [(11.0, const Color(0xFF5A1A10)), (6.0, const Color(0xFFF6DFA8))]) {
+      final paint = Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = width
+        ..strokeCap = StrokeCap.round
+        ..strokeJoin = StrokeJoin.round
+        ..color = color;
+      canvas.drawPath(shaft, paint);
+      canvas.drawPath(head, paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(_BackArrowPainter old) => false;
+}
+
+/// حبة غامقة مدورة بكلام وأيقونة (مثل «غرفة التبديل» جنب الفلوس فوق).
+class DesignPill extends StatelessWidget {
+  const DesignPill({super.key, required this.label, this.icon, this.onTap});
+
+  final String label;
+  final Widget? icon;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final pill = Container(
+      height: 30,
+      padding: const EdgeInsetsDirectional.fromSTEB(6, 0, 14, 0),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1A0F08).withValues(alpha: .78),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFF5A3B22), width: 1.5),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (icon != null) ...[icon!, const SizedBox(width: 7)],
+          Text(
+            label,
+            style: const TextStyle(fontFamily: kufi, fontWeight: FontWeight.w800, fontSize: 15, color: AppColors.goldLight, height: 1.2),
+          ),
+        ],
+      ),
+    );
+    return onTap == null ? pill : GestureDetector(behavior: HitTestBehavior.opaque, onTap: onTap, child: pill);
+  }
+}
