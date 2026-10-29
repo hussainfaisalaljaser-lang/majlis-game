@@ -241,7 +241,7 @@ class SmokeFrame extends FrameArt {
       _lav.withValues(alpha: .75),
       _violet.withValues(alpha: .4),
       _violet.withValues(alpha: 0),
-    ]);
+    ], const [0, .5, 1]);
     for (final side in const [-1, 1]) {
       for (var k = 0; k < (small ? 1 : 2); k++) {
         final path = Path();
@@ -288,7 +288,7 @@ class SmokeFrame extends FrameArt {
     canvas.drawPath(
       body,
       Paint()
-        ..shader = ui.Gradient.linear(Offset(x - w, top), Offset(x + w, top), [_wood, const Color(0xFF7A4B26), _wood]),
+        ..shader = ui.Gradient.linear(Offset(x - w, top), Offset(x + w, top), [_wood, const Color(0xFF7A4B26), _wood], const [0, .5, 1]),
     );
     canvas.drawRect(Rect.fromLTRB(x - w * .92, top + ring * .45, x + w * .92, top + ring * .7), Paint()..color = _gold);
     canvas.drawPath(
