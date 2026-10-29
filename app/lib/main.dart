@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
@@ -65,8 +67,34 @@ class MajlisApp extends StatelessWidget {
 }
 
 /// أول مرة: الترحيب (قوقل أو ضيف) واختيار الاسم والصورة. بعدها: الرئيسية.
-class _Gate extends StatelessWidget {
+/// صفحة التحميل تبقى ظاهرة ٢٫٤ ثانية على الأقل عند تشغيل اللعبة (حتى لو الملف جاهز بسرعة)، عشان تنشاف.
+class _Gate extends StatefulWidget {
   const _Gate();
+
+  @override
+  State<_Gate> createState() => _GateState();
+}
+
+class _GateState extends State<_Gate> {
+  /// أقل مدة نعرض فيها صفحة التحميل أول ما تفتح اللعبة.
+  static const _minSplash = Duration(milliseconds: 2400);
+
+  bool _held = true;
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    _timer = Timer(_minSplash, () {
+      if (mounted) setState(() => _held = false);
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -74,7 +102,7 @@ class _Gate extends StatelessWidget {
     if (!backend.isReady) return const HomeScreen();
     return ValueListenableBuilder(
       valueListenable: backend.profileLoaded,
-      builder: (context, loaded, _) => !loaded
+      builder: (context, loaded, _) => !loaded || _held
           ? const SplashView()
           : ValueListenableBuilder(
               valueListenable: backend.profile,

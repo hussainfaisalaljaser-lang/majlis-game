@@ -359,7 +359,8 @@ class _RoleExtra extends StatelessWidget {
   }
 }
 
-/// وجه بطاقة الدور: رق قديم بإطار ذهبي، شريط أحمر «دورك» فوق، ودرع الدور (أزرق للوفي، أحمر للخائن)، واسمه تحت.
+/// وجه بطاقة الدور: رق قديم بإطار ذهبي رفيع، وشريط «دورك» فوق، والختم الشمعي نفسه اللي في سجل اللعبة
+/// (درع الأوفياء، خنجر الخونة، وخنجر الزعيم بتاجه)، والاسم تحته.
 class _RoleCard extends StatelessWidget {
   const _RoleCard({
     required this.role,
@@ -383,6 +384,7 @@ class _RoleCard extends StatelessWidget {
     final s = height / 520;
     final nameColor = role == Role.loyal ? const Color(0xFF2F62B5) : const Color(0xFFC6322A);
     final nameEdge = role == Role.loyal ? const Color(0xFF10264C) : const Color(0xFF4A0C0A);
+    final sealSize = 285 * s;
     return SizedBox(
       width: width,
       height: height,
@@ -395,46 +397,48 @@ class _RoleCard extends StatelessWidget {
               padding: EdgeInsets.zero,
               child: Stack(
                 children: [
-                  // إطار ذهبي مزدوج
+                  // إطار ذهبي رفيع
                   Positioned.fill(
                     child: Padding(
-                      padding: EdgeInsets.all(10 * s),
+                      padding: EdgeInsets.all(12 * s),
                       child: DecoratedBox(
                         decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(16 * s),
-                          border: Border.all(color: const Color(0xFFD9A84E), width: math.max(1.5, 4 * s)),
-                        ),
-                        child: Padding(
-                          padding: EdgeInsets.all(7 * s),
-                          child: DecoratedBox(
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(10 * s),
-                              border: Border.all(
-                                color: const Color(0xFFD9A84E).withValues(alpha: .7),
-                                width: math.max(1, 2 * s),
-                              ),
-                            ),
+                          borderRadius: BorderRadius.circular(14 * s),
+                          border: Border.all(
+                            color: const Color(0xFFD9A84E).withValues(alpha: .8),
+                            width: math.max(1.5, 3 * s),
                           ),
                         ),
+                      ),
+                    ),
+                  ),
+                  // الختم الشمعي: نفس ختم سجل اللعبة (للزعيم: ختم الخنجر وفوقه التاج)
+                  Positioned(
+                    left: 0,
+                    right: 0,
+                    top: 58 * s,
+                    child: Center(
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(color: Colors.black.withValues(alpha: .22), blurRadius: 14 * s, offset: Offset(0, 8 * s)),
+                          ],
+                        ),
+                        child: role == Role.leader
+                            ? LeaderSeal(size: sealSize)
+                            : Seal(loyal: role == Role.loyal, size: sealSize),
                       ),
                     ),
                   ),
                   Positioned(
                     left: 0,
                     right: 0,
-                    top: 78 * s,
-                    child: Center(
-                      child: RoleShield(role: role, width: 215 * s),
-                    ),
-                  ),
-                  Positioned(
-                    left: 0,
-                    right: 0,
-                    top: 360 * s,
+                    top: (special != null ? 340 : 350) * s,
                     child: Center(
                       child: OutlinedText(
                         name,
-                        size: (role == Role.leader ? 66 : 94) * s,
+                        size: (role == Role.leader ? 64 : special != null ? 78 : 92) * s,
                         color: nameColor,
                         stroke: nameEdge,
                         strokeWidth: math.max(3, 8 * s),
@@ -442,33 +446,37 @@ class _RoleCard extends StatelessWidget {
                       ),
                     ),
                   ),
-                  if (special != null)
-                    Positioned(
-                      left: 28 * s,
-                      top: 70 * s,
-                      child: Container(
-                        padding: EdgeInsets.all(5 * s),
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: const Color(0xFF3A2314),
-                          border: Border.all(color: AppColors.gold, width: 2),
-                        ),
-                        child: Gfx(specialInfo[special]!.$3, size: 40 * s),
-                      ),
-                    ),
+                  // قدرتك (الطور المطوّر): كبسولة وحدة تحت الاسم بأيقونتها
                   if (special != null)
                     Positioned(
                       left: 0,
                       right: 0,
-                      bottom: 26 * s,
-                      child: Text(
-                        specialInfo[special]!.$1,
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontFamily: kufi,
-                          fontSize: 30 * s,
-                          fontWeight: FontWeight.w800,
-                          color: AppColors.ink,
+                      bottom: 24 * s,
+                      child: Center(
+                        child: Container(
+                          padding: EdgeInsets.symmetric(horizontal: 14 * s, vertical: 3 * s),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF3A2314),
+                            borderRadius: BorderRadius.circular(40),
+                            border: Border.all(color: const Color(0xFFD9A84E), width: 2),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Gfx(specialInfo[special]!.$3, size: math.max(18, 30 * s)),
+                              SizedBox(width: 6 * s),
+                              Text(
+                                specialInfo[special]!.$1,
+                                style: TextStyle(
+                                  fontFamily: kufi,
+                                  fontSize: math.max(12, 26 * s),
+                                  fontWeight: FontWeight.w800,
+                                  color: const Color(0xFFFFF3DA),
+                                  height: 1.3,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     ),
@@ -483,7 +491,7 @@ class _RoleCard extends StatelessWidget {
               ),
             ),
           ),
-          // الشريط الأحمر فوق، يطلع من أطراف البطاقة
+          // الشريط فوق، يطلع من أطراف البطاقة
           Positioned(
             left: -14 * s,
             right: -14 * s,
@@ -494,136 +502,6 @@ class _RoleCard extends StatelessWidget {
       ),
     );
   }
-}
-
-/// درع الدور: حد ذهبي سميك، وجسم أزرق (وفي) أو أحمر (خائن) فيه نجمة أو خنجر، ولمعة زجاجية.
-class RoleShield extends StatelessWidget {
-  const RoleShield({super.key, required this.role, required this.width});
-
-  final Role role;
-  final double width;
-
-  @override
-  Widget build(BuildContext context) => SizedBox(
-    width: width,
-    height: width * 1.16,
-    child: CustomPaint(painter: _ShieldPainter(role)),
-  );
-}
-
-class _ShieldPainter extends CustomPainter {
-  const _ShieldPainter(this.role);
-
-  final Role role;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final w = size.width, h = size.height;
-    Path shield(double inset) {
-      final i = inset;
-      return Path()
-        ..moveTo(i, h * .06 + i * .4)
-        ..quadraticBezierTo(w * .5, -h * .02 + i * .2, w - i, h * .06 + i * .4)
-        ..lineTo(w - i, h * .52)
-        ..cubicTo(w - i, h * .78, w * .66, h * .93, w * .5, h - i * .6)
-        ..cubicTo(w * .34, h * .93, i, h * .78, i, h * .52)
-        ..close();
-    }
-
-    final (light, deep) = switch (role) {
-      Role.loyal => (const Color(0xFF6AA6F5), const Color(0xFF2458BE)),
-      Role.traitor => (const Color(0xFFEF6A55), const Color(0xFF9C241B)),
-      Role.leader => (const Color(0xFF8E2A30), const Color(0xFF2A0A0E)),
-    };
-    final outer = shield(0);
-    canvas.drawPath(
-      outer.shift(Offset(0, h * .03)),
-      Paint()
-        ..color = Colors.black.withValues(alpha: .3)
-        ..maskFilter = MaskFilter.blur(BlurStyle.normal, w * .03),
-    );
-    canvas.drawPath(outer, Paint()..color = gameInk);
-    final rim = shield(w * .018);
-    canvas.drawPath(
-      rim,
-      Paint()
-        ..shader = const LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [Color(0xFFFFE9A0), Color(0xFFE5A92E), Color(0xFFB8761A)],
-        ).createShader(Offset.zero & size),
-    );
-    final inner = shield(w * .075);
-    canvas.drawPath(inner, Paint()..color = gameInk);
-    final body = shield(w * .088);
-    canvas.drawPath(
-      body,
-      Paint()
-        ..shader = LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [light, deep],
-        ).createShader(Offset.zero & size),
-    );
-    // لمعة زجاجية
-    canvas.save();
-    canvas.clipPath(body);
-    canvas.drawPath(
-      Path()
-        ..moveTo(w * .12, h * .1)
-        ..quadraticBezierTo(w * .5, h * .02, w * .62, h * .09)
-        ..quadraticBezierTo(w * .4, h * .2, w * .12, h * .3)
-        ..close(),
-      Paint()..color = Colors.white.withValues(alpha: .24),
-    );
-    canvas.restore();
-    // الرمز
-    canvas.save();
-    canvas.translate(w / 2, h * .5);
-    switch (role) {
-      case Role.loyal:
-        paintStar5(canvas, w * .27);
-      case Role.traitor:
-        paintDagger(canvas, h * .56);
-      case Role.leader:
-        paintDagger(canvas, h * .5);
-        canvas.drawCircle(Offset(0, -h * .28), w * .06, Paint()..color = const Color(0xFFF2C14E));
-    }
-    canvas.restore();
-  }
-
-  @override
-  bool shouldRepaint(_ShieldPainter old) => old.role != role;
-}
-
-/// نجمة خماسية ذهبية بحد غامق (درع الوفي).
-void paintStar5(Canvas canvas, double r) {
-  final p = Path();
-  for (var i = 0; i < 10; i++) {
-    final a = -math.pi / 2 + i * math.pi / 5;
-    final rr = i.isEven ? r : r * .42;
-    final pt = Offset(math.cos(a) * rr, math.sin(a) * rr);
-    i == 0 ? p.moveTo(pt.dx, pt.dy) : p.lineTo(pt.dx, pt.dy);
-  }
-  p.close();
-  canvas.drawPath(p.shift(Offset(0, r * .06)), Paint()..color = Colors.black.withValues(alpha: .3));
-  canvas.drawPath(
-    p,
-    Paint()
-      ..shader = const LinearGradient(
-        begin: Alignment.topCenter,
-        end: Alignment.bottomCenter,
-        colors: [Color(0xFFFFE08A), Color(0xFFE8A62E)],
-      ).createShader(Rect.fromCircle(center: Offset.zero, radius: r)),
-  );
-  canvas.drawPath(
-    p,
-    Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = r * .1
-      ..strokeJoin = StrokeJoin.round
-      ..color = const Color(0xFF3D2A0A),
-  );
 }
 
 /// ظهر بطاقة الدور: مخمل أحمر بحد ذهبي، وشعار اللعبة.

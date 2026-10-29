@@ -159,7 +159,7 @@ class _PassScreenState extends State<PassScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('أهديت ${friend.name} ${full ? 'الباتل باس كامل' : 'الباتل باس'}! بتطلع له هدية باسمك'),
+            content: Text('أهديت ${friend.name} ${full ? 'تذكرة الموسم كاملة' : 'تذكرة الموسم'}! بتطلع له هدية باسمك'),
           ),
         );
       }
@@ -190,7 +190,6 @@ class _PassScreenState extends State<PassScreen> {
       onClaim: _claim,
       onGift: () => _gift(p),
       onMissions: () => _missions(p),
-      onDailyMissions: () => _missions(p, tab: 0),
     ),
   );
 }
@@ -211,7 +210,6 @@ class SeasonView extends StatefulWidget {
     required this.onClaim,
     required this.onGift,
     required this.onMissions,
-    required this.onDailyMissions,
     this.now,
   });
 
@@ -221,7 +219,6 @@ class SeasonView extends StatefulWidget {
   final VoidCallback onClaim;
   final VoidCallback onGift;
   final VoidCallback onMissions;
-  final VoidCallback onDailyMissions;
 
   /// الوقت الحالي (للتصوير بس، عشان العدّاد يطلع ثابت).
   final DateTime? now;
@@ -289,16 +286,25 @@ class _SeasonViewState extends State<SeasonView> {
         top: false,
         child: LayoutBuilder(
           builder: (context, box) {
+            // اللوح الكبير (٣ أرباع) على اليمين، وربع الشاشة على اليسار لمهمات الموسم
             return Padding(
               padding: const EdgeInsets.fromLTRB(8, 4, 8, 8),
-              child: _Board(
-                profile: p,
-                busy: widget.busy,
-                controller: _scroll,
-                onPlace: _place,
-                onClaim: widget.onClaim,
-                onBuy: widget.onBuy,
-                onDailyMissions: widget.onDailyMissions,
+              child: Row(
+                children: [
+                  Expanded(
+                    flex: 3,
+                    child: _Board(
+                      profile: p,
+                      busy: widget.busy,
+                      controller: _scroll,
+                      onPlace: _place,
+                      onClaim: widget.onClaim,
+                      onBuy: widget.onBuy,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(child: _SeasonMissions(profile: p, onAll: widget.onMissions)),
+                ],
               ),
             );
           },
@@ -337,22 +343,18 @@ class _Dims {
   double get ropeTop => 13 * k;
   double get ropeH => node + ropeTop + 25 * k;
   double get head => math.max(28, 38 * k);
-  double get label => math.max(16, 22 * k);
-  double get gap => math.max(4, 6 * k);
-  double get plank => math.max(32, 46 * k);
-  double get missions => label + gap + plank;
-  double get total => head + th * 2 + ropeH + missions;
+  double get total => head + th * 2 + ropeH;
 
   /// أكبر مقياس يتسع في الارتفاع [h] (ويترك شوي فراغ بين الأقسام).
   static _Dims fit(double h) {
-    for (var k = 1.0; k > .45; k -= .01) {
+    for (var k = 1.2; k > .45; k -= .01) {
       if (_Dims(k).total + 8 <= h) return _Dims(k);
     }
     return const _Dims(.45);
   }
 }
 
-/// اللوح الكبير (يمين): تقدّمك وزر «استلم الكل»، ومسار الجوائز (مجاني فوق وذهبي تحت وبينهم الحبل)، ومهمات اليوم.
+/// اللوح الكبير (يمين): تقدّمك وزر «استلم الكل»، ومسار الجوائز (مجاني فوق وذهبي تحت وبينهم الحبل).
 class _Board extends StatelessWidget {
   const _Board({
     required this.profile,
@@ -361,7 +363,6 @@ class _Board extends StatelessWidget {
     required this.onPlace,
     required this.onClaim,
     required this.onBuy,
-    required this.onDailyMissions,
   });
 
   final Profile profile;
@@ -370,7 +371,6 @@ class _Board extends StatelessWidget {
   final void Function(double pitch) onPlace;
   final VoidCallback onClaim;
   final VoidCallback onBuy;
-  final VoidCallback onDailyMissions;
 
   @override
   Widget build(BuildContext context) {
@@ -402,7 +402,7 @@ class _Board extends StatelessWidget {
           return Column(
             children: [
               _Header(state: s, dev: profile.dev, busy: busy, onClaim: onClaim, onBuy: onBuy, d: d),
-              const Spacer(flex: 3),
+              const Spacer(),
               SizedBox(
                 height: th * 2 + ropeH,
                 // تبويبي مجاني وذهبي على اليمين (جهة البداية)، والدرجات تمشي ناحية اليسار.
@@ -422,8 +422,6 @@ class _Board extends StatelessWidget {
                   ],
                 ),
               ),
-              const Spacer(flex: 2),
-              _DailyMissions(profile: profile, onAll: onDailyMissions, d: d, tail: tabW + 8 * k),
               const Spacer(),
             ],
           );
@@ -675,90 +673,128 @@ class _TierColumn extends StatelessWidget {
   return (SnCoinPile(count: snCoinCount(r.coins), size: 58 * k), arabicNumber(r.coins), tan);
 }
 
-/// «مهمات اليوم»: لوح لكل مهمة (تقدّمك وعدّادها). الضغط يفتح صفحة المهام.
-class _DailyMissions extends StatelessWidget {
-  const _DailyMissions({required this.profile, required this.onAll, required this.d, required this.tail});
+/// ربع الشاشة (يسار): مهمات الموسم كله، وكل وحدة تعطيك نقاط للتذكرة. الضغطة تفتح شاشة المهام (منها تستلم).
+class _SeasonMissions extends StatelessWidget {
+  const _SeasonMissions({required this.profile, required this.onAll});
 
   final Profile profile;
   final VoidCallback onAll;
-  final _Dims d;
-
-  /// مساحة تبويبات الجوائز على الطرف (عشان الألواح تنتهي معها).
-  final double tail;
 
   @override
   Widget build(BuildContext context) {
-    final daily = profile.missions;
-    final k = d.k;
-    return SizedBox(
-      height: d.missions,
+    final state = profile.passMissions;
+    return WoodPanel(
+      padding: const EdgeInsets.fromLTRB(10, 12, 10, 10),
       child: Column(
         children: [
-          SizedBox(
-            height: d.label,
-            child: Row(
+          const GoldTitle('مهمات الموسم', size: 20),
+          const SizedBox(height: 2),
+          const Text(
+            'تعطيك نقاط للتذكرة',
+            style: TextStyle(color: AppColors.muted, fontSize: 11.5, fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 8),
+          Expanded(
+            child: ListView.separated(
+              padding: EdgeInsets.zero,
+              itemCount: seasonMissions.length,
+              separatorBuilder: (_, _) => const SizedBox(height: 7),
+              itemBuilder: (context, i) => _SeasonMissionTile(m: seasonMissions[i], state: state, onTap: onAll),
+            ),
+          ),
+          const SizedBox(height: 6),
+          GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: onAll,
+            child: const Text(
+              'كل المهام ‹',
+              style: TextStyle(color: Color(0xFFE8C98A), fontSize: 12.5, fontWeight: FontWeight.w800),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SeasonMissionTile extends StatelessWidget {
+  const _SeasonMissionTile({required this.m, required this.state, required this.onTap});
+
+  final PassMissionDef m;
+  final PassMissionState state;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final progress = state.progressOf(m);
+    final claimed = state.isClaimed(m);
+    final ready = state.isClaimable(m);
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      child: PlankBar(
+        radius: 10,
+        gold: ready || claimed,
+        padding: const EdgeInsets.fromLTRB(9, 6, 9, 6),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
               children: [
-                Padding(
-                  padding: EdgeInsetsDirectional.only(start: tail + 4 * k),
+                Gfx(m.icon, size: 22),
+                const SizedBox(width: 6),
+                Expanded(
                   child: Text(
-                    'مهمات اليوم',
-                    style: TextStyle(
+                    m.title,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
                       fontFamily: kufi,
                       fontWeight: FontWeight.w800,
-                      fontSize: math.max(12.0, 16 * k),
-                      height: 1.2,
-                      color: const Color(0xFFFCBD49),
-                      shadows: const [Shadow(color: Color(0xFF1A0D06), offset: Offset(0, 2), blurRadius: 2)],
-                    ),
-                  ),
-                ),
-                const Spacer(),
-                GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onTap: onAll,
-                  child: Text(
-                    'كل المهام ‹',
-                    style: TextStyle(
-                      color: const Color(0xFFE8C98A),
-                      fontSize: math.max(10.5, 12.5 * k),
-                      fontWeight: FontWeight.w800,
+                      fontSize: 12.5,
+                      height: 1.25,
+                      color: Color(0xFFFFF3DA),
                     ),
                   ),
                 ),
               ],
             ),
-          ),
-          SizedBox(height: d.gap),
-          Expanded(
-            child: Padding(
-              padding: EdgeInsetsDirectional.only(start: tail),
-              child: LayoutBuilder(
-                builder: (context, box) {
-                  final w = (box.maxWidth - 2 * 12 * k) / 3;
-                  return ListView.separated(
-                    scrollDirection: Axis.horizontal,
-                    itemCount: missionDefs.length,
-                    separatorBuilder: (_, _) => SizedBox(width: 12 * k),
-                    itemBuilder: (context, i) {
-                      final m = missionDefs[i];
-                      return SizedBox(
-                        width: w,
-                        child: SnMissionPlank(
-                          title: m.title,
-                          progress: daily.progressOf(m),
-                          target: m.target,
-                          done: daily.isDone(m),
-                          onTap: onAll,
-                          k: k,
-                        ),
-                      );
-                    },
-                  );
-                },
+            const SizedBox(height: 5),
+            Row(
+              children: [
+                Expanded(child: SnProgressBar(value: m.target == 0 ? 0 : progress / m.target, height: 7)),
+                const SizedBox(width: 7),
+                if (claimed)
+                  const Gfx('check', size: 18)
+                else
+                  Text(
+                    '${arabicNumber(progress)}/${arabicNumber(m.target)}',
+                    textDirection: TextDirection.ltr,
+                    style: const TextStyle(
+                      fontFamily: 'ReadexPro',
+                      fontWeight: FontWeight.w800,
+                      fontSize: 11.5,
+                      color: Color(0xFFF2B552),
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 3),
+            Text(
+              claimed
+                  ? 'استلمتها'
+                  : ready
+                  ? 'جاهزة، اضغط للاستلام'
+                  : '+${arabicNumber(m.points)} نقطة موسم',
+              style: TextStyle(
+                fontSize: 10.5,
+                fontWeight: FontWeight.w800,
+                color: ready ? AppColors.green : AppColors.muted,
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

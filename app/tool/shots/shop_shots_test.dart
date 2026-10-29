@@ -150,7 +150,7 @@ void main() {
       await shotHi(
         tester,
         'shop_$name',
-        ShopScreen(initialTab: i, featuredDiscount: 40, featuredItem: shopItem('frame_fire')),
+        ShopScreen(initialTab: i),
       );
     });
   }
@@ -161,7 +161,7 @@ void main() {
       await shotHi(
         tester,
         'tall_$name',
-        ShopScreen(initialTab: i, featuredItem: shopItem('frame_fire')),
+        ShopScreen(initialTab: i),
         size: const Size(960, 1700),
       );
     });
@@ -248,7 +248,7 @@ void main() {
       await shotHi(
         tester,
         'shop_${w.toInt()}',
-        ShopScreen(featuredDiscount: 40, featuredItem: shopItem('frame_fire')),
+        const ShopScreen(),
         size: Size(w, h),
       );
     });

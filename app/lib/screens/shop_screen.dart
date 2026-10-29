@@ -44,18 +44,12 @@ String shopSlotIcon(ShopSlot slot) => switch (slot) {
   ShopSlot.death => 'death',
 };
 
-/// المتجر: قائمة الأقسام على اليمين، والأغراض بشبكة كروت رق، وعرض اليوم على اليسار،
-/// وكل غرض تقدر تشوفه كبير قبل ما تشتريه.
+/// المتجر: قائمة الأقسام على اليمين، والأغراض بشبكة كروت رق، وكل غرض تقدر تشوفه كبير قبل ما تشتريه.
+/// أول قسم «العروض»: خمس باقات (شخصية مع إطار) تنشرى مرة وحدة.
 class ShopScreen extends StatefulWidget {
-  const ShopScreen({super.key, this.initialTab = 0, this.featuredDiscount, this.featuredItem});
+  const ShopScreen({super.key, this.initialTab = 0});
 
   final int initialTab;
-
-  /// نسبة خصم تطلع على عرض اليوم (للعرض بس: المتجر ما فيه خصومات حقيقية للحين).
-  final int? featuredDiscount;
-
-  /// غرض عرض اليوم بدال اللي يختاره اليوم (للعرض بس).
-  final ShopItem? featuredItem;
 
   static const offersTab = 0;
   static const avatarsTab = 1;
@@ -132,6 +126,36 @@ class _ShopScreenState extends State<ShopScreen> {
     }
   }
 
+  /// يشتري العرض كامل: اللي ما تملكه من الشخصية والإطار، بنفس سعره العادي (ما فيه خصم للحين).
+  Future<void> _buyOffer(_Offer offer, Profile p) async {
+    final b = Backend.instance;
+    if (!b.isReady) return;
+    final todo = [for (final i in offer.items) if (!p.owns(i.id)) i];
+    if (todo.isEmpty) return;
+    final coins = todo.fold<int>(0, (n, i) => n + (i.coins ?? 0));
+    final gems = todo.fold<int>(0, (n, i) => n + (i.diamonds ?? 0));
+    final ok = await showGeneralDialog<bool>(
+      context: context,
+      barrierDismissible: true,
+      barrierLabel: 'العرض',
+      barrierColor: Colors.black.withValues(alpha: .75),
+      transitionDuration: const Duration(milliseconds: 260),
+      transitionBuilder: (context, a, _, child) => ScaleTransition(
+        scale: CurvedAnimation(parent: a, curve: Curves.easeOutBack),
+        child: FadeTransition(opacity: a, child: child),
+      ),
+      pageBuilder: (context, _, _) => _OfferDialog(offer: offer, profile: p, coins: coins, gems: gems),
+    );
+    if (ok != true || !mounted) return;
+    await _run(offer.id, () async {
+      for (final i in todo) {
+        await b.buyItem(i.id);
+        if (!p.dev) Telemetry.spend(i.id, i.coins != null ? 'coins' : 'diamonds', i.coins ?? i.diamonds ?? 0);
+      }
+      if (mounted) showShopToast(context, 'صار عندك ${offer.name}!', icon: const Gfx('gift', size: 30));
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final section = _sections[_tab];
@@ -165,51 +189,23 @@ class _ShopScreenState extends State<ShopScreen> {
                     onSelect: (i) => setState(() => _tab = i),
                   ),
                   Expanded(
-                    child: LayoutBuilder(
-                      builder: (context, box) {
-                        // عرض اليوم يصغر مع ارتفاع الشاشة بنفس نسبة التصميم
-                        final panelW = math.min(
-                          box.maxWidth * .46,
-                          math.min(400.0, (box.maxHeight - 18) * 400 / shopPanelH),
-                        );
-                        // المعاينة مفتوحة: الأغراض اللي ورها (والعرض) توقف حركتها
-                        return ValueListenableBuilder(
-                          valueListenable: _previewOpen,
-                          builder: (context, open, child) => TickerMode(enabled: !open, child: child!),
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              Expanded(
-                                child: AnimatedSwitcher(
-                                  duration: const Duration(milliseconds: 220),
-                                  child: _tab == ShopScreen.idsTab
-                                      ? const _PremiumIdsSection(key: ValueKey('ids'))
-                                      : _tab == ShopScreen.diamondsTab
-                                      ? const _DiamondPacks(key: ValueKey('gems'))
-                                      : _ItemsGrid(
-                                          key: ValueKey(section.slot ?? 'offers'),
-                                          slot: section.slot,
-                                          busy: _busy,
-                                          onAct: _act,
-                                        ),
-                                ),
-                              ),
-                              Padding(
-                                padding: const EdgeInsetsDirectional.fromSTEB(0, 9, 10, 9),
-                                child: SizedBox(
-                                  width: panelW,
-                                  child: _DailyOffer(
-                                    busy: _busy,
-                                    onAct: _act,
-                                    discount: widget.featuredDiscount,
-                                    only: widget.featuredItem,
-                                  ),
-                                ),
-                              ),
-                            ],
+                    // المعاينة مفتوحة: الأغراض اللي ورها توقف حركتها
+                    child: ValueListenableBuilder(
+                      valueListenable: _previewOpen,
+                      builder: (context, open, child) => TickerMode(enabled: !open, child: child!),
+                      child: AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 220),
+                        child: switch (_tab) {
+                          ShopScreen.offersTab => _OffersGrid(
+                            key: const ValueKey('offers'),
+                            busy: _busy,
+                            onBuy: _buyOffer,
                           ),
-                        );
-                      },
+                          ShopScreen.idsTab => const _PremiumIdsSection(key: ValueKey('ids')),
+                          ShopScreen.diamondsTab => const _DiamondPacks(key: ValueKey('gems')),
+                          _ => _ItemsGrid(key: ValueKey(section.slot), slot: section.slot!, busy: _busy, onAct: _act),
+                        },
+                      ),
                     ),
                   ),
                 ],
@@ -284,33 +280,39 @@ Widget _shopCard(BuildContext context, ShopItem item, Profile p, {required Strin
   );
 }
 
+/// ترتيب أغراض قسم (للمتجر وغرفة التبديل): اللي ينشرى أول (وبعده هدايا المستويات والموسم والأبطال)،
+/// وفي كل مجموعة الأقل ندرة أول: عادي، نادر، ملحمي، أسطوري. وبنفس الندرة الذهب قبل الجواهر والأرخص أول.
+/// باقات الملصقات تبقى بترتيبها.
+List<ShopItem> shopItemsOrdered(ShopSlot slot) {
+  final items = [
+    for (final i in catalog)
+      if (i.slot == slot) i,
+  ];
+  final at = {for (final (n, i) in items.indexed) i.id: n};
+  int group(ShopItem i) => i.buyable || i.isDefault ? 0 : 1;
+  int currency(ShopItem i) => i.coins != null ? 0 : (i.diamonds != null ? 1 : -1);
+  int price(ShopItem i) => i.coins ?? i.diamonds ?? 0;
+  final byRarity = slot != ShopSlot.reactions;
+  items.sort((a, b) {
+    var c = group(a).compareTo(group(b));
+    if (c == 0 && byRarity) c = a.rarity.index.compareTo(b.rarity.index);
+    if (c == 0 && byRarity) c = currency(a).compareTo(currency(b));
+    if (c == 0 && byRarity) c = price(a).compareTo(price(b));
+    return c != 0 ? c : at[a.id]!.compareTo(at[b.id]!);
+  });
+  return items;
+}
+
 class _ItemsGrid extends StatelessWidget {
   const _ItemsGrid({super.key, required this.slot, required this.busy, required this.onAct});
 
-  /// null = قسم العروض: أبرز الأغراض اللي تنشرى (الأسطوري والملحمي والنادر، بهالترتيب).
-  final ShopSlot? slot;
+  final ShopSlot slot;
   final String? busy;
   final Future<void> Function(ShopItem item, Profile p) onAct;
 
   @override
   Widget build(BuildContext context) {
-    final offers = slot == null;
-    final items = offers
-        ? [
-            for (final i in catalog)
-              if (i.buyable && i.slot != ShopSlot.reactions && i.slot != ShopSlot.table && i.rarity != Rarity.common) i,
-          ]
-        : [
-            for (final i in catalog)
-              if (i.slot == slot) i,
-          ];
-    if (offers) {
-      // الأندر أول
-      items.sort((a, b) => b.rarity.index.compareTo(a.rarity.index));
-    } else {
-      // اللي ينشرى أول، وبعده هدايا المستويات والموسم والأبطال.
-      items.sort((a, b) => (a.buyable || a.isDefault ? 0 : 1).compareTo(b.buyable || b.isDefault ? 0 : 1));
-    }
+    final items = shopItemsOrdered(slot);
     final wide = slot == ShopSlot.table;
     final packs = slot == ShopSlot.reactions;
     return ValueListenableBuilder(
@@ -341,87 +343,219 @@ class _ItemsGrid extends StatelessWidget {
   }
 }
 
-/// عرض اليوم: غرض من الملحمي والأسطوري يتغير كل يوم (بتوقيت الخليج)، وعداد لين يتبدل.
-class _DailyOffer extends StatefulWidget {
-  const _DailyOffer({required this.busy, required this.onAct, this.discount, this.only});
+/// عرض: شخصية مع إطار تنشرى مع بعض (بنفس سعرهم العادي للحين، بدون خصم).
+class _Offer {
+  const _Offer(this.id, this.name, this.avatarId, this.frameId);
 
-  final String? busy;
-  final Future<void> Function(ShopItem item, Profile p) onAct;
-  final int? discount;
-  final ShopItem? only;
+  final String id;
+  final String name;
+  final String avatarId;
+  final String frameId;
 
-  @override
-  State<_DailyOffer> createState() => _DailyOfferState();
+  ShopItem get avatar => shopItem(avatarId)!;
+  ShopItem get frame => shopItem(frameId)!;
+  List<ShopItem> get items => [avatar, frame];
 }
 
-class _DailyOfferState extends State<_DailyOffer> {
-  Timer? _tick;
+/// خمس عروض بسيطة، من الأرخص للأغلى (آخرها بالجواهر).
+const _offers = [
+  _Offer('offer_detective', 'عرض المحقق', 'avatar_detective', 'frame_ice'),
+  _Offer('offer_poet', 'عرض الشاعر', 'avatar_poet', 'frame_night'),
+  _Offer('offer_falconer', 'عرض الصقّار', 'avatar_falconer', 'frame_fire'),
+  _Offer('offer_seer', 'عرض العرّاف', 'avatar_seer', 'frame_neon'),
+  _Offer('offer_emir', 'عرض الأمير', 'avatar_emir', 'frame_sun'),
+];
+
+/// قسم العروض: كروت عريضة، كل كرت فيه الشخصية لابسة إطارها، وزر شراء بسعر المجموع.
+class _OffersGrid extends StatelessWidget {
+  const _OffersGrid({super.key, required this.busy, required this.onBuy});
+
+  final String? busy;
+  final Future<void> Function(_Offer offer, Profile p) onBuy;
 
   @override
-  void initState() {
-    super.initState();
-    // (بالتصوير الوقت ثابت)
-    if (FxClock.manual.value == null) _tick = Timer.periodic(const Duration(seconds: 1), (_) => setState(() {}));
-  }
+  Widget build(BuildContext context) => ValueListenableBuilder(
+    valueListenable: Backend.instance.profile,
+    builder: (context, p, _) => LayoutBuilder(
+      builder: (context, box) {
+        final cols = math.max(1, ((box.maxWidth - 8) / 190).floor());
+        return GridView.builder(
+          padding: const EdgeInsets.fromLTRB(10, 8, 10, 14),
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: cols,
+            mainAxisSpacing: 11,
+            crossAxisSpacing: 11,
+            childAspectRatio: shopCardWideW / shopCardH,
+          ),
+          itemCount: _offers.length,
+          itemBuilder: (context, i) => _offerCard(context, _offers[i], p, busy: busy, onBuy: () => onBuy(_offers[i], p)),
+        );
+      },
+    ),
+  );
+}
 
-  @override
-  void dispose() {
-    _tick?.cancel();
-    super.dispose();
-  }
+Widget _offerCard(BuildContext context, _Offer o, Profile p, {required String? busy, required VoidCallback onBuy}) {
+  final todo = [for (final i in o.items) if (!p.owns(i.id)) i];
+  final coins = todo.fold<int>(0, (n, i) => n + (i.coins ?? 0));
+  final gems = todo.fold<int>(0, (n, i) => n + (i.diamonds ?? 0));
+  final rarity = o.items.map((i) => i.rarity).reduce((a, b) => a.index >= b.index ? a : b);
+  final dark = shopDarkCard(o.frame);
+  return ShopItemCard(
+    key: ValueKey(o.id),
+    semantics: 'عرض ${o.id}',
+    art: _OfferArt(offer: o, dark: dark),
+    rarity: rarity,
+    name: o.name,
+    dark: dark,
+    wide: true,
+    onTap: onBuy,
+    action: Semantics(
+      label: 'زر ${o.id}',
+      child: ShopActionButton(
+        state: todo.isEmpty ? ShopItemState.owned : ShopItemState.buy,
+        passive: 'عندك العرض',
+        icon: coins > 0 ? 'coin' : 'gem',
+        price: coins > 0 ? coins : gems,
+        busy: busy == o.id,
+        onTap: onBuy,
+      ),
+    ),
+  );
+}
 
-  /// غرض اليوم: نفس الغرض للكل طول اليوم، ويتبدل عند منتصف الليل بتوقيت الخليج.
-  static ShopItem? offerFor(DateTime now) {
-    final pool = [
-      for (final i in catalog)
-        if (i.buyable && (i.rarity == Rarity.epic || i.rarity == Rarity.legendary)) i,
-    ];
-    if (pool.isEmpty) return null;
-    final gulf = now.toUtc().add(const Duration(hours: 3));
-    final day = DateTime.utc(gulf.year, gulf.month, gulf.day).difference(DateTime.utc(2024)).inDays;
-    return pool[day % pool.length];
-  }
+/// رسمة العرض: الشخصية لابسة الإطار، وجنبها اسم الشخصية واسم الإطار.
+class _OfferArt extends StatelessWidget {
+  const _OfferArt({required this.offer, required this.dark});
 
-  /// كم باقي على منتصف الليل بتوقيت الخليج.
-  static Duration untilMidnight(DateTime now) {
-    final gulf = now.toUtc().add(const Duration(hours: 3));
-    return DateTime.utc(gulf.year, gulf.month, gulf.day + 1).difference(gulf);
-  }
+  final _Offer offer;
+  final bool dark;
 
   @override
   Widget build(BuildContext context) {
-    final now = DateTime.now();
-    final item = widget.only ?? offerFor(now);
-    if (item == null) return const SizedBox.shrink();
-    return ValueListenableBuilder(
-      valueListenable: Backend.instance.profile,
-      builder: (context, p, _) {
-        final st = shopStateOf(item, p);
-        final coins = item.coins != null;
-        final base = item.coins ?? item.diamonds ?? 0;
-        final off = widget.discount;
-        return ShopFeaturedPanel(
-          rarity: item.rarity,
-          art: ItemPreview(item: item, profile: p, scale: item.slot == ShopSlot.frame ? 1.28 : 1.15),
-          name: item.name,
-          title: shopItemPhrase(item),
-          description: item.desc,
-          dark: shopDarkCard(item),
-          priceIcon: coins ? 'coin' : 'gem',
-          // السعر قبل الخصم يطلع مشطوب (لو فيه خصم يعرضه المتجر)
-          price: st == ShopItemState.buy ? (off == null ? base : (base * (100 - off) / 100).round()) : null,
-          oldPrice: off == null ? null : base,
-          discount: off,
-          remaining: untilMidnight(now),
-          state: st,
-          busy: widget.busy == item.id,
-          passive: item.slot == ShopSlot.reactions ? 'عندك' : null,
-          ownedLabel: item.slot == ShopSlot.avatar ? 'استخدمها' : 'البس',
-          equippedLabel: item.slot == ShopSlot.avatar ? 'صورتك' : 'لابسه',
-          onPressed: () => widget.onAct(item, p),
-          onPreview: () => showItemPreview(context, item),
-        );
-      },
+    final ink = dark ? const Color(0xFFFFEFD0) : AppColors.ink;
+    final muted = dark ? const Color(0xFFD9C29A) : const Color(0xFF6A4A2A);
+    Widget line(String label, String name) => Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: TextStyle(color: muted, fontSize: 11, fontWeight: FontWeight.w800, height: 1.1)),
+        Text(
+          name,
+          style: TextStyle(fontFamily: kufi, color: ink, fontSize: 15, fontWeight: FontWeight.w800, height: 1.2),
+        ),
+      ],
+    );
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        PlayerAvatar(avatar: offer.avatar.avatar!, style: offer.frame.frame, size: 62, animate: false),
+        const SizedBox(width: 14),
+        Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [line('شخصية', offer.avatar.name), const SizedBox(height: 5), line('إطار', offer.frame.name)],
+        ),
+      ],
+    );
+  }
+}
+
+/// تأكيد شراء العرض: الشخصية لابسة إطارها، واللي بتشتريه، وسعره.
+class _OfferDialog extends StatelessWidget {
+  const _OfferDialog({required this.offer, required this.profile, required this.coins, required this.gems});
+
+  final _Offer offer;
+  final Profile profile;
+  final int coins;
+  final int gems;
+
+  @override
+  Widget build(BuildContext context) {
+    final price = coins > 0 ? ('coin', coins) : ('gem', gems);
+    final skipped = [for (final i in offer.items) if (profile.owns(i.id)) i.name];
+    return Center(
+      child: Material(
+        color: Colors.transparent,
+        child: ShopDialogCard(
+          title: offer.name,
+          width: 440,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SizedBox(
+                height: 150,
+                child: Center(
+                  child: PlayerAvatar(avatar: offer.avatar.avatar!, style: offer.frame.frame, size: 112),
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                '${offer.avatar.name} + إطار ${offer.frame.name}',
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontFamily: kufi,
+                  color: AppColors.ink,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w800,
+                  height: 1.4,
+                ),
+              ),
+              if (skipped.isNotEmpty)
+                Text(
+                  'عندك ${skipped.join(' و')} من قبل، ما تدفع عليه',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(color: Color(0xFF6A4A2A), fontSize: 13, fontWeight: FontWeight.w700),
+                ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: ShopButton.label(
+                      'لا',
+                      tone: ShopTone.dark,
+                      height: 44,
+                      fontSize: 18,
+                      onPressed: () => Navigator.pop(context, false),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    flex: 2,
+                    child: ShopButton(
+                      height: 44,
+                      semantics: 'اشتر العرض',
+                      onPressed: () => Navigator.pop(context, true),
+                      child: profile.dev
+                          ? const OutlinedText(
+                              'اشترِ (ببلاش للمطور)',
+                              size: 17,
+                              maxLines: 1,
+                              stroke: Color(0xFF143A0B),
+                              strokeWidth: 3.4,
+                            )
+                          : Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                OutlinedText(
+                                  'اشترِ بـ ${arabicNumber(price.$2)}',
+                                  size: 18,
+                                  maxLines: 1,
+                                  stroke: const Color(0xFF143A0B),
+                                  strokeWidth: 3.4,
+                                ),
+                                const SizedBox(width: 8),
+                                Gfx(price.$1, size: 26),
+                              ],
+                            ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
@@ -836,7 +970,7 @@ class _DiamondPacks extends StatelessWidget {
         _packsGrid([
           for (final (i, pack) in diamondPacks.indexed)
             ShopPackCard(
-              pile: Gfx(const ['gem', 'gems', 'gem_chest'][i % 3], size: 52.0 + i * 5),
+              pile: ShopPile(icon: 'gem', count: 2 + i * 2, size: 56),
               amount: arabicNumber(pack.diamonds),
               unit: 'جوهرة',
               price: pack.price,

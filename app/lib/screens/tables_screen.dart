@@ -152,6 +152,9 @@ class TablesView extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(8, 4, 8, 8),
               child: Row(
                 children: [
+                  // الطاولات على اليسار، واللوحة اللي فيها عدد اللاعبين وزر اللعب على اليمين
+                  SizedBox(width: leftW, child: _controls(tone)),
+                  const SizedBox(width: 8),
                   Expanded(
                     child: WoodPanel(
                       padding: const EdgeInsets.fromLTRB(14, 16, 14, 12),
@@ -191,8 +194,6 @@ class TablesView extends StatelessWidget {
                       ),
                     ),
                   ),
-                  const SizedBox(width: 8),
-                  SizedBox(width: leftW, child: _controls(tone)),
                 ],
               ),
             );

@@ -296,8 +296,8 @@ class CardPile extends StatelessWidget {
   Widget build(BuildContext context) {
     final cardH = cardW * 1.46;
     final messy = kind == GameCardKind.discard;
-    // الرمي يبان فيه ورقة حتى لو فاضي (مثل التصميم).
-    final layers = count.clamp(messy ? 1 : 0, 6);
+    // الرمي فاضي أول اللعبة (مكانها بس، بإطار)، وتمتلي طبقة طبقة مع الوقت.
+    final layers = count.clamp(0, 6);
     final fs = gameFont(22, scale, min: 11);
     return Semantics(
       label: '$label ${arabicNumber(count)}',
@@ -345,7 +345,8 @@ class CardPile extends StatelessWidget {
                 duration: const Duration(milliseconds: 250),
                 transitionBuilder: (child, a) => ScaleTransition(scale: a, child: child),
                 child: Text(
-                  kind == GameCardKind.discard ? label : '$label ${arabicNumber(count)}',
+                  // السحب والرمي كلهم بعددهم: الرمي يبدأ ٠ ويزيد بقدر الأوراق اللي تنتقل له (٢ كل مرة)
+                  '$label ${arabicNumber(count)}',
                   key: ValueKey(count),
                   style: TextStyle(
                     fontFamily: kufi,

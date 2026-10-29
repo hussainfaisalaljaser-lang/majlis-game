@@ -1310,7 +1310,7 @@ class _GameScreenState extends State<GameScreen> {
                               size: 74 * hs,
                               semantics: 'السجل',
                               onTap: () => showGameLog(context, v),
-                              child: Gfx('chat', size: 74 * hs * .6),
+                              child: Gfx('log', size: 74 * hs * .6),
                             ),
                           ],
                         ),
@@ -1392,7 +1392,7 @@ class _GameScreenState extends State<GameScreen> {
   /// كم ملصق مفضل يطلع بالطول فوق زر التفاعل: على قد المكان بين لوحة الجولة فوق والأزرار تحت.
   int _favoritesRoom(double height, double hs, int powers, bool watchers) {
     final top = (118 + (watchers ? 40 : 0)) * hs;
-    final item = 88 * hs;
+    final item = 100 * hs;
     return ((height - top - 12 * hs - 100 * hs - powers * (76 + 8) * hs - 4) / item).floor().clamp(0, 5);
   }
 
@@ -2739,7 +2739,7 @@ class _FavoritesColumn extends StatelessWidget {
               padding: EdgeInsets.only(bottom: 8 * scale),
               child: _FavoriteButton(
                 sticker: s,
-                size: 80 * scale,
+                size: 92 * scale,
                 onTap: () => onSend(s.id),
                 onLongPress: () => onRemove(s.id),
               ),
@@ -2767,7 +2767,7 @@ class _FavoriteButton extends StatelessWidget {
       onTap();
     },
     onLongPress: onLongPress,
-    child: Image.asset(sticker.asset, width: size * .68, height: size * .68, filterQuality: FilterQuality.medium),
+    child: Image.asset(sticker.asset, width: size * .78, height: size * .78, filterQuality: FilterQuality.medium),
   );
 }
 

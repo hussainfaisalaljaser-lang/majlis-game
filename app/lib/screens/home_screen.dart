@@ -722,14 +722,7 @@ class _Me extends StatelessWidget {
                           clipBehavior: Clip.none,
                           children: [
                             GoldRingAvatar(avatar: p.avatar, style: frameStyle(p.frame), size: av, gems: true),
-                            PositionedDirectional(
-                              bottom: av * .02,
-                              start: -av * .04,
-                              child: GoldCircle(
-                                size: math.max(30, av * .3),
-                                child: CustomPaint(size: Size.square(math.max(18, av * .19)), painter: const _HangerPainter()),
-                              ),
-                            ),
+                            PositionedDirectional(bottom: av * .02, start: -av * .1, child: _SwapBadge(size: av)),
                           ],
                         ),
                       ),
@@ -752,6 +745,59 @@ class _Me extends StatelessWidget {
       },
     ),
   );
+}
+
+/// شارة «غرفة التبديل» بزاوية صورتك: كبسولة ذهبية مضيئة فيها مشجب وكلمة «تبديل»، وتنبض بشويش عشان تبان.
+class _SwapBadge extends StatelessWidget {
+  const _SwapBadge({required this.size});
+
+  /// قطر الصورة (الشارة تكبر وتصغر معه).
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    final h = math.max(30.0, size * .27);
+    final pill = Container(
+      height: h,
+      padding: EdgeInsets.symmetric(horizontal: h * .3),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(h),
+        gradient: const LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: goldRingColors),
+        border: Border.all(color: const Color(0xFF2A1608), width: 2),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          CustomPaint(size: Size.square(h * .6), painter: const _HangerPainter()),
+          SizedBox(width: h * .14),
+          Text(
+            'تبديل',
+            style: TextStyle(fontFamily: kufi, fontWeight: FontWeight.w800, fontSize: h * .46, color: const Color(0xFF3A1A05), height: 1),
+          ),
+        ],
+      ),
+    );
+    return FxClock(
+      builder: (context, time) => AnimatedBuilder(
+        animation: time,
+        child: pill,
+        builder: (context, child) => DecoratedBox(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(h),
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.gold.withValues(alpha: .25 + .3 * (.5 + .5 * math.sin(time.value * 2.6))),
+                blurRadius: 12,
+                spreadRadius: 1,
+              ),
+              BoxShadow(color: Colors.black.withValues(alpha: .45), blurRadius: 6, offset: const Offset(0, 3)),
+            ],
+          ),
+          child: child,
+        ),
+      ),
+    );
+  }
 }
 
 /// علامة المشجب (غرفة التبديل): خطاف ومثلث، بحد غامق. ثابتة ما تتحرك.
@@ -835,7 +881,7 @@ class _RaysPainter extends CustomPainter {
   bool shouldRepaint(_RaysPainter old) => false;
 }
 
-/// «خاص» على المخمل: تسوي طاولة لأصحابك (أو تدخل طاولة صاحبك برمزها)، وجنبه صور أصحابك.
+/// «خاص» على المخمل: قفل وعنوان وسطر شرح، وتحتهم زر «سوّ طاولة» وزر «ادخل برمز»، وجنبهم لوح أصحابك (صورهم ودائرة «+»).
 class _PrivatePanel extends StatelessWidget {
   const _PrivatePanel({required this.onCreate, required this.onCode, required this.onFriends});
 
@@ -846,7 +892,7 @@ class _PrivatePanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return VelvetPanel(
-      padding: const EdgeInsetsDirectional.fromSTEB(22, 8, 12, 12),
+      padding: const EdgeInsetsDirectional.fromSTEB(20, 8, 12, 10),
       child: Row(
         children: [
           Expanded(
@@ -854,50 +900,60 @@ class _PrivatePanel extends StatelessWidget {
             child: FittedBox(
               fit: BoxFit.scaleDown,
               alignment: AlignmentDirectional.centerStart,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const GoldTitle('خاص', size: 38, align: TextAlign.start),
-                  const SizedBox(
-                    width: 230,
-                    child: Text(
+              child: SizedBox(
+                width: 290,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Gfx('lock', size: 30),
+                        SizedBox(width: 8),
+                        GoldTitle('خاص', size: 38, align: TextAlign.start),
+                      ],
+                    ),
+                    const SizedBox(height: 2),
+                    const Text(
                       'العب مع أصحابك فقط، تقدر تضيف بوتات',
                       style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: Color(0xFFF6E2BC), height: 1.3),
                     ),
-                  ),
-                  const SizedBox(height: 18),
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      SizedBox(
-                        width: 150,
-                        child: GameButton(
-                          label: 'سوّ طاولة',
-                          semantics: 'سوّ طاولة خاصة',
-                          tone: ButtonTone.green,
-                          height: 50,
-                          fontSize: 24,
-                          onPressed: onCreate,
+                    const SizedBox(height: 14),
+                    Row(
+                      children: [
+                        Expanded(
+                          flex: 5,
+                          child: GameButton(
+                            label: 'سوّ طاولة',
+                            semantics: 'سوّ طاولة خاصة',
+                            tone: ButtonTone.green,
+                            height: 50,
+                            fontSize: 24,
+                            onPressed: onCreate,
+                          ),
                         ),
-                      ),
-                      const SizedBox(width: 10),
-                      // الدخول بكود صاحبك (دائرة صغيرة جنب زر السوّ).
-                      Semantics(
-                        button: true,
-                        label: 'ادخل طاولة صاحبك بالرمز',
-                        excludeSemantics: true,
-                        child: Tooltip(
-                          message: 'ادخل بكود',
-                          child: GestureDetector(onTap: onCode, child: const GoldCircle(size: 40, child: Gfx('key', size: 24))),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          flex: 4,
+                          child: GameButton(
+                            label: 'ادخل برمز',
+                            semantics: 'ادخل طاولة صاحبك بالرمز',
+                            tone: ButtonTone.ghost,
+                            icon: const Gfx('key', size: 22),
+                            height: 50,
+                            fontSize: 18,
+                            onPressed: onCode,
+                          ),
                         ),
-                      ),
-                    ],
-                  ),
-                ],
+                      ],
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
+          const SizedBox(width: 10),
           Expanded(flex: 8, child: _FriendFaces(onAdd: onFriends)),
         ],
       ),
@@ -964,6 +1020,16 @@ class _FriendFacesState extends State<_FriendFaces> {
               child: Stack(
                 clipBehavior: Clip.none,
                 children: [
+                  // لوح داكن بحد ذهبي رفيع ورا الصور
+                  Positioned.fill(
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(24),
+                        color: Colors.black.withValues(alpha: .26),
+                        border: Border.all(color: const Color(0xFFE8B54E).withValues(alpha: .4), width: 1.5),
+                      ),
+                    ),
+                  ),
                   for (final (i, (x, y, size)) in spots.indexed)
                     Positioned(
                       left: x - size * .57,
@@ -972,10 +1038,19 @@ class _FriendFacesState extends State<_FriendFaces> {
                         avatar: order[i].$1,
                         style: order[i].$2,
                         size: size,
-                        animate: false,
                       ),
                     ),
-                  const Positioned(left: 262, top: 28, child: _AddCircle()),
+                  const Positioned(left: 262, top: 22, child: _AddCircle()),
+                  const Positioned(
+                    left: 250,
+                    top: 74,
+                    width: 72,
+                    child: Text(
+                      'أضف صاحب',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(fontFamily: kufi, fontSize: 12.5, fontWeight: FontWeight.w800, color: Color(0xFFF4C24F), height: 1.2),
+                    ),
+                  ),
                 ],
               ),
             ),

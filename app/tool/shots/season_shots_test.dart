@@ -107,7 +107,6 @@ Widget seasonView(Profile p) => SeasonView(
   onClaim: () {},
   onGift: () {},
   onMissions: () {},
-  onDailyMissions: () {},
   now: DateTime.now(),
 );
 

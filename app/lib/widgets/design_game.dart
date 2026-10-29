@@ -1038,6 +1038,21 @@ class GameCardPainter extends CustomPainter {
           colors: [Color(0xFFFFFFFF), Color(0xFFF7F1E3)],
         ).createShader(rect),
     );
+    // لون خفيف ورا الرمز يفرّق الفريق من بعيد: أزرق للأوفياء وأحمر للخونة
+    final c = Offset(size.width / 2, size.height * .49);
+    final r = size.width * .5;
+    canvas.save();
+    canvas.clipRRect(rr.deflate(7 * u));
+    canvas.drawCircle(
+      c,
+      r,
+      Paint()
+        ..shader = RadialGradient(
+          colors: [team.withValues(alpha: .36), team.withValues(alpha: .16), team.withValues(alpha: 0)],
+          stops: const [0, .62, 1],
+        ).createShader(Rect.fromCircle(center: c, radius: r)),
+    );
+    canvas.restore();
     canvas.drawRRect(
       rr.deflate(7 * u),
       Paint()

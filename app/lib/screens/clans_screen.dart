@@ -396,49 +396,35 @@ class ClanPanelView extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   ClanCrest.of(clan.tag, size: compact ? 46 : 64),
                   SizedBox(width: compact ? 8 : 12),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
                       children: [
                         FittedBox(
                           fit: BoxFit.scaleDown,
                           alignment: AlignmentDirectional.centerStart,
-                          child: GoldTitle(clan.name, size: compact ? 19 : 24),
+                          child: GoldTitle(clan.name, size: compact ? 19 : 26),
                         ),
                         SizedBox(height: compact ? 1 : 3),
-                        Wrap(
-                          spacing: compact ? 4 : 6,
-                          runSpacing: compact ? 2 : 4,
-                          children: [
-                            SocChip(
-                              'المستوى ${arabicNumber(clan.level)}',
-                              kind: SocChipKind.gold,
-                              size: compact ? 10.5 : 12.5,
-                            ),
-                            SocChip(
-                              '${arabicNumber(clan.count)} من ${arabicNumber(clanMax)} عضو',
-                              kind: SocChipKind.blue,
-                              size: compact ? 10.5 : 12.5,
-                            ),
-                            ...conditions(clan, size: compact ? 10.5 : 12.5),
-                          ],
+                        Text(
+                          'المستوى ${arabicNumber(clan.level)} · ${arabicNumber(clan.count)} من ${arabicNumber(clanMax)} عضو · '
+                          'الدخول ${clan.join.label}${clan.minLevel > 0 ? ' · مستوى ${arabicNumber(clan.minLevel)}+' : ''}',
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: const Color(0xFFE8D3AE),
+                            fontSize: compact ? 11 : 12.5,
+                            fontWeight: FontWeight.w700,
+                            height: 1.3,
+                          ),
                         ),
                       ],
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  SocButton(
-                    label: 'اطلع',
-                    tone: SocTone.red,
-                    height: compact ? 28 : 34,
-                    fontSize: compact ? 14 : 16,
-                    width: compact ? 58 : 72,
-                    padding: 6,
-                    onPressed: onLeave,
                   ),
                 ],
               ),
@@ -486,6 +472,8 @@ class ClanPanelView extends StatelessWidget {
                       onTap: onSettings,
                     ),
                   ],
+                  const Spacer(),
+                  _LeaveLink(compact: compact, onTap: onLeave),
                 ],
               ),
               SizedBox(height: compact ? 3 : 5),
@@ -554,65 +542,76 @@ class _ClanInfo extends StatelessWidget {
         : power >= ClanRole.deputy.power
         ? 'اكتب وصف ديوانك من «الإعدادات»'
         : 'لسا ما كتب المدراء وصفاً للديوان';
-    Widget card(String title, Widget child) => Container(
-      padding: const EdgeInsets.fromLTRB(10, 6, 10, 6),
-      decoration: BoxDecoration(
-        color: Colors.black.withValues(alpha: .28),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFE8B54E).withValues(alpha: .35)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            title,
-            style: const TextStyle(fontFamily: kufi, fontWeight: FontWeight.w800, fontSize: 13, color: Color(0xFFF2C75A)),
-          ),
-          const SizedBox(height: 3),
-          Expanded(child: child),
-        ],
-      ),
-    );
+    // لوح واحد: الوصف فوق، والألقاب والإنجازات بشارات تحته
     return Padding(
-      padding: const EdgeInsets.only(top: 5),
-      child: SizedBox(
-        height: 74,
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+      padding: const EdgeInsets.only(top: 8, bottom: 2),
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(12, 7, 12, 8),
+        decoration: BoxDecoration(
+          color: Colors.black.withValues(alpha: .26),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: const Color(0xFFE8B54E).withValues(alpha: .3)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Expanded(
-              flex: 5,
-              child: card(
-                'وصف الديوان',
-                Text(
-                  desc,
-                  maxLines: 3,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: clan.desc.isEmpty ? const Color(0xFFB9A07A) : const Color(0xFFF1DDBA),
-                    fontSize: 12.5,
-                    fontFamily: kufi,
-                    fontWeight: FontWeight.w700,
-                    height: 1.3,
-                  ),
-                ),
+            Text(
+              desc,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: clan.desc.isEmpty ? const Color(0xFFB9A07A) : const Color(0xFFF1DDBA),
+                fontSize: 13,
+                fontFamily: kufi,
+                fontWeight: FontWeight.w700,
+                height: 1.35,
               ),
             ),
-            const SizedBox(width: 8),
-            Expanded(
-              flex: 4,
-              child: card(
-                'ألقاب وإنجازات',
-                SingleChildScrollView(
-                  child: Wrap(spacing: 4, runSpacing: 3, children: [for (final a in ach) chip(a, 11)]),
-                ),
-              ),
-            ),
+            const SizedBox(height: 6),
+            Wrap(spacing: 5, runSpacing: 3, children: [for (final a in ach.take(4)) chip(a, 11)]),
           ],
         ),
       ),
     );
   }
+}
+
+/// «اطلع» بشكل هادي (نص صغير بأيقونة) عشان ما ينضغط بالغلط، بدل زر أحمر كبير.
+class _LeaveLink extends StatelessWidget {
+  const _LeaveLink({required this.compact, required this.onTap});
+
+  final bool compact;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+    button: true,
+    label: 'اطلع',
+    excludeSemantics: true,
+    child: GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Opacity(opacity: .85, child: Gfx('exit', size: compact ? 15 : 18)),
+            const SizedBox(width: 4),
+            Text(
+              'اطلع',
+              style: TextStyle(
+                color: const Color(0xFFE59A92),
+                fontSize: compact ? 12 : 13.5,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
 }
 
 /// أعضاء الديوان: شبكة بطاقات صغيرة، وتحتها لو فيه مكان أبرز الأعضاء ببطاقات كبيرة.

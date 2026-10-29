@@ -623,7 +623,7 @@ class LevelRoad extends StatelessWidget {
                               fit: BoxFit.scaleDown,
                               child: item != null
                                   ? ItemPreview(item: item, profile: p)
-                                  : Gfx(r.diamonds > 0 ? 'gems' : 'coin', size: 54),
+                                  : Gfx(r.diamonds > 0 ? 'gem' : 'coin', size: 54),
                             ),
                           ),
                         ),

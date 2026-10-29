@@ -488,7 +488,7 @@ class PlankBar extends StatelessWidget {
   }
 }
 
-/// شريط أحمر بأطراف مقصوصة وعليه عنوان ذهبي (مثل «عرض اليوم» و«فازوا الأوفياء!»).
+/// شريط خمري غامق بحد ذهبي وأطراف مقصوصة، وعليه عنوان ذهبي (مثل «القائمة» و«الهدية اليومية»).
 class RibbonTitle extends StatelessWidget {
   const RibbonTitle(this.text, {super.key, this.size = 24});
 
@@ -516,12 +516,13 @@ class _RibbonPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final h = size.height - 10;
     final tail = h * .9;
-    final dark = Paint()..color = const Color(0xFF7C1912);
+    // شريط خمري غامق بحد ذهبي، يليق مع ليل الخيمة (بدل الأحمر الفاقع)
+    final wineTail = Paint()..color = const Color(0xFF2C0A12);
     final edge = Paint()
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 3
+      ..strokeWidth = 2.4
       ..strokeJoin = StrokeJoin.round
-      ..color = const Color(0xFF2A0B05);
+      ..color = const Color(0xFFD9A441);
     for (final s in [-1.0, 1.0]) {
       final x0 = s < 0 ? tail * .7 : size.width - tail * .7;
       final x1 = s < 0 ? 0.0 : size.width;
@@ -532,26 +533,26 @@ class _RibbonPainter extends CustomPainter {
         ..lineTo(x1, 10 + h)
         ..lineTo(x0, 10 + h)
         ..close();
-      canvas.drawPath(path, dark);
-      canvas.drawPath(path, edge);
+      canvas.drawPath(path, wineTail);
+      canvas.drawPath(path, edge..strokeWidth = 1.8);
     }
-    final body = RRect.fromRectAndRadius(Rect.fromLTWH(tail * .45, 0, size.width - tail * .9, h), const Radius.circular(6));
+    final body = RRect.fromRectAndRadius(Rect.fromLTWH(tail * .45, 0, size.width - tail * .9, h), const Radius.circular(8));
     canvas.drawRRect(
       body,
       Paint()
         ..shader = const LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: [Color(0xFFD8432F), Color(0xFFB02A1E), Color(0xFF8A1C14)],
+          colors: [Color(0xFF5E1A2B), Color(0xFF3E0F1C), Color(0xFF260810)],
         ).createShader(body.outerRect),
     );
-    canvas.drawRRect(body, edge);
+    canvas.drawRRect(body, edge..strokeWidth = 2.4);
     canvas.drawRRect(
       body.deflate(5),
       Paint()
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 2
-        ..color = const Color(0xFFF3C766).withValues(alpha: .85),
+        ..strokeWidth = 1
+        ..color = const Color(0xFFF3C766).withValues(alpha: .5),
     );
   }
 

@@ -744,7 +744,7 @@ class ShopCatIcon extends StatelessWidget {
     'offers' => Gfx('gift', size: size),
     'death' => Gfx('skull', size: size),
     'ids' => Gfx('idcard', size: size),
-    'gems' => Gfx('gems', size: size),
+    'gems' => Gfx('gem', size: size),
     _ => CustomPaint(size: Size.square(size), painter: _CatIconPainter(id)),
   };
 }
@@ -1004,7 +1004,7 @@ class ShopCardFrame extends StatelessWidget {
   /// ندرة الغرض: لكل ندرة خلفية (النادر جليد، الملحمي بنفسجي بأشعة، الأسطوري ذهب يلمع). العادي رق. null = رق.
   final Rarity? rarity;
 
-  /// خلفية مخمل (للإطارات الغامقة اللي ما تبان على الرق).
+  /// خلفية غامقة (للإطارات الغامقة اللي ما تبان على الرق): مخمل، أو بدرجة ندرتها الغامقة لو نادر وفوق.
   final bool dark;
 
   /// الكرت اللي لابسه: حلقة ذهب حوله.
@@ -1040,7 +1040,7 @@ class ShopCardFrame extends StatelessWidget {
                     )
                   : null,
               border: Border.all(
-                color: dark ? const Color(0xFF2A0B12) : (_plain ? const Color(0xFF4E331F) : rarity!.color.withValues(alpha: .75)),
+                color: _plain ? (dark ? const Color(0xFF2A0B12) : const Color(0xFF4E331F)) : rarity!.color.withValues(alpha: .75),
                 width: 1.5,
               ),
             ),
@@ -1060,7 +1060,7 @@ class ShopCardFrame extends StatelessWidget {
                     stops: const [0, .62, 1],
                   ),
                 ),
-                child: _plain ? child : Stack(fit: StackFit.expand, children: [RarityBackdrop(rarity!), child]),
+                child: _plain ? child : Stack(fit: StackFit.expand, children: [RarityBackdrop(rarity!, dark: dark), child]),
               ),
             ),
           ),
@@ -1069,25 +1069,34 @@ class ShopCardFrame extends StatelessWidget {
     ),
   );
 
-  /// رق عادي (العادي، أو الغامق، أو بدون ندرة)؟
-  bool get _plain => dark || rarity == null || rarity == Rarity.common;
+  /// رق عادي (أو مخمل للغامق) بدون خلفية ندرة؟ للعادي وبدون ندرة بس.
+  bool get _plain => rarity == null || rarity == Rarity.common;
 }
 
 /// خلفية الكرت حسب ندرته: نادر جليد أزرق بلمعات، ملحمي بنفسجي بأشعة، أسطوري ذهب بأشعة ولمعة تمر.
 /// ألوانها فاتحة عشان رسمات الأغراض (المصممة على الرق) تبقى واضحة.
 class RarityBackdrop extends StatelessWidget {
-  const RarityBackdrop(this.rarity, {super.key});
+  const RarityBackdrop(this.rarity, {super.key, this.dark = false});
 
   final Rarity rarity;
 
+  /// درجة غامقة (للإطارات الغامقة): نفس الألوان بس بالليل، والأشعة أخف.
+  final bool dark;
+
   @override
   Widget build(BuildContext context) {
-    final (top, bottom) = switch (rarity) {
-      Rarity.rare => (const Color(0xFFE4F4FF), const Color(0xFF9CCBF0)),
-      Rarity.epic => (const Color(0xFFF0E2FF), const Color(0xFFB690EA)),
-      _ => (const Color(0xFFFFF6C8), const Color(0xFFF1BD45)),
-    };
-    final art = CustomPaint(painter: _RarityArtPainter(rarity, null), size: Size.infinite);
+    final (top, bottom) = dark
+        ? switch (rarity) {
+            Rarity.rare => (const Color(0xFF1F4A74), const Color(0xFF0B1B35)),
+            Rarity.epic => (const Color(0xFF4A2478), const Color(0xFF170A33)),
+            _ => (const Color(0xFF7A5212), const Color(0xFF2A1705)),
+          }
+        : switch (rarity) {
+            Rarity.rare => (const Color(0xFFE4F4FF), const Color(0xFF9CCBF0)),
+            Rarity.epic => (const Color(0xFFF0E2FF), const Color(0xFFB690EA)),
+            _ => (const Color(0xFFFFF6C8), const Color(0xFFF1BD45)),
+          };
+    final art = CustomPaint(painter: _RarityArtPainter(rarity, null, dark: dark), size: Size.infinite);
     return DecoratedBox(
       decoration: BoxDecoration(
         gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [top, bottom]),
@@ -1095,7 +1104,7 @@ class RarityBackdrop extends StatelessWidget {
       // الأسطوري: لمعة تمر ببطء. الباقي ثابت (كروت كثيرة بالشاشة، فنوفّر).
       child: rarity == Rarity.legendary
           ? RepaintBoundary(
-              child: FxClock(builder: (context, time) => CustomPaint(painter: _RarityArtPainter(rarity, time))),
+              child: FxClock(builder: (context, time) => CustomPaint(painter: _RarityArtPainter(rarity, time, dark: dark))),
             )
           : art,
     );
@@ -1103,10 +1112,11 @@ class RarityBackdrop extends StatelessWidget {
 }
 
 class _RarityArtPainter extends CustomPainter {
-  _RarityArtPainter(this.rarity, this.time) : super(repaint: time);
+  _RarityArtPainter(this.rarity, this.time, {this.dark = false}) : super(repaint: time);
 
   final Rarity rarity;
   final ValueListenable<double>? time;
+  final bool dark;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -1144,14 +1154,17 @@ class _RarityArtPainter extends CustomPainter {
     }
     canvas.drawPath(
       rays,
-      Paint()..color = (rarity == Rarity.legendary ? Colors.white : const Color(0xFFFFFFFF)).withValues(alpha: rarity == Rarity.legendary ? .3 : .2),
+      Paint()..color = Colors.white.withValues(alpha: (rarity == Rarity.legendary ? .3 : .2) * (dark ? .55 : 1)),
     );
     canvas.drawCircle(
       c,
       w * .55,
       Paint()
         ..shader = RadialGradient(
-          colors: [Colors.white.withValues(alpha: rarity == Rarity.legendary ? .6 : .4), Colors.white.withValues(alpha: 0)],
+          colors: [
+            Colors.white.withValues(alpha: (rarity == Rarity.legendary ? .6 : .4) * (dark ? .45 : 1)),
+            Colors.white.withValues(alpha: 0),
+          ],
         ).createShader(Rect.fromCircle(center: c, radius: w * .55)),
     );
     if (rarity == Rarity.legendary) {
@@ -1173,7 +1186,7 @@ class _RarityArtPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(_RarityArtPainter old) => old.rarity != rarity;
+  bool shouldRepaint(_RarityArtPainter old) => old.rarity != rarity || old.dark != dark;
 }
 
 /// كرت غرض: درجته فوق اليمين، وعين المعاينة فوق اليسار، والرسمة بالنص، واسمه، وزره تحت.
@@ -1769,10 +1782,7 @@ void showShopToast(BuildContext context, String message, {Widget? icon}) {
     );
 }
 
-// ───────────────────────── حالة الغرض وعرض اليوم ─────────────────────────
-
-/// ارتفاع لوحة عرض اليوم بمقاس التصميم (عرضها ٤٠٠).
-const shopPanelH = 478.0;
+// ───────────────────────── حالة الغرض ─────────────────────────
 
 ShopItemState shopStateOf(ShopItem item, Profile p) {
   final owned = p.owns(item.id);
@@ -1808,367 +1818,6 @@ Widget shopCardArt(ShopItem item, Profile p) => ItemPreview(
     _ => .9,
   },
 );
-
-/// لوحة عرض اليوم: مخمل أحمر بحد ذهبي وأشعة، والغرض بكرت رق، واسمه ووصفه وعداده وزر الشراء.
-class ShopFeaturedPanel extends StatelessWidget {
-  const ShopFeaturedPanel({
-    super.key,
-    required this.rarity,
-    required this.art,
-    required this.name,
-    required this.title,
-    required this.priceIcon,
-    required this.remaining,
-    required this.state,
-    required this.onPressed,
-    this.description,
-    this.price,
-    this.oldPrice,
-    this.discount,
-    this.dark = false,
-    this.busy = false,
-    this.passive,
-    this.ownedLabel = 'البس',
-    this.equippedLabel = 'لابسه',
-    this.onPreview,
-  });
-
-  final Rarity rarity;
-  final Widget art;
-  final String name;
-  final String title;
-  final String? description;
-  final String priceIcon;
-  final int? price;
-  final int? oldPrice;
-  final int? discount;
-  final bool dark;
-  final Duration remaining;
-  final ShopItemState state;
-  final bool busy;
-  final String? passive;
-  final String ownedLabel;
-  final String equippedLabel;
-  final VoidCallback onPressed;
-  final VoidCallback? onPreview;
-
-  static String _clock(Duration d) {
-    String two(int n) => arabicNumber(n).padLeft(2, '٠');
-    final s = d.inSeconds.clamp(0, 359999);
-    return '${two(s ~/ 3600)}:${two(s ~/ 60 % 60)}:${two(s % 60)}';
-  }
-
-  @override
-  Widget build(BuildContext context) => FittedBox(
-    child: SizedBox(
-      width: 400,
-      height: shopPanelH,
-      child: VelvetPanel(
-        radius: 18,
-        padding: EdgeInsets.zero,
-        child: Stack(
-          children: [
-            Positioned.fill(
-              child: ShopSunburst(
-                color: const Color(0xFFE3A9A0).withValues(alpha: .11),
-                rays: 14,
-                center: const Alignment(0, -.38),
-                fade: .55,
-              ),
-            ),
-            Positioned.fill(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(26, 0, 26, 18),
-                child: Column(
-                  children: [
-                    Transform.translate(
-                      offset: const Offset(0, -2),
-                      child: const IntrinsicWidth(child: RibbonTitle('عرض اليوم', size: 21)),
-                    ),
-                    const SizedBox(height: 1),
-                    _OfferCard(
-                      rarity: rarity,
-                      art: art,
-                      name: name,
-                      dark: dark,
-                      priceIcon: priceIcon,
-                      price: price,
-                      oldPrice: oldPrice,
-                      discount: discount,
-                      onTap: onPreview,
-                    ),
-                    const Spacer(),
-                    GoldTitle(title, size: 31),
-                    if (description != null)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 3),
-                        child: Text(
-                          description!,
-                          textAlign: TextAlign.center,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontFamily: kufi,
-                            color: Color(0xFFFFEBCB),
-                            fontSize: 15,
-                            fontWeight: FontWeight.w700,
-                            height: 1.3,
-                            shadows: [Shadow(color: Colors.black54, offset: Offset(0, 1.5), blurRadius: 2)],
-                          ),
-                        ),
-                      ),
-                    const Spacer(),
-                    Container(
-                      height: 28,
-                      width: 206,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF150A06),
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: const Color(0xFF6A2B26), width: 1.6),
-                      ),
-                      child: Center(
-                        child: Text(
-                          'ينتهي بعد ${_clock(remaining)}',
-                          style: const TextStyle(
-                            fontFamily: kufi,
-                            color: Color(0xFFFFEBCB),
-                            fontSize: 14.5,
-                            fontWeight: FontWeight.w800,
-                            height: 1.2,
-                          ),
-                        ),
-                      ),
-                    ),
-                    const Spacer(),
-                    SizedBox(
-                      width: 210,
-                      child: ShopActionButton(
-                        state: state,
-                        icon: priceIcon,
-                        price: price,
-                        busy: busy,
-                        onTap: onPressed,
-                        ownedLabel: ownedLabel,
-                        equippedLabel: equippedLabel,
-                        passive: passive,
-                        buyLabel: 'اشتر الحين',
-                        height: 52,
-                        fontSize: 25,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    ),
-  );
-}
-
-/// كرت الغرض داخل عرض اليوم: الدرجة، وختم الخصم، والرسمة، واسمه، وشريط السعر.
-class _OfferCard extends StatelessWidget {
-  const _OfferCard({
-    required this.rarity,
-    required this.art,
-    required this.name,
-    required this.dark,
-    required this.priceIcon,
-    this.price,
-    this.oldPrice,
-    this.discount,
-    this.onTap,
-  });
-
-  final Rarity rarity;
-  final Widget art;
-  final String name;
-  final bool dark;
-  final String priceIcon;
-  final int? price;
-  final int? oldPrice;
-  final int? discount;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final gems = priceIcon == 'gem';
-    return GestureDetector(
-      onTap: onTap,
-      child: SizedBox(
-        width: 194,
-        height: 224,
-        child: Stack(
-          clipBehavior: Clip.none,
-          children: [
-            Positioned.fill(
-              child: ShopCardFrame(
-                dark: dark,
-                radius: 12,
-                child: Stack(
-                  children: [
-                    Positioned(
-                      left: 4,
-                      right: 4,
-                      top: 26,
-                      height: 116,
-                      child: Center(
-                        child: FittedBox(fit: BoxFit.scaleDown, child: art),
-                      ),
-                    ),
-                    Positioned(
-                      left: 4,
-                      right: 4,
-                      top: 140,
-                      height: 28,
-                      child: Center(
-                        child: Text(
-                          name,
-                          maxLines: 1,
-                          style: TextStyle(
-                            fontFamily: kufi,
-                            fontSize: 22,
-                            fontWeight: FontWeight.w800,
-                            height: 1.2,
-                            color: dark ? const Color(0xFFFFEFD0) : AppColors.ink,
-                          ),
-                        ),
-                      ),
-                    ),
-                    if (price != null)
-                      Positioned(
-                        left: 9,
-                        right: 9,
-                        bottom: 9,
-                        height: 44,
-                        child: DecoratedBox(
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF150A05),
-                            borderRadius: BorderRadius.circular(11),
-                            border: Border.all(color: const Color(0xFFE8B54E), width: 2.2),
-                            boxShadow: [BoxShadow(color: const Color(0xFFE8B54E).withValues(alpha: .3), blurRadius: 6)],
-                          ),
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 12),
-                            child: Row(
-                              mainAxisAlignment: oldPrice == null
-                                  ? MainAxisAlignment.center
-                                  : MainAxisAlignment.spaceBetween,
-                              children: [
-                                if (oldPrice != null)
-                                  Text(
-                                    arabicNumber(oldPrice!),
-                                    style: const TextStyle(
-                                      fontFamily: kufi,
-                                      fontSize: 15,
-                                      fontWeight: FontWeight.w700,
-                                      color: Color(0xFF9A8F86),
-                                      decoration: TextDecoration.lineThrough,
-                                      decorationColor: Color(0xFFE0392A),
-                                      decorationThickness: 2.4,
-                                    ),
-                                  ),
-                                OutlinedText(
-                                  arabicNumber(price!),
-                                  size: 27,
-                                  maxLines: 1,
-                                  color: gems ? const Color(0xFFDDF0FF) : const Color(0xFFFFE9A6),
-                                  stroke: gems ? const Color(0xFF0C2A63) : const Color(0xFF5A3004),
-                                  strokeWidth: 5,
-                                ),
-                                Gfx(priceIcon, size: 25),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-                    PositionedDirectional(top: 5, start: 6, child: ShopRarityTag(rarity, size: 12.5)),
-                  ],
-                ),
-              ),
-            ),
-            if (discount != null) PositionedDirectional(top: -12, end: -10, child: _DiscountSeal(percent: discount!)),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-/// ختم الخصم: دائرة حمرا مائلة وفيها «خصم ٤٠٪»، تتأرجح شوي.
-class _DiscountSeal extends StatefulWidget {
-  const _DiscountSeal({required this.percent});
-
-  final int percent;
-
-  @override
-  State<_DiscountSeal> createState() => _DiscountSealState();
-}
-
-class _DiscountSealState extends State<_DiscountSeal> with SingleTickerProviderStateMixin {
-  late final AnimationController _wobble = AnimationController(
-    vsync: this,
-    duration: const Duration(milliseconds: 2400),
-  );
-
-  @override
-  void initState() {
-    super.initState();
-    if (FxClock.manual.value == null && !FxClock.lite.value) _wobble.repeat(reverse: true);
-  }
-
-  @override
-  void dispose() {
-    _wobble.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) => AnimatedBuilder(
-    animation: _wobble,
-    builder: (context, child) =>
-        Transform.rotate(angle: -.34 + .12 * Curves.easeInOut.transform(_wobble.value), child: child),
-    child: Container(
-      width: 52,
-      height: 52,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        gradient: const RadialGradient(
-          center: Alignment(-.3, -.5),
-          colors: [Color(0xFFE9503F), Color(0xFFD03226), Color(0xFFB02419)],
-        ),
-        border: Border.all(color: const Color(0xFF5A1610), width: 3),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: .45), blurRadius: 5, offset: const Offset(0, 3))],
-      ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Text(
-            'خصم',
-            style: TextStyle(
-              fontFamily: kufi,
-              fontSize: 15,
-              fontWeight: FontWeight.w800,
-              height: 1.05,
-              color: Color(0xFFFFF1D8),
-            ),
-          ),
-          Text(
-            '${arabicNumber(widget.percent)}٪',
-            style: const TextStyle(
-              fontFamily: kufi,
-              fontSize: 16,
-              fontWeight: FontWeight.w800,
-              height: 1.05,
-              color: Color(0xFFFFD25A),
-            ),
-          ),
-        ],
-      ),
-    ),
-  );
-}
 
 /// نجمة ذهب بحد بني (علامة المفضلة).
 class ShopStar extends StatelessWidget {

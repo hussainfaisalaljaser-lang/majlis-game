@@ -428,14 +428,14 @@ class SocHeader extends StatelessWidget {
           children: [
             if (back) ...[SocBackArrow(onTap: onBack), const SizedBox(width: 6)] else const SizedBox(width: 10),
             if (icon != null) ...[icon!, const SizedBox(width: 8)],
-            Flexible(
+            // العنوان ياخذ كل المساحة اللي بالنص (مو Flexible وSpacer اللي يقسمونها)، عشان الذهب والجواهر دايم بزاوية اليسار.
+            Expanded(
               child: FittedBox(
                 fit: BoxFit.scaleDown,
                 alignment: AlignmentDirectional.centerStart,
                 child: GoldTitle(title, size: 26),
               ),
             ),
-            const Spacer(),
             if (trailing != null) ...[trailing!, const SizedBox(width: 8)],
             if (currency)
               ValueListenableBuilder(

@@ -140,8 +140,9 @@ class _Track extends StatelessWidget {
                 ),
                 Text(
                   '${arabicNumber(filled)}/${arabicNumber(total)}',
+                  textDirection: TextDirection.ltr,
                   style: const TextStyle(
-                    fontFamily: kufi,
+                    fontFamily: 'ReadexPro',
                     fontSize: 17,
                     fontWeight: FontWeight.w800,
                     height: 1.1,
@@ -240,22 +241,26 @@ class MiniTracks extends StatelessWidget {
   Widget build(BuildContext context) {
     final sc = scale;
     final dot = math.max(10.0, 23 * sc);
-    final fs = math.max(12.0, 22 * sc);
+    final fs = math.max(15.0, 29 * sc);
     Widget row(bool loyal, int filled, int total) {
       final color = loyal ? const Color(0xFF3F78E0) : const Color(0xFFE0485A);
       return Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           SizedBox(
-            width: fs * 2.6,
+            width: fs * 2.7,
+            // خط القراءة (مو الكوفي): أرقامه أوضح بالحجم الصغير، وظل غامق يفصلها عن الخشب
             child: Text(
               '${arabicNumber(filled)}/${arabicNumber(total)}',
+              textDirection: TextDirection.ltr,
+              textAlign: TextAlign.center,
               style: TextStyle(
-                fontFamily: kufi,
+                fontFamily: 'ReadexPro',
                 fontSize: fs,
                 fontWeight: FontWeight.w800,
-                color: loyal ? const Color(0xFF8FB4FF) : const Color(0xFFFF9FB0),
-                height: 1.25,
+                color: loyal ? const Color(0xFFA9C6FF) : const Color(0xFFFFB3C0),
+                height: 1.0,
+                shadows: const [Shadow(color: Color(0xFF1A0E07), blurRadius: 2, offset: Offset(0, 1))],
               ),
             ),
           ),

@@ -163,8 +163,8 @@ class _WardrobeScreenState extends State<WardrobeScreen> {
     if (tab.slot == ShopSlot.avatar) {
       final mine = [
         ...freeAvatars,
-        for (final i in catalog)
-          if (i.slot == ShopSlot.avatar && p.owns(i.id)) i.avatar!,
+        for (final i in shopItemsOrdered(ShopSlot.avatar))
+          if (p.owns(i.id)) i.avatar!,
       ];
       for (final a in mine) {
         final item = avatarItem(a);
@@ -190,8 +190,8 @@ class _WardrobeScreenState extends State<WardrobeScreen> {
         );
       }
     } else {
-      for (final item in catalog) {
-        if (item.slot != tab.slot || !p.owns(item.id)) continue;
+      for (final item in shopItemsOrdered(tab.slot)) {
+        if (!p.owns(item.id)) continue;
         final on = shopStateOf(item, p) == ShopItemState.equipped;
         cells.add(
           ShopItemCard(
