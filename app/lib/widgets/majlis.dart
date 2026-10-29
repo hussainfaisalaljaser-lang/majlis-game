@@ -3,7 +3,9 @@ import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
+import '../models/shop.dart';
 import '../theme.dart';
+import 'design_death.dart';
 import 'design_game.dart';
 import 'fx.dart';
 import 'venues.dart';
@@ -271,48 +273,12 @@ class _ClothPainter extends CustomPainter {
 
   final double k;
 
+  // نفس رسمة الافكتات (design_death.dart): مسند مخمل ينكشف والغطا ينزل عليه ويستقر.
   @override
   void paint(Canvas canvas, Size size) {
-    final e = Curves.easeOutCubic.transform(k.clamp(0.0, 1.0));
-    final a = (k * 4).clamp(0.0, 1.0);
-    final w = size.width, h = size.height;
-    canvas.translate(0, -h * .55 * (1 - e));
-    final sway = math.sin(k * math.pi) * 4;
-    final sheet = Path()
-      ..moveTo(w * .5, 4)
-      ..cubicTo(w * .8, 4, w * .84, h * .3, w * .86 + sway, h * .55)
-      ..quadraticBezierTo(w * .98, h * .8, w, h * .96)
-      ..quadraticBezierTo(w * .86, h * .9, w * .74, h * .98)
-      ..quadraticBezierTo(w * .62, h * .9, w * .5, h)
-      ..quadraticBezierTo(w * .38, h * .9, w * .26, h * .98)
-      ..quadraticBezierTo(w * .14, h * .9, 0, h * .96)
-      ..quadraticBezierTo(w * .02, h * .8, w * .14 - sway, h * .55)
-      ..cubicTo(w * .16, h * .3, w * .2, 4, w * .5, 4)
-      ..close();
-    canvas.drawPath(
-      sheet,
-      Paint()
-        ..shader = LinearGradient(
-          colors: [
-            const Color(0xFF3F3F46).withValues(alpha: a),
-            const Color(0xFF8A8A94).withValues(alpha: a),
-            const Color(0xFF5B5B64).withValues(alpha: a),
-            const Color(0xFF34343B).withValues(alpha: a),
-          ],
-          stops: const [0, .38, .62, 1],
-        ).createShader(Rect.fromLTWH(0, 0, w, h)),
-    );
-    final fold = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.3
-      ..color = Colors.black.withValues(alpha: .28 * a);
-    for (final x in [.28, .42, .58, .72]) {
-      canvas.drawLine(Offset(w * (.5 + (x - .5) * .4), h * .3), Offset(w * x, h * .93), fold);
-    }
-    canvas.drawOval(
-      Rect.fromLTWH(w * .3, 9, w * .26, h * .16),
-      Paint()..color = Colors.white.withValues(alpha: .14 * a),
-    );
+    final seat = Size(size.width / 1.12, size.height / 1.12);
+    final chair = ((k - .45) / .4).clamp(0.0, 1.0);
+    paintDeathAtSeat(canvas, seat, DeathFx.cloth, s: k * 1.25, chair: chair);
   }
 
   @override

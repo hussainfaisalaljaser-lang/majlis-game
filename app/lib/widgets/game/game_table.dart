@@ -605,7 +605,7 @@ class _SeatView extends StatelessWidget {
           else
             SizedBox(width: d, height: d),
           if (t < 1.6) Positioned.fill(child: CustomPaint(painter: _SadPainter(t))),
-          Positioned.fill(child: CustomPaint(painter: DeathPainter(fx, t))),
+          Positioned.fill(child: DeathLayer(fx: fx, t: t)),
           Positioned.fill(
             child: DeathMark(fx: fx, t: t),
           ),
