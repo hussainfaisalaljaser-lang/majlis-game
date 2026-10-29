@@ -9,6 +9,7 @@ import '../services/telemetry.dart';
 import '../theme.dart';
 import '../widgets/bubble.dart';
 import '../widgets/common.dart';
+import '../widgets/curtain_route.dart';
 import '../widgets/game/policy_card.dart';
 import '../widgets/design.dart';
 import '../widgets/design_social.dart';
@@ -44,7 +45,7 @@ Future<void> startTutorialGame(BuildContext context, {bool replace = false}) asy
     final code = await backend.startTutorial();
     Telemetry.tutorialBegin();
     navigator.pop();
-    final route = MaterialPageRoute<void>(builder: (_) => GameScreen(code: code));
+    final route = curtainRoute<void>((_) => GameScreen(code: code));
     replace ? navigator.pushReplacement(route) : navigator.push(route);
   } on BackendException catch (e) {
     navigator.pop();

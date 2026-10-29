@@ -12,6 +12,7 @@ import '../services/backend.dart';
 import '../theme.dart';
 import '../widgets/clan_crest.dart';
 import '../widgets/common.dart';
+import '../widgets/curtain_route.dart';
 import '../widgets/design.dart';
 import '../widgets/design_social.dart';
 import '../widgets/friend_button.dart';
@@ -469,11 +470,7 @@ class _FriendRowState extends State<_FriendRow> {
     try {
       final code = await Backend.instance.spectate(widget.uid);
       if (mounted) {
-        await Navigator.of(context).push(
-          MaterialPageRoute(
-            builder: (_) => GameScreen(code: code, watching: widget.uid),
-          ),
-        );
+        await Navigator.of(context).push(curtainRoute<void>((_) => GameScreen(code: code, watching: widget.uid)));
       }
     } on BackendException catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));

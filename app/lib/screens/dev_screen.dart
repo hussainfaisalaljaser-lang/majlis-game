@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../services/backend.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
+import '../widgets/curtain_route.dart';
 import '../widgets/ui.dart';
 import 'game_screen.dart';
 import 'moderation_screen.dart';
@@ -109,7 +110,7 @@ class _DevScreenState extends State<DevScreen> {
         await backend.devTool('forceRole', {'code': code, 'role': ?_role, 'special': ?_special});
       }
     });
-    if (code != null && mounted) navigator.push(MaterialPageRoute(builder: (_) => GameScreen(code: code!)));
+    if (code != null && mounted) navigator.push(curtainRoute<void>((_) => GameScreen(code: code!)));
   }
 
   /// صاحب اللعبة: الحماية من الغش. السيرفر يقبل بس اللي جاي من التطبيق الأصلي (من قوقل بلاي) لما تتفعّل.

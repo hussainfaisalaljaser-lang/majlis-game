@@ -17,6 +17,7 @@ import 'services/sfx.dart';
 import 'services/sounds.dart';
 import 'services/telemetry.dart';
 import 'widgets/fx.dart';
+import 'widgets/game/atmosphere.dart';
 import 'widgets/splash.dart';
 import 'theme.dart';
 
@@ -35,7 +36,7 @@ Future<void> main() async {
   SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
   // أول شي: كل مشغّلات الصوت تشتغل مع بعض (موسيقى وراوي ومؤثرات) بدون ما أحد ياخذ تركيز الصوت من الثاني
   await Sounds.init();
-  await Future.wait([Backend.instance.init(), Sfx.init(), Music.init(), FxClock.init()]);
+  await Future.wait([Backend.instance.init(), Sfx.init(), Music.init(), FxClock.init(), Atmosphere.init()]);
   await Telemetry.init();
   Music.play('menu');
   runApp(const MajlisApp());

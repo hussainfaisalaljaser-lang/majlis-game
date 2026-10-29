@@ -15,6 +15,7 @@ import 'package:majlis/screens/game_screen.dart';
 import 'package:majlis/services/backend.dart';
 import 'package:majlis/services/music.dart';
 import 'package:majlis/widgets/fx.dart';
+import 'package:majlis/widgets/game/atmosphere.dart';
 import 'package:majlis/widgets/game/overlays.dart';
 import 'package:majlis/widgets/game/scenes.dart';
 import 'package:majlis/widgets/majlis.dart';
@@ -415,6 +416,30 @@ void main() {
         size: size,
       );
     }
+  });
+
+  // الأجواء الثلاثة على الطاولة (الليل، العاصفة، المطر مع لحظة برق)، على الجوال وعلى الشاشة الكبيرة
+  testWidgets('atmospheres', (tester) async {
+    final bolt = 2 + 4 * rnd(0, 61) + .05;
+    for (final (name, choice, t) in [
+      ('night', AtmoChoice.night, 7.3),
+      ('sand', AtmoChoice.sand, 5.0),
+      ('rain', AtmoChoice.rain, bolt),
+      ('rain_calm', AtmoChoice.rain, bolt + 3),
+    ]) {
+      Atmosphere.choice.value = choice;
+      FxClock.manual.value = t;
+      for (final size in const [Size(960, 540), Size(800, 360)]) {
+        await screen(
+          tester,
+          'game_atmo_${name}_${size.width.toInt()}',
+          GamePreview(view: _view(_viewJson()), room: _room()),
+          size: size,
+          frames: 8,
+        );
+      }
+    }
+    Atmosphere.choice.value = AtmoChoice.auto;
   });
 
   testWidgets('extras', (tester) async {

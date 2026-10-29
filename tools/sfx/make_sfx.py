@@ -394,6 +394,25 @@ def puff():
     return finish(x * 1.4 + thump, .85)
 
 
+def coin():
+    """رنّة عملة: جرس قصير بتوافقيات غير متناسقة، فيها نقرة معدن في أولها."""
+    t = tt(.42)
+    f = 1760.0
+    x = sine(f, t) * ex(t, .09) + .55 * sine(f * 1.5, t) * ex(t, .07) + .25 * sine(f * 2.76, t) * ex(t, .035)
+    x += highpass(noise(.42), 4000) * ex(t, .004) * .3
+    return finish(x, .8)
+
+
+def level():
+    """ترقية المستوى: أربع نغمات تصعد (دو مي صول دو) مع لمعان فوقها."""
+    out = np.zeros(int(1.3 * SR))
+    for k, f in enumerate([1046.5, 1318.5, 1568.0, 2093.0]):
+        u = tt(.9)
+        place(out, (sine(f, u) + .4 * sine(f * 2, u)) * ex(u, .22) * rise(u, .005), k * .09)
+    place(out, sparkle()[:int(.9 * SR)], .25, .5)
+    return finish(echo(out, [(.1, .25)]), .85)
+
+
 SOUNDS = {
     "whoosh": whoosh, "flip": flip, "drum": lambda: drum(165), "drum2": lambda: drum(235, .4),
     "yes": yes, "no": no, "stamp": stamp, "thud_red": thud_red,
@@ -402,6 +421,8 @@ SOUNDS = {
     "win": win, "sparkle": sparkle, "mask_drop": mask_drop, "tick": tick,
     "thunder": thunder, "fire": fire, "ice": ice, "wings": wings, "ghost": ghost, "gong": gong,
     "airy": airy, "puff": puff,
+    # الجديدة تنضاف في الآخر عشان الأصوات اللي قبلها تبقى نفسها (الضجيج بترتيب ثابت)
+    "coin": coin, "level": level,
 }
 
 

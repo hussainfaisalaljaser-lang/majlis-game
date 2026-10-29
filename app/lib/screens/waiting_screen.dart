@@ -12,6 +12,7 @@ import '../services/links.dart';
 import '../services/telemetry.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
+import '../widgets/curtain_route.dart';
 import '../widgets/design.dart';
 import '../widgets/design_social.dart';
 import '../widgets/majlis.dart';
@@ -71,7 +72,7 @@ class _WaitingScreenState extends State<WaitingScreen> {
       if (!mounted) return;
       if (room?.status == RoomStatus.playing) {
         _sub?.cancel();
-        Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => GameScreen(code: code)));
+        Navigator.of(context).pushReplacement(curtainRoute<void>((_) => GameScreen(code: code)));
         return;
       }
       setState(() => _room = room);

@@ -7,6 +7,7 @@ import '../theme.dart';
 import 'common.dart';
 import 'design_social.dart';
 import 'fx.dart';
+import 'game/atmosphere.dart';
 import 'volume_panel.dart';
 
 /// رقم النسخة من البناء (CI يمرره: --dart-define=BUILD=رقم التشغيل).
@@ -97,6 +98,10 @@ class SettingsCard extends StatelessWidget {
               ),
             ),
           ),
+        ),
+        ValueListenableBuilder(
+          valueListenable: Atmosphere.choice,
+          builder: (context, c, _) => item('fire', 'جو الطاولة: ${c.label}', () => _showAtmosphere(context)),
         ),
         item('sound', 'مستوى الصوت (الموسيقى والمعلق والمؤثرات)', () => showVolumeDialog(context)),
         item(
@@ -205,6 +210,38 @@ class _BlockedRow extends StatelessWidget {
     );
   }
 }
+
+/// جو الطاولة وقت اللعب: تلقائي، أو ثابت، أو بدون.
+Future<void> _showAtmosphere(BuildContext context) => showSocDialog<void>(
+  context,
+  title: 'جو الطاولة',
+  width: 440,
+  builder: (context) => ValueListenableBuilder(
+    valueListenable: Atmosphere.choice,
+    builder: (context, cur, _) => Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const SocPopupText('يبان وراء الطاولة وقت اللعب. ما يشتغل لو شغّلت «حركات خفيفة»', size: 13.5, muted: true),
+        const SizedBox(height: 10),
+        for (final c in AtmoChoice.values)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: SocButton(
+              label: c.label,
+              tone: c == cur ? SocTone.green : SocTone.grey,
+              height: 42,
+              fontSize: 16,
+              onPressed: () => Atmosphere.setChoice(c),
+            ),
+          ),
+        SocPopupText(cur.hint, size: 13.5, muted: true),
+        const SizedBox(height: 10),
+        SocButton(label: 'تمام', tone: SocTone.blue, height: 42, fontSize: 16, onPressed: () => Navigator.pop(context)),
+      ],
+    ),
+  ),
+);
 
 /// رسالة للمطور: مشكلة، أو اقتراح، أو أي شي.
 Future<void> _showFeedback(BuildContext context) async {

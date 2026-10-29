@@ -108,14 +108,18 @@ class WeekendChip extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 6),
-            Text(
-              compact ? 'ذهب مضاعف' : 'ذهب مضاعف · باقي ${timeLeft(w.ends.difference(now))}',
-              style: const TextStyle(
-                fontFamily: kufi,
-                fontSize: 12.5,
-                fontWeight: FontWeight.w800,
-                color: Color(0xFFFFF0D2),
-                height: 1.3,
+            Flexible(
+              child: Text(
+                compact ? 'ذهب مضاعف' : 'ذهب مضاعف · باقي ${timeLeft(w.ends.difference(now))}',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontFamily: kufi,
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w800,
+                  color: Color(0xFFFFF0D2),
+                  height: 1.3,
+                ),
               ),
             ),
           ],

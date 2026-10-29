@@ -19,6 +19,10 @@ void main() {
       // صوت كل افكت موت
       for (final m in RegExp(r"DeathFx\.[\w.| ]+=> '([a-z_0-9]+)'").allMatches(src)) m[1]!,
       ...['sting_loyal', 'sting_traitor', 'sting_leader', 'flip'],
+      // الأصوات اللي تشتغل من أي مكان ثاني في التطبيق (الستارة، المكافأة، الرعد…)
+      for (final f in Directory('lib').listSync(recursive: true))
+        if (f.path.endsWith('.dart'))
+          for (final m in RegExp(r"Sounds\.play\('([a-z_0-9]+)'").allMatches(File(f.path).readAsStringSync())) m[1]!,
     };
     expect(names.length, greaterThan(15));
     expect(files.containsAll(names), isTrue, reason: 'missing files: ${names.difference(files)}');

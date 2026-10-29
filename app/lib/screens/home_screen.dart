@@ -19,6 +19,7 @@ import '../widgets/design_icons.dart';
 import '../widgets/fx.dart';
 import '../widgets/gifts.dart';
 import '../widgets/mode_theme.dart';
+import '../widgets/reward_fly.dart';
 import '../widgets/ui.dart';
 import '../widgets/volume_panel.dart';
 import '../widgets/weekend.dart';
@@ -49,6 +50,9 @@ class _HomeScreenState extends State<HomeScreen> {
 
   /// الطور اللي بيلعبه (عشوائي أو خاص). يتذكر آخر اختيار.
   ModeTheme _mode = ModeTheme.classic;
+
+  /// أماكن الرصيد وصورتك ولوح مستواك (منها وإليها تطير المكافأة بعد اللعبة).
+  final _pillKey = GlobalKey(), _meKey = GlobalKey(), _plankKey = GlobalKey();
 
   @override
   void initState() {
@@ -113,65 +117,80 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.bg,
-      body: _Backdrop(
-        child: GiftWatcher(
-          child: LinkWatcher(
-            child: _TutorialOffer(
-              child: SafeArea(
-                child: Padding(
-                  padding: const EdgeInsetsDirectional.fromSTEB(10, 6, 10, 12),
-                  child: Column(
-                    children: [
-                      _Header(
-                        onGift: () => showDailyReward(context),
-                        onMissions: _openMissions,
-                        onMenu: () => _openMenu(context),
-                      ),
-                      const SizedBox(height: 10),
-                      Expanded(
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            Expanded(
-                              flex: 7,
-                              child: _Hero(
-                                mode: _mode,
-                                onMode: _setMode,
-                                onPlay: () => _play(() => _push(TablesScreen(mode: _mode))),
-                                onWardrobe: () => _push(const WardrobeScreen()),
-                              ),
+      body: Stack(
+        children: [
+          Positioned.fill(child: _body(context)),
+          // مكافأة آخر لعبة تطير للرصيد
+          Positioned.fill(
+            child: RewardFlyLayer(pillKey: _pillKey, originKey: _meKey, plankKey: _plankKey),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _body(BuildContext context) {
+    return _Backdrop(
+      child: GiftWatcher(
+        child: LinkWatcher(
+          child: _TutorialOffer(
+            child: SafeArea(
+              child: Padding(
+                padding: const EdgeInsetsDirectional.fromSTEB(10, 6, 10, 12),
+                child: Column(
+                  children: [
+                    _Header(
+                      pillKey: _pillKey,
+                      plankKey: _plankKey,
+                      onGift: () => showDailyReward(context),
+                      onMissions: _openMissions,
+                      onMenu: () => _openMenu(context),
+                    ),
+                    const SizedBox(height: 10),
+                    Expanded(
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Expanded(
+                            flex: 7,
+                            child: _Hero(
+                              meKey: _meKey,
+                              mode: _mode,
+                              onMode: _setMode,
+                              onPlay: () => _play(() => _push(TablesScreen(mode: _mode))),
+                              onWardrobe: () => _push(const WardrobeScreen()),
                             ),
-                            const SizedBox(width: 22),
-                            Expanded(
-                              flex: 12,
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.stretch,
-                                children: [
-                                  Expanded(
-                                    flex: 3,
-                                    child: _PrivatePanel(
-                                      onCreate: () => _play(() => _push(PrivateScreen(mode: _mode))),
-                                      onCode: () => _play(() => joinRoomByCode(context)),
-                                      onFriends: () => _push(FriendsScreen.forProfile(Backend.instance.profile.value)),
-                                    ),
+                          ),
+                          const SizedBox(width: 22),
+                          Expanded(
+                            flex: 12,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                Expanded(
+                                  flex: 3,
+                                  child: _PrivatePanel(
+                                    onCreate: () => _play(() => _push(PrivateScreen(mode: _mode))),
+                                    onCode: () => _play(() => joinRoomByCode(context)),
+                                    onFriends: () => _push(FriendsScreen.forProfile(Backend.instance.profile.value)),
                                   ),
-                                  const SizedBox(height: 12),
-                                  Expanded(
-                                    flex: 4,
-                                    child: _Tiles(
-                                      onClans: () => _push(const ClansScreen()),
-                                      onPass: () => _push(const PassScreen()),
-                                      onShop: () => _push(const ShopScreen()),
-                                    ),
+                                ),
+                                const SizedBox(height: 12),
+                                Expanded(
+                                  flex: 4,
+                                  child: _Tiles(
+                                    onClans: () => _push(const ClansScreen()),
+                                    onPass: () => _push(const PassScreen()),
+                                    onShop: () => _push(const ShopScreen()),
                                   ),
-                                ],
-                              ),
+                                ),
+                              ],
                             ),
-                          ],
-                        ),
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -312,8 +331,15 @@ class _EmberPainter extends CustomPainter {
 /// الشريط اللي فوق (مثل التصميم): لوح اسمك على اليمين، واسم اللعبة بنص الشاشة،
 /// وعلى اليسار الجواهر والذهب والهدية اليومية والمهام.
 class _Header extends StatelessWidget {
-  const _Header({required this.onGift, required this.onMissions, required this.onMenu});
+  const _Header({
+    required this.onGift,
+    required this.onMissions,
+    required this.onMenu,
+    required this.pillKey,
+    required this.plankKey,
+  });
 
+  final GlobalKey pillKey, plankKey;
   final VoidCallback onGift;
   final VoidCallback onMissions;
   final VoidCallback onMenu;
@@ -330,7 +356,12 @@ class _Header extends StatelessWidget {
               child: FittedBox(
                 fit: BoxFit.scaleDown,
                 alignment: AlignmentDirectional.centerStart,
-                child: _ProfilePlank(profile: p, onTap: onMenu),
+                // الرقم والمستوى يبانون بقيمتهم القديمة لين تطير مكافأة آخر لعبة
+                child: ListenableBuilder(
+                  listenable: RewardFx.heldXp,
+                  builder: (context, _) =>
+                      _ProfilePlank(key: plankKey, profile: p, xp: RewardFx.xpShown(p), onTap: onMenu),
+                ),
               ),
             ),
             const GoldTitle('مجلس الخونة', size: 33),
@@ -356,7 +387,13 @@ class _Header extends StatelessWidget {
                       onTap: onGift,
                     ),
                     const SizedBox(width: 12),
-                    CurrencyPill(icon: 'coin', amount: p.coins, infinite: p.dev),
+                    ListenableBuilder(
+                      listenable: RewardFx.heldCoins,
+                      builder: (context, _) => KeyedSubtree(
+                        key: pillKey,
+                        child: CurrencyPill(icon: 'coin', amount: RewardFx.coinsShown(p), infinite: p.dev),
+                      ),
+                    ),
                     const SizedBox(width: 8),
                     CurrencyPill(
                       infinite: p.dev,
@@ -379,9 +416,12 @@ class _Header extends StatelessWidget {
 
 /// لوح خشب فيه صورتك واسمك ومستواك وشريط الخبرة. تضغطه: قائمة الاختصارات (ملفي، الأصدقاء، الترتيب...).
 class _ProfilePlank extends StatelessWidget {
-  const _ProfilePlank({required this.profile, required this.onTap});
+  const _ProfilePlank({super.key, required this.profile, required this.xp, required this.onTap});
 
   final Profile profile;
+
+  /// المستوى وتعبئة شريطه اللي يبانون (ممكن يكونون قديمين وقت المكافأة).
+  final ({int level, double progress}) xp;
   final VoidCallback onTap;
 
   @override
@@ -389,7 +429,7 @@ class _ProfilePlank extends StatelessWidget {
     final p = profile;
     return Semantics(
       button: true,
-      label: 'القائمة: ${p.name}، المستوى ${arabicNumber(p.level)}',
+      label: 'القائمة: ${p.name}، المستوى ${arabicNumber(xp.level)}',
       excludeSemantics: true,
       child: GestureDetector(
         onTap: onTap,
@@ -415,7 +455,7 @@ class _ProfilePlank extends StatelessWidget {
                           child: OutlinedText(p.name, size: 17, maxLines: 1, align: TextAlign.start, strokeWidth: 3),
                         ),
                         Text(
-                          'مستوى ${arabicNumber(p.level)}',
+                          'مستوى ${arabicNumber(xp.level)}',
                           style: const TextStyle(
                             fontFamily: kufi,
                             fontSize: 12,
@@ -427,7 +467,7 @@ class _ProfilePlank extends StatelessWidget {
                       ],
                     ),
                     const Spacer(),
-                    _XpBar(value: p.levelProgress),
+                    _XpBar(value: xp.progress),
                   ],
                 ),
               ),
@@ -611,8 +651,16 @@ class _Dot extends StatelessWidget {
 
 /// شخصيتك وزر «العب» (أونلاين مع ناس من كل مكان)، وتحته الطور.
 class _Hero extends StatelessWidget {
-  const _Hero({required this.mode, required this.onMode, required this.onPlay, required this.onWardrobe});
+  const _Hero({
+    required this.mode,
+    required this.onMode,
+    required this.onPlay,
+    required this.onWardrobe,
+    required this.meKey,
+  });
 
+  /// صورتك: منها تطلع عملات المكافأة.
+  final GlobalKey meKey;
   final ModeTheme mode;
   final ValueChanged<ModeTheme> onMode;
   final VoidCallback onPlay;
@@ -622,7 +670,10 @@ class _Hero extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        Expanded(flex: 5, child: _Me(onWardrobe: onWardrobe)),
+        Expanded(
+          flex: 5,
+          child: KeyedSubtree(key: meKey, child: _Me(onWardrobe: onWardrobe)),
+        ),
         // زر العب والسطر والطور: يصغرون مع بعض لو الشاشة قصيرة.
         Expanded(
           flex: 3,

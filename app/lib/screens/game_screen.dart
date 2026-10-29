@@ -19,9 +19,12 @@ import '../services/sounds.dart';
 import '../services/telemetry.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
+import '../widgets/curtain_route.dart';
+import '../widgets/reward_fly.dart';
 import '../widgets/design.dart';
 import '../widgets/design_game.dart';
 import '../widgets/fx_sig.dart';
+import '../widgets/game/atmosphere.dart';
 import '../widgets/game/card_hand.dart';
 import '../widgets/game/game_log.dart';
 import '../widgets/game/game_table.dart';
@@ -208,6 +211,8 @@ class _GameScreenState extends State<GameScreen> {
       return;
     }
     _notes.load();
+    // الرقم القديم لذهبك وخبرتك (عشان المكافأة تطير للرئيسية بعد اللعبة)
+    if (!_spectating) RewardFx.begin(Backend.instance.profile.value);
     if (!_spectating) Push.enterGame(widget.code);
     Music.play('game');
     Sounds.warm();
@@ -240,6 +245,9 @@ class _GameScreenState extends State<GameScreen> {
         _roomLoaded = true;
       });
       if (before != null && room != null) _announceLeavers(before, room);
+      // النتيجة طلعت: ذهب وخبرة اللعبة تنتظر لين ترجع الرئيسية وتطير لرصيدك
+      final mine = _spectating ? null : room?.results[_view?.you ?? _backend.uid];
+      if (mine != null) RewardFx.grant(widget.code, coins: mine.coins, xp: mine.xp);
       if (room?.next case final next? when next != _watchingNext) _watchNext(next);
     }, onError: (Object e) => debugPrint('room listener: $e'));
     // كل ثانية: نحدّث العداد وفقاعات الردود، ونطلب من السيرفر يكمّل لو خلص الوقت.
@@ -472,8 +480,8 @@ class _GameScreenState extends State<GameScreen> {
       _leftTable = true;
       _backend.leaveGame(widget.code).ignore();
       Navigator.of(context).pushReplacement(
-        MaterialPageRoute(
-          builder: (_) => r.started
+        curtainRoute<void>(
+          (_) => r.started
               ? GameScreen(code: r.code)
               : WaitingScreen(tier: tierById(room?.tierId), playerCount: room?.maxPlayers ?? 5, code: r.code),
         ),
@@ -1118,6 +1126,10 @@ class _GameScreenState extends State<GameScreen> {
                 safe: safe,
               ),
             ),
+            // جو الطاولة (نجوم وشرار) وراء الطاولة
+            Positioned.fill(
+              child: TableAtmosphere(code: widget.code, safe: safe),
+            ),
             SafeArea(
               child: LayoutBuilder(
                 builder: (context, box) {
@@ -1169,6 +1181,8 @@ class _GameScreenState extends State<GameScreen> {
                           ),
                         ),
                       ),
+                      // الطقس (مطر، رمل، برق) فوق الطاولة وتحت الأزرار
+                      Positioned.fill(child: TableAtmosphere(code: widget.code, front: true)),
                       Positioned.fill(child: TensionOverlay(tension: tension)),
                       // فوق يسار: النقاط مصغرة على لوح، تنضغط وتكبر
                       Positioned(
