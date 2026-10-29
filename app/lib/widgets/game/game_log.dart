@@ -3,17 +3,23 @@ import 'package:flutter/material.dart';
 import '../../models/game_view.dart';
 import '../../theme.dart';
 import '../common.dart';
+import '../design.dart';
+import '../design_dialogs.dart';
+import '../design_game.dart';
 import 'policy_card.dart';
 
 /// سجل اللعبة: كل تصويت وادعاء وتمرير، مع تنبيه لما تتناقض الادعاءات.
 void showGameLog(BuildContext context, GameView view) {
   showModalBottomSheet<void>(
     context: context,
-    backgroundColor: AppColors.panel,
+    // اللوحة الخشب ترسمها _GameLog نفسها.
+    backgroundColor: Colors.transparent,
     isScrollControlled: true,
+    constraints: const BoxConstraints(maxWidth: 760),
     builder: (context) => DraggableScrollableSheet(
       expand: false,
-      initialChildSize: .75,
+      // على الجوال الأفقي الارتفاع قليل، فنفتح اللوحة أعلى
+      initialChildSize: MediaQuery.sizeOf(context).height < 500 ? .88 : .75,
       maxChildSize: .95,
       builder: (context, controller) => _GameLog(view: view, controller: controller),
     ),
@@ -49,47 +55,65 @@ class _GameLog extends StatelessWidget {
       }
     }
 
-    return Column(
-      children: [
-        const SizedBox(height: 10),
-        Container(
-          width: 40,
-          height: 4,
-          decoration: BoxDecoration(color: AppColors.line, borderRadius: BorderRadius.circular(2)),
-        ),
-        const Padding(
-          padding: EdgeInsets.all(12),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Gfx('log', size: 28),
-              SizedBox(width: 6),
-              Text('سجل اللعبة', style: TextStyle(fontSize: 19, fontWeight: FontWeight.w800)),
-            ],
-          ),
-        ),
-        if (entries.isEmpty)
+    return SheetPanel(
+      child: Column(
+        children: [
+          const SizedBox(height: 13),
+          const SheetHandle(),
           const Padding(
-            padding: EdgeInsets.all(24),
-            child: Text('ما صار شي للحين', style: TextStyle(color: AppColors.muted)),
+            padding: EdgeInsets.fromLTRB(12, 4, 12, 6),
+            child: SheetTitle('سجل اللعبة', icon: Gfx('log', size: 32), size: 24),
           ),
-        Expanded(
-          child: ListView(
-            controller: controller,
-            padding: const EdgeInsets.fromLTRB(14, 0, 14, 24),
-            children: [
-              for (final MapEntry(key: round, value: events) in entries)
-                _RoundCard(
-                  round: round,
-                  events: events,
-                  claims: claims.where((c) => c.round == round).toList(),
-                  name: _name,
-                  failed: failed,
+          if (entries.isEmpty)
+            const Padding(
+              padding: EdgeInsets.all(24),
+              child: Text(
+                'ما صار شي للحين',
+                style: TextStyle(color: Color(0xFFE7CFA6), fontWeight: FontWeight.w700),
+              ),
+            ),
+          Expanded(
+            child: ListView(
+              controller: controller,
+              padding: const EdgeInsets.fromLTRB(18, 4, 18, 24),
+              children: [
+                // بالعرض (جوال أفقي) عمودين، والكروت تتوزع عليهم بالتناوب، وبالطول عمود واحد.
+                LayoutBuilder(
+                  builder: (context, box) {
+                    final cols = box.maxWidth >= 560 ? 2 : 1;
+                    final cards = [
+                      for (final MapEntry(key: round, value: events) in entries)
+                        _RoundCard(
+                          round: round,
+                          events: events,
+                          claims: claims.where((c) => c.round == round).toList(),
+                          name: _name,
+                          failed: failed,
+                        ),
+                    ];
+                    return Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        for (var c = 0; c < cols; c++) ...[
+                          if (c > 0) const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              children: [
+                                for (var i = c; i < cards.length; i += cols)
+                                  Padding(padding: const EdgeInsets.only(bottom: 10), child: cards[i]),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ],
+                    );
+                  },
                 ),
-            ],
+              ],
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
@@ -125,7 +149,7 @@ class _RoundCard extends StatelessWidget {
     Widget line(String icon, String text, [Widget? tail]) => Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        Gfx(icon, size: 20),
+        Gfx(icon, size: 22),
         const SizedBox(width: 6),
         Flexible(child: Text(text)),
         ?tail,
@@ -158,10 +182,13 @@ class _RoundCard extends StatelessWidget {
               children: [
                 for (final MapEntry(:key, :value) in votes.entries)
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
                     decoration: BoxDecoration(
-                      color: value ? const Color(0xFF162A1D) : const Color(0xFF5C1F26),
-                      borderRadius: BorderRadius.circular(8),
+                      color: value
+                          ? const Color(0xFF3E9B3C).withValues(alpha: .2)
+                          : const Color(0xFFD23A2E).withValues(alpha: .16),
+                      borderRadius: BorderRadius.circular(9),
+                      border: Border.all(color: value ? const Color(0xFF2E7A2C) : const Color(0xFFB02A1E), width: 1.4),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
@@ -172,7 +199,8 @@ class _RoundCard extends StatelessWidget {
                           (weights[key] ?? 1) > 1 ? '${name(key)} ×${arabicNumber(weights[key]!)}' : name(key),
                           style: TextStyle(
                             fontSize: 12,
-                            color: value ? const Color(0xFF8EE4AB) : const Color(0xFFFFB0B0),
+                            fontWeight: FontWeight.w800,
+                            color: value ? const Color(0xFF1D5E1F) : const Color(0xFF8E1A12),
                           ),
                         ),
                       ],
@@ -236,30 +264,28 @@ class _RoundCard extends StatelessWidget {
     final chan = claims.where((c) => !c.president).firstOrNull;
     final contradiction = pres != null && chan != null && claimsContradict(pres.policies, chan.policies, enacted);
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 9),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: AppColors.card,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.line),
-      ),
+    return ParchmentCard(
+      padding: const EdgeInsets.fromLTRB(14, 8, 14, 10),
       child: DefaultTextStyle.merge(
-        style: const TextStyle(fontSize: 13.5),
+        style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, color: AppColors.ink, height: 1.35),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('الجولة ${arabicNumber(round)}', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14)),
+            GoldRibbonLabel('الجولة ${arabicNumber(round)}', size: 15),
             const SizedBox(height: 6),
             for (final l in lines) Padding(padding: const EdgeInsets.only(bottom: 4), child: l),
             if (contradiction)
               Container(
                 margin: const EdgeInsets.only(top: 4),
-                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF3A1D22),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: const Color(0xFF7A2E38)),
+                  gradient: const LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [Color(0xFFC8302E), Color(0xFF8E1C1C)],
+                  ),
+                  borderRadius: BorderRadius.circular(11),
+                  border: Border.all(color: gameInk, width: 2),
                 ),
                 child: const Row(
                   mainAxisSize: MainAxisSize.min,
@@ -268,7 +294,7 @@ class _RoundCard extends StatelessWidget {
                     SizedBox(width: 6),
                     Text(
                       'تناقض! واحد منهم يكذب',
-                      style: TextStyle(color: Color(0xFFFFC2C2), fontWeight: FontWeight.w700),
+                      style: TextStyle(color: Color(0xFFFFF3DA), fontWeight: FontWeight.w800),
                     ),
                   ],
                 ),
