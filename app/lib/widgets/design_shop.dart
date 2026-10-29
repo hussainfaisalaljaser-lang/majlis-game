@@ -1800,8 +1800,9 @@ ShopItemState shopStateOf(ShopItem item, Profile p) {
   return item.buyable ? ShopItemState.buy : ShopItemState.locked;
 }
 
-/// الإطارات اللي تبان أحسن على خلفية مخمل غامقة (ليل، نجوم، نيون…).
-const _darkFrames = {'comet', 'galaxy', 'blackgold', 'neon', 'storm', 'fireworks'};
+/// الإطارات اللي تنحط على خلفية غامقة. فاضية: كل الإطارات (حتى النيون والشهاب والذهب الأسود) تاخذ خلفية ندرتها
+/// مثل باقي الكروت، وتبان عليها.
+const _darkFrames = <String>{};
 
 bool shopDarkCard(ShopItem item) => item.slot == ShopSlot.frame && _darkFrames.contains(item.frame?.sig);
 

@@ -722,7 +722,7 @@ class _Me extends StatelessWidget {
                           clipBehavior: Clip.none,
                           children: [
                             GoldRingAvatar(avatar: p.avatar, style: frameStyle(p.frame), size: av, gems: true),
-                            PositionedDirectional(bottom: av * .02, start: -av * .1, child: _SwapBadge(size: av)),
+                            PositionedDirectional(bottom: av * .02, start: -av * .04, child: _SwapBadge(size: av)),
                           ],
                         ),
                       ),
@@ -747,7 +747,7 @@ class _Me extends StatelessWidget {
   );
 }
 
-/// شارة «غرفة التبديل» بزاوية صورتك: كبسولة ذهبية مضيئة فيها مشجب وكلمة «تبديل»، وتنبض بشويش عشان تبان.
+/// شارة «غرفة التبديل» بزاوية صورتك: دائرة ذهبية مضيئة فيها المشجب بس (بدون كلام)، وتنبض بشويش عشان تبان.
 class _SwapBadge extends StatelessWidget {
   const _SwapBadge({required this.size});
 
@@ -756,34 +756,25 @@ class _SwapBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final h = math.max(30.0, size * .27);
-    final pill = Container(
-      height: h,
-      padding: EdgeInsets.symmetric(horizontal: h * .3),
+    final d = math.max(38.0, size * .32);
+    final disc = Container(
+      width: d,
+      height: d,
+      alignment: Alignment.center,
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(h),
+        shape: BoxShape.circle,
         gradient: const LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: goldRingColors),
-        border: Border.all(color: const Color(0xFF2A1608), width: 2),
+        border: Border.all(color: const Color(0xFF2A1608), width: 2.2),
       ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          CustomPaint(size: Size.square(h * .6), painter: const _HangerPainter()),
-          SizedBox(width: h * .14),
-          Text(
-            'تبديل',
-            style: TextStyle(fontFamily: kufi, fontWeight: FontWeight.w800, fontSize: h * .46, color: const Color(0xFF3A1A05), height: 1),
-          ),
-        ],
-      ),
+      child: CustomPaint(size: Size.square(d * .6), painter: const _HangerPainter()),
     );
     return FxClock(
       builder: (context, time) => AnimatedBuilder(
         animation: time,
-        child: pill,
+        child: disc,
         builder: (context, child) => DecoratedBox(
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(h),
+            shape: BoxShape.circle,
             boxShadow: [
               BoxShadow(
                 color: AppColors.gold.withValues(alpha: .25 + .3 * (.5 + .5 * math.sin(time.value * 2.6))),
