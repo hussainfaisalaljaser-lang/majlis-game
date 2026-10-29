@@ -6,7 +6,8 @@ import '../models/profile.dart';
 import '../theme.dart';
 import 'badges.dart';
 import 'common.dart';
-import 'ui.dart';
+import 'design.dart';
+import 'design_social.dart';
 
 /// كل الإنجازات في ملفك: الدرجة اللي وصلتها، ووش باقي للدرجة الجاية.
 class AchievementsPanel extends StatelessWidget {
@@ -17,40 +18,36 @@ class AchievementsPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final done = achievements.where((a) => (profile.badges[a.id] ?? 0) >= a.tiers.length).length;
-    return Panel(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              const Gfx('trophy', size: 24),
-              const SizedBox(width: 6),
-              const Text(
-                'الإنجازات',
-                style: TextStyle(fontFamily: kufi, fontWeight: FontWeight.w700, fontSize: 18),
-              ),
-              const Spacer(),
-              Text(
-                '${arabicNumber(done)} من ${arabicNumber(achievements.length)} ذهبية',
-                style: const TextStyle(color: AppColors.muted, fontSize: 12.5),
-              ),
-            ],
-          ),
-          const SizedBox(height: 4),
-          Text(
-            'كل درجة لها ذهب: ${achievementRewards.map(arabicNumber).join(' ثم ')}، وتطلع في ملفك للكل',
-            style: const TextStyle(color: AppColors.muted, fontSize: 12),
-          ),
-          const SizedBox(height: 8),
-          for (final a in achievements) _AchievementRow(achievement: a, profile: profile),
-        ],
-      ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          children: [
+            const Gfx('trophy', size: 26),
+            const SizedBox(width: 8),
+            const GoldTitle('الإنجازات', size: 20),
+            const Spacer(),
+            Text(
+              '${arabicNumber(done)} من ${arabicNumber(achievements.length)} ذهبية',
+              style: const TextStyle(color: socMuted, fontSize: 13, fontFamily: kufi, fontWeight: FontWeight.w700),
+            ),
+          ],
+        ),
+        const SizedBox(height: 2),
+        Text(
+          'كل درجة لها ذهب: ${achievementRewards.map(arabicNumber).join(' ثم ')}، وتطلع في ملفك للكل',
+          style: const TextStyle(color: socMuted, fontSize: 12.5, fontFamily: kufi, fontWeight: FontWeight.w700),
+        ),
+        const SizedBox(height: 8),
+        for (final a in achievements) AchievementRow(achievement: a, profile: profile),
+      ],
     );
   }
 }
 
-class _AchievementRow extends StatelessWidget {
-  const _AchievementRow({required this.achievement, required this.profile});
+/// سطر إنجاز على لوح: الميدالية، والاسم والوصف، وشريط التقدم للدرجة الجاية.
+class AchievementRow extends StatelessWidget {
+  const AchievementRow({super.key, required this.achievement, required this.profile});
 
   final Achievement achievement;
   final Profile profile;
@@ -65,54 +62,60 @@ class _AchievementRow extends StatelessWidget {
     final from = tier == 0 ? 0 : a.tiers[tier - 1];
     final progress = maxed ? 1.0 : ((value - from) / (goal - from)).clamp(0.0, 1.0);
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 5),
-      child: Row(
-        children: [
-          BadgeMedal(achievement: a, tier: tier, size: 42),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Text(a.name, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14.5)),
-                    if (tier > 0) ...[
-                      const SizedBox(width: 6),
+      padding: const EdgeInsets.only(bottom: 7),
+      child: SocPlankRow(
+        padding: const EdgeInsets.fromLTRB(10, 7, 12, 7),
+        child: Row(
+          children: [
+            BadgeMedal(achievement: a, tier: tier, size: 42),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
                       Text(
-                        tierNames[tier],
-                        style: TextStyle(color: tierColors[tier], fontWeight: FontWeight.w800, fontSize: 12),
+                        a.name,
+                        style: const TextStyle(fontFamily: kufi, fontWeight: FontWeight.w800, fontSize: 16, color: socCream, height: 1.25),
+                      ),
+                      if (tier > 0) ...[
+                        const SizedBox(width: 6),
+                        Text(
+                          tierNames[tier],
+                          style: TextStyle(color: tierColors[tier], fontWeight: FontWeight.w800, fontSize: 13, fontFamily: kufi),
+                        ),
+                      ],
+                      const Spacer(),
+                      Text(
+                        maxed ? 'مكتمل' : '${arabicNumber(value)} / ${arabicNumber(goal)}',
+                        style: TextStyle(
+                          color: maxed ? socGoldHi : socMuted,
+                          fontSize: 13,
+                          fontFamily: kufi,
+                          fontWeight: FontWeight.w800,
+                        ),
                       ),
                     ],
-                    const Spacer(),
-                    Text(
-                      maxed ? 'مكتمل' : '${arabicNumber(value)} / ${arabicNumber(goal)}',
-                      style: TextStyle(
-                        color: maxed ? AppColors.gold : AppColors.muted,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ],
-                ),
-                Text(
-                  maxed ? a.descFor(a.tiers.length - 1) : a.descFor(tier),
-                  style: const TextStyle(color: AppColors.muted, fontSize: 12),
-                ),
-                const SizedBox(height: 4),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(4),
-                  child: LinearProgressIndicator(
-                    value: progress,
-                    minHeight: 5,
-                    backgroundColor: Colors.black.withValues(alpha: .35),
-                    color: maxed ? AppColors.gold : tierColors[(tier + 1).clamp(1, 3)],
                   ),
-                ),
-              ],
+                  Text(
+                    maxed ? a.descFor(a.tiers.length - 1) : a.descFor(tier),
+                    style: const TextStyle(color: socMuted, fontSize: 12.5, fontFamily: kufi, fontWeight: FontWeight.w700, height: 1.25),
+                  ),
+                  const SizedBox(height: 4),
+                  SocBar(
+                    value: progress,
+                    height: 8,
+                    rope: false,
+                    colors: maxed
+                        ? const [Color(0xFFFFE08A), Color(0xFFF0A92B)]
+                        : [Color.lerp(tierColors[(tier + 1).clamp(1, 3)], Colors.white, .35)!, tierColors[(tier + 1).clamp(1, 3)]],
+                  ),
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -131,12 +134,14 @@ class RankPanel extends StatelessWidget {
     final next = tier.next;
     final progress = next == null ? 1.0 : ((points - tier.min) / (next.min - tier.min)).clamp(0.0, 1.0);
     final days = season.end.difference(DateTime.now()).inDays;
-    return Panel(
-      gradient: LinearGradient(colors: [tier.color.withValues(alpha: .22), AppColors.panel]),
-      borderColor: tier.color.withValues(alpha: .6),
+    final bar = next?.color ?? tier.color;
+    return SocCard(
+      tint: tier.color,
+      gold: true,
+      padding: const EdgeInsets.fromLTRB(12, 10, 14, 10),
       child: Row(
         children: [
-          RankEmblem(tier: tier, size: 64),
+          RankEmblem(tier: tier, size: 62),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
@@ -144,36 +149,23 @@ class RankPanel extends StatelessWidget {
               children: [
                 Row(
                   children: [
-                    Text(
-                      'التصنيف: ${tier.name}',
-                      style: TextStyle(fontFamily: kufi, fontWeight: FontWeight.w700, fontSize: 18, color: tier.color),
-                    ),
+                    OutlinedText('التصنيف: ${tier.name}', size: 19, color: Color.lerp(tier.color, Colors.white, .55)!, align: TextAlign.start),
                     const Spacer(),
                     Text(
-                      next == null
-                          ? '${arabicNumber(points)} نقطة'
-                          : '${arabicNumber(points)} / ${arabicNumber(next.min)}',
-                      style: const TextStyle(color: AppColors.muted, fontSize: 12.5, fontWeight: FontWeight.w700),
+                      next == null ? '${arabicNumber(points)} نقطة' : '${arabicNumber(points)} / ${arabicNumber(next.min)}',
+                      style: const TextStyle(color: socMuted, fontSize: 13, fontFamily: kufi, fontWeight: FontWeight.w800),
                     ),
                   ],
                 ),
-                const SizedBox(height: 6),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(6),
-                  child: LinearProgressIndicator(
-                    value: progress,
-                    minHeight: 9,
-                    backgroundColor: Colors.black.withValues(alpha: .35),
-                    color: next?.color ?? tier.color,
-                  ),
-                ),
-                const SizedBox(height: 6),
+                const SizedBox(height: 4),
+                SocBar(value: progress, height: 10, rope: false, colors: [Color.lerp(bar, Colors.white, .4)!, bar]),
+                const SizedBox(height: 5),
                 Text(
                   next == null
                       ? 'أعلى رتبة! يتصفّر التصنيف بعد ${arabicNumber(days < 0 ? 0 : days)} يوم مع نهاية الموسم'
                       : 'الفوز في الطاولات العامة يرفعك. الرتبة الجاية ${next.name} (+${arabicNumber(next.coins)} ذهب). '
                             'يتصفّر بعد ${arabicNumber(days < 0 ? 0 : days)} يوم',
-                  style: const TextStyle(color: AppColors.muted, fontSize: 12, height: 1.4),
+                  style: const TextStyle(color: socMuted, fontSize: 12.5, fontFamily: kufi, fontWeight: FontWeight.w700, height: 1.4),
                 ),
               ],
             ),

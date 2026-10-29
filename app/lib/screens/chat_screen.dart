@@ -5,15 +5,18 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/chat.dart';
 import '../models/clan.dart';
+import '../models/profile.dart';
 import '../models/shop.dart';
 import '../services/backend.dart';
+import '../services/links.dart';
 import '../theme.dart';
 import '../widgets/bubble.dart';
 import '../widgets/clan_crest.dart';
 import '../widgets/common.dart';
+import '../widgets/design.dart';
+import '../widgets/design_social.dart';
 import '../widgets/game/reactions_sheet.dart';
 import '../widgets/player_card.dart';
-import '../widgets/ui.dart';
 
 /// آخر مرة فتحت دردشة الديوان (عشان نعلّم إن فيه رسائل جديدة).
 Future<DateTime> clanChatSeen(String clanId) async {
@@ -37,9 +40,8 @@ Future<void> _markClanChatSeen(String clanId) async {
 /// صاحبي اللي أراسله.
 typedef ChatFriend = ({String uid, String name, String avatar, String? frame});
 
-/// الدردشة: دردشة الديوان (لأعضائه) أو محادثة صاحب. الكلام السيء ينخفى في السيرفر قبل ما يوصل أحد،
-/// والأحدث تحت. ضغطة مطوّلة على رسالة أحد: تبلّغ عنها أو تحظره.
-class ChatScreen extends StatefulWidget {
+/// الدردشة كصفحة كاملة (تنفتح من الإشعارات): شريط الصفحة وتحته [ChatPanel].
+class ChatScreen extends StatelessWidget {
   const ChatScreen.clan({super.key, required ClanTag this.clan}) : friend = null;
 
   const ChatScreen.friend({super.key, required ChatFriend this.friend}) : clan = null;
@@ -51,10 +53,33 @@ class ChatScreen extends StatefulWidget {
   static String? openFriend;
 
   @override
-  State<ChatScreen> createState() => _ChatScreenState();
+  Widget build(BuildContext context) => SocScaffold(
+    title: clan != null ? 'دردشة الديوان' : 'الدردشة',
+    icon: clan != null ? ClanCrest.of(clan!, size: 30) : const Gfx('chat', size: 28),
+    currency: false,
+    body: Padding(
+      padding: const EdgeInsets.fromLTRB(10, 2, 10, 8),
+      child: clan != null ? ChatPanel.clan(clan: clan!) : ChatPanel.friend(friend: friend!),
+    ),
+  );
 }
 
-class _ChatScreenState extends State<ChatScreen> {
+/// لوحة الدردشة: دردشة الديوان (لأعضائه) أو محادثة صاحب. الكلام السيء ينخفى في السيرفر قبل ما يوصل أحد،
+/// والأحدث تحت. ضغطة مطوّلة على رسالة أحد: تبلّغ عنها أو تحظره.
+/// تنحط جنب قائمة الأصدقاء أو ديوانك، ومعها ChatScreen لو انفتحت لحالها. غيّر [key] لو غيرت المحادثة.
+class ChatPanel extends StatefulWidget {
+  const ChatPanel.clan({super.key, required ClanTag this.clan}) : friend = null;
+
+  const ChatPanel.friend({super.key, required ChatFriend this.friend}) : clan = null;
+
+  final ClanTag? clan;
+  final ChatFriend? friend;
+
+  @override
+  State<ChatPanel> createState() => _ChatPanelState();
+}
+
+class _ChatPanelState extends State<ChatPanel> {
   final _backend = Backend.instance;
   final _input = TextEditingController();
   final _focus = FocusNode();
@@ -63,6 +88,9 @@ class _ChatScreenState extends State<ChatScreen> {
       : _backend.watchDm(widget.friend!.uid);
   StreamSubscription<List<ChatMessage>>? _seenSub;
   bool _sending = false;
+
+  /// قلت «لاحقاً» لدعوة الروم اللي بالمحادثة.
+  bool _inviteLater = false;
 
   @override
   void initState() {
@@ -128,36 +156,53 @@ class _ChatScreenState extends State<ChatScreen> {
 
   /// ضغطة مطوّلة على رسالة أحد ثاني.
   Future<void> _options(ChatMessage m) async {
-    final action = await showModalBottomSheet<String>(
-      context: context,
-      backgroundColor: AppColors.panel,
-      builder: (context) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading: PlayerAvatar(avatar: m.avatar, size: 40, animate: false),
-              title: Text(m.name),
-              subtitle: Text(m.sticker != null ? 'ملصق' : m.text, maxLines: 2, overflow: TextOverflow.ellipsis),
-            ),
-            ListTile(
-              leading: const Gfx('profile', size: 26),
-              title: const Text('بطاقته'),
-              onTap: () => Navigator.pop(context, 'card'),
-            ),
-            ListTile(
-              leading: const Gfx('warning', size: 26),
-              title: const Text('بلّغ عن الرسالة'),
-              onTap: () => Navigator.pop(context, 'report'),
-            ),
-            ListTile(
-              leading: const Gfx('cross', size: 26),
-              title: const Text('احظره', style: TextStyle(color: AppColors.traitorLight)),
-              subtitle: const Text('ما تشوف رسايله ولا ردوده'),
-              onTap: () => Navigator.pop(context, 'block'),
-            ),
-          ],
-        ),
+    final action = await showSocDialog<String>(
+      context,
+      title: m.name,
+      width: 400,
+      builder: (context) => Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              SocAvatar(avatar: m.avatar, size: 40),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  m.sticker != null ? 'ملصق' : m.text,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontFamily: kufi, fontWeight: FontWeight.w700, color: socInk),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          SocButton(
+            label: 'بطاقته',
+            tone: SocTone.blue,
+            icon: const Gfx('profile', size: 22),
+            height: 40,
+            onPressed: () => Navigator.pop(context, 'card'),
+          ),
+          const SizedBox(height: 8),
+          SocButton(
+            label: 'بلّغ عن الرسالة',
+            tone: SocTone.orange,
+            icon: const Gfx('warning', size: 22),
+            height: 40,
+            onPressed: () => Navigator.pop(context, 'report'),
+          ),
+          const SizedBox(height: 8),
+          SocButton(
+            label: 'احظره (ما تشوف رسايله ولا ردوده)',
+            tone: SocTone.red,
+            icon: const Gfx('cross', size: 22),
+            height: 40,
+            onPressed: () => Navigator.pop(context, 'block'),
+          ),
+        ],
       ),
     );
     if (!mounted || action == null) return;
@@ -182,129 +227,215 @@ class _ChatScreenState extends State<ChatScreen> {
   Widget build(BuildContext context) {
     final clan = widget.clan;
     final friend = widget.friend;
-    return NightScaffold(
-      appBar: AppBar(
-        title: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (clan != null) ...[
-              ClanCrest.of(clan, size: 34),
-              const SizedBox(width: 8),
-              Flexible(child: Text('دردشة ${clan.name}', overflow: TextOverflow.ellipsis)),
-            ] else ...[
-              PlayerAvatar(avatar: friend!.avatar, style: frameStyle(friend.frame), size: 34, animate: false),
-              const SizedBox(width: 8),
-              Flexible(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(friend.name, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 17)),
-                    StreamBuilder<Presence>(
-                      stream: _backend.watchPresence(friend.uid),
-                      builder: (context, snap) {
-                        final p = snap.data ?? const Presence();
-                        return Text(
-                          p.online ? 'متصل' : (p.lastSeen ?? 'غير متصل'),
-                          style: TextStyle(
-                            fontFamily: 'Tajawal',
-                            fontSize: 11.5,
-                            fontWeight: FontWeight.w700,
-                            color: p.online ? AppColors.green : AppColors.muted,
-                          ),
-                        );
-                      },
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ],
-        ),
-      ),
-      body: SafeArea(
-        top: false,
-        child: Column(
-          children: [
-            Expanded(
-              child: ValueListenableBuilder(
-                valueListenable: _backend.profile,
-                builder: (context, me, _) => StreamBuilder<List<ChatMessage>>(
-                  stream: _messages,
-                  builder: (context, snap) {
-                    if (snap.hasError) {
-                      return const Center(
-                        child: Text('ما قدرنا نفتح الدردشة', style: TextStyle(color: AppColors.muted)),
-                      );
-                    }
-                    final list = snap.data;
-                    if (list == null) return const Center(child: CircularProgressIndicator(color: AppColors.gold));
-                    // اللي حظرتهم: ما تشوف رسايلهم.
-                    final shown = [
-                      for (final m in list)
-                        if (!me.blocked.contains(m.uid)) m,
-                    ];
-                    if (shown.isEmpty) {
-                      return Center(
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Opacity(opacity: .8, child: Gfx('chat', size: 56)),
-                            const SizedBox(height: 8),
-                            Text(
-                              clan != null ? 'ابدأ السوالف مع ربعك في الديوان' : 'ابدأ السوالف: قل السلام عليكم',
-                              style: const TextStyle(color: AppColors.muted, fontWeight: FontWeight.w700),
-                            ),
-                          ],
-                        ),
-                      );
-                    }
-                    return ListView.builder(
-                      reverse: true,
-                      padding: const EdgeInsets.fromLTRB(14, 8, 14, 8),
-                      itemCount: shown.length,
-                      itemBuilder: (context, i) {
-                        final m = shown[i];
-                        // رسائل ورا بعض من نفس الشخص (خلال ٣ دقايق): الاسم والصورة مرة وحدة.
-                        final older = i + 1 < shown.length ? shown[i + 1] : null;
-                        final grouped =
-                            older != null &&
-                            !older.system &&
-                            older.uid == m.uid &&
-                            m.at.difference(older.at) < const Duration(minutes: 3);
-                        return _MessageRow(
-                          message: m,
-                          mine: m.uid == _backend.uid,
-                          grouped: grouped,
-                          onLongPress: m.system || m.uid == _backend.uid ? null : () => _options(m),
-                        );
-                      },
-                    );
-                  },
-                ),
-              ),
-            ),
-            _InputBar(controller: _input, focus: _focus, sending: _sending, onSend: _send, onStickers: _stickers),
-          ],
-        ),
+    return ValueListenableBuilder(
+      valueListenable: _backend.profile,
+      builder: (context, me, _) => StreamBuilder<List<ChatMessage>>(
+        stream: _messages,
+        builder: (context, snap) {
+          final list = snap.data;
+          // اللي حظرتهم: ما تشوف رسايلهم.
+          final shown = list == null
+              ? null
+              : [
+                  for (final m in list)
+                    if (!me.blocked.contains(m.uid)) m,
+                ];
+          return ChatPanelView(
+            header: clan != null
+                ? const SocDiamondTitle('دردشة الديوان')
+                : ChatFriendHeader(friend: friend!, presence: _backend.watchPresence(friend.uid)),
+            messages: shown,
+            error: snap.hasError,
+            myUid: _backend.uid,
+            clan: clan != null,
+            controller: _input,
+            focus: _focus,
+            sending: _sending,
+            onSend: _send,
+            onStickers: _stickers,
+            onLongPress: _options,
+            footer: friend == null || _inviteLater
+                ? null
+                : friendInviteCard(me, friend, onLater: () => setState(() => _inviteLater = true)),
+          );
+        },
       ),
     );
   }
 }
 
-class _MessageRow extends StatelessWidget {
-  const _MessageRow({required this.message, required this.mine, required this.grouped, this.onLongPress});
+/// رأس محادثة الصاحب: صورته واسمه وحالته على لوح خشب.
+class ChatFriendHeader extends StatelessWidget {
+  const ChatFriendHeader({super.key, required this.friend, required this.presence});
+
+  final ChatFriend friend;
+  final Stream<Presence> presence;
+
+  @override
+  Widget build(BuildContext context) => SocPlankRow(
+    padding: const EdgeInsets.fromLTRB(12, 6, 12, 6),
+    child: Row(
+      children: [
+        SocAvatar(avatar: friend.avatar, style: frameStyle(friend.frame), size: 36),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              OutlinedText(friend.name, size: 18, maxLines: 1, align: TextAlign.start),
+              StreamBuilder<Presence>(
+                stream: presence,
+                builder: (context, snap) {
+                  final p = snap.data ?? const Presence();
+                  return Text(
+                    p.online ? 'متصل' : (p.lastSeen ?? 'غير متصل'),
+                    style: TextStyle(
+                      fontFamily: kufi,
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w800,
+                      color: p.online ? socGreenText : socMuted,
+                      height: 1.1,
+                    ),
+                  );
+                },
+              ),
+            ],
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+/// شكل لوحة الدردشة: [header] فوق، والرسائل (الأحدث تحت)، وشريط الكتابة. [messages] null يعني لسه يحمّل.
+/// ما تلمس السيرفر (تنشاف بالتصوير ببيانات تجريبية).
+class ChatPanelView extends StatelessWidget {
+  const ChatPanelView({
+    super.key,
+    required this.header,
+    required this.messages,
+    required this.myUid,
+    required this.clan,
+    required this.controller,
+    required this.focus,
+    required this.sending,
+    required this.onSend,
+    required this.onStickers,
+    this.onLongPress,
+    this.error = false,
+    this.footer,
+  });
+
+  final Widget header;
+  final List<ChatMessage>? messages;
+  final String myUid;
+
+  /// دردشة ديوان (فيها اسم المرسل وصورته) أو محادثة صاحب.
+  final bool clan;
+  final TextEditingController controller;
+  final FocusNode focus;
+  final bool sending;
+  final VoidCallback onSend;
+  final VoidCallback onStickers;
+  final ValueChanged<ChatMessage>? onLongPress;
+  final bool error;
+
+  /// شي يطلع تحت آخر رسالة (مثل دعوة الروم).
+  final Widget? footer;
+
+  @override
+  Widget build(BuildContext context) {
+    final list = messages;
+    Widget body;
+    if (error) {
+      body = const Center(
+        child: Text(
+          'ما قدرنا نفتح الدردشة',
+          style: TextStyle(color: socMuted, fontFamily: kufi, fontWeight: FontWeight.w700),
+        ),
+      );
+    } else if (list == null) {
+      body = const Center(child: CircularProgressIndicator(color: AppColors.gold));
+    } else if (list.isEmpty && footer == null) {
+      body = Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Opacity(opacity: .8, child: Gfx('chat', size: 52)),
+            const SizedBox(height: 8),
+            Text(
+              clan ? 'ابدأ السوالف مع ربعك في الديوان' : 'ابدأ السوالف: قل السلام عليكم',
+              style: const TextStyle(color: socMuted, fontFamily: kufi, fontWeight: FontWeight.w700),
+            ),
+          ],
+        ),
+      );
+    } else {
+      final count = list.length + (footer == null ? 0 : 1);
+      body = ListView.builder(
+        reverse: true,
+        padding: const EdgeInsets.fromLTRB(2, 4, 2, 4),
+        itemCount: count,
+        itemBuilder: (context, i) {
+          if (footer != null) {
+            if (i == 0) return Padding(padding: const EdgeInsets.only(top: 8), child: footer);
+            i--;
+          }
+          final m = list[i];
+          // رسائل ورا بعض من نفس الشخص (خلال ٣ دقايق): الاسم والصورة مرة وحدة.
+          final older = i + 1 < list.length ? list[i + 1] : null;
+          final grouped =
+              older != null && !older.system && older.uid == m.uid && m.at.difference(older.at) < const Duration(minutes: 3);
+          return ChatMessageRow(
+            message: m,
+            mine: m.uid == myUid,
+            grouped: grouped,
+            clan: clan,
+            onLongPress: m.system || m.uid == myUid || onLongPress == null ? null : () => onLongPress!(m),
+          );
+        },
+      );
+    }
+    return WoodPanel(
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          header,
+          const SizedBox(height: 6),
+          Expanded(child: body),
+          const SizedBox(height: 8),
+          SocChatInput(controller: controller, focus: focus, sending: sending, onSend: onSend, onStickers: onStickers),
+        ],
+      ),
+    );
+  }
+}
+
+/// سطر رسالة: فقاعة رق، ومعها صورة المرسل واسمه (بدردشة الديوان) أو بدونها (محادثة صاحب).
+class ChatMessageRow extends StatelessWidget {
+  const ChatMessageRow({
+    super.key,
+    required this.message,
+    required this.mine,
+    required this.grouped,
+    required this.clan,
+    this.onLongPress,
+  });
 
   final ChatMessage message;
   final bool mine;
   final bool grouped;
+  final bool clan;
   final VoidCallback? onLongPress;
 
-  static Color _roleColor(ClanRole? r) => switch (r) {
-    ClanRole.owner => AppColors.gold,
-    ClanRole.deputy => const Color(0xFFB9A4FF),
-    ClanRole.elder => const Color(0xFF5EEAD4),
-    _ => AppColors.text,
+  /// لون الاسم على الرق (الشيخ أحمر، والنائب بنفسجي، والوجيه أخضر، والعضو أزرق).
+  static Color roleColor(ClanRole? r) => switch (r) {
+    ClanRole.owner => const Color(0xFFB3261E),
+    ClanRole.deputy => const Color(0xFF7B3FA8),
+    ClanRole.elder => const Color(0xFF1E8A74),
+    _ => const Color(0xFF2F6BB8),
   };
 
   String get _time {
@@ -327,182 +458,133 @@ class _MessageRow extends StatelessWidget {
         child: Center(
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
-            decoration: BoxDecoration(
-              color: Colors.black.withValues(alpha: .3),
-              borderRadius: BorderRadius.circular(12),
-            ),
+            decoration: BoxDecoration(color: Colors.black.withValues(alpha: .35), borderRadius: BorderRadius.circular(12)),
             child: Text(
               m.text,
-              style: const TextStyle(color: AppColors.muted, fontSize: 12, fontWeight: FontWeight.w700),
+              style: const TextStyle(color: socMuted, fontSize: 12, fontFamily: kufi, fontWeight: FontWeight.w700),
             ),
           ),
         ),
       );
     }
     final sticker = m.sticker == null ? null : stickerById(m.sticker!);
-    final bubble = sticker != null
-        ? GestureDetector(
-            onLongPress: onLongPress,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                StickerView(sticker: sticker, size: 96, pop: false),
-                Text(_time, style: TextStyle(fontSize: 9.5, color: Colors.white.withValues(alpha: .55))),
-              ],
-            ),
-          )
-        : GestureDetector(
-            onLongPress: onLongPress,
-            child: Container(
-              constraints: const BoxConstraints(maxWidth: 420),
-              padding: const EdgeInsets.fromLTRB(12, 7, 12, 6),
-              decoration: BoxDecoration(
-                gradient: mine ? const LinearGradient(colors: [Color(0xFF6D4BD8), Color(0xFF4C2FA8)]) : null,
-                color: mine ? null : AppColors.card,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: mine ? Colors.white.withValues(alpha: .18) : AppColors.line),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(m.text, style: const TextStyle(fontSize: 14.5, height: 1.45, fontWeight: FontWeight.w600)),
-                  const SizedBox(height: 1),
-                  Text(_time, style: TextStyle(fontSize: 9.5, color: Colors.white.withValues(alpha: .55))),
-                ],
-              ),
-            ),
-          );
-    if (mine) {
-      return Padding(
-        padding: EdgeInsets.only(top: grouped ? 2 : 8),
-        child: Align(alignment: AlignmentDirectional.centerEnd, child: bubble),
-      );
-    }
+    final showName = clan && !mine && !grouped;
+    final time = Text(
+      _time,
+      style: TextStyle(fontSize: 9.5, fontFamily: kufi, fontWeight: FontWeight.w700, color: socInk.withValues(alpha: .5), height: 1),
+    );
+    final bubble = GestureDetector(
+      onLongPress: onLongPress,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 300),
+        child: SocBubble(
+          mine: mine,
+          tail: !grouped,
+          padding: EdgeInsets.fromLTRB(12, sticker != null ? 5 : 6, 12, 6),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (showName)
+                Text(
+                  m.name,
+                  style: TextStyle(fontFamily: kufi, fontWeight: FontWeight.w800, fontSize: 13, color: roleColor(m.role), height: 1.2),
+                ),
+              if (sticker != null)
+                StickerView(sticker: sticker, size: 84, pop: false)
+              else
+                Text(
+                  m.text,
+                  style: const TextStyle(fontFamily: kufi, fontWeight: FontWeight.w800, fontSize: 16.5, height: 1.35, color: socInk),
+                ),
+              const SizedBox(height: 1),
+              time,
+            ],
+          ),
+        ),
+      ),
+    );
+    final pad = EdgeInsets.only(top: grouped ? 3 : 9);
+    if (mine) return Padding(padding: pad, child: Align(alignment: AlignmentDirectional.centerEnd, child: bubble));
+    if (!clan) return Padding(padding: pad, child: Align(alignment: AlignmentDirectional.centerStart, child: bubble));
     return Padding(
-      padding: EdgeInsets.only(top: grouped ? 2 : 8),
+      padding: pad,
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SizedBox(width: 38, child: grouped ? null : PlayerAvatar(avatar: m.avatar, size: 32, animate: false)),
-          const SizedBox(width: 6),
-          Flexible(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                if (!grouped)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 2),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          m.name,
-                          style: TextStyle(fontWeight: FontWeight.w900, fontSize: 12.5, color: _roleColor(m.role)),
-                        ),
-                        if (m.role != null && m.role != ClanRole.member) ...[
-                          const SizedBox(width: 5),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6),
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(color: _roleColor(m.role).withValues(alpha: .6)),
-                            ),
-                            child: Text(
-                              m.role!.label,
-                              style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: _roleColor(m.role)),
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-                bubble,
-              ],
-            ),
-          ),
+          SizedBox(width: 54, child: grouped ? null : SocAvatar(avatar: m.avatar, size: 38)),
+          const SizedBox(width: 4),
+          Flexible(child: bubble),
         ],
       ),
     );
   }
 }
 
-class _InputBar extends StatelessWidget {
-  const _InputBar({
-    required this.controller,
-    required this.focus,
-    required this.sending,
-    required this.onSend,
-    required this.onStickers,
-  });
+/// بطاقة «روم خاص من فلان» داخل محادثته: ادخل، أو لاحقاً.
+class ChatInviteCard extends StatelessWidget {
+  const ChatInviteCard({super.key, required this.name, required this.avatar, required this.note, required this.onJoin, required this.onLater});
 
-  final TextEditingController controller;
-  final FocusNode focus;
-  final bool sending;
-  final VoidCallback onSend;
-  final VoidCallback onStickers;
+  final String name;
+  final String avatar;
+  final String note;
+  final VoidCallback onJoin;
+  final VoidCallback onLater;
 
   @override
-  Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.fromLTRB(12, 6, 12, 8),
-    decoration: BoxDecoration(
-      color: Colors.black.withValues(alpha: .35),
-      border: Border(top: BorderSide(color: Colors.white.withValues(alpha: .08))),
-    ),
-    child: Row(
-      children: [
-        // الملصقات
-        Semantics(
-          button: true,
-          label: 'ملصقات',
-          excludeSemantics: true,
-          child: InkWell(
-            borderRadius: BorderRadius.circular(22),
-            onTap: sending ? null : onStickers,
-            child: Container(
-              width: 44,
-              height: 42,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: AppColors.card,
-                border: Border.all(color: AppColors.gold.withValues(alpha: .5)),
+  Widget build(BuildContext context) => ConstrainedBox(
+    constraints: const BoxConstraints(maxWidth: 240),
+    child: VelvetPanel(
+      radius: 12,
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              SocAvatar(avatar: avatar, size: 34),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    GoldTitle('روم خاص من $name', size: 15, align: TextAlign.start),
+                    Text(
+                      note,
+                      style: const TextStyle(color: socCream, fontFamily: kufi, fontWeight: FontWeight.w700, fontSize: 12.5, height: 1.2),
+                    ),
+                  ],
+                ),
               ),
-              child: const Gfx('cat_sticker', size: 28),
-            ),
+            ],
           ),
-        ),
-        const SizedBox(width: 8),
-        Expanded(
-          child: TextField(
-            controller: controller,
-            focusNode: focus,
-            maxLength: 200,
-            minLines: 1,
-            maxLines: 3,
-            textInputAction: TextInputAction.send,
-            onSubmitted: (_) => onSend(),
-            decoration: const InputDecoration(
-              hintText: 'اكتب رسالتك…',
-              counterText: '',
-              isDense: true,
-              contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-            ),
+          const SizedBox(height: 6),
+          Row(
+            children: [
+              Expanded(child: SocButton(label: 'ادخل', tone: SocTone.green, height: 34, fontSize: 15, onPressed: onJoin)),
+              const SizedBox(width: 8),
+              Expanded(child: SocButton(label: 'لاحقاً', tone: SocTone.grey, height: 34, fontSize: 15, onPressed: onLater)),
+            ],
           ),
-        ),
-        const SizedBox(width: 8),
-        SizedBox(
-          width: 104,
-          child: GameButton(
-            label: sending ? '…' : 'أرسل',
-            icon: const Gfx('chat', size: 20),
-            height: 42,
-            fontSize: 15,
-            onPressed: sending ? null : onSend,
-          ),
-        ),
-      ],
+        ],
+      ),
     ),
+  );
+}
+
+/// فيه دعوة روم من هالصاحب (آخر دقيقتين)؟ تطلع بطاقتها تحت محادثته.
+Widget? friendInviteCard(Profile p, ChatFriend friend, {required VoidCallback onLater}) {
+  final inv = p.invite;
+  if (inv == null || inv.from != friend.uid || DateTime.now().difference(inv.at) > const Duration(minutes: 2)) {
+    return null;
+  }
+  if (inv.code == Links.seenInvite) return null;
+  return ChatInviteCard(
+    name: friend.name,
+    avatar: friend.avatar,
+    note: 'يبيك تلعب معه في الروم',
+    onJoin: () => Links.joinInvite(inv.code),
+    onLater: onLater,
   );
 }

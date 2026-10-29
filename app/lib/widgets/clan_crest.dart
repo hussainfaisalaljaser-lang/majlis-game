@@ -39,28 +39,53 @@ class _ShieldPainter extends CustomPainter {
     final w = size.width, h = size.height;
     final shield = Path()
       ..moveTo(w * .5, 0)
-      ..lineTo(w, h * .14)
-      ..lineTo(w * .94, h * .6)
-      ..quadraticBezierTo(w * .8, h * .88, w * .5, h)
-      ..quadraticBezierTo(w * .2, h * .88, w * .06, h * .6)
-      ..lineTo(0, h * .14)
+      ..lineTo(w * .96, h * .12)
+      ..lineTo(w * .92, h * .58)
+      ..quadraticBezierTo(w * .8, h * .86, w * .5, h)
+      ..quadraticBezierTo(w * .2, h * .86, w * .08, h * .58)
+      ..lineTo(w * .04, h * .12)
       ..close();
+    // حافة ذهب، وفوقها وجه الدرع بلون الديوان، وحد بني غامق مثل رسم التصميم.
+    final inner = shield.transform(
+      (Matrix4.identity()
+            ..translateByDouble(w * .5, h * .5, 0, 1)
+            ..scaleByDouble(.8, .8, 1, 1)
+            ..translateByDouble(-w * .5, -h * .5, 0, 1))
+          .storage,
+    );
     canvas.drawPath(
       shield,
+      Paint()
+        ..shader = const LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [Color(0xFFFFF0B8), Color(0xFFE8B54E), Color(0xFF9A6418)],
+        ).createShader(Offset.zero & size),
+    );
+    canvas.drawPath(
+      inner,
       Paint()
         ..shader = LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: [Color.lerp(color, Colors.white, .25)!, Color.lerp(color, Colors.black, .45)!],
+          colors: [Color.lerp(color, Colors.white, .3)!, color, Color.lerp(color, Colors.black, .4)!],
+          stops: const [0, .45, 1],
         ).createShader(Offset.zero & size),
     );
-    canvas.drawPath(
-      shield,
-      Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = w * .06
-        ..color = AppColors.gold,
+    // لمعة بالنص الفوقاني
+    canvas.save();
+    canvas.clipPath(inner);
+    canvas.drawOval(
+      Rect.fromLTWH(w * .1, -h * .22, w * .8, h * .5),
+      Paint()..color = Colors.white.withValues(alpha: .2),
     );
+    canvas.restore();
+    final edge = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeJoin = StrokeJoin.round
+      ..color = const Color(0xFF2A1608);
+    canvas.drawPath(shield, edge..strokeWidth = (w * .045).clamp(1.5, 4.0));
+    canvas.drawPath(inner, edge..strokeWidth = (w * .03).clamp(1.2, 3.0));
   }
 
   @override
@@ -81,7 +106,7 @@ class ClanBadge extends StatelessWidget {
       const SizedBox(width: 4),
       Text(
         tag.name,
-        style: TextStyle(color: tag.tint, fontWeight: FontWeight.w800, fontSize: 12.5),
+        style: TextStyle(color: Color.lerp(tag.tint, Colors.white, .45), fontFamily: kufi, fontWeight: FontWeight.w800, fontSize: 13),
       ),
     ],
   );

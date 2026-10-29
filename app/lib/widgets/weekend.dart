@@ -68,32 +68,43 @@ class WeekendChip extends StatelessWidget {
       final w = Weekend.at(now);
       if (!w.on) return const SizedBox.shrink();
       return Container(
-        padding: const EdgeInsets.fromLTRB(4, 2, 10, 2),
+        padding: const EdgeInsets.fromLTRB(4, 2, 12, 2),
         decoration: BoxDecoration(
-          gradient: const LinearGradient(colors: [Color(0xFFB45309), Color(0xFF7C2D12)]),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: AppColors.gold, width: 1.5),
-          boxShadow: [BoxShadow(color: const Color(0xFFF59E0B).withValues(alpha: .45), blurRadius: 10)],
+          gradient: const LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [Color(0xFFD9701E), Color(0xFF8E3A10)],
+          ),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: const Color(0xFFE8B54E), width: 2),
+          boxShadow: [
+            const BoxShadow(color: Color(0xFF3A1606), offset: Offset(0, 2)),
+            BoxShadow(color: const Color(0xFFF59E0B).withValues(alpha: .4), blurRadius: 10),
+          ],
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 5),
+              padding: const EdgeInsets.symmetric(horizontal: 6),
               decoration: BoxDecoration(
-                shape: BoxShape.rectangle,
-                borderRadius: BorderRadius.circular(8),
-                gradient: const LinearGradient(colors: [Color(0xFFFFE08A), Color(0xFFD48B12)]),
+                borderRadius: BorderRadius.circular(9),
+                gradient: const LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [Color(0xFFFFF0B8), Color(0xFFE8A22B)],
+                ),
+                border: Border.all(color: const Color(0xFF4A2406), width: 1.5),
               ),
               child: const Text(
                 '×٢',
-                style: TextStyle(fontFamily: kufi, fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.goldInk),
+                style: TextStyle(fontFamily: kufi, fontSize: 13.5, fontWeight: FontWeight.w800, color: AppColors.goldInk, height: 1.3),
               ),
             ),
-            const SizedBox(width: 5),
+            const SizedBox(width: 6),
             Text(
               compact ? 'ذهب مضاعف' : 'ذهب مضاعف · باقي ${timeLeft(w.ends.difference(now))}',
-              style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w800, color: Color(0xFFFFE7C2)),
+              style: const TextStyle(fontFamily: kufi, fontSize: 12.5, fontWeight: FontWeight.w800, color: Color(0xFFFFF0D2), height: 1.3),
             ),
           ],
         ),
