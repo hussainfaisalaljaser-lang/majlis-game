@@ -374,7 +374,8 @@ class _Plate extends StatelessWidget {
             ),
             Expanded(
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(12, 1, 12, 0),
+                // بدون زر (غرفة التبديل): الاسم بنص اللوح تحت خط الذهب بالضبط
+                padding: EdgeInsets.fromLTRB(12, action == null ? 0 : 1, 12, action == null ? 2 : 0),
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   crossAxisAlignment: CrossAxisAlignment.stretch,
