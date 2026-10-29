@@ -160,7 +160,7 @@ class _GameButtonState extends State<GameButton> with TickerProviderStateMixin {
     final enabled = widget.onPressed != null;
     final ghost = widget.tone == ButtonTone.ghost;
     final t = _tones[widget.tone];
-    final depth = ghost ? 0.0 : (_down ? 1.5 : 5.0);
+    final depth = ghost ? 0.0 : (_down ? 1.0 : 3.0);
     final fg = ghost ? AppColors.text : t!.$4;
     final outline = ghost ? const Color(0xFF130B06) : t!.$2;
 
@@ -202,43 +202,55 @@ class _GameButtonState extends State<GameButton> with TickerProviderStateMixin {
                       ? null
                       : LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: t!.$1, stops: const [0, .55, 1]),
                   color: ghost ? const Color(0xFF2A1A10).withValues(alpha: .88) : null,
-                  border: Border.all(color: ghost ? const Color(0xFF8A6038) : outline, width: 2.5),
+                  border: Border.all(color: ghost ? const Color(0xFF8A6038) : outline, width: 3),
                   boxShadow: ghost
                       ? [BoxShadow(color: Colors.black.withValues(alpha: .35), blurRadius: 8, offset: const Offset(0, 3))]
                       : [
                           BoxShadow(color: t!.$3, offset: Offset(0, depth)),
-                          BoxShadow(color: outline, offset: Offset(0, depth + 2)),
                           BoxShadow(
-                            color: Colors.black.withValues(alpha: .4),
-                            blurRadius: 12,
-                            offset: Offset(0, depth + 5),
+                            color: Colors.black.withValues(alpha: .38),
+                            blurRadius: 8,
+                            offset: Offset(0, depth + 3),
                           ),
                         ],
                 ),
-                // لمعة فوق الزر مثل أزرار التصميم.
-                foregroundDecoration: ghost
-                    ? null
-                    : BoxDecoration(
-                        borderRadius: BorderRadius.circular(12),
-                        gradient: LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          colors: [Colors.white.withValues(alpha: .28), Colors.white.withValues(alpha: .06), Colors.transparent],
-                          stops: const [0, .38, .39],
+                alignment: Alignment.center,
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    // لمعة مدورة فوق الزر (مثل أزرار التصميم): شريط فاتح داخل الحد.
+                    if (!ghost)
+                      Positioned(
+                        left: 6,
+                        right: 6,
+                        top: 3,
+                        height: widget.height * .34,
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(widget.height * .2),
+                            gradient: LinearGradient(
+                              begin: Alignment.topCenter,
+                              end: Alignment.bottomCenter,
+                              colors: [Colors.white.withValues(alpha: .34), Colors.white.withValues(alpha: .12)],
+                            ),
+                          ),
                         ),
                       ),
-                alignment: Alignment.center,
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (widget.icon != null) ...[widget.icon!, const SizedBox(width: 8)],
-                    Flexible(
-                      child: OutlinedText(
-                        widget.label,
-                        maxLines: 1,
-                        size: widget.fontSize,
-                        color: fg,
-                        stroke: outline,
+                    Center(
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (widget.icon != null) ...[widget.icon!, const SizedBox(width: 8)],
+                          Flexible(
+                            child: OutlinedText(
+                              widget.label,
+                              maxLines: 1,
+                              size: widget.fontSize,
+                              color: fg,
+                              stroke: outline,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ],
