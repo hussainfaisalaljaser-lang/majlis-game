@@ -14,7 +14,7 @@ const catalog = <ShopItem>[
     name: 'جليد',
     rarity: Rarity.rare,
     coins: 3000,
-    frame: FrameStyle('ice', motion: FrameMotion.glint),
+    frame: FrameStyle('ice', motion: FrameMotion.live),
     desc: 'بلور ثلج مقطّع، وأصابع ثلج معلقة تحت صورتك',
   ),
   ShopItem(
@@ -23,7 +23,7 @@ const catalog = <ShopItem>[
     name: 'رمل',
     rarity: Rarity.rare,
     coins: 4000,
-    frame: FrameStyle('sand', motion: FrameMotion.glint),
+    frame: FrameStyle('sand', motion: FrameMotion.live),
     desc: 'طبقات حجر رملي، وكثبان ناعمة تحت صورتك',
   ),
   ShopItem(
@@ -32,7 +32,7 @@ const catalog = <ShopItem>[
     name: 'واحة',
     rarity: Rarity.rare,
     coins: 5000,
-    frame: FrameStyle('oasis', motion: FrameMotion.glint),
+    frame: FrameStyle('oasis', motion: FrameMotion.live),
     desc: 'نخلتين حول صورتك بعذوق التمر، وحلقة ماي صافي',
   ),
   ShopItem(
@@ -41,7 +41,7 @@ const catalog = <ShopItem>[
     name: 'لؤلؤ',
     rarity: Rarity.rare,
     coins: 6000,
-    frame: FrameStyle('pearl', motion: FrameMotion.glint),
+    frame: FrameStyle('pearl', motion: FrameMotion.live),
     desc: 'عقد لؤلؤ أبيض، وحبة لؤلؤ كبيرة معلقة تحت',
   ),
   ShopItem(
@@ -50,7 +50,7 @@ const catalog = <ShopItem>[
     name: 'ليل نجد',
     rarity: Rarity.rare,
     coins: 7000,
-    frame: FrameStyle('night', motion: FrameMotion.glint),
+    frame: FrameStyle('night', motion: FrameMotion.live),
     desc: 'بيوت طين نجدية تحت صورتك، ونوافذها تضوي بالليل',
   ),
   ShopItem(
@@ -186,7 +186,7 @@ const catalog = <ShopItem>[
     rarity: Rarity.epic,
     level: 20,
     frame: FrameStyle('elite', motion: FrameMotion.live),
-    desc: 'فضة مصقولة ينعكس عليها الضو، ولمعات صغيرة حولها',
+    desc: 'لوحة ياقوت أزرق بفضة وخرز ذهبي، ولمعات الياقوت تضوي حولها',
   ),
   ShopItem(
     id: 'frame_lv30',
