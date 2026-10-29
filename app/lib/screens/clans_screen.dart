@@ -82,7 +82,7 @@ class _CreateClan extends StatefulWidget {
 class _CreateClanState extends State<_CreateClan> {
   final _name = TextEditingController();
   int _color = 0;
-  String _emblem = freeAvatars.first;
+  String _emblem = '$clanSymbolPrefix${clanSymbols.first}';
   bool _busy = false;
 
   @override
@@ -222,7 +222,7 @@ class CreateClanView extends StatelessWidget {
                     scrollDirection: Axis.horizontal,
                     clipBehavior: Clip.none,
                     children: [
-                      for (final a in freeAvatars)
+                      for (final a in [for (final s in clanSymbols) '$clanSymbolPrefix$s', ...freeAvatars])
                         Padding(
                           padding: const EdgeInsetsDirectional.only(end: 8),
                           child: Semantics(
@@ -232,7 +232,23 @@ class CreateClanView extends StatelessWidget {
                             child: GestureDetector(
                               onTap: () => onEmblem(a),
                               child: Center(
-                                child: SocAvatar(avatar: a, size: 40, ring: a == emblem ? SocRing.gold : SocRing.blue),
+                                child: switch (clanSymbolOf(a)) {
+                                  final sym? => Container(
+                                    width: 40,
+                                    height: 40,
+                                    alignment: Alignment.center,
+                                    decoration: BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      color: const Color(0xFF2A1A10),
+                                      border: Border.all(
+                                        color: a == emblem ? const Color(0xFFF2C75A) : const Color(0xFF4F7FD8),
+                                        width: 2.5,
+                                      ),
+                                    ),
+                                    child: Gfx(sym, size: 24),
+                                  ),
+                                  _ => SocAvatar(avatar: a, size: 40, ring: a == emblem ? SocRing.gold : SocRing.blue),
+                                },
                               ),
                             ),
                           ),

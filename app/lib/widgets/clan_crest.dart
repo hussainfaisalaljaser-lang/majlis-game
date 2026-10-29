@@ -23,7 +23,10 @@ class ClanCrest extends StatelessWidget {
       height: size,
       child: Align(
         alignment: const Alignment(0, -.12),
-        child: PlayerAvatar(avatar: emblem, size: size * .46, animate: false),
+        child: switch (clanSymbolOf(emblem)) {
+          final sym? => Gfx(sym, size: size * .4),
+          _ => PlayerAvatar(avatar: emblem, size: size * .46, animate: false),
+        },
       ),
     ),
   );

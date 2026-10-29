@@ -12,7 +12,7 @@
 import { FieldValue, type DocumentSnapshot, type Transaction } from 'firebase-admin/firestore';
 import { HttpsError } from 'firebase-functions/v2/https';
 import { boardRef, db, requireAuth, userRef } from './base.js';
-import { FREE_AVATARS } from './catalog.js';
+import { isClanEmblem } from './clan_emblems.js';
 import { levelFor } from './economy.js';
 import { gulfWeek } from './missions.js';
 import { maskBadWords } from './moderation.js';
@@ -184,7 +184,7 @@ export const createClan = onCall(async (req) => {
   const color = Math.round(Number(req.data?.color));
   const emblem = String(req.data?.emblem ?? '');
   if (!(color >= 0 && color < CLAN_COLORS)) throw new HttpsError('invalid-argument', 'اختار لون');
-  if (!FREE_AVATARS.includes(emblem)) throw new HttpsError('invalid-argument', 'اختار شعار');
+  if (!isClanEmblem(emblem)) throw new HttpsError('invalid-argument', 'اختار شعار');
   const desc = cleanDesc(req.data?.desc);
   const minLevel = cleanLevel(req.data?.minLevel);
   const join = cleanJoin(req.data?.join);
