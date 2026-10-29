@@ -536,6 +536,16 @@ abstract class RareFrame extends FrameArt {
   void front(Canvas canvas, Offset c, double t) {
     final b = Beat(t);
     art(canvas, c, b);
+    // وهي ساكنة: لمعتين صغار ثابتات (مثل لقطات الفيديو) تظهر في آخر النبضة وتبقى لين النبضة اللي بعدها
+    final rest = ease(b.win(.85, 1.0));
+    if (rest > 0) {
+      final (lo, hi) = twinkleRange;
+      for (var i = 0; i < 2; i++) {
+        final seed = i + b.k * 5 + 40;
+        final pos = at(c, rnd(seed, 81) * math.pi * 2, r * lerpD(lo, hi, rnd(seed, 82)));
+        sparkle(canvas, pos, math.max(1.6, avatar * .042) * (.8 + rnd(seed, 83) * .5), shine, .85 * rest);
+      }
+    }
     if (!b.active) return;
     if (sheens) {
       final ang = sheenStart + ease(b.win(0, .8)) * math.pi * 2;

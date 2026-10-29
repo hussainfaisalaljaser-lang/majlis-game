@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../fx.dart' show FxClock;
 import 'kit.dart';
 
 // الإطارات الملحمية (بأسلوب رسمات الفيديو: حد غامق، ظل بدرجتين، لمعة): حركة مستمرة.
@@ -59,7 +60,7 @@ class FireFrame extends FrameArt {
       final a = -math.pi / 2 + (i - n / 2 + .5) * 2 * math.pi / n + (rnd(i, 8) - .5) * .06;
       final upness = math.max(0.0, -math.sin(a));
       final flick = .7 + .55 * noise(t * 2.6 + i * 1.7, i);
-      final h = _band * (.35 + 1.15 * math.pow(upness, 1.2) + .55 * rnd(i, 1)) * flick;
+      final h = _band * (.45 + 1.55 * math.pow(upness, 1.2) + .6 * rnd(i, 1)) * flick;
       final w = _band * (.38 + .25 * rnd(i, 2));
       final up = unit(dir(a) * .5 + const Offset(0, -.85));
       final lean = math.sin(t * 3.2 + i * 2.1) * _band * .4 * (.4 + upness);
@@ -157,9 +158,9 @@ class SmokeFrame extends FrameArt {
   SmokeFrame(super.time, {required super.avatar, required super.layer, super.moment});
 
   static const _line = Color(0xFF1B1819);
-  static const _dark = Color(0xFF3B3739);
-  static const _mid = Color(0xFF4D4849);
-  static const _light = Color(0xFF706A6B);
+  static const _dark = Color(0xFF433E40);
+  static const _mid = Color(0xFF554F51);
+  static const _light = Color(0xFF7C7677);
 
   @override
   void back(Canvas canvas, Offset c, double t) {
@@ -355,9 +356,9 @@ class LightningFrame extends FrameArt {
           ..color = _yellow,
       );
     }
-    // الضربة
+    // الضربة (في وضع الحركات الخفيفة الساعة واقفة، فلا نترك الصورة عالقة وهي تومض)
     final (cyc, into) = _strike(t);
-    if (into < _flash) {
+    if (into < _flash && !FxClock.lite.value) {
       final k = 1 - into / _flash;
       final a = rnd(cyc, 20) * math.pi * 2;
       final from = at(c, a, r + ring * 2.2);

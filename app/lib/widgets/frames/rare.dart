@@ -25,20 +25,21 @@ class PearlFrame extends RareFrame {
   @override
   void art(Canvas canvas, Offset c, Beat b) {
     const n = 24;
-    final cr = r + ring * 1.55;
-    final pr = ring * 1.12;
+    final cr = r + ring * 1.5;
+    final pr = ring * 1.05;
     band(
       canvas,
       c,
       r,
-      r + ring * 1.35,
-      lin(c + Offset(-r * .5, -r), c + Offset(r * .5, r), const [Color(0xFFDDB88C), Color(0xFF9C7048), Color(0xFF5E3C24)]),
+      r + ring * 1.75,
+      lin(c + Offset(-r * .5, -r), c + Offset(r * .5, r), const [Color(0xFFC59C70), Color(0xFF86593A), Color(0xFF4F3120)]),
       edge: _edge,
+      w: lw * 1.2,
     );
     gloss(canvas, c, r + ring * .55, ring * .22, from: -2.6, span: 1.0, alpha: .5);
     // خرز صغير بين الحبات
     for (var i = 0; i < n; i++) {
-      final p = at(c, (i + .5) * math.pi * 2 / n - math.pi / 2, r + ring * .6);
+      final p = at(c, (i + .5) * math.pi * 2 / n - math.pi / 2, r + ring * .55);
       canvas.drawCircle(p, ring * .2, Paint()..color = const Color(0xFFE9C99B));
     }
     final lit = b.active ? ease(b.win(0, .9)) * n : -9.0;
@@ -101,14 +102,14 @@ class OasisFrame extends RareFrame {
   void art(Canvas canvas, Offset c, Beat b) {
     final palms = _palms(c);
     // الحلقة
-    final out = r + ring * 1.1;
+    final out = r + ring * 1.35;
     band(canvas, c, r, out, goldShader(c, out));
     canvas.drawCircle(c, r + lw * .9, Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = lw * 1.3
       ..color = const Color(0xFF8A4E10).withValues(alpha: .55));
-    gloss(canvas, c, r + ring * .72, ring * .24, from: -2.75, span: 1.25, alpha: .75);
-    gloss(canvas, c, r + ring * .72, ring * .2, from: .55, span: .5, alpha: .4);
+    gloss(canvas, c, r + ring * .85, ring * .28, from: -2.75, span: 1.25, alpha: .75);
+    gloss(canvas, c, r + ring * .85, ring * .22, from: .55, span: .5, alpha: .4);
     for (final (i, (_, top, _)) in palms.indexed) {
       _crown(canvas, top, i, b);
     }
@@ -137,7 +138,7 @@ class OasisFrame extends RareFrame {
       final p = base * (q * q) + ctrl * (2 * q * s) + top * (s * s);
       final tan = unit((ctrl - base) * (2 * q) + (top - ctrl) * (2 * s));
       final n = perp(tan);
-      final w = ring * lerpD(1.5, .95, s);
+      final w = ring * lerpD(1.15, .75, s);
       left.add(p + n * w);
       right.add(p - n * w);
     }
@@ -179,14 +180,13 @@ class OasisFrame extends RareFrame {
       );
     }
     // السعف: كل واحدة (زاوية، طول، انحناء لتحت)، والواقفة أول (أغمق)
-    const fronds = [(-1.58, .6, .0), (-2.2, .78, .3), (-.94, .78, .3), (-2.95, .86, .62), (-.2, .86, .62), (-3.5, .6, .9), (.3, .6, .9)];
+    const fronds = [(-1.55, .62, .1), (-2.1, .9, .55), (-1.0, .9, .55), (-2.75, 1.0, .95), (-.35, 1.0, .95), (-3.3, .8, 1.3), (.15, .8, 1.3)];
     for (final (k, (ang, ln, dp)) in fronds.indexed) {
-      final mirror = side == 0 ? 1.0 : 1.0;
       final sway = .06 * math.sin(math.pi * 2 * b.p + k * .8 + side * 1.7);
-      final a = ang * mirror + sway;
-      final len = r * ln;
-      final wid = ring * .95;
-      final path = frond(top, a, len, wid, droop: dp, teeth: 5, notch: .7);
+      final a = ang + sway;
+      final len = r * ln * .8;
+      final wid = ring * .8;
+      final path = frond(top, a, len, wid, droop: dp, teeth: 6, notch: .62);
       inked(
         canvas,
         path,
@@ -194,7 +194,7 @@ class OasisFrame extends RareFrame {
         edge: _leafEdge,
       );
       canvas.drawPath(
-        frond(top, a, len * .92, wid * .22, droop: dp, teeth: 1),
+        frond(top, a, len * .92, wid * .2, droop: dp, teeth: 1),
         Paint()..color = const Color(0xFFD5F59A).withValues(alpha: .55),
       );
     }
@@ -230,7 +230,7 @@ class IceFrame extends RareFrame {
 
   @override
   void art(Canvas canvas, Offset c, Beat b) {
-    final out = r + ring * 1.45;
+    final out = r + ring * 1.7;
     // الحلقة: حافة برانية مسننة شوي مثل شظايا الجليد
     final n = small ? 18 : 26;
     final outer = Path();
@@ -265,8 +265,20 @@ class IceFrame extends RareFrame {
     gloss(canvas, c, r + ring * .72, ring * .26, from: -2.9, span: 1.5, alpha: .85);
     gloss(canvas, c, r + ring * .4, ring * .14, from: .2, span: .9, alpha: .55);
     gloss(canvas, c, r + ring * .8, ring * .16, from: 2.4, span: .6, alpha: .5);
+    // شقوق وحبات صقيع على البلور
+    final crack = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = math.max(.6, hair)
+      ..strokeCap = StrokeCap.round
+      ..color = Colors.white.withValues(alpha: .8);
+    for (var i = 0; i < (small ? 6 : 12); i++) {
+      final a = rnd(i, 9) * math.pi * 2;
+      final p0 = at(c, a, r + ring * (.5 + .7 * rnd(i, 10)));
+      canvas.drawLine(p0, p0 + dir(a + 1.0 + rnd(i, 11)) * ring * (.5 + .6 * rnd(i, 12)), crack);
+      canvas.drawCircle(at(c, a + .25, r + ring * (.4 + .9 * rnd(i, 13))), math.max(.6, hair) * 1.2, Paint()..color = Colors.white);
+    }
     // أصابع الجليد
-    for (final (i, a) in [.45, .95, 1.5, 2.0, 2.55, -.25].indexed) {
+    for (final (i, a) in [.45, .8, 1.15, 1.5, 1.85, 2.2, 2.55, -.25].indexed) {
       final len = ring * (1.3 + 1.2 * rnd(i, 5));
       final base = at(c, a, r + ring * .95);
       final up = unit(at(Offset.zero, a, 1) * .45 + const Offset(0, .75));
@@ -368,14 +380,14 @@ class SandFrame extends RareFrame {
 
   @override
   void art(Canvas canvas, Offset c, Beat b) {
-    final out = r + ring * 1.1;
+    final out = r + ring * 1.5;
     band(canvas, c, r, out, goldShader(c, out));
     canvas.drawCircle(c, r + lw * .9, Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = lw * 1.3
       ..color = const Color(0xFF8A4E10).withValues(alpha: .55));
-    gloss(canvas, c, r + ring * .72, ring * .24, from: -2.75, span: 1.25, alpha: .75);
-    gloss(canvas, c, r + ring * .72, ring * .2, from: .4, span: .6, alpha: .45);
+    gloss(canvas, c, r + ring * .95, ring * .3, from: -2.75, span: 1.25, alpha: .75);
+    gloss(canvas, c, r + ring * .95, ring * .24, from: .4, span: .6, alpha: .45);
     // حبات الرمل
     for (final (i, (a, d, s)) in _grains.indexed) {
       final w = math.pi * 2 * b.p;
@@ -396,10 +408,10 @@ class SandFrame extends RareFrame {
     final x = side.toDouble();
     Offset q(double dx, double dy) => c + Offset(x * r * dx, r * dy);
     final p = Path()
-      ..moveTo(q(1.22, 1.02).dx, q(1.22, 1.02).dy)
-      ..cubicTo(q(1.02, .96).dx, q(1.02, .96).dy, q(.8, .8).dx, q(.8, .8).dy, q(.56, .73).dx, q(.56, .73).dy)
-      ..cubicTo(q(.46, .78).dx, q(.46, .78).dy, q(.3, .93).dx, q(.3, .93).dy, q(.0, 1.0).dx, q(.0, 1.0).dy)
-      ..cubicTo(q(.3, 1.08).dx, q(.3, 1.08).dy, q(.8, 1.1).dx, q(.8, 1.1).dy, q(1.22, 1.02).dx, q(1.22, 1.02).dy)
+      ..moveTo(q(1.3, 1.06).dx, q(1.3, 1.06).dy)
+      ..cubicTo(q(1.1, .98).dx, q(1.1, .98).dy, q(.86, .74).dx, q(.86, .74).dy, q(.6, .66).dx, q(.6, .66).dy)
+      ..cubicTo(q(.48, .72).dx, q(.48, .72).dy, q(.3, .92).dx, q(.3, .92).dy, q(.0, 1.02).dx, q(.0, 1.02).dy)
+      ..cubicTo(q(.3, 1.12).dx, q(.3, 1.12).dy, q(.9, 1.14).dx, q(.9, 1.14).dy, q(1.3, 1.06).dx, q(1.3, 1.06).dy)
       ..close();
     inked(
       canvas,
@@ -444,13 +456,13 @@ class NightFrame extends RareFrame {
 
   @override
   void art(Canvas canvas, Offset c, Beat b) {
-    final out = r + ring * 1.3;
+    final out = r + ring * 1.6;
     band(
       canvas,
       c,
       r,
       out,
-      lin(c + Offset(-r * .5, -r), c + Offset(r * .5, r), const [Color(0xFF4B5788), Color(0xFF272F55), Color(0xFF131833)]),
+      lin(c + Offset(-r * .5, -r), c + Offset(r * .5, r), const [Color(0xFF55629A), Color(0xFF2D3562), Color(0xFF171C3C)]),
       edge: _edge,
     );
     // حد فضي رفيع داخلي وبراني
@@ -461,11 +473,11 @@ class NightFrame extends RareFrame {
     final m = small ? 7 : 11;
     for (var i = 0; i < m; i++) {
       final a = -math.pi / 2 + (i + .5) * math.pi * 2 / m;
-      final p = at(c, a, r + ring * .68);
+      final p = at(c, a, r + ring * .85);
       if (i % 4 == 2) {
-        _crescent(canvas, p, ring * .34, a);
+        _crescent(canvas, p, ring * .42, a);
       } else if (i.isEven) {
-        canvas.drawPath(star5(p, ring * .3, turn: a), Paint()..color = _star);
+        canvas.drawPath(star5(p, ring * .38, turn: a), Paint()..color = _star);
       } else {
         canvas.drawCircle(p, ring * .09, Paint()..color = _star.withValues(alpha: .8));
       }
@@ -475,9 +487,9 @@ class NightFrame extends RareFrame {
     for (var i = 0; i < k; i++) {
       final f = i / (k - 1);
       final a = lerpD(-2.75, -.4, f);
-      final d = r + ring * (2.1 + .9 * math.sin(f * math.pi * 3 + .5) * .5) + ring * .4 * (1 - hump(f));
+      final d = r + ring * (2.5 + .9 * math.sin(f * math.pi * 3 + .5) * .5) + ring * .4 * (1 - hump(f));
       final tw = b.active ? hump(b.win(f * .55, f * .55 + .4)) : 0.0;
-      final s = ring * (.62 + .1 * rnd(i, 6)) * (1 + .3 * tw);
+      final s = ring * (.78 + .1 * rnd(i, 6)) * (1 + .3 * tw);
       final p = at(c, a, d);
       final path = star5(p, s, turn: -math.pi / 2 + (rnd(i, 7) - .5) * .5);
       inked(canvas, path, fill: Color.lerp(const Color(0xFFE9E5D6), Colors.white, tw)!, edge: const Color(0xFF3A3F5E), w: math.max(.8, lw * .85));
@@ -531,12 +543,16 @@ class KnightFrame extends RareFrame {
       edge: _edge,
     );
     gloss(canvas, c, r + ring * .65, ring * .24, from: -2.75, span: 1.3, alpha: .7);
-    // مسامير
-    studs(canvas, c, r + ring * .6, small ? 8 : 12, ring * .2, const Color(0xFFFFE3B8), const Color(0xFFC98D4C), const Color(0xFF6B3A18),
-        turn: math.pi / 12, edge: _edge);
+    // أخدود محفور بنص الحلقة، ومسامير أكبر على الاتجاهات الأربعة وأصغر بينها
+    line(canvas, c, r + ring * .62, const Color(0xFF6B3A18), width: math.max(.8, lw * .8));
+    line(canvas, c, r + ring * .62 + lw, const Color(0xFFFFD9A0).withValues(alpha: .5), width: math.max(.6, lw * .5));
+    for (var i = 0; i < 12; i++) {
+      final big = i % 3 == 0;
+      ball(canvas, at(c, -math.pi / 2 + i * math.pi / 6, r + ring * .62), ring * (big ? .3 : .17), const Color(0xFFFFE3B8), const Color(0xFFC98D4C), const Color(0xFF6B3A18), edge: _edge, w: lw * .7);
+    }
     // شارة الدرع تحت
     final p = c + Offset(0, r + ring * 1.35);
-    final s = ring * 1.55;
+    final s = ring * 1.9;
     final shield = Path()
       ..moveTo(p.dx - s, p.dy - s * .75)
       ..lineTo(p.dx + s, p.dy - s * .75)
@@ -573,12 +589,12 @@ class CrescentFrame extends RareFrame {
     band(canvas, c, r, out, goldShader(c, out));
     gloss(canvas, c, r + ring * .4, ring * .16, from: -2.7, span: 1.2, alpha: .7);
     // الهلال: دائرة كبيرة ناقص دائرة مزاحة
-    final big = r * 1.45;
-    final centre = c + Offset(-r * .02, r * .12);
+    final big = r * 1.5;
+    final centre = c + Offset(0, r * .1);
     final crescent = Path.combine(
       PathOperation.difference,
       Path()..addOval(Rect.fromCircle(center: centre, radius: big)),
-      Path()..addOval(Rect.fromCircle(center: c + Offset(r * .06, -r * .3), radius: r * 1.17)),
+      Path()..addOval(Rect.fromCircle(center: c + Offset(0, -r * .26), radius: r * 1.27)),
     );
     inked(canvas, crescent, shader: goldShader(centre, big));
     // نجوم ذهب فوق

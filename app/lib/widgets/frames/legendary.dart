@@ -1,140 +1,129 @@
 import 'dart:math' as math;
-import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 
 import 'kit.dart';
 
-// الإطارات الأسطورية: حركة من أكثر من طبقة، وأفخم شي في اللعبة، ولكل واحد لحظة خاصة (burst).
+// الإطارات الأسطورية (بأسلوب رسمات الفيديو: حد غامق، ظل بدرجتين، لمعة): حركة من أكثر من طبقة
+// (ورا الصورة وقدامها)، وأفخم شي في اللعبة، ولكل واحد لحظة خاصة (burst).
 
 Color _hue(Color c, double deg) {
   final hsv = HSVColor.fromColor(c);
   return hsv.withHue((hsv.hue + deg) % 360).toColor();
 }
 
-/// شرار يطير لبرا من المركز وقت اللحظة الخاصة.
-void sparks(
-  Canvas canvas,
-  Offset c,
-  double r,
-  double m,
-  List<Color> colors, {
-  int n = 20,
-  double from = 1,
-  double size = 1.5,
-}) {
-  final ease = Curves.easeOutCubic.transform(m);
-  final fade = 1 - m;
-  for (var i = 0; i < n; i++) {
-    final a = i * math.pi * 2 / n + rnd(i, 31) * .4;
-    final dist = r * (from + ease * (.55 + rnd(i, 32) * .7));
-    final pos = c + dir(a) * dist;
-    final col = colors[i % colors.length];
-    canvas.drawLine(
-      pos,
-      c + dir(a) * (dist - r * .18 * fade),
-      Paint()
-        ..color = col.withValues(alpha: .5 * fade)
-        ..strokeWidth = size * .6
-        ..strokeCap = StrokeCap.round
-        ..blendMode = BlendMode.plus,
-    );
-    canvas.drawCircle(
-      pos,
-      size * (1.4 - ease),
-      Paint()
-        ..color = col.withValues(alpha: fade)
-        ..blendMode = BlendMode.plus,
-    );
-  }
-}
-
 // ═════════════ الشمس ═════════════
 
-/// الشمس: هالة وأشعة طويلة وقصيرة تدور بعكس بعض وترجف من الحرارة، وحلقة ذهب ذايب تغلي،
-/// وكل كم ثانية تطلع منها شعلة مقوّسة. اللحظة: انفجار شمسي (ومضة وموجة نار وأشعة تطول).
+/// الشمس: شمس كرتونية بأشعة مثلثات سميكة بحد غامق (طويلة وقصيرة تدور بعكس بعض وترجف من الحرارة)،
+/// وحلقة ذهب ذايب تغلي بفقاعات ولمعة تدور، وكل كم ثانية تطلع منها شعلة مقوّسة.
+/// اللحظة: انفجار شمسي (ومضة وموجة نار وأشعة تطول وشرار).
 class SunFrame extends FrameArt {
   SunFrame(super.time, {required super.avatar, required super.layer, super.moment});
 
+  static const _edge = Color(0xFF5A2606);
   static const _gold = Color(0xFFFFB300);
-  static const _orange = Color(0xFFFF6F00);
-  static const _pale = Color(0xFFFFF59D);
-  static const _white = Color(0xFFFFFDE7);
-  static const _red = Color(0xFFE65100);
+  static const _orange = Color(0xFFFF7A00);
+  static const _pale = Color(0xFFFFF176);
+  static const _white = Color(0xFFFFFBE0);
+
+  double get _band => ring * 1.5;
 
   @override
   void back(Canvas canvas, Offset c, double t) {
-    final b = burst(t);
-    final swell = hump(b ?? 0);
+    final swell = hump(burst(t) ?? 0);
     halo(
       canvas,
       c,
-      r * (1.75 + .08 * math.sin(t * 1.3) + .5 * swell),
+      r * (1.95 + .06 * math.sin(t * 1.3) + .5 * swell),
       [
         _pale.withValues(alpha: .55),
-        _gold.withValues(alpha: .4 + .3 * swell),
+        _gold.withValues(alpha: .38 + .3 * swell),
         _orange.withValues(alpha: .16),
         _orange.withValues(alpha: 0),
       ],
-      stops: const [.5, .62, .8, 1],
+      stops: const [.45, .6, .8, 1],
     );
-    final n = small ? 10 : 14;
-    for (final (set, speed, reach) in [(0, .12, 1.58), (1, -.2, 1.32)]) {
-      final path = Path();
+    final n = small ? 8 : 12;
+    // القصيرة أول (تحت)، ثم الطويلة فوقها
+    for (final (set, speed, reach, half) in const [(1, -.2, 1.4, .125), (0, .12, 1.72, .15)]) {
+      final light = Path(), dark = Path(), edge = Path();
       for (var i = 0; i < n; i++) {
         final a = t * speed + (i + set * .5) * 2 * math.pi / n;
-        final len = r * (reach + .16 * noise(t * 1.5, i + set * 20) + (set == 0 ? .65 : .3) * swell);
-        final half = set == 0 ? .085 : .06;
-        final tip = c + dir(a + .025 * math.sin(t * 6 + i)) * len;
-        path.addPolygon([c + dir(a - half) * r * 1.02, tip, c + dir(a + half) * r * 1.02], true);
+        final len = r * (reach + .13 * noise(t * 1.5, i + set * 20) + (set == 0 ? .6 : .28) * swell);
+        final tip = at(c, a + .025 * math.sin(t * 6 + i), len);
+        final bl = at(c, a - half, r + ring * .4);
+        final br = at(c, a + half, r + ring * .4);
+        final mid = at(c, a, r + ring * .4);
+        light.addPolygon([bl, tip, mid], true);
+        dark.addPolygon([mid, tip, br], true);
+        edge.addPolygon([bl, tip, br], true);
       }
+      canvas.drawPath(light, Paint()..color = set == 0 ? const Color(0xFFFFE566) : const Color(0xFFFFEE88));
+      canvas.drawPath(dark, Paint()..color = set == 0 ? const Color(0xFFFFA400) : const Color(0xFFFF8C1A));
+      canvas.drawPath(
+        edge,
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = lw
+          ..strokeJoin = StrokeJoin.round
+          ..color = _edge,
+      );
+    }
+    // الشعلة: لسان لهب يطلع من الحلقة ويميل ويختفي كل كم ثانية
+    final cycle = (t / 3.6).floor();
+    final q = (t % 3.6) / 1.5;
+    if (q < 1) {
+      final a = rnd(cycle, 3) * 2 * math.pi;
+      final k = math.sin(math.min(1.0, q * 1.6) * math.pi / 2) * (1 - q * q);
+      final base = at(c, a, r + _band * .7);
+      final up = dir(a + .25 * q);
+      final h = r * (.12 + .5 * k);
+      final w = _band * 1.5;
+      final path = flameTongue(base, up, h, w, w * .8 * q, kink: w * .25 * math.sin(t * 9));
+      canvas.drawPath(path, Paint()..color = _orange);
       canvas.drawPath(
         path,
         Paint()
-          ..shader = RadialGradient(
-            colors: [_white, _pale.withValues(alpha: .85), _gold.withValues(alpha: .25), _gold.withValues(alpha: 0)],
-            stops: const [.55, .65, .82, 1],
-          ).createShader(Rect.fromCircle(center: c, radius: r * 2.2)),
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = lw
+          ..strokeJoin = StrokeJoin.round
+          ..color = _edge,
       );
+      canvas.drawPath(flameTongue(base, up, h * .7, w * .6, w * .6 * q), Paint()..color = _pale);
     }
   }
 
   @override
   void front(Canvas canvas, Offset c, double t) {
-    sweepRing(canvas, c, const [_orange, _gold, _pale, _gold, _orange, _red, _orange], turn: t * .5);
-    for (var i = 0; i < (small ? 8 : 14); i++) {
-      final tw = math.pow((math.sin(t * 3.1 + i * 2.3) + 1) / 2, 3).toDouble();
-      dot(canvas, c + dir(i * 2 * math.pi / (small ? 8 : 14) + rnd(i, 2)) * mid, ring * .14, _pale, tw);
-    }
-    line(canvas, c, r, _white.withValues(alpha: .6));
-    line(canvas, c, r + ring, _red.withValues(alpha: .5));
-    // الشعلة المقوّسة
-    final cycle = (t / 3.6).floor();
-    final q = (t % 3.6) / 1.5;
-    if (q < 1) {
-      final a = rnd(cycle, 3) * 2 * math.pi;
-      final f0 = c + dir(a - .22) * (r + ring), f1 = c + dir(a + .22) * (r + ring);
-      final apex = c + dir(a) * r * (1.18 + .38 * hump(q));
-      final arc = Path()
-        ..moveTo(f0.dx, f0.dy)
-        ..quadraticBezierTo(apex.dx, apex.dy, f1.dx, f1.dy);
-      final fade = 1 - q;
-      canvas.drawPath(
-        arc,
-        Paint()
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = ring * .55
-          ..color = _orange.withValues(alpha: .8 * fade)
-          ..maskFilter = MaskFilter.blur(BlurStyle.normal, ring * .3),
-      );
-      canvas.drawPath(
-        arc,
-        Paint()
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = hair * 1.2
-          ..color = _pale.withValues(alpha: fade),
+    final out = r + _band;
+    // الحلقة: ذهب ذايب بتدرج حار
+    band(
+      canvas,
+      c,
+      r,
+      out,
+      lin(c + Offset(0, -out), c + Offset(0, out), const [
+        Color(0xFFFFF6A8),
+        Color(0xFFFFC107),
+        Color(0xFFFF8F00),
+        Color(0xFFE65100),
+      ]),
+      edge: _edge,
+    );
+    line(canvas, c, r + lw * 1.1, const Color(0xFFB84A00).withValues(alpha: .55), width: lw * 1.4);
+    // فقاعات الذهب الذايب
+    for (var i = 0; i < (small ? 5 : 8); i++) {
+      final a = t * .22 + i * 2 * math.pi / (small ? 5 : 8) + rnd(i, 2);
+      final pulse = .55 + .45 * math.sin(t * 2.3 + i * 1.9);
+      canvas.drawCircle(
+        at(c, a, r + _band * (.4 + .25 * rnd(i, 4))),
+        _band * .13 * (.6 + .6 * pulse) * (.7 + rnd(i, 5) * .6),
+        Paint()..color = _white.withValues(alpha: .35 + .45 * pulse),
       );
     }
+    gloss(canvas, c, r + _band * .72, _band * .13, from: -2.6, span: 1.0, alpha: .6);
+    sheen(canvas, c, t * .9, .5, radius: r + _band * .62, width: _band * .2, span: 1.1);
+    twinkles(canvas, c, t, n: small ? 2 : 4, rIn: 1.2, rOut: 1.55, color: _pale, speed: .8, salt: 5);
     final b = burst(t);
     if (b != null) {
       halo(canvas, c, r * 1.15, [
@@ -143,81 +132,41 @@ class SunFrame extends FrameArt {
         Colors.transparent,
       ]);
       final k = Curves.easeOutCubic.transform(b);
-      canvas.drawCircle(
-        c,
-        r * (1 + 1.1 * k),
-        Paint()
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = ring * 1.4 * (1 - b)
-          ..color = _orange.withValues(alpha: .7 * (1 - b))
-          ..maskFilter = MaskFilter.blur(BlurStyle.normal, ring * .6),
-      );
-      sparks(canvas, c, r, b, const [_pale, _gold, _orange, _white], size: math.max(1, avatar * .016));
+      final rad = r * (1 + 1.1 * k) + _band;
+      final w = ring * 1.3 * (1 - b);
+      for (final (ww, col, a) in [(w + lw * 2, _edge, .7), (w, _orange, .9), (w * .4, _pale, .95)]) {
+        canvas.drawCircle(
+          c,
+          rad,
+          Paint()
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = ww
+            ..color = col.withValues(alpha: a * (1 - b)),
+        );
+      }
+      burstSparks(canvas, c, b, const [_pale, _gold, _orange, _white], n: small ? 14 : 24);
     }
   }
 }
 
 // ═════════════ نقوش ═════════════
 
-/// نقوش: زخرفة إسلامية (نجمتين متداخلتين بـ١٦ راس ونجوم ثمانية) ترسم نفسها بخط ذهب حول الصورة،
-/// وإذا كملت تتوهج وتختفي وترجع ترسم. الحلقة مينا فيروزية بخطوط ذهب.
-/// اللحظة: الزخرفة كلها تومض، ونجوم ثمانية تطير لبرا.
+/// نقوش: زخرفة إسلامية: حلقة مينا فيروزية بإطار ذهب ونجوم ثمانية وضفيرة، ونجمتين متداخلتين بـ١٦ راس
+/// ترسم نفسها بخط ذهب غامق الحد حول الصورة، وإذا كملت تتوهج وتختفي وترجع ترسم.
+/// اللحظة: الزخرفة كلها تومض، ونجوم ثمانية ذهبية تطير لبرا.
 class ArabesqueFrame extends FrameArt {
   ArabesqueFrame(super.time, {required super.avatar, required super.layer, super.moment});
 
-  static const _teal = Color(0xFF0E7490);
-  static const _deep = Color(0xFF155E75);
-  static const _gold = Color(0xFFFCD34D);
+  static const _teal = Color(0xFF14A9A8);
+  static const _deep = Color(0xFF0B5F78);
+  static const _edge = Color(0xFF063447);
+  static const _gold = Color(0xFFFFD257);
+  static const _goldDark = Color(0xFFB87A12);
   static const _pale = Color(0xFFFFF1B8);
 
   Path _star(Offset c, double outer, double inner, double turn) {
     const n = 16;
     return poly([for (var i = 0; i < n * 2; i++) c + dir(turn + i * math.pi / n) * (i.isEven ? outer : inner)]);
-  }
-
-  @override
-  void back(Canvas canvas, Offset c, double t) {
-    halo(
-      canvas,
-      c,
-      r * 1.55,
-      [_deep.withValues(alpha: .65), _deep.withValues(alpha: .35), _deep.withValues(alpha: 0)],
-      stops: const [.7, .86, 1],
-    );
-    final q = frac(t / 7);
-    final drawn = math.min(1.0, q / .5);
-    final glow = q > .5 && q < .85 ? hump((q - .5) / .35) : 0.0;
-    final alpha = q > .85 ? 1 - (q - .85) / .15 : 1.0;
-    final b = burst(t);
-    final flash = b == null ? 0.0 : 1 - b;
-    final stars = [
-      _star(c, r * 1.44, r * 1.12, -math.pi / 2),
-      _star(c, r * 1.4, r * 1.15, -math.pi / 2 + math.pi / 16),
-    ];
-    final paint = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = hair * 1.5
-      ..strokeJoin = StrokeJoin.round
-      ..color = Color.lerp(_gold, _pale, flash)!.withValues(alpha: math.max(alpha, flash));
-    final glowPaint = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = ring * .7
-      ..color = _gold.withValues(alpha: .35 * math.max(glow, flash))
-      ..maskFilter = MaskFilter.blur(BlurStyle.normal, ring * .45);
-    for (final s in stars) {
-      final full = flash > 0 || drawn >= 1;
-      final part = full ? s : _partial(s, drawn);
-      if (glow > 0 || flash > 0) canvas.drawPath(part, glowPaint);
-      canvas.drawPath(part, paint);
-    }
-    // نجوم ثمانية في الفراغات، تطلع لما يوصلها الرسم
-    for (var k = 0; k < 8; k++) {
-      final show = flash > 0 ? 1.0 : ((drawn - k / 8) * 8).clamp(0.0, 1.0) * alpha;
-      if (show <= 0) continue;
-      final p = c + dir(-math.pi / 2 + k * math.pi / 4) * r * 1.29;
-      canvas.drawPath(star8(p, ring * .62), Paint()..color = _gold.withValues(alpha: show));
-      canvas.drawCircle(p, ring * .22, Paint()..color = _teal.withValues(alpha: show));
-    }
   }
 
   /// أول [f] من طول المسار.
@@ -230,152 +179,344 @@ class ArabesqueFrame extends FrameArt {
   }
 
   @override
-  void front(Canvas canvas, Offset c, double t) {
-    sweepRing(canvas, c, const [_deep, _teal, Color(0xFF0891B2), _teal], turn: .2);
-    line(canvas, c, r + ring * .18, _gold, width: hair * 1.2);
-    line(canvas, c, r + ring * .82, _gold, width: hair * 1.2);
-    for (var k = 0; k < 16; k++) {
-      canvas.drawCircle(c + dir(k * math.pi / 8) * mid, hair * 1.1, Paint()..color = _pale);
+  void back(Canvas canvas, Offset c, double t) {
+    halo(
+      canvas,
+      c,
+      r * 1.6,
+      [_deep.withValues(alpha: .6), _deep.withValues(alpha: .3), _deep.withValues(alpha: 0)],
+      stops: const [.66, .84, 1],
+    );
+    final q = frac(t / 7);
+    final drawn = math.min(1.0, q / .5);
+    final glow = q > .5 && q < .85 ? hump((q - .5) / .35) : 0.0;
+    final alpha = q > .85 ? 1 - (q - .85) / .15 : 1.0;
+    final b = burst(t);
+    final flash = b == null ? 0.0 : 1 - b;
+    final full = flash > 0 || drawn >= 1;
+    final vis = math.max(alpha, flash);
+    final stars = [
+      _star(c, r * 1.44, r * 1.12, -math.pi / 2),
+      _star(c, r * 1.4, r * 1.15, -math.pi / 2 + math.pi / 16),
+    ];
+    // المينا: تعبية فيروزية خفيفة تحت الخطوط، تطلع مع الرسم
+    final enamel = full ? 1.0 : ease((drawn - .2) / .8);
+    if (enamel > 0) {
+      canvas.drawPath(
+        stars[0],
+        Paint()
+          ..shader = radial(
+            c,
+            r * 1.46,
+            [
+              _teal.withValues(alpha: 0),
+              _teal.withValues(alpha: .5 * enamel * vis),
+              _deep.withValues(alpha: .7 * enamel * vis),
+            ],
+            stops: const [.7, .84, 1],
+          ),
+      );
     }
-    canvas.drawArc(
-      Rect.fromCircle(center: c, radius: mid),
-      t * .4,
-      .5,
-      false,
+    for (final s in stars) {
+      final part = full ? s : _partial(s, drawn);
+      if (glow > 0 || flash > 0) {
+        final g = math.max(glow, flash);
+        canvas.drawPath(
+          part,
+          Paint()
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = ring * .9
+            ..strokeJoin = StrokeJoin.round
+            ..color = _gold.withValues(alpha: .18 * g),
+        );
+        canvas.drawPath(
+          part,
+          Paint()
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = ring * .5
+            ..strokeJoin = StrokeJoin.round
+            ..color = _gold.withValues(alpha: .3 * g),
+        );
+      }
+      // خط ذهب بحد غامق تحته
+      canvas.drawPath(
+        part,
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = lw * 3
+          ..strokeJoin = StrokeJoin.round
+          ..color = _edge.withValues(alpha: vis),
+      );
+      canvas.drawPath(
+        part,
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = lw * 1.4
+          ..strokeJoin = StrokeJoin.round
+          ..color = Color.lerp(_gold, _pale, flash)!.withValues(alpha: vis),
+      );
+    }
+    // نجوم ثمانية في الفراغات، تطلع لما يوصلها الرسم
+    if (small) return;
+    for (var k = 0; k < 8; k++) {
+      final show = flash > 0 ? 1.0 : ((drawn - k / 8) * 8).clamp(0.0, 1.0) * alpha;
+      if (show <= 0) continue;
+      final p = at(c, -math.pi / 2 + k * math.pi / 4, r * 1.29);
+      inked(
+        canvas,
+        star8(p, ring * .62),
+        fill: _gold.withValues(alpha: show),
+        edge: _edge.withValues(alpha: show),
+        w: lw * .9,
+      );
+      canvas.drawCircle(p, ring * .2, Paint()..color = _teal.withValues(alpha: show));
+    }
+  }
+
+  @override
+  void front(Canvas canvas, Offset c, double t) {
+    final out = r + ring * 1.5;
+    // الحلقة: مينا فيروزية بإطار ذهب
+    band(
+      canvas,
+      c,
+      r,
+      out,
+      lin(c + Offset(-r * .5, -out), c + Offset(r * .5, out), const [Color(0xFF3FD6C8), _teal, _deep]),
+      edge: _edge,
+    );
+    line(canvas, c, r + lw * 1.2, _gold, width: lw * 1.5);
+    line(canvas, c, out - lw * 1.2, _gold, width: lw * 1.5);
+    // ضفيرة ذهب بين الحافتين ونجوم ثمانية وفصوص
+    final mid = r + ring * .75;
+    final wave = Path();
+    const m = 80;
+    for (var i = 0; i <= m; i++) {
+      final a = i * math.pi * 2 / m;
+      final p = at(c, a, mid + math.sin(a * 16) * ring * .22);
+      i == 0 ? wave.moveTo(p.dx, p.dy) : wave.lineTo(p.dx, p.dy);
+    }
+    canvas.drawPath(
+      wave,
       Paint()
         ..style = PaintingStyle.stroke
-        ..strokeWidth = ring * .6
-        ..color = Colors.white.withValues(alpha: .25)
-        ..blendMode = BlendMode.plus,
+        ..strokeWidth = math.max(.8, lw * .8)
+        ..strokeJoin = StrokeJoin.round
+        ..color = _gold.withValues(alpha: .9),
     );
+    for (var k = 0; k < 16; k++) {
+      final p = at(c, -math.pi / 2 + (k + .5) * math.pi / 8, mid);
+      if (k.isEven) {
+        inked(
+          canvas,
+          star8(p, ring * .5, turn: math.pi / 8),
+          shader: lin(p - Offset(0, ring * .5), p + Offset(0, ring * .5), const [_pale, _gold, _goldDark]),
+          edge: _edge,
+          w: math.max(.7, lw * .75),
+        );
+      } else {
+        final ang = -math.pi / 2 + (k + .5) * math.pi / 8 + math.pi / 2;
+        canvas.drawPath(
+          poly([
+            for (final q in [Offset(0, -ring * .3), Offset(ring * .2, 0), Offset(0, ring * .3), Offset(-ring * .2, 0)])
+              p + rot(q, ang),
+          ]),
+          Paint()..color = _pale.withValues(alpha: .85),
+        );
+      }
+    }
+    gloss(canvas, c, r + ring * 1.1, ring * .16, from: -2.6, span: 1.0, alpha: .5);
+    sheen(canvas, c, t * .4, .3, radius: mid, width: ring * .4, span: .6);
     final b = burst(t);
     if (b != null) {
       final k = Curves.easeOutCubic.transform(b);
       for (var i = 0; i < 8; i++) {
-        final p = c + dir(-math.pi / 2 + i * math.pi / 4 + math.pi / 8) * r * (1.3 + .6 * k);
-        canvas.drawPath(
-          star8(p, ring * .7 * (1 - b * .4), turn: b * 2),
-          Paint()..color = _pale.withValues(alpha: 1 - b),
+        final p = at(c, -math.pi / 2 + i * math.pi / 4 + math.pi / 8, r * (1.3 + .6 * k));
+        inked(
+          canvas,
+          star8(p, ring * .75 * (1 - b * .4), turn: b * 2),
+          fill: _pale.withValues(alpha: 1 - b),
+          edge: _edge.withValues(alpha: 1 - b),
+          w: lw,
         );
       }
+      burstSparks(canvas, c, b, const [_gold, _pale, Color(0xFF5CE6D8)], n: small ? 10 : 18, from: 1.1);
     }
   }
 }
 
 // ═════════════ الطاووس ═════════════
 
-/// الطاووس: ذيل طاووس منفرد ورا الصورة (ريش أخضر فيروزي وعيونه تتلون مثل الحرير)، يتمايل بهدوء،
+/// الطاووس: ذيل طاووس منفرد ورا الصورة (صفين ريش بحد غامق وعيون تتلون مثل الحرير)، يتمايل بموجة هادية،
 /// وحلقة ذهب عليها أحجار ياقوت أزرق. اللحظة: الذيل ينفرد أكثر وتمر لمعة على العيون وتطير منه لمعات.
 class PeacockFrame extends FrameArt {
   PeacockFrame(super.time, {required super.avatar, required super.layer, super.moment});
 
-  static const _teal = Color(0xFF14B8A6);
-  static const _green = Color(0xFF15803D);
+  static const _edge = Color(0xFF0A3A32);
+  static const _green = Color(0xFF1E9E4A);
   static const _blue = Color(0xFF1D4ED8);
   static const _navy = Color(0xFF0B1A5C);
   static const _gold = Color(0xFFFFC94D);
-  static const _bronze = Color(0xFFB8860B);
   static const _sapphire = Color(0xFF2747D6);
 
-  int get _n => small ? 11 : 15;
+  int get _n => small ? 9 : 13;
 
-  /// زاوية الريشة رقم [i] وطولها.
-  (double, double) _feather(int i, double t, double open) {
-    final s = i / (_n - 1);
+  /// زاوية الريشة رقم [i] من [n] وطولها.
+  (double, double) _feather(num i, int n, double t, double open, double lenK, double phase) {
+    final s = i / (n - 1);
     var a = -math.pi - .28 + s * (math.pi + .56);
     a = -math.pi / 2 + (a + math.pi / 2) * (1 + .12 * open);
-    a += .045 * math.sin(t * 1.3 + i * .55);
-    final len = r * ((small ? 1.5 : 1.6) + .08 * math.sin(t * .9 + i) + .25 * open);
+    a += .05 * math.sin(t * 1.3 + i * .55 + phase);
+    final len = r * ((small ? 1.55 : 1.72) * lenK + .08 * math.sin(t * .9 + i + phase) + .25 * open);
     return (a, len);
+  }
+
+  /// ورقة الريشة: من [base] باتجاه [d] بطول [len] وعرض [w]؛ [half] = -١/١ لنص واحد، و٠ للكل.
+  Path _vane(Offset base, Offset d, double len, double w, int half) {
+    final side = perp(d);
+    final tip = base + d * len;
+    final c1 = base + d * len * .3 + side * w * 1.05, c2 = base + d * len * .8 + side * w * .8;
+    final c3 = base + d * len * .8 - side * w * .8, c4 = base + d * len * .3 - side * w * 1.05;
+    final p = Path()..moveTo(base.dx, base.dy);
+    if (half >= 0) p.cubicTo(c1.dx, c1.dy, c2.dx, c2.dy, tip.dx, tip.dy);
+    if (half == 0) {
+      p.cubicTo(c3.dx, c3.dy, c4.dx, c4.dy, base.dx, base.dy);
+    } else if (half > 0) {
+      p.lineTo(base.dx, base.dy);
+    } else {
+      p.lineTo(tip.dx, tip.dy);
+      p.cubicTo(c3.dx, c3.dy, c4.dx, c4.dy, base.dx, base.dy);
+    }
+    return p..close();
   }
 
   @override
   void back(Canvas canvas, Offset c, double t) {
     final b = burst(t);
     final open = hump(b ?? 0);
-    for (var i = 0; i < _n; i++) {
-      final (a, len) = _feather(i, t, open);
-      final d = dir(a), side = perp(d);
-      final base = c + d * r * .85, tip = c + d * len;
-      final w = r * .17;
-      // الريشة: شكل ورقة طويلة تعرض قرب الطرف
-      final vane = Path()
+    final n = _n;
+    // الصف الخلفي: ريش أقصر وأغمق بين الريش الأمامي
+    final backEdge = Path(), backFill = Path();
+    for (var i = 0; i < n - 1; i++) {
+      final (a, len) = _feather(i + .5, n, t, open, .8, 1.3);
+      final d = dir(a);
+      final base = c + d * r * .85;
+      final v = _vane(base, d, len - r * .85, r * .2, 0);
+      backFill.addPath(v, Offset.zero);
+      backEdge.addPath(v, Offset.zero);
+    }
+    canvas.drawPath(backFill, Paint()..color = const Color(0xFF0E7C68));
+    canvas.drawPath(
+      backEdge,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = lw
+        ..strokeJoin = StrokeJoin.round
+        ..color = _edge,
+    );
+    // الصف الأمامي: نص فاتح ونص غامق، وعرق ذهب، وعين
+    final light = Path(), dark = Path(), edge = Path(), shaft = Path(), barbs = Path();
+    final feathers = <(double, double, Offset, Offset)>[];
+    for (var i = 0; i < n; i++) {
+      final (a, len) = _feather(i, n, t, open, 1, 0);
+      final d = dir(a);
+      final base = c + d * r * .85;
+      final l = len - r * .85;
+      light.addPath(_vane(base, d, l, r * .3, 1), Offset.zero);
+      dark.addPath(_vane(base, d, l, r * .3, -1), Offset.zero);
+      edge.addPath(_vane(base, d, l, r * .3, 0), Offset.zero);
+      // زغب الريشة: خطوط قصيرة مايلة للطرف على الجنبين
+      final side = perp(d);
+      for (var k = 1; k < 8; k++) {
+        final sk = k / 8;
+        final q = base + d * l * sk;
+        final wk = r * .3 * .78 * math.sin(math.pi * math.pow(sk, .8).toDouble());
+        for (final sg in const [-1.0, 1.0]) {
+          final e = q + side * wk * sg + d * l * .07;
+          barbs
+            ..moveTo(q.dx, q.dy)
+            ..lineTo(e.dx, e.dy);
+        }
+      }
+      shaft
         ..moveTo(base.dx, base.dy)
-        ..quadraticBezierTo(
-          (base + d * (len - r) * .6 + side * w).dx,
-          (base + d * (len - r) * .6 + side * w).dy,
-          tip.dx,
-          tip.dy,
-        )
-        ..quadraticBezierTo(
-          (base + d * (len - r) * .6 - side * w).dx,
-          (base + d * (len - r) * .6 - side * w).dy,
-          base.dx,
-          base.dy,
-        )
-        ..close();
-      canvas.drawPath(
-        vane,
-        Paint()..shader = ui.Gradient.linear(base, tip, [_green.withValues(alpha: .9), _teal.withValues(alpha: .85)]),
-      );
-      canvas.drawLine(
-        base,
-        tip,
-        Paint()
-          ..color = _gold.withValues(alpha: .55)
-          ..strokeWidth = hair * .8,
-      );
-      // العين: حلقات تتلون
+        ..lineTo((base + d * l).dx, (base + d * l).dy);
+      feathers.add((a, len, d, base));
+    }
+    canvas.drawPath(light, Paint()..color = const Color(0xFF36E3B9));
+    canvas.drawPath(dark, Paint()..color = const Color(0xFF14907C));
+    canvas.drawPath(
+      edge,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = lw
+        ..strokeJoin = StrokeJoin.round
+        ..color = _edge,
+    );
+    canvas.drawPath(
+      barbs,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = math.max(.6, hair)
+        ..strokeCap = StrokeCap.round
+        ..color = const Color(0xFF0B5C50).withValues(alpha: .6),
+    );
+    canvas.drawPath(
+      shaft,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = math.max(.7, lw * .8)
+        ..strokeCap = StrokeCap.round
+        ..color = _gold.withValues(alpha: .8),
+    );
+    // العيون: حلقات تتلون
+    for (final (i, (a, len, d, _)) in feathers.indexed) {
       final eye = c + d * (len - r * .2);
       final shift = 18 * math.sin(t * 1.5 - i * .5) + 40 * open * math.sin(b == null ? 0 : b * math.pi * 3 - i * .4);
-      final ew = r * .2, eh = r * .26;
+      final ew = r * .13, eh = r * .18;
+      canvas.save();
+      canvas.translate(eye.dx, eye.dy);
+      canvas.rotate(a + math.pi / 2);
       for (final (k, col) in [
         (1.0, _hue(_gold, shift * .3)),
-        (.82, _hue(_green, shift)),
-        (.64, _hue(_teal, shift)),
-        (.44, _hue(_blue, shift)),
-        (.26, _navy),
+        (.78, _hue(_green, shift)),
+        (.56, _hue(_blue, shift * .6)),
+        (.3, _navy),
       ]) {
-        canvas.save();
-        canvas.translate(eye.dx, eye.dy);
-        canvas.rotate(a + math.pi / 2);
-        canvas.drawOval(
-          Rect.fromCenter(center: Offset.zero, width: ew * k * 2, height: eh * k * 2),
-          Paint()..color = col,
-        );
-        canvas.restore();
+        final rect = Rect.fromCenter(center: Offset.zero, width: ew * k * 2, height: eh * k * 2);
+        canvas.drawOval(rect, Paint()..color = col);
+        if (k == 1.0) {
+          canvas.drawOval(
+            rect,
+            Paint()
+              ..style = PaintingStyle.stroke
+              ..strokeWidth = math.max(.7, lw * .8)
+              ..color = _edge,
+          );
+        }
       }
       final shimmer = math.pow((math.sin(t * 2 - i * .4) + 1) / 2, 4).toDouble();
-      canvas.drawCircle(
-        eye + side * ew * .25 - d * eh * .2,
-        ew * .18,
-        Paint()..color = Colors.white.withValues(alpha: .35 + .5 * shimmer),
+      canvas.drawOval(
+        Rect.fromCenter(center: Offset(-ew * .22, -eh * .3), width: ew * .5, height: eh * .35),
+        Paint()..color = Colors.white.withValues(alpha: .4 + .5 * shimmer),
       );
+      canvas.restore();
     }
   }
 
   @override
   void front(Canvas canvas, Offset c, double t) {
-    sweepRing(canvas, c, const [_bronze, _gold, Color(0xFFFFF1C1), _gold, _bronze], turn: .4);
-    line(canvas, c, r + ring, _bronze);
-    line(canvas, c, r, _teal.withValues(alpha: .75));
-    for (var k = 0; k < 6; k++) {
-      final p = c + dir(k * math.pi / 3 + math.pi / 6) * mid;
-      canvas.drawCircle(
-        p,
-        ring * .36,
-        Paint()
-          ..shader = RadialGradient(
-            center: const Alignment(-.35, -.4),
-            colors: const [Color(0xFFBFD3FF), _sapphire, _navy],
-          ).createShader(Rect.fromCircle(center: p, radius: ring * .36)),
-      );
-    }
+    final out = r + ring * 1.3;
+    band(canvas, c, r, out, goldShader(c, out));
+    line(canvas, c, r + lw * 1.1, const Color(0xFF8A4E10).withValues(alpha: .55), width: lw * 1.3);
+    gloss(canvas, c, r + ring * .8, ring * .22, from: -2.7, span: 1.2, alpha: .7);
+    studs(canvas, c, r + ring * .65, 6, ring * .36, const Color(0xFFBFD3FF), _sapphire, _navy, turn: math.pi / 6);
+    twinkles(canvas, c, t, n: small ? 2 : 3, rIn: 1.15, rOut: 1.5, color: _gold, speed: .7, salt: 9);
     final b = burst(t);
     if (b != null) {
       for (var i = 0; i < _n; i += 2) {
-        final (a, len) = _feather(i, t, hump(b));
-        sparkle(canvas, c + dir(a) * len * (1 + .25 * b), ring * .6, _gold, 1 - b);
+        final (a, len) = _feather(i, _n, t, hump(b), 1, 0);
+        sparkle(canvas, at(c, a, len * (1 + .25 * b)), ring * .6, _gold, 1 - b);
       }
     }
   }
@@ -383,18 +524,16 @@ class PeacockFrame extends FrameArt {
 
 // ═════════════ مجرة ═════════════
 
-/// مجرة: سديم ملوّن وأذرع مجرة حلزونية من نجوم تدور ورا الصورة، وكوكبين يلفون حولها (يمرون
-/// قدامها وورها)، ونجوم تلمع. اللحظة: انفجار نجمي (ومضة وموجة تنتشر وشرار يطير).
+/// مجرة: سديم ملوّن وأذرع مجرة حلزونية من نجوم تدور ورا الصورة، وحلقة نيلي بدوامة ألوان، وكوكبين كرتونيين
+/// يلفون حولها (يمرون قدامها وورها)، ونجوم تلمع. اللحظة: انفجار نجمي (ومضة وموجة تنتشر وشرار يطير).
 class GalaxyFrame extends FrameArt {
   GalaxyFrame(super.time, {required super.avatar, required super.layer, super.moment});
 
+  static const _edge = Color(0xFF0B0420);
   static const _violet = Color(0xFF7C4DFF);
   static const _pink = Color(0xFFFF4081);
   static const _cyan = Color(0xFF18FFFF);
   static const _ice = Color(0xFFE0F7FF);
-
-  @override
-  double get ring => math.max(2.5, avatar * .07);
 
   @override
   void back(Canvas canvas, Offset c, double t) {
@@ -414,64 +553,104 @@ class GalaxyFrame extends FrameArt {
   void front(Canvas canvas, Offset c, double t) {
     final b = burst(t);
     final swell = hump(b ?? 0);
-    glowRing(
+    final out = r + ring * 1.4;
+    // توهج بنفسجي خفيف حول الحلقة (طبقتين بدون بلور)
+    for (final (w, a) in [(ring * 3.4, .1), (ring * 2.4, .16)]) {
+      canvas.drawCircle(
+        c,
+        r + ring * .7,
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = w
+          ..color = _violet.withValues(alpha: a + swell * .25),
+      );
+    }
+    // الحلقة: نيلي غامق بدوامة ألوان تدور
+    band(
       canvas,
       c,
-      _violet.withValues(alpha: .35 + swell * .4),
-      width: ring * 1.9,
-      blur: ring * (1 + swell),
+      r,
+      out,
+      sweep(c, const [
+        Color(0xFF1A0B3D),
+        Color(0xFF5B34C8),
+        Color(0xFFD2459A),
+        Color(0xFF1A0B3D),
+        Color(0xFF1FA6C9),
+        Color(0xFF5B34C8),
+      ], turn: t * .6),
+      edge: _edge,
     );
-    sweepRing(canvas, c, const [Color(0xFF1A0B3D), _violet, _pink, Color(0xFF1A0B3D), _cyan, _violet], turn: t * .6);
+    line(canvas, c, r + lw * 1.2, _ice.withValues(alpha: .7), width: math.max(.7, lw * .75));
+    line(canvas, c, out - lw * 1.2, const Color(0xFFB9A6FF).withValues(alpha: .6), width: math.max(.7, lw * .6));
+    gloss(canvas, c, r + ring * .95, ring * .16, from: -2.6, span: 1.0, alpha: .4);
     final p = Paint()..blendMode = BlendMode.plus;
-    for (var i = 0; i < 10; i++) {
+    for (var i = 0; i < (small ? 7 : 11); i++) {
       final tw = math.pow((math.sin(t * 4 + i * 2.7) + 1) / 2, 3).toDouble();
-      p.color = Colors.white.withValues(alpha: .25 + .75 * tw);
-      canvas.drawCircle(c + dir(i * math.pi * 2 / 10 + t * .6) * mid, math.max(.6, ring * (.16 + tw * .2)), p);
+      p.color = Colors.white.withValues(alpha: .3 + .7 * tw);
+      canvas.drawCircle(
+        at(c, i * math.pi * 2 / (small ? 7 : 11) + t * .6, r + ring * .72),
+        math.max(.6, ring * (.14 + tw * .2)),
+        p,
+      );
     }
-    line(canvas, c, r + math.max(.5, ring * .1), _ice.withValues(alpha: .55), width: math.max(.8, ring * .18));
     _planets(canvas, c, t, front: true);
     for (var i = 0; i < 6; i++) {
       final a = i * math.pi * 2 / 6 + .4 + rnd(i, 21) * .5;
       final tw = math.pow((math.sin(t * 2.1 + i * 1.9) + 1) / 2, 2).toDouble();
-      sparkle(canvas, c + dir(a) * r * (1.28 + rnd(i, 22) * .3), avatar * (.03 + tw * .045), _ice, .35 + .65 * tw);
+      sparkle(canvas, at(c, a, r * (1.3 + rnd(i, 22) * .3)), avatar * (.03 + tw * .045), _ice, .35 + .65 * tw);
     }
     if (b != null) _supernova(canvas, c, b);
   }
 
   void _arms(Canvas canvas, Offset c, double t, double swell) {
-    const arms = 3, steps = 26;
-    final stars = small ? 7 : 12;
+    const arms = 3, steps = 22;
+    final stars = small ? 6 : 11;
     final p = Paint()..blendMode = BlendMode.plus;
     for (var k = 0; k < arms; k++) {
-      Offset at(double f) => c + dir(k * math.pi * 2 / arms + f * 2.5 + t * .22) * r * (.97 + f * (.62 + swell * .32));
-      final path = Path();
+      Offset pt(double f) => at(c, k * math.pi * 2 / arms + f * 2.5 + t * .22, r * (.97 + f * (.62 + swell * .32)));
+      // شريط الذراع: عريض عند البداية ويدق للآخر
+      final left = <Offset>[], right = <Offset>[];
       for (var j = 0; j <= steps; j++) {
-        final q = at(j / steps);
-        j == 0 ? path.moveTo(q.dx, q.dy) : path.lineTo(q.dx, q.dy);
+        final f = j / steps;
+        final q = pt(f), q2 = pt(math.min(1, f + .01));
+        final n = perp(unit(q2 - q + const Offset(.0001, 0)));
+        final w = r * (.16 + swell * .06) * math.pow(1 - f, .8).toDouble();
+        left.add(q + n * w);
+        right.add(q - n * w);
       }
-      final from = at(0), to = at(1);
+      final ribbon = Path()..moveTo(left.first.dx, left.first.dy);
+      for (final q in left.skip(1)) {
+        ribbon.lineTo(q.dx, q.dy);
+      }
+      for (final q in right.reversed) {
+        ribbon.lineTo(q.dx, q.dy);
+      }
+      ribbon.close();
+      final from = pt(0), to = pt(1);
       canvas.drawPath(
-        path,
+        ribbon,
         Paint()
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = r * (.2 + swell * .1)
-          ..strokeCap = StrokeCap.round
-          ..shader = ui.Gradient.linear(
-            from,
-            to,
-            [_violet.withValues(alpha: .45 + swell * .3), _pink.withValues(alpha: .25), _pink.withValues(alpha: 0)],
-            [0, .5, 1],
-          )
-          ..maskFilter = MaskFilter.blur(BlurStyle.normal, r * .08)
+          ..shader = lin(from, to, [
+            _violet.withValues(alpha: .5 + swell * .3),
+            _pink.withValues(alpha: .28),
+            _pink.withValues(alpha: 0),
+          ])
           ..blendMode = BlendMode.plus,
       );
+      // خط القلب: فاتح
+      final core = Path();
+      for (var j = 0; j <= steps; j++) {
+        final q = pt(j / steps);
+        j == 0 ? core.moveTo(q.dx, q.dy) : core.lineTo(q.dx, q.dy);
+      }
       canvas.drawPath(
-        path,
+        core,
         Paint()
           ..style = PaintingStyle.stroke
           ..strokeWidth = math.max(.8, r * .045)
           ..strokeCap = StrokeCap.round
-          ..shader = ui.Gradient.linear(
+          ..shader = lin(
             from,
             to,
             [
@@ -480,7 +659,7 @@ class GalaxyFrame extends FrameArt {
               _violet.withValues(alpha: .45),
               _pink.withValues(alpha: 0),
             ],
-            [0, .25, .6, 1],
+            const [0, .25, .6, 1],
           )
           ..blendMode = BlendMode.plus,
       );
@@ -489,7 +668,7 @@ class GalaxyFrame extends FrameArt {
         final tw = math.pow((math.sin(t * 3.2 + j * 2.3 + k * 1.1) + 1) / 2, 2).toDouble();
         p.color = Colors.white.withValues(alpha: (.35 + .65 * tw) * (1 - f * .5));
         canvas.drawCircle(
-          at(f) + dir(rnd(j, k + 7) * math.pi * 2) * r * .05,
+          pt(f) + dir(rnd(j, k + 7) * math.pi * 2) * r * .05,
           math.max(.7, avatar * .012) * (1.3 - f * .6) * (.7 + tw * .6),
           p,
         );
@@ -499,7 +678,7 @@ class GalaxyFrame extends FrameArt {
       final tw = (math.sin(t * 2.4 + i * 1.3) + 1) / 2;
       p.color = _ice.withValues(alpha: .2 + .5 * tw);
       canvas.drawCircle(
-        c + dir(rnd(i, 11) * math.pi * 2 + t * (.1 + rnd(i, 12) * .08)) * r * (1.04 + rnd(i, 13) * .55),
+        at(c, rnd(i, 11) * math.pi * 2 + t * (.1 + rnd(i, 12) * .08), r * (1.04 + rnd(i, 13) * .55)),
         math.max(.5, avatar * .006),
         p,
       );
@@ -516,128 +695,107 @@ class GalaxyFrame extends FrameArt {
   }
 
   void _planets(Canvas canvas, Offset c, double t, {required bool front}) {
-    final (p1, d1, f1) = _orbit(c, t * .5, 1.36, .66, -.28);
+    final (p1, d1, f1) = _orbit(c, t * .5, 1.38, .66, -.28);
     if (f1 == front) _giant(canvas, p1, avatar * .075 * (1 + .18 * d1));
-    final (p2, d2, f2) = _orbit(c, -t * .85 + 2.2, 1.24, .6, .32);
+    final (p2, d2, f2) = _orbit(c, -t * .85 + 2.2, 1.26, .6, .32);
     if (f2 == front) {
-      final s = avatar * .035 * (1 + .2 * d2);
-      canvas.drawCircle(
-        p2,
-        s,
-        Paint()
-          ..shader = const RadialGradient(
-            center: Alignment(-.4, -.5),
-            colors: [Colors.white, _cyan, Color(0xFF006064)],
-          ).createShader(Rect.fromCircle(center: p2, radius: s)),
-      );
-      canvas.drawCircle(
-        p2,
-        s * 2.6,
-        Paint()
-          ..color = _cyan.withValues(alpha: .18)
-          ..blendMode = BlendMode.plus,
-      );
+      final s = avatar * .04 * (1 + .2 * d2);
+      canvas.drawCircle(p2, s * 2.4, Paint()..color = _cyan.withValues(alpha: .16));
+      ball(canvas, p2, s, Colors.white, _cyan, const Color(0xFF006064), edge: _edge, w: math.max(.7, lw * .8));
     }
   }
 
+  /// كوكب كرتوني وردي بحلقة كريمية مايلة (بحد غامق).
   void _giant(Canvas canvas, Offset p, double s) {
     final ringRect = Rect.fromCenter(center: p, width: s * 4.2, height: s * 1.25);
-    final ringPaint = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = math.max(.7, s * .32)
-      ..color = const Color(0xFFFFE0B2).withValues(alpha: .85);
     canvas.save();
     canvas.translate(p.dx, p.dy);
     canvas.rotate(-.35);
     canvas.translate(-p.dx, -p.dy);
-    canvas.drawArc(ringRect, math.pi, math.pi, false, ringPaint);
-    canvas.drawCircle(
-      p,
-      s,
-      Paint()
-        ..shader = const RadialGradient(
-          center: Alignment(-.35, -.45),
-          colors: [Color(0xFFFFE0F0), _pink, Color(0xFF6A1B9A)],
-          stops: [0, .5, 1],
-        ).createShader(Rect.fromCircle(center: p, radius: s)),
-    );
+    void arc(double from) {
+      final w = math.max(.9, s * .3);
+      canvas.drawArc(
+        ringRect,
+        from,
+        math.pi,
+        false,
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = w + lw * 1.6
+          ..color = _edge,
+      );
+      canvas.drawArc(
+        ringRect,
+        from,
+        math.pi,
+        false,
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = w
+          ..color = const Color(0xFFFFE0B2),
+      );
+    }
+
+    arc(math.pi);
+    ball(canvas, p, s, const Color(0xFFFFE0F0), _pink, const Color(0xFF6A1B9A), edge: _edge, w: math.max(.8, lw));
     canvas.drawArc(
-      Rect.fromCircle(center: p, radius: s * .8),
-      .3,
-      2.4,
+      Rect.fromCircle(center: p, radius: s * .7),
+      .4,
+      2.2,
       false,
       Paint()
         ..style = PaintingStyle.stroke
-        ..strokeWidth = math.max(.5, s * .18)
-        ..color = Colors.white.withValues(alpha: .18),
+        ..strokeWidth = math.max(.5, s * .16)
+        ..color = Colors.white.withValues(alpha: .22),
     );
-    canvas.drawArc(ringRect, 0, math.pi, false, ringPaint);
+    arc(0);
     canvas.restore();
   }
 
   void _supernova(Canvas canvas, Offset c, double m) {
     final fade = 1 - m;
-    canvas.drawCircle(
-      c,
-      r * 1.1,
-      Paint()
-        ..shader = RadialGradient(
-          colors: [
-            Colors.white.withValues(alpha: .85 * fade * fade),
-            _cyan.withValues(alpha: .35 * fade),
-            Colors.transparent,
-          ],
-        ).createShader(Rect.fromCircle(center: c, radius: r * 1.1))
-        ..blendMode = BlendMode.plus,
-    );
+    halo(canvas, c, r * 1.1, [
+      Colors.white.withValues(alpha: .85 * fade * fade),
+      _cyan.withValues(alpha: .35 * fade),
+      Colors.transparent,
+    ]);
     for (final (delay, col) in [(0.0, _cyan), (.14, _pink)]) {
       final k = ((m - delay) / (1 - delay)).clamp(0.0, 1.0);
       if (k <= 0 || k >= 1) continue;
-      final rad = r * (1 + Curves.easeOutCubic.transform(k) * 1.05);
+      final rad = r * (1 + Curves.easeOutCubic.transform(k) * 1.05) + ring * 1.4;
       final width = math.max(.8, ring * .55 * (1 - k));
-      canvas.drawCircle(
-        c,
-        rad,
-        Paint()
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = width * 4
-          ..color = col.withValues(alpha: .35 * (1 - k))
-          ..maskFilter = MaskFilter.blur(BlurStyle.normal, width * 2)
-          ..blendMode = BlendMode.plus,
-      );
-      canvas.drawCircle(
-        c,
-        rad,
-        Paint()
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = width
-          ..color = Color.lerp(_ice, col, k)!.withValues(alpha: (1 - k) * .9)
-          ..blendMode = BlendMode.plus,
-      );
+      for (final (w, a, cc) in [
+        (width * 3.2, .22 * (1 - k), col),
+        (width * 1.6, .45 * (1 - k), col),
+        (width, .9 * (1 - k), Color.lerp(_ice, col, k)!),
+      ]) {
+        canvas.drawCircle(
+          c,
+          rad,
+          Paint()
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = w
+            ..color = cc.withValues(alpha: a)
+            ..blendMode = BlendMode.plus,
+        );
+      }
     }
-    sparks(
-      canvas,
-      c,
-      r,
-      m,
-      const [_cyan, _pink, _violet, Colors.white],
-      n: small ? 14 : 26,
-      size: math.max(.8, avatar * .014),
-    );
+    burstSparks(canvas, c, m, const [_cyan, _pink, _violet, Colors.white], n: small ? 14 : 26, from: 1.1);
   }
 }
 
 // ═════════════ الياقوت (مستوى ٤٠) ═════════════
 
-/// الياقوت: بلورات ياقوت تطلع من الحلقة بمجموعات، شفافة وداخلها نار ترجف، وأطرافها تلمع.
-/// اللحظة: البلورات تكبر وتشتعل، وشظايا تطير لبرا.
+/// الياقوت: بلورات ياقوت أحمر مفصّصة بحد غامق تطلع من حلقة ذهب في مجموعات (كل بلورة في طوق ذهب)،
+/// وداخلها نار ترجف، وأطرافها تلمع. اللحظة: البلورات تكبر وتشتعل، وشظايا تطير لبرا.
 class RubyFrame extends FrameArt {
   RubyFrame(super.time, {required super.avatar, required super.layer, super.moment});
 
+  static const _edge = Color(0xFF3A0612);
   static const _ruby = Color(0xFFE11D48);
   static const _deep = Color(0xFF9F1239);
+  static const _hot = Color(0xFFFF5675);
   static const _pink = Color(0xFFFDA4AF);
-  static const _dark = Color(0xFF4C0519);
   static const _fire = Color(0xFFFFB347);
 
   @override
@@ -646,13 +804,38 @@ class RubyFrame extends FrameArt {
     halo(
       canvas,
       c,
-      r * 1.55,
+      r * 1.7,
       [
         _ruby.withValues(alpha: 0),
-        _ruby.withValues(alpha: .22 + .1 * math.sin(t * 2) + .4 * swell),
+        _ruby.withValues(alpha: .3 + .1 * math.sin(t * 2) + .4 * swell),
         _ruby.withValues(alpha: 0),
       ],
-      stops: const [.6, .78, 1],
+      stops: const [.58, .76, 1],
+    );
+    // بلورات خلفية صغيرة بين المجموعات (عمق)
+    final left = Path(), right = Path(), edge = Path();
+    final n = small ? 4 : 6;
+    for (var g = 0; g < n; g++) {
+      final a = g * 2 * math.pi / n + math.pi / n + .52;
+      final base = at(c, a, r + ring * .7);
+      final d = dir(a);
+      final s = perp(d) * ring * .55;
+      final len = r * (.34 + .05 * math.sin(t * 1.3 + g)) * (1 + .25 * swell);
+      final shoulder = base + d * len * .7;
+      final tip = base + d * len;
+      left.addPolygon([base - s, shoulder - s, tip, base], true);
+      right.addPolygon([base, tip, shoulder + s, base + s], true);
+      edge.addPolygon([base - s, shoulder - s, tip, shoulder + s, base + s], true);
+    }
+    canvas.drawPath(left, Paint()..color = const Color(0xFF6E0E2A));
+    canvas.drawPath(right, Paint()..color = _deep);
+    canvas.drawPath(
+      edge,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = lw
+        ..strokeJoin = StrokeJoin.round
+        ..color = _edge,
     );
   }
 
@@ -660,77 +843,116 @@ class RubyFrame extends FrameArt {
   void front(Canvas canvas, Offset c, double t) {
     final b = burst(t);
     final swell = hump(b ?? 0);
-    // الحلقة: أوجه ياقوت
-    final n = small ? 14 : 18;
-    for (var i = 0; i < n; i++) {
-      final a0 = i * 2 * math.pi / n, a1 = (i + 1) * 2 * math.pi / n;
-      canvas.drawPath(
-        poly([c + dir(a0) * r, c + dir(a0) * (r + ring), c + dir(a1) * (r + ring), c + dir(a1) * r]),
-        Paint()..color = [_ruby, _deep, const Color(0xFFF43F5E)][i % 3],
-      );
-    }
-    line(canvas, c, r + ring, _dark);
-    line(canvas, c, r, _pink.withValues(alpha: .6));
+    final out = r + ring * 1.15;
+    // الحلقة: ذهب بأحجار ياقوت صغيرة
+    band(canvas, c, r, out, goldShader(c, out), edge: _edge);
+    line(canvas, c, r + lw * 1.1, const Color(0xFF8A4E10).withValues(alpha: .55), width: lw * 1.3);
+    gloss(canvas, c, r + ring * .85, ring * .2, from: -2.7, span: 1.1, alpha: .65);
+    studs(canvas, c, r + ring * .58, small ? 10 : 18, ring * .2, _pink, _ruby, _deep, turn: .1, edge: _edge);
     // مجموعات البلور
-    for (var g = 0; g < 6; g++) {
-      final a = g * math.pi / 3 + .52;
-      for (final (k, (off, len, w, tilt)) in [
-        (-.17, .3, 1.0, -.12),
-        (0.0, .46, 1.25, 0.0),
-        (.18, .34, .95, .12),
+    final groups = small ? 4 : 6;
+    final lefts = Path(), rights = Path(), caps = Path(), edges = Path(), collars = Path(), cuts = Path();
+    final fires = <(Path, double)>[];
+    final glints = <Offset>[];
+    for (var g = 0; g < groups; g++) {
+      final a = g * 2 * math.pi / groups + .52;
+      for (final (k, (off, len, w, tilt)) in const [
+        (-.19, .38, 1.15, -.12),
+        (0.0, .58, 1.45, 0.0),
+        (.2, .42, 1.1, .12),
       ].indexed) {
-        _crystal(canvas, c, a + off, r * len * (1 + .25 * swell), ring * w, tilt, t, g * 3 + k, swell);
+        if (small && k == 0) continue;
+        final i = g * 3 + k;
+        final base = at(c, a + off, r + ring * .8);
+        final d = dir(a + off + tilt);
+        final s = perp(d) * ring * w * .5;
+        final l = r * len * (1 + .25 * swell);
+        final shoulder = base + d * l * .72;
+        final tip = base + d * l;
+        lefts.addPolygon([base - s, shoulder - s * 1.08, tip, base], true);
+        rights.addPolygon([base, tip, shoulder + s * 1.08, base + s], true);
+        caps.addPolygon([shoulder - s * 1.08, tip, shoulder + s * 1.08], true);
+        edges.addPolygon([base - s, shoulder - s * 1.08, tip, shoulder + s * 1.08, base + s], true);
+        cuts
+          ..moveTo(shoulder.dx - s.dx * 1.08, shoulder.dy - s.dy * 1.08)
+          ..lineTo(shoulder.dx + s.dx * 1.08, shoulder.dy + s.dy * 1.08)
+          ..moveTo(base.dx, base.dy)
+          ..lineTo(tip.dx, tip.dy);
+        // الطوق الذهبي عند القاعدة
+        final cb = d * ring * .55;
+        collars.addPolygon([base - s * 1.3, base + s * 1.3, base + s * 1.12 + cb, base - s * 1.12 + cb], true);
+        // النار جوا: شكل أصغر بنفس البلورة
+        final core = base + d * l * .45;
+        final inner = Path()
+          ..addPolygon([
+            for (final q in [base - s, shoulder - s * 1.08, tip, shoulder + s * 1.08, base + s]) core + (q - core) * .5,
+          ], true);
+        final fl = (.55 + .4 * noise(t * 3 + i, i) + .4 * swell).clamp(0.0, 1.0);
+        fires.add((inner, fl));
+        glints.add(tip);
+        // لمعة طولية على الوجه اليسار
+        cuts
+          ..moveTo((base - s * .55 + d * l * .12).dx, (base - s * .55 + d * l * .12).dy)
+          ..lineTo((base - s * .55 + d * l * .55).dx, (base - s * .55 + d * l * .55).dy);
       }
     }
-    if (b != null) {
-      final ease = Curves.easeOutCubic.transform(b);
-      for (var i = 0; i < (small ? 10 : 16); i++) {
-        final ang = i * 2 * math.pi / (small ? 10 : 16) + rnd(i, 5);
-        final pos = c + dir(ang) * r * (1.2 + .8 * ease);
-        final s = ring * .5 * (1 - b * .5);
-        final d = dir(ang + b * 6);
-        canvas.drawPath(
-          poly([pos + d * s, pos + perp(d) * s * .5, pos - d * s * .6]),
-          Paint()..color = _pink.withValues(alpha: 1 - b),
-        );
-      }
+    canvas.drawPath(lefts, Paint()..color = _deep);
+    canvas.drawPath(rights, Paint()..color = _ruby);
+    canvas.drawPath(caps, Paint()..color = _hot);
+    for (final (path, fl) in fires) {
+      canvas.drawPath(path, Paint()..color = Color.lerp(_ruby, _fire, fl)!.withValues(alpha: .35 + .5 * fl));
     }
-  }
-
-  void _crystal(Canvas canvas, Offset c, double a, double len, double w, double tilt, double t, int i, double swell) {
-    final base = c + dir(a) * (r + ring * .7), d = dir(a + tilt), s = perp(d) * w / 2;
-    final tip = base + d * len;
-    final shoulder = base + d * len * .74;
-    final left = poly([base - s, shoulder - s, tip, base]);
-    final right = poly([base, tip, shoulder + s, base + s]);
-    canvas.drawPath(left, Paint()..color = _deep.withValues(alpha: .92));
-    canvas.drawPath(right, Paint()..color = _ruby.withValues(alpha: .9));
-    // النار جوا
-    final whole = poly([base - s, shoulder - s, tip, shoulder + s, base + s]);
-    final fl = .6 + .4 * noise(t * 3 + i, i) + .4 * swell;
-    canvas.save();
-    canvas.clipPath(whole);
-    final core = base + d * len * .45;
-    halo(canvas, core, len * .62, [
-      _fire.withValues(alpha: (.55 * fl).clamp(0.0, 1.0)),
-      _ruby.withValues(alpha: .3 * fl.clamp(0.0, 1.0)),
-      Colors.transparent,
-    ]);
-    canvas.restore();
     canvas.drawPath(
-      whole,
+      cuts,
       Paint()
         ..style = PaintingStyle.stroke
-        ..strokeWidth = hair * .8
-        ..color = Colors.white.withValues(alpha: .35),
+        ..strokeWidth = math.max(.6, lw * .6)
+        ..strokeCap = StrokeCap.round
+        ..color = Colors.white.withValues(alpha: .5),
     );
-    canvas.drawLine(
-      base,
-      tip,
+    canvas.drawPath(
+      edges,
       Paint()
-        ..color = _pink.withValues(alpha: .6)
-        ..strokeWidth = hair * .7,
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = lw
+        ..strokeJoin = StrokeJoin.round
+        ..color = _edge,
     );
-    sparkle(canvas, tip, ring * .45, _pink, math.pow(math.max(0, math.sin(t * 1.7 + i * 2.3)), 16).toDouble());
+    inked(canvas, collars, shader: goldShader(c, r * 1.2), edge: _edge, w: math.max(.8, lw * .9));
+    for (final (i, tip) in glints.indexed) {
+      sparkle(canvas, tip, ring * .45, _pink, math.pow(math.max(0, math.sin(t * 1.7 + i * 2.3)), 16).toDouble());
+    }
+    if (b != null) {
+      final e = Curves.easeOutCubic.transform(b);
+      // موجة ياقوتية
+      final rad = r * (1 + .9 * e) + ring * 1.2;
+      final w = ring * 1.1 * (1 - b);
+      for (final (ww, col, a) in [(w + lw * 2, _edge, .6), (w, _hot, .85), (w * .35, _pink, .95)]) {
+        canvas.drawCircle(
+          c,
+          rad,
+          Paint()
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = ww
+            ..color = col.withValues(alpha: a * (1 - b)),
+        );
+      }
+      final shards = small ? 10 : 16;
+      for (var i = 0; i < shards; i++) {
+        final ang = i * 2 * math.pi / shards + rnd(i, 5);
+        final pos = at(c, ang, r * (1.2 + .8 * e));
+        final s = ring * .55 * (1 - b * .5);
+        final d = dir(ang + b * 6);
+        final shard = poly([pos + d * s, pos + perp(d) * s * .5, pos - d * s * .6]);
+        inked(
+          canvas,
+          shard,
+          fill: _hot.withValues(alpha: 1 - b),
+          edge: _edge.withValues(alpha: 1 - b),
+          w: math.max(.7, lw * .8),
+        );
+      }
+      burstSparks(canvas, c, b, const [_pink, _fire, Colors.white], n: small ? 8 : 14, from: 1.1);
+    }
   }
 }
