@@ -605,11 +605,11 @@ class AvatarRig {
     final head = _xf(rot: p.head, pivot: _neck, shift: p.body);
     return [
       _img('body', _body),
-      _img('ear_l', head.multiplied(_xf(rot: -.22 * _pulse(3.1, .22), pivot: const Offset(68, 72)))),
-      _img('ear_r', head.multiplied(_xf(rot: .22 * _pulse(3.7, .22, 1.4), pivot: const Offset(132, 72)))),
+      _img('ear_l', head.multiplied(_xf(rot: -.22 * _pulse(3.1, .22), pivot: const Offset(72, 84)))),
+      _img('ear_r', head.multiplied(_xf(rot: .22 * _pulse(3.7, .22, 1.4), pivot: const Offset(128, 84)))),
       _img('head', head),
       if (p.blink) _img('blink', head),
-      _fx(_body, (c) => _sparkle(c, const Offset(99, 178), 4, _pulse(3.6, .55), glow: const Color(0xFFFDE68A))),
+      _fx(_body, (c) => _sparkle(c, const Offset(95, 181), 4, _pulse(3.6, .55), glow: const Color(0xFFFDE68A))),
     ];
   }
 
@@ -618,15 +618,15 @@ class AvatarRig {
     final head = _head();
     return [
       _img('body', _body),
-      _img('ear_l', head.multiplied(_xf(rot: .3 * _pulse(4.2, .25), pivot: const Offset(76, 84)))),
-      _img('ear_r', head.multiplied(_xf(rot: -.3 * _pulse(5.1, .25, 2), pivot: const Offset(124, 84)))),
+      _img('ear_l', head.multiplied(_xf(rot: .3 * _pulse(4.2, .25), pivot: const Offset(80, 92)))),
+      _img('ear_r', head.multiplied(_xf(rot: -.3 * _pulse(5.1, .25, 2), pivot: const Offset(120, 92)))),
       _img('head', head),
       if (_p.blink) _img('blink', head),
       _fx(
         head,
-        (c) => _glow(c, const Offset(98, 39), 18, const Color(0xFFFDE68A), .35 + .3 * (.5 + .5 * math.sin(t * 1.8))),
+        (c) => _glow(c, const Offset(100, 40), 20, const Color(0xFFFDE68A), .35 + .3 * (.5 + .5 * math.sin(t * 1.8))),
       ),
-      _fx(_body, (c) => _sparkle(c, const Offset(98, 177), 3.4, _pulse(3.2, .5, .8), glow: const Color(0xFFFDE68A))),
+      _fx(_body, (c) => _sparkle(c, const Offset(96, 181), 3.4, _pulse(3.2, .5, .8), glow: const Color(0xFFFDE68A))),
     ];
   }
 
@@ -636,12 +636,12 @@ class AvatarRig {
     final head = _head(shift: Offset(0, 1.8 * nod));
     return [
       _img('body', _body),
-      _img('mane', head.multiplied(_xf(rot: .045 * math.sin(t * 2.2) + .03 * nod, pivot: const Offset(118, 48)))),
+      _img('mane', head.multiplied(_xf(rot: .045 * math.sin(t * 2.2) + .03 * nod, pivot: const Offset(112, 50)))),
       _img('head', head),
       if (_p.blink) _img('blink', head),
       _fx(head, (c) {
-        _glow(c, const Offset(99, 88), 14, const Color(0xFFFDE68A), .3 + .25 * math.sin(t * 2));
-        _sparkle(c, const Offset(78, 134), 3.2, _pulse(3, .5, 1));
+        _glow(c, const Offset(100, 78), 14, const Color(0xFFFDE68A), .3 + .25 * math.sin(t * 2));
+        _sparkle(c, const Offset(71, 130), 3.2, _pulse(3, .5, 1));
       }),
     ];
   }
@@ -655,13 +655,14 @@ class AvatarRig {
     final medal = _body.multiplied(_xf(rot: .1 * math.sin(t * 2.2), pivot: _neck));
     return [
       _img('body', _body),
-      _img('ear_l', head.multiplied(_xf(rot: -.08 * proud + wiggle, pivot: const Offset(76, 78)))),
-      _img('ear_r', head.multiplied(_xf(rot: .08 * proud - wiggle, pivot: const Offset(124, 78)))),
+      // الميدالية خلف الراس: شريطها يطلع من ورا الفك
+      _img('medal', medal),
+      _img('ear_l', head.multiplied(_xf(rot: -.08 * proud + wiggle, pivot: const Offset(82, 88)))),
+      _img('ear_r', head.multiplied(_xf(rot: .08 * proud - wiggle, pivot: const Offset(118, 88)))),
       _img('head', head),
       if (_p.blink && laugh < .2) _img('blink', head),
       if (laugh > .2) _img('mouth', head),
-      _img('medal', medal),
-      _fx(medal, (c) => _sparkle(c, const Offset(106, 174), 3.4, _pulse(2.5, .5))),
+      _fx(medal, (c) => _sparkle(c, const Offset(94, 175), 3.4, _pulse(2.5, .5))),
     ];
   }
 }
