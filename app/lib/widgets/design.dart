@@ -52,6 +52,56 @@ class GoldCircle extends StatelessWidget {
   );
 }
 
+/// علامة المشجب: خطاف ومثلث، بحد غامق. هي أيقونة «غرفة التبديل» الوحيدة في اللعبة كلها.
+class HangerPainter extends CustomPainter {
+  const HangerPainter({this.color = const Color(0xFF3A1A05)});
+
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final w = size.width, h = size.height;
+    final p = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = w * .12
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round
+      ..color = color;
+    final path = Path()
+      ..moveTo(w * .5, h * .38)
+      ..lineTo(w * .5, h * .3)
+      ..cubicTo(w * .5, h * .12, w * .66, h * .1, w * .66, h * .22)
+      ..moveTo(w * .5, h * .38)
+      ..lineTo(w * .06, h * .84)
+      ..lineTo(w * .94, h * .84)
+      ..close();
+    canvas.drawPath(path, p);
+  }
+
+  @override
+  bool shouldRepaint(HangerPainter old) => old.color != color;
+}
+
+/// أيقونة «غرفة التبديل»: دائرة ذهبية فيها المشجب. نفس الشكل في الرئيسية والمتجر وملفي وغرفة التبديل نفسها.
+class HangerBadge extends StatelessWidget {
+  const HangerBadge({super.key, this.size = 30});
+
+  final double size;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    width: size,
+    height: size,
+    alignment: Alignment.center,
+    decoration: BoxDecoration(
+      shape: BoxShape.circle,
+      gradient: const LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: goldRingColors),
+      border: Border.all(color: const Color(0xFF2A1608), width: math.max(1.4, size * .058)),
+    ),
+    child: CustomPaint(size: Size.square(size * .6), painter: const HangerPainter()),
+  );
+}
+
 /// حلقة ذهب حول صورة قطرها [size] (بنفس مكان حلقة PlayerAvatar)، و[gems]: أربع جواهر حمر عليها.
 class GoldRingPainter extends CustomPainter {
   const GoldRingPainter({required this.size, this.gems = false});

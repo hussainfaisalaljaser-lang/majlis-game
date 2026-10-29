@@ -129,9 +129,7 @@ class _ShopScreenState extends State<ShopScreen> {
   /// يشتري العرض كامل: اللي ما تملكه من الشخصية والإطار، بنفس سعره العادي (ما فيه خصم للحين).
   Future<void> _buyOffer(_Offer offer, Profile p) async {
     final b = Backend.instance;
-    if (!b.isReady) return;
     final todo = [for (final i in offer.items) if (!p.owns(i.id)) i];
-    if (todo.isEmpty) return;
     final coins = todo.fold<int>(0, (n, i) => n + (i.coins ?? 0));
     final gems = todo.fold<int>(0, (n, i) => n + (i.diamonds ?? 0));
     final ok = await showGeneralDialog<bool>(
@@ -146,7 +144,7 @@ class _ShopScreenState extends State<ShopScreen> {
       ),
       pageBuilder: (context, _, _) => _OfferDialog(offer: offer, profile: p, coins: coins, gems: gems),
     );
-    if (ok != true || !mounted) return;
+    if (ok != true || !mounted || !b.isReady) return;
     await _run(offer.id, () async {
       for (final i in todo) {
         await b.buyItem(i.id);
@@ -410,6 +408,7 @@ Widget _offerCard(BuildContext context, _Offer o, Profile p, {required String? b
     dark: dark,
     wide: true,
     onTap: onBuy,
+    onPreview: onBuy,
     action: Semantics(
       label: 'زر ${o.id}',
       child: ShopActionButton(
@@ -424,7 +423,7 @@ Widget _offerCard(BuildContext context, _Offer o, Profile p, {required String? b
   );
 }
 
-/// رسمة العرض: الشخصية لابسة الإطار، وجنبها اسم الشخصية واسم الإطار.
+/// رسمة العرض: الشخصية لابسة الإطار، وجنبها لوح غامق فيه اسم الشخصية واسم الإطار (يبان على كل الخلفيات).
 class _OfferArt extends StatelessWidget {
   const _OfferArt({required this.offer, required this.dark});
 
@@ -433,35 +432,47 @@ class _OfferArt extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final ink = dark ? const Color(0xFFFFEFD0) : AppColors.ink;
-    final muted = dark ? const Color(0xFFD9C29A) : const Color(0xFF6A4A2A);
     Widget line(String label, String name) => Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: TextStyle(color: muted, fontSize: 11, fontWeight: FontWeight.w800, height: 1.1)),
+        Text(label, style: const TextStyle(color: Color(0xFFF2C75A), fontSize: 12, fontWeight: FontWeight.w800, height: 1.1)),
         Text(
           name,
-          style: TextStyle(fontFamily: kufi, color: ink, fontSize: 15, fontWeight: FontWeight.w800, height: 1.2),
+          style: const TextStyle(
+            fontFamily: kufi,
+            color: Color(0xFFFFF3DA),
+            fontSize: 16,
+            fontWeight: FontWeight.w800,
+            height: 1.15,
+          ),
         ),
       ],
     );
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        PlayerAvatar(avatar: offer.avatar.avatar!, style: offer.frame.frame, size: 62, animate: false),
-        const SizedBox(width: 14),
-        Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [line('شخصية', offer.avatar.name), const SizedBox(height: 5), line('إطار', offer.frame.name)],
+        PlayerAvatar(avatar: offer.avatar.avatar!, style: offer.frame.frame, size: 60, animate: false),
+        const SizedBox(width: 12),
+        Container(
+          padding: const EdgeInsets.fromLTRB(10, 4, 12, 5),
+          decoration: BoxDecoration(
+            color: const Color(0xFF241209).withValues(alpha: .86),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: const Color(0xFFE8B54E).withValues(alpha: .55)),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [line('شخصية', offer.avatar.name), const SizedBox(height: 3), line('إطار', offer.frame.name)],
+          ),
         ),
       ],
     );
   }
 }
 
-/// تأكيد شراء العرض: الشخصية لابسة إطارها، واللي بتشتريه، وسعره.
+/// تفاصيل العرض: الشخصية لابسة إطارها كبيرة، وكل غرض بدرجته ووصفه وسعره (أو «عندك»)، والمجموع، وزر الشراء.
 class _OfferDialog extends StatelessWidget {
   const _OfferDialog({required this.offer, required this.profile, required this.coins, required this.gems});
 
@@ -470,88 +481,150 @@ class _OfferDialog extends StatelessWidget {
   final int coins;
   final int gems;
 
+  Widget _row(String kind, ShopItem i) {
+    final owned = profile.owns(i.id);
+    final byCoins = i.coins != null;
+    return Container(
+      margin: const EdgeInsets.only(top: 8),
+      padding: const EdgeInsets.fromLTRB(12, 7, 12, 8),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: .07),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFF4E331F).withValues(alpha: .4)),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Text(kind, style: const TextStyle(color: Color(0xFF6A4A2A), fontSize: 13, fontWeight: FontWeight.w800)),
+                    const SizedBox(width: 8),
+                    ShopRarityTag(i.rarity, size: 12),
+                  ],
+                ),
+                Text(
+                  i.name,
+                  style: const TextStyle(
+                    fontFamily: kufi,
+                    color: AppColors.ink,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                    height: 1.3,
+                  ),
+                ),
+                if (i.desc != null)
+                  Text(
+                    i.desc!,
+                    style: const TextStyle(color: Color(0xFF6A4A2A), fontSize: 13, fontWeight: FontWeight.w700, height: 1.35),
+                  ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 10),
+          if (owned)
+            const Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Gfx('check', size: 22),
+                SizedBox(width: 4),
+                Text('عندك', style: TextStyle(color: AppColors.ink, fontSize: 15, fontWeight: FontWeight.w800)),
+              ],
+            )
+          else
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  arabicNumber(i.coins ?? i.diamonds ?? 0),
+                  style: const TextStyle(fontFamily: kufi, color: AppColors.ink, fontSize: 18, fontWeight: FontWeight.w800),
+                ),
+                const SizedBox(width: 5),
+                Gfx(byCoins ? 'coin' : 'gem', size: 24),
+              ],
+            ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final price = coins > 0 ? ('coin', coins) : ('gem', gems);
-    final skipped = [for (final i in offer.items) if (profile.owns(i.id)) i.name];
+    final owned = coins == 0 && gems == 0;
     return Center(
       child: Material(
         color: Colors.transparent,
         child: ShopDialogCard(
           title: offer.name,
-          width: 440,
+          width: 460,
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               SizedBox(
-                height: 150,
+                height: 132,
                 child: Center(
-                  child: PlayerAvatar(avatar: offer.avatar.avatar!, style: offer.frame.frame, size: 112),
+                  child: PlayerAvatar(avatar: offer.avatar.avatar!, style: offer.frame.frame, size: 100),
                 ),
               ),
-              const SizedBox(height: 4),
+              _row('شخصية', offer.avatar),
+              _row('إطار', offer.frame),
+              const SizedBox(height: 6),
               Text(
-                '${offer.avatar.name} + إطار ${offer.frame.name}',
+                owned ? 'عندك العرض كامل' : 'تشتريهم مع بعض بسعرهم العادي (ما فيه خصم للحين)',
                 textAlign: TextAlign.center,
-                style: const TextStyle(
-                  fontFamily: kufi,
-                  color: AppColors.ink,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w800,
-                  height: 1.4,
-                ),
+                style: const TextStyle(color: Color(0xFF6A4A2A), fontSize: 13, fontWeight: FontWeight.w700),
               ),
-              if (skipped.isNotEmpty)
-                Text(
-                  'عندك ${skipped.join(' و')} من قبل، ما تدفع عليه',
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(color: Color(0xFF6A4A2A), fontSize: 13, fontWeight: FontWeight.w700),
+              const SizedBox(height: 10),
+              if (owned)
+                ShopButton.label('تمام', height: 44, fontSize: 18, onPressed: () => Navigator.pop(context, false))
+              else
+                Row(
+                  children: [
+                    Expanded(
+                      child: ShopButton.label(
+                        'لا',
+                        tone: ShopTone.dark,
+                        height: 44,
+                        fontSize: 18,
+                        onPressed: () => Navigator.pop(context, false),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      flex: 2,
+                      child: ShopButton(
+                        height: 44,
+                        semantics: 'اشتر العرض',
+                        onPressed: () => Navigator.pop(context, true),
+                        child: profile.dev
+                            ? const OutlinedText(
+                                'اشترِ (ببلاش للمطور)',
+                                size: 17,
+                                maxLines: 1,
+                                stroke: Color(0xFF143A0B),
+                                strokeWidth: 3.4,
+                              )
+                            : Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  OutlinedText(
+                                    'اشترِ الكل بـ ${arabicNumber(price.$2)}',
+                                    size: 17,
+                                    maxLines: 1,
+                                    stroke: const Color(0xFF143A0B),
+                                    strokeWidth: 3.4,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Gfx(price.$1, size: 26),
+                                ],
+                              ),
+                      ),
+                    ),
+                  ],
                 ),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(
-                    child: ShopButton.label(
-                      'لا',
-                      tone: ShopTone.dark,
-                      height: 44,
-                      fontSize: 18,
-                      onPressed: () => Navigator.pop(context, false),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    flex: 2,
-                    child: ShopButton(
-                      height: 44,
-                      semantics: 'اشتر العرض',
-                      onPressed: () => Navigator.pop(context, true),
-                      child: profile.dev
-                          ? const OutlinedText(
-                              'اشترِ (ببلاش للمطور)',
-                              size: 17,
-                              maxLines: 1,
-                              stroke: Color(0xFF143A0B),
-                              strokeWidth: 3.4,
-                            )
-                          : Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                OutlinedText(
-                                  'اشترِ بـ ${arabicNumber(price.$2)}',
-                                  size: 18,
-                                  maxLines: 1,
-                                  stroke: const Color(0xFF143A0B),
-                                  strokeWidth: 3.4,
-                                ),
-                                const SizedBox(width: 8),
-                                Gfx(price.$1, size: 26),
-                              ],
-                            ),
-                    ),
-                  ),
-                ],
-              ),
             ],
           ),
         ),

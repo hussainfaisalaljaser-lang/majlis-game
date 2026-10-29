@@ -757,17 +757,7 @@ class _SwapBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final d = math.max(38.0, size * .32);
-    final disc = Container(
-      width: d,
-      height: d,
-      alignment: Alignment.center,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        gradient: const LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: goldRingColors),
-        border: Border.all(color: const Color(0xFF2A1608), width: 2.2),
-      ),
-      child: CustomPaint(size: Size.square(d * .6), painter: const _HangerPainter()),
-    );
+    final disc = HangerBadge(size: d);
     return FxClock(
       builder: (context, time) => AnimatedBuilder(
         animation: time,
@@ -789,34 +779,6 @@ class _SwapBadge extends StatelessWidget {
       ),
     );
   }
-}
-
-/// علامة المشجب (غرفة التبديل): خطاف ومثلث، بحد غامق. ثابتة ما تتحرك.
-class _HangerPainter extends CustomPainter {
-  const _HangerPainter();
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final w = size.width, h = size.height;
-    final p = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = w * .12
-      ..strokeCap = StrokeCap.round
-      ..strokeJoin = StrokeJoin.round
-      ..color = const Color(0xFF3A1A05);
-    final path = Path()
-      ..moveTo(w * .5, h * .38)
-      ..lineTo(w * .5, h * .3)
-      ..cubicTo(w * .5, h * .12, w * .66, h * .1, w * .66, h * .22)
-      ..moveTo(w * .5, h * .38)
-      ..lineTo(w * .06, h * .84)
-      ..lineTo(w * .94, h * .84)
-      ..close();
-    canvas.drawPath(path, p);
-  }
-
-  @override
-  bool shouldRepaint(_HangerPainter old) => false;
 }
 
 class _HeroGlow extends StatelessWidget {
@@ -1031,17 +993,7 @@ class _FriendFacesState extends State<_FriendFaces> {
                         size: size,
                       ),
                     ),
-                  const Positioned(left: 262, top: 22, child: _AddCircle()),
-                  const Positioned(
-                    left: 250,
-                    top: 74,
-                    width: 72,
-                    child: Text(
-                      'أضف صاحب',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(fontFamily: kufi, fontSize: 12.5, fontWeight: FontWeight.w800, color: Color(0xFFF4C24F), height: 1.2),
-                    ),
-                  ),
+                  const Positioned(left: 262, top: 34, child: _AddCircle()),
                 ],
               ),
             ),

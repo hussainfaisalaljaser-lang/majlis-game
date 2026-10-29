@@ -56,6 +56,7 @@ class _GameLog extends StatelessWidget {
     }
 
     return SheetPanel(
+      night: true,
       child: Column(
         children: [
           const SizedBox(height: 13),

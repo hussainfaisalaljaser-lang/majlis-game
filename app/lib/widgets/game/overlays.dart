@@ -103,7 +103,9 @@ class _RoleRevealState extends State<_RoleReveal> with TickerProviderStateMixin 
     // ربعك الخونة (والزعيم): آخر اللعبة كل الأدوار تنكشف، فالأوفياء ما يدخلون هنا.
     final mates = v.players
         .where((p) => p.id != v.you && p.knownRole != null && p.knownRole != Role.loyal && p.id != v.seerSees)
-        .toList();
+        .toList()
+      // الزعيم أول (فوق)، وبعده الخونة
+      ..sort((a, b) => (b.knownRole == Role.leader ? 1 : 0) - (a.knownRole == Role.leader ? 1 : 0));
     final special = v.yourSpecial;
     final seerTarget = v.seerSees == null ? null : v.player(v.seerSees!);
     final hasExtra = special != null || v.spySaw != null || seerTarget != null || mates.isNotEmpty;
@@ -230,14 +232,22 @@ class _RoleRevealState extends State<_RoleReveal> with TickerProviderStateMixin 
                         left: math.max(8, c.dx - cardW / 2 - 18 - extraW),
                         top: c.dy - cardH / 2,
                         width: extraW,
+                        height: cardH,
                         child: Opacity(
                           opacity: shown,
-                          child: _RoleExtra(
-                            view: v,
-                            room: widget.room,
-                            special: special,
-                            seerTarget: seerTarget,
-                            mates: mates,
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            alignment: Alignment.topRight,
+                            child: SizedBox(
+                              width: extraW,
+                              child: _RoleExtra(
+                                view: v,
+                                room: widget.room,
+                                special: special,
+                                seerTarget: seerTarget,
+                                mates: mates,
+                              ),
+                            ),
                           ),
                         ),
                       ),
@@ -384,7 +394,7 @@ class _RoleCard extends StatelessWidget {
     final s = height / 520;
     final nameColor = role == Role.loyal ? const Color(0xFF2F62B5) : const Color(0xFFC6322A);
     final nameEdge = role == Role.loyal ? const Color(0xFF10264C) : const Color(0xFF4A0C0A);
-    final sealSize = 285 * s;
+    final sealSize = 258 * s;
     return SizedBox(
       width: width,
       height: height,
@@ -416,7 +426,7 @@ class _RoleCard extends StatelessWidget {
                   Positioned(
                     left: 0,
                     right: 0,
-                    top: 58 * s,
+                    top: 86 * s,
                     child: Center(
                       child: DecoratedBox(
                         decoration: BoxDecoration(
@@ -434,7 +444,7 @@ class _RoleCard extends StatelessWidget {
                   Positioned(
                     left: 0,
                     right: 0,
-                    top: (special != null ? 340 : 350) * s,
+                    top: (special != null ? 342 : 352) * s,
                     child: Center(
                       child: OutlinedText(
                         name,
@@ -491,12 +501,12 @@ class _RoleCard extends StatelessWidget {
               ),
             ),
           ),
-          // الشريط فوق، يطلع من أطراف البطاقة
+          // شريط «دورك» جوا البطاقة بأعلاها، بنص عرضها
           Positioned(
-            left: -14 * s,
-            right: -14 * s,
-            top: -34 * s,
-            child: Center(child: RibbonTitle('دورك', size: math.max(14, 34 * s))),
+            left: 22 * s,
+            right: 22 * s,
+            top: 16 * s,
+            child: Center(child: RibbonTitle('دورك', size: math.max(14, 30 * s))),
           ),
         ],
       ),

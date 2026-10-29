@@ -277,6 +277,20 @@ void main() {
     );
   });
 
+  testWidgets('role traitor', (tester) async {
+    for (final (tag, size) in [('800', const Size(800, 360)), ('phone', const Size(660, 297))]) {
+      final view = _view(_viewJson(yourRole: 'traitor', traitorsKnown: true, president: 'jood'));
+      await screen(
+        tester,
+        'game_role_traitor_$tag',
+        GamePreview(view: view, room: _room()),
+        size: size,
+        after: (context) => showRoleReveal(context, view, _room()),
+        frames: 10,
+      );
+    }
+  });
+
   testWidgets('enact_chancellor', (tester) async {
     final view = _view(
       _viewJson(

@@ -10,10 +10,13 @@ import 'design_game.dart';
 /// لوحة نافذة تطلع من تحت (Bottom sheet): خشب غامق بزوايا علوية مدورة وحافة ذهبية.
 /// النوافذ اللي تستخدمها تخلي خلفية الشيت شفافة، واللوحة ترسم نفسها.
 class SheetPanel extends StatelessWidget {
-  const SheetPanel({super.key, required this.child, this.radius = 26});
+  const SheetPanel({super.key, required this.child, this.radius = 26, this.night = false});
 
   final Widget child;
   final double radius;
+
+  /// خلفية ليل الخيمة (تدرج غامق ونجوم) بدال صورة الخشب. سجل اللعبة يستخدمها.
+  final bool night;
 
   @override
   Widget build(BuildContext context) {
@@ -39,11 +42,22 @@ class SheetPanel extends StatelessWidget {
             child: ClipRRect(
               borderRadius: BorderRadius.vertical(top: Radius.circular(radius - 3)),
               child: DecoratedBox(
-                decoration: const BoxDecoration(
-                  color: Color(0xFF2B190E),
-                  image: DecorationImage(image: AssetImage(DesignAssets.woodPanel), fit: BoxFit.cover),
+                decoration: night
+                    ? const BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [Color(0xFF1B1840), Color(0xFF241435), Color(0xFF140C22)],
+                        ),
+                      )
+                    : const BoxDecoration(
+                        color: Color(0xFF2B190E),
+                        image: DecorationImage(image: AssetImage(DesignAssets.woodPanel), fit: BoxFit.cover),
+                      ),
+                child: CustomPaint(
+                  painter: night ? const _StarsPainter() : null,
+                  child: CustomPaint(painter: _SheetFramePainter(radius - 3), child: child),
                 ),
-                child: CustomPaint(painter: _SheetFramePainter(radius - 3), child: child),
               ),
             ),
           ),
@@ -51,6 +65,29 @@ class SheetPanel extends StatelessWidget {
       ),
     );
   }
+}
+
+/// نجوم صغيرة ثابتة على خلفية الليل.
+class _StarsPainter extends CustomPainter {
+  const _StarsPainter();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final p = Paint();
+    var seed = 7919;
+    double next() {
+      seed = (seed * 1103515245 + 12345) & 0x7fffffff;
+      return seed / 0x7fffffff;
+    }
+
+    for (var i = 0; i < 46; i++) {
+      p.color = Colors.white.withValues(alpha: .12 + .3 * next());
+      canvas.drawCircle(Offset(next() * size.width, next() * size.height), .7 + next() * 1.5, p);
+    }
+  }
+
+  @override
+  bool shouldRepaint(_StarsPainter old) => false;
 }
 
 /// خط داخلي بني فاتح (مثل لوحة الدردشة بالتصميم) وقوس صغير بالزاويتين العلويتين.

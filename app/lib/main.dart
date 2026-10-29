@@ -15,6 +15,7 @@ import 'services/links.dart';
 import 'services/presence.dart';
 import 'services/push.dart';
 import 'services/music.dart';
+import 'services/preload.dart';
 import 'services/sfx.dart';
 import 'services/sounds.dart';
 import 'services/telemetry.dart';
@@ -67,7 +68,8 @@ class MajlisApp extends StatelessWidget {
 }
 
 /// أول مرة: الترحيب (قوقل أو ضيف) واختيار الاسم والصورة. بعدها: الرئيسية.
-/// صفحة التحميل تبقى ظاهرة ٢٫٤ ثانية على الأقل عند تشغيل اللعبة (حتى لو الملف جاهز بسرعة)، عشان تنشاف.
+/// صفحة التحميل وقت تشغيل اللعبة: تحمّل الصور مسبقاً (أيقونات وخلفيات وملصقات) عشان اللعبة تطلع سريعة،
+/// وتبقى لين تخلص (١٫٦ ثانية على الأقل عشان تنشاف، و١٠ ثواني على الأكثر لو الجهاز بطيء).
 class _Gate extends StatefulWidget {
   const _Gate();
 
@@ -76,24 +78,26 @@ class _Gate extends StatefulWidget {
 }
 
 class _GateState extends State<_Gate> {
-  /// أقل مدة نعرض فيها صفحة التحميل أول ما تفتح اللعبة.
-  static const _minSplash = Duration(milliseconds: 2400);
+  /// أقل مدة نعرض فيها صفحة التحميل، وأكثر مدة ننتظر فيها الصور.
+  static const _minSplash = Duration(milliseconds: 1600);
+  static const _maxSplash = Duration(seconds: 10);
 
   bool _held = true;
-  Timer? _timer;
 
   @override
   void initState() {
     super.initState();
-    _timer = Timer(_minSplash, () {
-      if (mounted) setState(() => _held = false);
-    });
+    WidgetsBinding.instance.addPostFrameCallback((_) => _warmUp());
   }
 
-  @override
-  void dispose() {
-    _timer?.cancel();
-    super.dispose();
+  Future<void> _warmUp() async {
+    if (!mounted) return;
+    final avatar = Backend.instance.profile.value.avatar;
+    await Future.wait([
+      Future<void>.delayed(_minSplash),
+      Preload.run(context, avatar: avatar).timeout(_maxSplash, onTimeout: () {}),
+    ]);
+    if (mounted) setState(() => _held = false);
   }
 
   @override
@@ -103,7 +107,7 @@ class _GateState extends State<_Gate> {
     return ValueListenableBuilder(
       valueListenable: backend.profileLoaded,
       builder: (context, loaded, _) => !loaded || _held
-          ? const SplashView()
+          ? SplashView(progress: Preload.progress)
           : ValueListenableBuilder(
               valueListenable: backend.profile,
               builder: (context, p, _) => p.setupDone ? const HomeScreen() : const WelcomeScreen(),

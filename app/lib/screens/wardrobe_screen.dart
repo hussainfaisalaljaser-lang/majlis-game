@@ -123,7 +123,7 @@ class _WardrobeScreenState extends State<WardrobeScreen> {
                       ),
                     ),
                     const SizedBox(width: 8),
-                    ShopCatIcon('avatar', size: 32),
+                    HangerBadge(size: 34),
                   ],
                 ),
                 trailing: [

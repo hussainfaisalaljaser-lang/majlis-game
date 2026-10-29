@@ -488,38 +488,58 @@ class _DeckSum extends StatelessWidget {
   Widget build(BuildContext context) {
     final board = view.loyalPolicies + view.traitorPolicies;
     final inHand = _total - view.drawPileCount - view.discardPileCount - board;
+    // أرقام بخط القراءة وحجم كبير (الكوفي يخلي ١ و٤ تبان مقطوعة)، والصف كله يصغر لو ما اتسع
     Widget part(String label, int n) => Column(
+      mainAxisSize: MainAxisSize.min,
       children: [
         Text(
           arabicNumber(n),
-          style: const TextStyle(fontFamily: kufi, fontSize: 19, fontWeight: FontWeight.w800, color: Color(0xFFFFF3DA)),
+          textDirection: TextDirection.ltr,
+          style: const TextStyle(
+            fontFamily: 'ReadexPro',
+            fontSize: 24,
+            fontWeight: FontWeight.w800,
+            height: 1.15,
+            color: Color(0xFFFFF3DA),
+          ),
         ),
         Text(
           label,
-          style: const TextStyle(color: Color(0xFFE2CBA4), fontSize: 11, fontWeight: FontWeight.w700),
+          style: const TextStyle(color: Color(0xFFE2CBA4), fontSize: 12.5, fontWeight: FontWeight.w700, height: 1.2),
         ),
       ],
     );
-    const plus = Text('+', style: TextStyle(color: Color(0xFFE2CBA4), fontSize: 16));
+    const plus = Text('+', style: TextStyle(color: Color(0xFFE2CBA4), fontSize: 20, fontWeight: FontWeight.w800));
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
         color: const Color(0xFF241209).withValues(alpha: .85),
         borderRadius: BorderRadius.circular(14),
       ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-        children: [
-          part('السحب', view.drawPileCount),
-          plus,
-          part('الرمي', view.discardPileCount),
-          plus,
-          part('على اللوحة', board),
-          plus,
-          part('باليد', inHand),
-          const Text('=', style: TextStyle(color: Color(0xFFE2CBA4), fontSize: 16)),
-          part('كل الأوراق', _total),
-        ],
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            part('السحب', view.drawPileCount),
+            const SizedBox(width: 12),
+            plus,
+            const SizedBox(width: 12),
+            part('الرمي', view.discardPileCount),
+            const SizedBox(width: 12),
+            plus,
+            const SizedBox(width: 12),
+            part('على اللوحة', board),
+            const SizedBox(width: 12),
+            plus,
+            const SizedBox(width: 12),
+            part('باليد', inHand),
+            const SizedBox(width: 12),
+            const Text('=', style: TextStyle(color: Color(0xFFE2CBA4), fontSize: 20, fontWeight: FontWeight.w800)),
+            const SizedBox(width: 12),
+            part('كل الأوراق', _total),
+          ],
+        ),
       ),
     );
   }

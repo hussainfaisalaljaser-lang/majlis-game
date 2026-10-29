@@ -1213,8 +1213,9 @@ function handOver(tx: Transaction, room: Room, uids: string[], banUntil?: number
   }
 }
 
-/** اللي انطرد لأنه ما لعب، ما يدخل ألعاب لين يخلص عقابه. */
+/** اللي انطرد لأنه ما لعب، ما يدخل ألعاب لين يخلص عقابه. المطورين ما ينتظرون (حساباتهم للتجربة). */
 function requireNotBanned(p: Profile): void {
+  if (p.dev) return;
   const left = (p.bannedUntil ?? 0) - Date.now();
   if (left > 0) {
     const minutes = Math.ceil(left / 60_000);

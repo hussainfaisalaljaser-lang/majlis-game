@@ -548,7 +548,7 @@ class ShopTopBar extends StatelessWidget {
   );
 }
 
-/// زر «غرفة التبديل» بالشريط: الاسم بالذهبي وبلورة زرقا.
+/// زر «غرفة التبديل» بالشريط: الاسم بالذهبي وأيقونة المشجب.
 class ShopTitleChip extends StatelessWidget {
   const ShopTitleChip({super.key, required this.label, required this.onTap, this.crystal = true});
 
@@ -571,55 +571,10 @@ class ShopTitleChip extends StatelessWidget {
           strokeWidth: 3,
           shadow: false,
         ),
-        if (crystal) ...[const SizedBox(width: 7), const CustomPaint(size: Size(22, 22), painter: _CrystalPainter())],
+        if (crystal) ...[const SizedBox(width: 7), const HangerBadge(size: 26)],
       ],
     ),
   );
-}
-
-/// بلورة زرقا (أيقونة زر غرفة التبديل).
-class _CrystalPainter extends CustomPainter {
-  const _CrystalPainter();
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final w = size.width;
-    final body = Path()
-      ..moveTo(w * .5, w * .02)
-      ..lineTo(w * .86, w * .3)
-      ..lineTo(w * .74, w * .86)
-      ..lineTo(w * .5, w * .98)
-      ..lineTo(w * .24, w * .84)
-      ..lineTo(w * .12, w * .3)
-      ..close();
-    canvas.drawPath(
-      body,
-      Paint()
-        ..shader = const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xFF9FD8FF), Color(0xFF3F8BE0), Color(0xFF1C4FA8)],
-        ).createShader(Offset.zero & size),
-    );
-    final facet = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = w * .05
-      ..color = const Color(0xFFDCF1FF).withValues(alpha: .8);
-    canvas.drawLine(Offset(w * .12, w * .3), Offset(w * .5, w * .42), facet);
-    canvas.drawLine(Offset(w * .86, w * .3), Offset(w * .5, w * .42), facet);
-    canvas.drawLine(Offset(w * .5, w * .42), Offset(w * .5, w * .98), facet);
-    canvas.drawPath(
-      body,
-      Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = w * .07
-        ..strokeJoin = StrokeJoin.round
-        ..color = const Color(0xFF0C2A63),
-    );
-  }
-
-  @override
-  bool shouldRepaint(_CrystalPainter old) => false;
 }
 
 // ───────────────────────── شريط الأقسام ─────────────────────────

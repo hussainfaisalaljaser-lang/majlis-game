@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../theme.dart';
+import 'common.dart';
 import 'design.dart';
 import 'fx.dart';
 
@@ -36,11 +37,12 @@ const loadingLines = [
 ];
 
 /// شاشة الافتتاح والتحميل: أيقونة اللعبة تطفو، واسمها بالذهب، وشريط تعبئة، وتحتها جملة عشوائية تتبدل.
-/// [loading]: الشريط والجملة (لما ننتظر السيرفر).
+/// [loading]: الشريط والجملة (لما ننتظر السيرفر). [progress]: تقدم تحميل الصور من ٠ لين ١ (بدونه الشريط يلمع بس).
 class SplashView extends StatefulWidget {
-  const SplashView({super.key, this.loading = true});
+  const SplashView({super.key, this.loading = true, this.progress});
 
   final bool loading;
+  final ValueListenable<double>? progress;
 
   @override
   State<SplashView> createState() => _SplashViewState();
@@ -126,7 +128,23 @@ class _SplashViewState extends State<SplashView> {
                     ),
                     SizedBox(height: 16 * s),
                     if (widget.loading) ...[
-                      _Bar(width: 260 * s, height: 12 * s),
+                      _Bar(width: 260 * s, height: 12 * s, progress: widget.progress),
+                      if (widget.progress case final progress?)
+                        ValueListenableBuilder<double>(
+                          valueListenable: progress,
+                          builder: (context, p, _) => Padding(
+                            padding: EdgeInsets.only(top: 6 * s),
+                            child: Text(
+                              'نجهّز اللعبة ${arabicNumber((p * 100).round())}٪',
+                              style: TextStyle(
+                                fontSize: 13 * s,
+                                fontWeight: FontWeight.w800,
+                                color: const Color(0xFFE8C98A),
+                                height: 1.2,
+                              ),
+                            ),
+                          ),
+                        ),
                       SizedBox(height: 14 * s),
                       SizedBox(
                         height: 44 * s,
@@ -161,9 +179,12 @@ class _SplashViewState extends State<SplashView> {
 
 /// شريط تعبئة ذهبي بلمعة تمر عليه (ما يعرف النسبة، يدل بس إننا نحمّل).
 class _Bar extends StatelessWidget {
-  const _Bar({required this.width, required this.height});
+  const _Bar({required this.width, required this.height, this.progress});
 
   final double width, height;
+
+  /// تقدم التحميل (null = الشريط كامل ولمعته تمر بس).
+  final ValueListenable<double>? progress;
 
   @override
   Widget build(BuildContext context) => FxClock(
@@ -185,12 +206,23 @@ class _Bar extends StatelessWidget {
             child: Stack(
               fit: StackFit.expand,
               children: [
-                const DecoratedBox(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: goldRingColors,
+                ValueListenableBuilder<double>(
+                  valueListenable: progress ?? ValueNotifier<double>(1),
+                  builder: (context, p, child) => TweenAnimationBuilder<double>(
+                    tween: Tween(end: p.clamp(0.04, 1.0)),
+                    duration: const Duration(milliseconds: 250),
+                    builder: (context, v, _) => Align(
+                      alignment: AlignmentDirectional.centerStart,
+                      child: FractionallySizedBox(widthFactor: v, heightFactor: 1, child: child),
+                    ),
+                  ),
+                  child: const DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: goldRingColors,
+                      ),
                     ),
                   ),
                 ),

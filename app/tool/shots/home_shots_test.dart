@@ -41,4 +41,8 @@ void main() {
   testWidgets('splash', (tester) async {
     await shot(tester, 'splash', const SplashView());
   });
+
+  testWidgets('splash progress', (tester) async {
+    await shot(tester, 'splash_progress', SplashView(progress: ValueNotifier<double>(.62)));
+  });
 }

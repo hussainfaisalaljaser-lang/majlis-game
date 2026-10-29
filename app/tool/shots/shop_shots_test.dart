@@ -66,7 +66,13 @@ const _player = Profile(
 );
 
 /// نفس shot() بس الصورة بدقة الفيديو الكاملة (١٩٢٠×١٠٨٠): shot_helper يصور بكثافة ١ فتطلع نص الحجم.
-Future<void> shotHi(WidgetTester tester, String name, Widget screen, {Size size = const Size(960, 540)}) async {
+Future<void> shotHi(
+  WidgetTester tester,
+  String name,
+  Widget screen, {
+  Size size = const Size(960, 540),
+  Future<void> Function(WidgetTester tester)? act,
+}) async {
   final key = GlobalKey();
   tester.view.physicalSize = size * 2;
   tester.view.devicePixelRatio = 2;
@@ -87,6 +93,13 @@ Future<void> shotHi(WidgetTester tester, String name, Widget screen, {Size size 
   for (var i = 0; i < 6; i++) {
     await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 120)));
     await tester.pump(const Duration(milliseconds: 250));
+  }
+  if (act != null) {
+    await act(tester);
+    for (var i = 0; i < 4; i++) {
+      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 120)));
+      await tester.pump(const Duration(milliseconds: 300));
+    }
   }
   await tester.runAsync(() async {
     final boundary = key.currentContext!.findRenderObject()! as RenderRepaintBoundary;
@@ -166,6 +179,18 @@ void main() {
       );
     });
   }
+
+  // الضغط على عرض يفتح تفاصيله (الشخصية والإطار وأسعارهم)
+  _t('shop offer details', (tester) async {
+    final semantics = tester.ensureSemantics();
+    await shotHi(
+      tester,
+      'shop_offer_details',
+      const ShopScreen(),
+      act: (t) => t.tap(find.bySemanticsLabel(RegExp('عرض offer_falconer')).first),
+    );
+    semantics.dispose();
+  });
 
   _t('shop no discount', (tester) async {
     await shotHi(tester, 'shop_nodiscount', const ShopScreen());

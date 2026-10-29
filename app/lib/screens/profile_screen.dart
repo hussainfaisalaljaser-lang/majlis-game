@@ -361,7 +361,7 @@ class ProfileIdentityPanel extends StatelessWidget {
             SocButton(
               label: 'غرفة التبديل',
               tone: SocTone.orange,
-              icon: const Gfx('cat_frame', size: 22),
+              icon: const HangerBadge(size: 26),
               height: 40,
               fontSize: 15,
               onPressed: onWardrobe,
