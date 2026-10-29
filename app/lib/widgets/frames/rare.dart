@@ -630,7 +630,7 @@ class KnightFrame extends RareFrame {
     canvas.drawPath(shield.shift(Offset(ring * .08, ring * .12)), Paint()..color = _deep.withValues(alpha: .5));
     canvas.drawPath(
       shield,
-      Paint()..shader = ui.Gradient.linear(Offset(x - w, top), Offset(x + w, top + h), [_light, _bronze, _dark]),
+      Paint()..shader = ui.Gradient.linear(Offset(x - w, top), Offset(x + w, top + h), [_light, _bronze, _dark], const [0, .5, 1]),
     );
     canvas.drawPath(
       shield,
