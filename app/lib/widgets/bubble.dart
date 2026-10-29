@@ -2,20 +2,35 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../models/shop.dart';
+import 'design_bubbles.dart';
 import 'fx.dart';
 import 'sticker_motion.dart';
 
 /// فقاعة كلام بشكل من المتجر (بحركاتها). يشوفها كل اللي بالطاولة.
+/// الفقاعات المصورة ([BubbleStyle.look]) ترسمها [BubbleArt]؛ والشكل القديم بالألوان والحركات احتياط لأي غرض بدون رسمة.
 class ChatBubble extends StatelessWidget {
-  const ChatBubble({super.key, required this.style, required this.text, this.fontSize = 12, this.maxWidth = 170});
+  const ChatBubble({
+    super.key,
+    required this.style,
+    required this.text,
+    this.fontSize = 12,
+    this.maxWidth = 170,
+    this.tailAlign = .5,
+  });
 
   final BubbleStyle style;
   final String text;
   final double fontSize;
   final double maxWidth;
 
+  /// مكان رأس الذيل على عرض الفقاعة (٠ يسار ← ١ يمين).
+  final double tailAlign;
+
   @override
   Widget build(BuildContext context) {
+    if (style.look case final look?) {
+      return BubbleArt(look: look, text: text, fontSize: fontSize, maxWidth: maxWidth, tailAlign: tailAlign);
+    }
     const tail = 7.0;
     Widget bubble(ValueListenable<double> t) => CustomPaint(
       painter: BubblePainter(style, t, tail: tail),
