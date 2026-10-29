@@ -55,7 +55,7 @@ Future<void> shot(WidgetTester tester, String name, Widget screen, {Size size = 
   }
   await tester.runAsync(() async {
     final boundary = key.currentContext!.findRenderObject()! as RenderRepaintBoundary;
-    final image = await boundary.toImage(pixelRatio: 1);
+    final image = await boundary.toImage(pixelRatio: 2);
     final bytes = (await image.toByteData(format: ui.ImageByteFormat.png))!;
     Directory(_outDir).createSync(recursive: true);
     File('$_outDir/$name.png').writeAsBytesSync(bytes.buffer.asUint8List());

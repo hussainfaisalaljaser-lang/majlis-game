@@ -62,7 +62,7 @@ class ModeTheme {
 
   static const classic = ModeTheme._(
     roles: false,
-    name: 'الكلاسيكي',
+    name: 'كلاسيك',
     tagline: 'اللعبة الأصلية: أوفياء وخونة وزعيم متخبّي',
     hint: 'الزعيم والخونة والأوفياء بس، بدون أدوار خاصة',
     icon: 'dagger',
@@ -85,7 +85,7 @@ class ModeTheme {
 
   static const advanced = ModeTheme._(
     roles: true,
-    name: 'المطوّر',
+    name: 'شخصيات',
     tagline: 'أدوار سرية بقدرات تقلب الموازين',
     hint: 'فيه العرّاف والحارس والقاضي والشيخ والجاسوس',
     icon: 'seer',

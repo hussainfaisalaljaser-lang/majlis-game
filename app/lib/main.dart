@@ -16,7 +16,7 @@ import 'services/music.dart';
 import 'services/sfx.dart';
 import 'services/telemetry.dart';
 import 'widgets/fx.dart';
-import 'widgets/ui.dart';
+import 'widgets/splash.dart';
 import 'theme.dart';
 
 Future<void> main() async {
@@ -72,9 +72,7 @@ class _Gate extends StatelessWidget {
     return ValueListenableBuilder(
       valueListenable: backend.profileLoaded,
       builder: (context, loaded, _) => !loaded
-          ? const NightScaffold(
-              body: Center(child: CircularProgressIndicator(color: AppColors.gold)),
-            )
+          ? const SplashView()
           : ValueListenableBuilder(
               valueListenable: backend.profile,
               builder: (context, p, _) => p.setupDone ? const HomeScreen() : const WelcomeScreen(),

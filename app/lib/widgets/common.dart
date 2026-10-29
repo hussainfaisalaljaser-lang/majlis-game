@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../models/shop.dart';
+import '../theme.dart';
 import 'anim_avatar.dart';
 import 'design.dart';
 import 'fx.dart';
@@ -54,34 +55,45 @@ class Amount extends StatelessWidget {
 }
 
 class CurrencyPill extends StatelessWidget {
-  const CurrencyPill({super.key, required this.icon, required this.amount, this.onAdd, this.infinite = false});
+  const CurrencyPill({super.key, required this.icon, required this.amount, this.onAdd, this.onTap, this.infinite = false});
 
   final String icon;
   final int amount;
 
   /// حساب المطور: ما يخلص.
   final bool infinite;
+
+  /// زر «+» صغير بالشارة (للشاشات القديمة).
   final VoidCallback? onAdd;
+
+  /// ضغطة على الشارة كلها (مثل الرئيسية: تفتح شحن الجواهر).
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     // شريط غامق بحد بني مثل عدادات التصميم.
-    return Container(
-      padding: const EdgeInsetsDirectional.fromSTEB(4, 3, 10, 3),
+    final pill = Container(
+      height: 30,
+      padding: const EdgeInsetsDirectional.fromSTEB(5, 0, 12, 0),
       decoration: BoxDecoration(
-        color: const Color(0xFF1E120B).withValues(alpha: .92),
+        color: const Color(0xFF1A0F08).withValues(alpha: .78),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0xFF6B4A2C), width: 2),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: .35), blurRadius: 4, offset: const Offset(0, 2))],
+        border: Border.all(color: const Color(0xFF5A3B22), width: 1.5),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Gfx(icon, size: 22),
-          const SizedBox(width: 5),
+          Gfx(icon, size: 24),
+          const SizedBox(width: 7),
           Text(
             infinite ? '∞' : arabicNumber(amount),
-            style: TextStyle(fontWeight: FontWeight.w800, fontSize: infinite ? 20 : 14, height: infinite ? 1 : null),
+            style: TextStyle(
+              fontFamily: kufi,
+              fontWeight: FontWeight.w800,
+              fontSize: infinite ? 21 : 17,
+              color: AppColors.text,
+              height: infinite ? 1 : 1.2,
+            ),
           ),
           if (onAdd != null) ...[
             const SizedBox(width: 6),
@@ -102,6 +114,7 @@ class CurrencyPill extends StatelessWidget {
         ],
       ),
     );
+    return onTap == null ? pill : GestureDetector(behavior: HitTestBehavior.opaque, onTap: onTap, child: pill);
   }
 }
 
