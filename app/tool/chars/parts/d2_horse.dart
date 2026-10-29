@@ -22,20 +22,20 @@ const _eyes = EyeSpec(
   eh: 12.8,
   gap: 25,
   lookX: 0.75,
-  lookY: -0.2,
+  lookY: -0.25,
   iris: Color(0xFF2E1A0E),
-  irisR: 0.74,
+  irisR: 0.72,
   pupilR: 0.56,
-  lidTop: 0.04,
-  lidSlant: 0.1,
+  lidTop: 0.0,
+  lidSlant: -0.04,
   lid: 3.6,
 );
 
 const _brows = BrowSpec(
-  lift: 4,
-  inner: 0.5,
-  outer: 1.5,
-  arch: 2.6,
+  lift: 6,
+  inner: -1,
+  outer: 2,
+  arch: 3.2,
   thick: 6,
   taper: 0.5,
   color: HairColor(Color(0xFF301D15), Color(0xFF1B0F0A), Color(0xFF5C3C2C)),
@@ -44,7 +44,7 @@ const _brows = BrowSpec(
 final Head _eh = d2EyeHead(100, 100);
 
 final Path _headShape = d2Sym(
-  'M100 52 C121 52 135 64 136 86 C137 100 131 112 123 121 C119 127 118 133 118 139 C123 144 124 155 118 162 C113 167 106 168 100 168 Z',
+  'M100 52 C121 52 135 64 136 86 C137 100 130 110 121 118 C117 124 116 132 117 140 C121 146 122 158 117 165 C112 170 106 172 100 172 Z',
 );
 
 void horseBody(Pen pen) {
@@ -113,7 +113,7 @@ void horseHead(Pen pen) {
   ], withA(_coat.hi, .9), w0: 2.4, w1: .2);
   // white blaze + lighter muzzle
   final blaze = d2Sym('M100 62 C104 62 106 76 106 96 C106 110 109 122 112 134 C113 140 111 146 100 147 Z');
-  final muz = d2Sym('M100 134 C110 134 120 140 123 150 C126 160 120 170 100 172 Z');
+  final muz = d2Sym('M100 134 C110 134 119 140 122 150 C125 162 119 173 100 175 Z');
   pen.inside(_headShape, (q) {
     q.fill(muz, _muzzle.base);
     q.crescent(muz, _muzzle.shade, depth: 3.5);
@@ -132,13 +132,13 @@ void horseHead(Pen pen) {
   // flared nostrils + a proud little smile
   for (final s in [1, -1]) {
     Path m(Path p) => s > 0 ? p : d2Mir(p);
-    final nos = m(svg('M106 150 C110 146 116 148 116 154 C115 159 109 160 106 156 C105 154 105 152 106 150 Z'));
+    final nos = m(svg('M107 150 C110 147 114 149 114 153 C113 157 109 158 107 155 C106 153 106 152 107 150 Z'));
     pen.fill(nos, const Color(0xFF2A1812));
-    pen.glow(Offset(100 + s * 12, 150), 2.4, 1.5, const Color(0xFFFFFFFF), alpha: .35);
+    pen.glow(Offset(100 + s * 11, 150), 2.2, 1.3, const Color(0xFFFFFFFF), alpha: .35);
     pen.line(nos, w: 1.2, color: Style.ink);
   }
-  pen.line(svg('M88 163 C94 167 106 167 112 163'), w: 2.3);
-  pen.line(svg('M112 163 C114 162 115 160 114.5 158.5'), w: 1.8);
+  pen.line(svg('M89 166 C95 171 105 171 111 166'), w: 2.3);
+  pen.line(svg('M111 166 C113 165 114 163 113.5 161.5'), w: 1.8);
 
   // teal ornamental bridle: brow band, cheek straps, nose band
   final brow = svg('M64 76 C78 70 90 69 100 69 C110 69 122 70 136 76');

@@ -108,7 +108,7 @@ void main() {
       }
       await tester.runAsync(() async {
         final boundary = key.currentContext!.findRenderObject()! as RenderRepaintBoundary;
-        final image = await boundary.toImage(pixelRatio: 1);
+        final image = await boundary.toImage(pixelRatio: dpr);
         final bytes = (await image.toByteData(format: ui.ImageByteFormat.png))!;
         Directory(out).createSync(recursive: true);
         File('$out/film_$id.png').writeAsBytesSync(bytes.buffer.asUint8List());

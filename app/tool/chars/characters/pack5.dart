@@ -67,10 +67,10 @@ CharSpec _oryx(OryxMetal v) => CharSpec(
   cutout: true,
   custom: (pen, h) {
     d2Circle(pen, () => oryxBody(pen, v));
+    oryxMedal(pen, v); // behind the head: the ribbon comes out from under the jaw (same order as the rig)
     oryxEar(pen, -1);
     oryxEar(pen, 1);
     oryxHead(pen, v);
-    oryxMedal(pen, v);
   },
   extraLayers: {
     'body': (pen, h) => oryxBody(pen, v),

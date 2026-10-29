@@ -71,31 +71,31 @@ const _ribbon = Tones(Color(0xFFE2343B), Color(0xFF9B1822), Color(0xFFFF7078));
 const _stem = Tones(Color(0xFF7A4E2A), Color(0xFF4E2F18), Color(0xFFA67444));
 
 const _eyes = EyeSpec(
-  ew: 12,
-  eh: 13.2,
+  ew: 12.4,
+  eh: 14,
   gap: 21.5,
   lookX: 0.3,
-  lookY: -0.25,
+  lookY: -0.3,
   iris: Color(0xFF4A2A14),
-  irisR: 0.74,
-  pupilR: 0.58,
+  irisR: 0.7,
+  pupilR: 0.56,
   lidTop: 0.0,
-  lidSlant: -0.06,
-  lidBottom: 0.3,
+  lidSlant: -0.1,
+  lidBottom: 0.1,
   lid: 3.6,
 );
 
 const _brows = BrowSpec(
-  lift: 6.5,
-  inner: -1,
-  outer: 1.4,
-  arch: 3.4,
+  lift: 8.5,
+  inner: -2,
+  outer: 1.6,
+  arch: 4.2,
   thick: 5.6,
   taper: 0.5,
   color: HairColor(Color(0xFF46332B), Color(0xFF2A1C16), Color(0xFF745A4C)),
 );
 
-final Head _eh = d2EyeHead(100, 98);
+final Head _eh = d2EyeHead(100, 97);
 
 final Path _headShape = d2Sym(
   'M100 62 C118 62 131 71 132 90 C133 106 129 120 123 133 C119 143 116 154 110 160 C106 164 103 165 100 165 Z',
@@ -158,7 +158,7 @@ void _laurel(Pen pen, OryxMetal v) {
 }
 
 void oryxBody(Pen pen, OryxMetal v) {
-  final silhouette = d2Sym('M100 118 L128 118 C130 138 136 150 154 158 C168 164 177 186 181 230 L100 230 Z');
+  final silhouette = d2Sym('M100 112 L134 112 C140 132 146 146 160 156 C172 164 179 186 183 230 L100 230 Z');
   pen.solid(silhouette, _chest, shade: 6, hi: 2);
   // white chest fur V
   final bib = d2Sym('M100 146 C112 148 122 154 128 168 C132 182 130 206 126 232 L100 232 Z');
@@ -199,7 +199,7 @@ void oryxHead(Pen pen, OryxMetal v) {
   pen.rim(_headShape, _face.hi, depth: 2);
 
   // dark marks: central stripe widening into the muzzle, and the two cheek bands round the eyes
-  final centre = d2Sym('M100 64 C105 64 108 74 107 86 C106 96 105 102 108 112 C112 120 116 128 116 138 C116 148 110 156 100 156 Z');
+  final centre = d2Sym('M100 64 C105 64 108 74 107 86 C106 96 105 102 108 112 C112 120 116 128 116 136 C116 145 110 152 100 153 Z');
   pen.inside(_headShape, (q) {
     q.fill(centre, _mark.base);
     q.crescent(centre, _mark.shade, depth: 3);
@@ -214,9 +214,6 @@ void oryxHead(Pen pen, OryxMetal v) {
   });
   pen.line(_headShape, w: Style.line);
 
-  for (final s in [1, -1]) {
-    pen.glow(Offset(100 + s * 27, 124), 8, 5.5, const Color(0xFFF0707A), alpha: .35);
-  }
   drawEyes(pen, _eh, _eyes, d2Skin(_face));
   drawBrows(pen, _eh, _brows, _eyes);
 
@@ -260,9 +257,9 @@ void oryxMedal(Pen pen, OryxMetal v) {
   // ribbon (two bands meeting at the medal)
   for (final s in [1, -1]) {
     Path m(Path p) => s > 0 ? p : d2Mir(p);
-    final band = m(svg('M114 122 L128 130 L112 178 L100 176 Z'));
+    final band = m(svg('M121 122 L139 131 L113 178 L100 176 Z'));
     pen.solid(band, _ribbon, shade: 2.8, hi: 1.2);
-    pen.line(m(svg('M121 129 L107 171')), w: 1.0, color: withA(const Color(0xFFFFFFFF), .55));
+    pen.line(m(svg('M127 128 L108 171')), w: 1.0, color: withA(const Color(0xFFFFFFFF), .55));
   }
   // medal disc
   final disc = circle(100, 182, 15.5);

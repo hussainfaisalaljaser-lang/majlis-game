@@ -139,7 +139,7 @@ void gazelleHead(Pen pen) {
 
   // blush
   for (final s in [1, -1]) {
-    pen.glow(Offset(100 + s * 32, 120), 9, 6, const Color(0xFFF0707A), alpha: .38);
+    pen.glow(Offset(100 + s * 27, 119), 8, 5.5, const Color(0xFFF0707A), alpha: .38);
   }
   drawEyes(pen, _eh, _eyes, d2Skin(_fur));
   drawBrows(pen, _eh, _brows, _eyes);
