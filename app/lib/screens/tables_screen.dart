@@ -256,8 +256,8 @@ class TablesView extends StatelessWidget {
               ),
               const SizedBox(height: 8),
               SnButton(
-                label: busy ? 'لحظة…' : 'العب الحين',
-                semantics: 'العب الحين',
+                label: busy ? 'لحظة…' : 'العب الآن',
+                semantics: 'العب الآن',
                 icon: const Gfx('games', size: 30),
                 tone: tone,
                 height: 50,
@@ -300,7 +300,7 @@ class _TierTile extends StatelessWidget {
     final hint = locked
         ? (tier.vipOnly ? 'يفتح بتذكرة الموسم' : 'يفتح في مستوى ${arabicNumber(tier.requiredLevel)}')
         : poor
-        ? 'ما عندك ذهب كافي'
+        ? 'ليس لديك ذهب كافي'
         : null;
     const base = Color(0xFF3A2416);
     return Semantics(

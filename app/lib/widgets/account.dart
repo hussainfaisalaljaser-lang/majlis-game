@@ -96,7 +96,7 @@ Future<bool> connectGoogle(BuildContext context, {bool fresh = false}) async {
 Future<bool> _confirmSwitch(BuildContext context) => socConfirm(
   context,
   title: 'عندك حساب محفوظ',
-  body: 'حساب قوقل هذا مربوط بلاعب ثاني من قبل. تبي تدخل عليه؟\nتقدّمك الحالي كضيف بيضيع.',
+  body: 'حساب قوقل هذا مربوط بلاعب ثاني من قبل. تريد أن تدخل عليه؟\nتقدّمك الحالي كضيف بيضيع.',
   yes: 'ادخل عليه',
 );
 

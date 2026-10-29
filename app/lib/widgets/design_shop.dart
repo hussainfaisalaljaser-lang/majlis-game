@@ -744,32 +744,26 @@ class _CatIconPainter extends CustomPainter {
 
   /// إطار صورة برونزي منقوش.
   void _frame(Canvas c, double w) {
-    final outer = RRect.fromRectAndRadius(Rect.fromLTWH(w * .1, w * .07, w * .8, w * .86), Radius.circular(w * .08));
-    c.drawRRect(
-      outer,
+    // إطار دائري (مثل إطارات الصور): حلقة ذهب، وجوفها غامق، وأربع حبات عليها
+    final ctr = Offset(w * .5, w * .5);
+    final r = w * .43;
+    c.drawCircle(
+      ctr,
+      r,
       Paint()
-        ..shader = _grad(outer.outerRect, const [
+        ..shader = _grad(Rect.fromCircle(center: ctr, radius: r), const [
           Color(0xFFEDBE6A),
           Color(0xFFB27A32),
           Color(0xFF7A4A1C),
         ], diagonal: true),
     );
-    final inner = RRect.fromRectAndRadius(outer.outerRect.deflate(w * .17), Radius.circular(w * .03));
-    c.drawRRect(inner, Paint()..color = const Color(0xFF2A190D));
-    c.drawRRect(inner, _line(w * .035, const Color(0xFF6A431F)));
-    c.drawRRect(outer.deflate(w * .045), _line(w * .02, const Color(0xFFFFE19A).withValues(alpha: .7)));
-    c.drawRRect(outer, _line(w * .05));
-    for (final o in [
-      outer.outerRect.topLeft,
-      outer.outerRect.topRight,
-      outer.outerRect.bottomLeft,
-      outer.outerRect.bottomRight,
-    ]) {
-      final d = Offset(
-        (outer.outerRect.center.dx - o.dx).sign * w * .075,
-        (outer.outerRect.center.dy - o.dy).sign * w * .075,
-      );
-      c.drawCircle(o + d, w * .04, Paint()..color = const Color(0xFFFFE19A));
+    c.drawCircle(ctr, r * .66, Paint()..color = const Color(0xFF2A190D));
+    c.drawCircle(ctr, r * .66, _line(w * .035, const Color(0xFF6A431F)));
+    c.drawCircle(ctr, r - w * .045, _line(w * .02, const Color(0xFFFFE19A).withValues(alpha: .7)));
+    c.drawCircle(ctr, r, _line(w * .05));
+    for (var i = 0; i < 4; i++) {
+      final a = math.pi / 4 + i * math.pi / 2;
+      c.drawCircle(ctr + Offset(math.cos(a), math.sin(a)) * (r * .83), w * .04, Paint()..color = const Color(0xFFFFE19A));
     }
   }
 
@@ -1199,8 +1193,8 @@ class ShopItemCard extends StatelessWidget {
                   Positioned(
                     left: 6,
                     right: 6,
-                    top: name == null ? 18 : 16,
-                    height: name == null ? 104 : 92,
+                    top: name == null ? 18 : 12,
+                    height: name == null ? 104 : 88,
                     child: Center(
                       child: Opacity(
                         opacity: dim ? .55 : 1,
@@ -1771,7 +1765,7 @@ Widget shopCardArt(ShopItem item, Profile p) => ItemPreview(
   item: item,
   profile: p,
   scale: switch (item.slot) {
-    ShopSlot.frame => .92,
+    ShopSlot.frame => .8,
     ShopSlot.avatar => .8,
     _ => .9,
   },

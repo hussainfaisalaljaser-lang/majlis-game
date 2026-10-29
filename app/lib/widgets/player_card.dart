@@ -90,7 +90,7 @@ class _PlayerCardState extends State<_PlayerCard> {
       final ok = await socConfirm(
         context,
         title: 'تحظر ${widget.name}؟',
-        body: 'ما بتشوف ردوده ولا رأيه في الطاولة، وما نحطك معه في الطاولات العامة. تقدر تفك الحظر من ملفك.',
+        body: 'ما بتشوف ردوده ولا رأيه في الطاولة، وما نحطك معه في الطاولات العامة. تستطيع أن تفك الحظر من ملفك.',
         yes: 'احظره',
         danger: true,
       );
@@ -221,7 +221,7 @@ class _PlayerCardState extends State<_PlayerCard> {
                       const Padding(
                         padding: EdgeInsets.only(top: 8, bottom: 10),
                         child: SocPopupText(
-                          'البوت لاعب آلي يكمّل الطاولة. ما عنده ملف، ويلعب بنفس القوانين ويقدر يكذب مثلك.',
+                          'البوت لاعب آلي يكمّل الطاولة. ليس لديه ملف، ويلعب بنفس القوانين ويقدر يكذب مثلك.',
                           size: 14.5,
                         ),
                       )
@@ -398,7 +398,7 @@ class _NoteRow extends StatelessWidget {
     children: [
       for (final (mark, label, tone) in const [
         (NoteMark.trust, 'أثق فيه', SocTone.green),
-        (NoteMark.unsure, 'مو متأكد', SocTone.orange),
+        (NoteMark.unsure, 'غير متأكد', SocTone.orange),
         (NoteMark.suspect, 'أشك فيه', SocTone.red),
       ])
         Expanded(

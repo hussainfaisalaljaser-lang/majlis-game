@@ -178,7 +178,7 @@ class _ModerationScreenState extends State<ModerationScreen> {
                     return switch (_tab) {
                       0 =>
                         reports.isEmpty
-                            ? _empty('ما فيه بلاغات مفتوحة')
+                            ? _empty('لا يوجد بلاغات مفتوحة')
                             : ListView(
                                 children: [
                                   for (final r in reports)
@@ -204,7 +204,7 @@ class _ModerationScreenState extends State<ModerationScreen> {
                                         for (final (decision, label, tone) in const [
                                           ('rename', 'غيّر اسمه', SocTone.orange),
                                           ('ban', 'امنعه ٣ أيام', SocTone.red),
-                                          ('dismiss', 'ما فيه شي', SocTone.grey),
+                                          ('dismiss', 'لا يوجد شي', SocTone.grey),
                                         ])
                                           SocButton(
                                             label: label,
@@ -220,7 +220,7 @@ class _ModerationScreenState extends State<ModerationScreen> {
                               ),
                       1 =>
                         feedback.isEmpty
-                            ? _empty('ما فيه رسائل')
+                            ? _empty('لا يوجد رسائل')
                             : ListView(
                                 children: [
                                   for (final f in feedback)
@@ -241,7 +241,7 @@ class _ModerationScreenState extends State<ModerationScreen> {
                               ),
                       _ =>
                         deletions.isEmpty
-                            ? _empty('ما فيه طلبات حذف')
+                            ? _empty('لا يوجد طلبات حذف')
                             : ListView(children: [for (final d in deletions) _deletionRow(d)]),
                     };
                   },

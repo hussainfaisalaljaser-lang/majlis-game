@@ -174,7 +174,7 @@ class EditProfileView extends StatelessWidget {
           const GoldTitle('اختر اسمك وشخصيتك', size: 22),
           const SizedBox(height: 2),
           const Text(
-            'هذي اللي بيشوفها الكل في المجلس',
+            'هذه اللي بيشوفها الكل في المجلس',
             style: TextStyle(color: socMuted, fontSize: 13, fontFamily: kufi, fontWeight: FontWeight.w700),
           ),
           const Spacer(),

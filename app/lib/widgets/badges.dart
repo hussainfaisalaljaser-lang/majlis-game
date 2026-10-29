@@ -108,7 +108,7 @@ class BadgeStrip extends StatelessWidget {
         if ((badges[a.id] ?? 0) > 0) (a, badges[a.id]!),
     ]..sort((x, y) => y.$2.compareTo(x.$2));
     if (earned.isEmpty) {
-      return const Text('ما عنده إنجازات للحين', style: TextStyle(color: AppColors.muted, fontSize: 12.5));
+      return const Text('ليس لديه إنجازات حتى الآن', style: TextStyle(color: AppColors.muted, fontSize: 12.5));
     }
     return Wrap(
       spacing: 6,

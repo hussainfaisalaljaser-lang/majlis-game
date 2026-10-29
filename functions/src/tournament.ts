@@ -60,7 +60,7 @@ export const tourJoin = onCall(async (req) => {
     const tour = (await tx.get(tourRef(week))).data() as Tour | undefined;
     if (p.tour?.week === week) throw new HttpsError('already-exists', 'سجّلت في بطولة هالأسبوع');
     const fee = p.dev ? 0 : TOUR_FEE;
-    if (p.coins < fee) throw new HttpsError('failed-precondition', 'ما عندك ذهب كافي');
+    if (p.coins < fee) throw new HttpsError('failed-precondition', 'ليس لديك ذهب كافي');
     const entry: TourEntry = { name: p.name, avatar: avatarOf(p), frame: equippedOf(p).frame, stage: 0, out: false, at: now };
     tx.set(userRef(uid), { ...p, coins: p.coins - fee, tour: { week, stage: 0, out: false } });
     tx.set(tourRef(week), { week, players: { ...(tour?.players ?? {}), [uid]: entry }, champions: tour?.champions ?? [] });
@@ -70,7 +70,7 @@ export const tourJoin = onCall(async (req) => {
 
 /** اللاعب يقدر يلعب جولة بطولة الحين؟ يرجّع دوره، أو يرمي سبب. */
 export function tourStageOf(p: Profile, now: number): number {
-  if (!tourOpen(now)) throw new HttpsError('failed-precondition', 'البطولة مقفلة الحين');
+  if (!tourOpen(now)) throw new HttpsError('failed-precondition', 'البطولة مقفلة الآن');
   const t = p.tour;
   if (!t || t.week !== gulfWeek(now)) throw new HttpsError('failed-precondition', 'سجّل في البطولة أول');
   if (t.out) throw new HttpsError('failed-precondition', 'طلعت من بطولة هالأسبوع');

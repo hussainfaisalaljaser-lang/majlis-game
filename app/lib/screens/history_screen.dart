@@ -110,7 +110,7 @@ class HistoryView extends StatelessWidget {
     if (error) {
       return const Center(
         child: Text(
-          'ما قدرنا نجيب السجل، جرّب بعد شوي',
+          'تعذّر جلب السجل، جرّب بعد قليل',
           style: TextStyle(color: AppColors.muted, fontWeight: FontWeight.w700),
         ),
       );
@@ -124,7 +124,7 @@ class HistoryView extends StatelessWidget {
             Gfx('games', size: 56),
             SizedBox(height: 8),
             Text(
-              'ما خلّصت ولا لعبة للحين',
+              'ما خلّصت ولا لعبة حتى الآن',
               style: TextStyle(fontFamily: kufi, fontSize: 19, fontWeight: FontWeight.w800, color: _cream),
             ),
             Text(
@@ -427,7 +427,7 @@ class HistoryDetails extends StatelessWidget {
                 ),
                 const SizedBox(height: 12),
                 SnButton(
-                  label: 'مين كذب؟',
+                  label: 'من كذب؟',
                   icon: const Gfx('liar', size: 24),
                   height: 44,
                   fontSize: 16,

@@ -26,7 +26,7 @@ const without = (list: string[] | undefined, id: string) => (list ?? []).filter(
 function otherUid(raw: unknown, me: string): string {
   const uid = typeof raw === 'string' ? raw : '';
   if (!uid || uid === me || uid.startsWith('bot_') || uid.includes('/')) {
-    throw new HttpsError('invalid-argument', 'ما تقدر تسويها مع هاللاعب');
+    throw new HttpsError('invalid-argument', 'لا تستطيع أن تسويها مع هاللاعب');
   }
   return uid;
 }
@@ -61,7 +61,7 @@ function trimReqs(reqs: Record<string, number>): Record<string, number> {
 export const findPlayer = onCall(async (req) => {
   requireAuth(req);
   const pid = String(req.data?.pid ?? '').trim();
-  if (!validPid(pid)) throw new HttpsError('invalid-argument', 'الرمز أرقام بس، من ٣ إلى ٨');
+  if (!validPid(pid)) throw new HttpsError('invalid-argument', 'الرمز أرقام فقط، من ٣ إلى ٨');
   const owner = (await idRef(pid).get()).data()?.uid as string | undefined;
   const p = owner ? ((await userRef(owner).get()).data() as Profile | undefined) : undefined;
   if (!owner || !p?.setupDone) throw new HttpsError('not-found', 'ما لقينا لاعب بهالرمز');
@@ -88,7 +88,7 @@ export const friendRequest = onCall(async (req) => {
     }
     const sent = me.sentReqs ?? [];
     if (sent.includes(to)) return { status: 'sent', name: me.name };
-    if (sent.length >= MAX_REQUESTS) throw new HttpsError('resource-exhausted', 'عندك طلبات كثير ما انردت، انتظر شوي');
+    if (sent.length >= MAX_REQUESTS) throw new HttpsError('resource-exhausted', 'عندك طلبات كثير ما انردت، انتظر قليلاً');
     tx.update(userRef(uid), { sentReqs: [...sent, to] });
     // اللي حاظرك ما يوصله طلبك (وما نقول لك إنه حاظرك).
     if ((them.blocked ?? []).includes(uid)) return { status: 'sent', name: me.name };
@@ -149,13 +149,13 @@ export const inviteFriend = onCall(async (req) => {
     const me = meSnap.data() as Profile;
     const them = themSnap.data() as Profile | undefined;
     const room = roomSnap.data() as { status: string; players: { uid: string }[]; maxPlayers: number } | undefined;
-    if (!me || !them || !(me.friends ?? []).includes(to)) throw new HttpsError('failed-precondition', 'تقدر تدعو أصدقاءك بس');
+    if (!me || !them || !(me.friends ?? []).includes(to)) throw new HttpsError('failed-precondition', 'تستطيع أن تدعو أصدقاءك فقط');
     if (!room || room.status !== 'waiting' || !room.players.some((p) => p.uid === uid)) {
-      throw new HttpsError('failed-precondition', 'لازم تكون في طاولة تنتظر لاعبين');
+      throw new HttpsError('failed-precondition', 'يجب أن تكون في طاولة تنتظر لاعبين');
     }
     if (room.players.some((p) => p.uid === to)) throw new HttpsError('already-exists', 'صديقك موجود في الطاولة');
     if (room.players.length >= room.maxPlayers) throw new HttpsError('failed-precondition', 'الطاولة مليانة');
-    if (now - (me.invitedAt?.[to] ?? 0) < INVITE_GAP_MS) throw new HttpsError('resource-exhausted', 'دعيته قبل شوي، انتظر دقيقة');
+    if (now - (me.invitedAt?.[to] ?? 0) < INVITE_GAP_MS) throw new HttpsError('resource-exhausted', 'دعيته قبل قليلاً، انتظر دقيقة');
     // نخلي آخر دعوة لكل صديق بس (اللي ما عادوا أصدقاء ينشالون).
     const invitedAt = Object.fromEntries(Object.entries({ ...me.invitedAt, [to]: now }).filter(([id]) => (me.friends ?? []).includes(id)));
     tx.update(userRef(uid), { invitedAt });
@@ -170,7 +170,7 @@ export const inviteFriend = onCall(async (req) => {
 export const quotePid = onCall(async (req) => {
   const uid = requireAuth(req);
   const pid = String(req.data?.pid ?? '').trim();
-  if (!validPid(pid)) throw new HttpsError('invalid-argument', 'الرمز أرقام بس، من ٣ إلى ٨، وما يبدأ بصفر');
+  if (!validPid(pid)) throw new HttpsError('invalid-argument', 'الرمز أرقام فقط، من ٣ إلى ٨، وما يبدأ بصفر');
   const owner = (await idRef(pid).get()).data()?.uid as string | undefined;
   return { pid, price: pidPrice(pid), tier: pidTier(pid), available: !owner, mine: owner === uid };
 });
@@ -192,14 +192,14 @@ export const suggestIds = onCall(async (req) => {
 export const buyPid = onCall(async (req) => {
   const uid = requireAuth(req);
   const pid = String(req.data?.pid ?? '').trim();
-  if (!validPid(pid)) throw new HttpsError('invalid-argument', 'الرمز أرقام بس، من ٣ إلى ٨، وما يبدأ بصفر');
+  if (!validPid(pid)) throw new HttpsError('invalid-argument', 'الرمز أرقام فقط، من ٣ إلى ٨، وما يبدأ بصفر');
   const price = pidPrice(pid);
   await db.runTransaction(async (tx) => {
     const [meSnap, idSnap] = await tx.getAll(userRef(uid), idRef(pid));
     const me = meSnap.data() as Profile | undefined;
     if (!me) throw new HttpsError('not-found', 'سجّل دخول أول');
     if (idSnap.exists) {
-      throw new HttpsError('already-exists', idSnap.data()?.uid === uid ? 'هذا رمزك الحين' : 'هالرمز مأخوذ، اختر غيره');
+      throw new HttpsError('already-exists', idSnap.data()?.uid === uid ? 'هذا رمزك الآن' : 'هالرمز مأخوذ، اختر غيره');
     }
     if (me.diamonds < price) throw new HttpsError('failed-precondition', 'جواهرك ما تكفي');
     tx.set(idRef(pid), { uid, at: Date.now(), price });

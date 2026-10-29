@@ -233,7 +233,7 @@ Future<void> _showFeedback(BuildContext context) async {
             minLines: 3,
             maxLines: 5,
             style: const TextStyle(fontFamily: kufi, fontWeight: FontWeight.w700, color: socInk),
-            decoration: socParchInput(hint: 'اكتب لنا وش صار، أو وش تبي نضيف…', dense: false),
+            decoration: socParchInput(hint: 'اكتب لنا ماذا صار، أو ماذا تريد أن نضيف…', dense: false),
           ),
           const SizedBox(height: 10),
           SocActions(
@@ -304,7 +304,7 @@ Future<void> _deleteAccount(BuildContext context) async {
   try {
     await Backend.instance.deleteAccount();
     navigator.popUntil((r) => r.isFirst);
-    messenger.showSnackBar(const SnackBar(content: Text('انحذف حسابك. تقدر تبدأ من جديد متى ما تبي')));
+    messenger.showSnackBar(const SnackBar(content: Text('انحذف حسابك. تستطيع أن تبدأ من جديد متى شئت')));
   } on BackendException catch (e) {
     navigator.pop();
     messenger.showSnackBar(SnackBar(content: Text(e.message)));

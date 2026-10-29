@@ -223,7 +223,7 @@ class _PremiumIdsState extends State<_PremiumIds> {
                 GoldTitle('تشتري الرمز ${arabicDigits(q.pid)}؟', size: 22),
                 const SizedBox(height: 10),
                 Text(
-                  'بـ ${arabicNumber(q.price)} جوهرة. رمزك الحين (${arabicDigits(current)}) ينفك وممكن ياخذه غيرك، '
+                  'بـ ${arabicNumber(q.price)} جوهرة. رمزك الآن (${arabicDigits(current)}) ينفك وممكن ياخذه غيرك، '
                   'وأصدقاؤك يبقون معك.',
                   textAlign: TextAlign.center,
                   style: const TextStyle(height: 1.6, color: _cream, fontWeight: FontWeight.w700),

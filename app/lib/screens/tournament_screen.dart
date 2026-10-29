@@ -144,7 +144,7 @@ class TournamentView extends StatelessWidget {
       TourState(champion: true) => ('أنت بطل الأسبوع!', 'فزت بالنهائي وأخذت الجائزة. ترجع تتحدى الأسبوع الجاي.', null),
       TourState(out: true, :final stage) => (
         'طلعت من البطولة',
-        'خسرت بـ${tourStageNames[stage]}. تقدر تسجّل الأسبوع الجاي.',
+        'خسرت بـ${tourStageNames[stage]}. تستطيع أن تسجّل الأسبوع الجاي.',
         null,
       ),
       final TourState t when !w.on => (
@@ -184,7 +184,7 @@ class TournamentView extends StatelessWidget {
                         padding: const EdgeInsets.symmetric(horizontal: 12),
                         child: Text(
                           w.on
-                              ? 'مفتوحة الحين · باقي ${timeLeft(w.ends.difference(now))}'
+                              ? 'مفتوحة الآن · باقي ${timeLeft(w.ends.difference(now))}'
                               : 'تفتح بعد ${timeLeft(w.starts.difference(now))}',
                           maxLines: 1,
                           style: TextStyle(
@@ -353,7 +353,7 @@ class _Bracket extends StatelessWidget {
               child: Padding(
                 padding: EdgeInsets.only(top: 30),
                 child: Text(
-                  'ما سجّل أحد للحين، كن أول واحد!',
+                  'ما سجّل أحد حتى الآن، كن أول واحد!',
                   style: TextStyle(color: AppColors.muted, fontWeight: FontWeight.w700),
                 ),
               ),

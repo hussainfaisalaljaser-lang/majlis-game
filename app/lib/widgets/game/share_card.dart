@@ -30,7 +30,7 @@ String shareHeadline(GameView v) {
   final iWon = (v.yourRole == Role.loyal) == loyalWon;
   final executed = !v.me.alive;
   return switch (v.yourRole) {
-    Role.leader when iWon => executed ? 'انطردت بس فريقي فاز!' : 'كنت الزعيم ومحد كشفني!',
+    Role.leader when iWon => executed ? 'انطردت لكن فريقي فاز!' : 'كنت الزعيم ومحد كشفني!',
     Role.leader => v.winReason == 'leaderExecuted' ? 'انكشفت وانطردت!' : 'كنت الزعيم وخسرنا…',
     Role.traitor when iWon => 'خنتهم كلهم وفزنا!',
     Role.traitor => 'انكشفنا هالمرة…',
@@ -141,7 +141,7 @@ class _ShareDialogState extends State<_ShareDialog> {
                   const GoldTitle('شارك نتيجتك', size: 23),
                   const SizedBox(height: 6),
                   const Text(
-                    'الصورة فيها رمزك، فأي واحد يشوفها يقدر يضيفك ويتحداك',
+                    'الصورة فيها رمزك، فأي واحد يشوفها يستطيع أن يضيفك ويتحداك',
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       color: Color(0xFFE7CFA6),
@@ -161,7 +161,7 @@ class _ShareDialogState extends State<_ShareDialog> {
                   ),
                   const SizedBox(height: 8),
                   GameButton(
-                    label: 'بعدين',
+                    label: 'لاحقاً',
                     tone: ButtonTone.ghost,
                     height: 40,
                     fontSize: 15,

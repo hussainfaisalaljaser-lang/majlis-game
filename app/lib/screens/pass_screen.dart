@@ -93,7 +93,7 @@ class _PassScreenState extends State<PassScreen> {
                 lines: [
                   'المسار المدفوع وكل مكافآته',
                   'كل الدرجات الـ${arabicNumber(season.tiers)} مفتوحة على طول',
-                  if (owned) 'تدفع الفرق بس',
+                  if (owned) 'تدفع الفرق فقط',
                 ],
                 price: p.dev ? null : (owned ? season.fullPrice - season.price : season.fullPrice),
                 tone: SnTone.blue,
@@ -921,7 +921,7 @@ class SeasonFriendList extends StatelessWidget {
     if (friends.isEmpty) {
       return const Center(
         child: Text(
-          'ما عندك أصحاب للحين. ضيفهم من «الأصدقاء» وبعدين أهدهم.',
+          'ليس لديك أصحاب حتى الآن. ضيفهم من «الأصدقاء» وبعدين أهدهم.',
           textAlign: TextAlign.center,
           style: TextStyle(color: AppColors.muted, height: 1.5),
         ),

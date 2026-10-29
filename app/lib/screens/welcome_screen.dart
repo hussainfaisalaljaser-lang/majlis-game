@@ -132,7 +132,7 @@ class WelcomeView extends StatelessWidget {
                           ),
                           const SizedBox(height: 6),
                           const Text(
-                            'تقدر تربط حسابك بعدين من «ملفي»',
+                            'تستطيع أن تربط حسابك لاحقاً من «ملفي»',
                             textAlign: TextAlign.center,
                             style: TextStyle(
                               color: socMuted,

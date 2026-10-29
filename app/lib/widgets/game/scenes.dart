@@ -852,7 +852,7 @@ class DeathScene extends GameScene {
                   GoldText(guarded ? '$name نجا! طلع حارس' : '$name انطرد', size: 28),
                   if (!guarded)
                     const Text(
-                      'ما يقدر يلعب بعد الحين',
+                      'لا يستطيع أن يلعب بعد الآن',
                       style: TextStyle(color: AppColors.muted, fontWeight: FontWeight.w700),
                     ),
                 ],

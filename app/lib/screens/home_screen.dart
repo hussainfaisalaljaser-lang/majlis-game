@@ -869,7 +869,7 @@ class _PrivatePanel extends StatelessWidget {
                     ),
                     const SizedBox(height: 2),
                     const Text(
-                      'العب مع أصحابك فقط، تقدر تضيف بوتات',
+                      'العب مع أصحابك فقط، تستطيع أن تضيف بوتات',
                       style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: Color(0xFFF6E2BC), height: 1.3),
                     ),
                     const SizedBox(height: 14),

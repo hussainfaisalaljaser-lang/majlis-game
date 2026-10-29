@@ -261,7 +261,7 @@ class CreateClanView extends StatelessWidget {
           ),
           const Spacer(),
           const Text(
-            'ديوان مع ربعك (بالكثير ٣٠)، وكل لعبة بطاولة عامة تزيد نقاطكم هالأسبوع. الوصف والشروط من الإعدادات بعدين',
+            'ديوان مع ربعك (بالكثير ٣٠)، وكل لعبة بطاولة عامة تزيد نقاطكم هالأسبوع. الوصف والشروط من الإعدادات لاحقاً',
             textAlign: TextAlign.center,
             style: TextStyle(color: socMuted, fontSize: 12.5, fontFamily: kufi, fontWeight: FontWeight.w700),
           ),
@@ -331,7 +331,7 @@ class _MyClan extends StatelessWidget {
           ? 'أنت آخر واحد فيه، فبينحذف الديوان.'
           : clan.ownerId == Backend.instance.uid
           ? 'المشيخة بتروح لنائبك (أو أقدم عضو).'
-          : 'تقدر تدخل ديوان ثاني بعدين.',
+          : 'تستطيع أن تدخل ديوان ثاني لاحقاً.',
       yes: 'اطلع',
       danger: true,
     );
@@ -1199,7 +1199,7 @@ class ClanRankingView extends StatelessWidget {
     if (list.isEmpty) {
       return Center(
         child: Text(
-          ranked ? 'ما فيه دواوين لعبت هالأسبوع للحين' : 'ما لقينا ديوان بهالاسم',
+          ranked ? 'لا يوجد دواوين لعبت هالأسبوع حتى الآن' : 'ما لقينا ديوان بهالاسم',
           style: const TextStyle(color: socMuted, fontFamily: kufi, fontWeight: FontWeight.w700),
         ),
       );
@@ -1588,7 +1588,7 @@ class _InviteDialogState extends State<_InviteDialog> {
               if (list == null) return const Center(child: CircularProgressIndicator(color: AppColors.goldDark));
               if (list.isEmpty) {
                 return const Center(
-                  child: SocPopupText('كل أصحابك في دواوين (أو ما عندك أصحاب)، دوّر لاعب برمزه', size: 14, muted: true),
+                  child: SocPopupText('كل أصحابك في دواوين (أو ليس لديك أصحاب)، دوّر لاعب برمزه', size: 14, muted: true),
                 );
               }
               return ListView(children: [for (final e in list) _row(e)]);
@@ -1633,7 +1633,7 @@ Future<void> _requests(BuildContext context, Clan clan) async {
             children: [
               Expanded(
                 child: list.isEmpty
-                    ? const Center(child: SocPopupText('ما فيه طلبات', muted: true))
+                    ? const Center(child: SocPopupText('لا يوجد طلبات', muted: true))
                     : ListView(
                         children: [
                           for (final r in list)

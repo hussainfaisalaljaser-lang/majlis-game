@@ -78,7 +78,7 @@ const catalog = <ShopItem>[
     rarity: Rarity.epic,
     coins: 10000,
     frame: FrameStyle('lightning', motion: FrameMotion.live),
-    desc: 'شرارات كهربا تنط على الحلقة، وبرق يضرب كل شوي',
+    desc: 'شرارات كهربا تنط على الحلقة، وبرق يضرب من حين لآخر',
   ),
   ShopItem(
     id: 'frame_comet',
@@ -820,7 +820,7 @@ const catalog = <ShopItem>[
     diamonds: 20,
     avatar: 'wolf',
     avatarArt: AvatarArt([Color(0xFF1E3A8A), Color(0xFF020617)], AvatarFx.stars, anim: 'wolf'),
-    desc: 'يحرك أذونه، وكل شوي يعوي',
+    desc: 'يحرك أذونه، ومن حين لآخر يعوي',
   ),
   ShopItem(
     id: 'avatar_falcon_bird',
@@ -1186,7 +1186,7 @@ const catalog = <ShopItem>[
   ShopItem(
     id: 'stk_traitor',
     slot: ShopSlot.reactions,
-    name: 'الخاين',
+    name: 'الخائن',
     rarity: Rarity.epic,
     coins: 6000,
     stickers: ['tr_evil', 'tr_dagger', 'tr_poker', 'tr_plan', 'tr_mask', 'tr_laugh'],
@@ -1390,8 +1390,8 @@ const achievements = <Achievement>[
     'traitor',
     stat: 'winsTraitor',
     tiers: [5, 25, 100],
-    name: 'خاين محترف',
-    desc: 'افز {n} مرة وأنت خاين',
+    name: 'خائن محترف',
+    desc: 'افز {n} مرة وأنت خائن',
     icon: 'liar',
   ),
   Achievement(
@@ -1407,7 +1407,7 @@ const achievements = <Achievement>[
     stat: 'caught',
     tiers: [1, 10, 30],
     name: 'صياد الخونة',
-    desc: 'اطرد {n} خاين وأنت الرئيس',
+    desc: 'اطرد {n} خائن وأنت الرئيس',
     icon: 'skull',
   ),
   Achievement(
@@ -1415,7 +1415,7 @@ const achievements = <Achievement>[
     stat: 'found',
     tiers: [1, 10, 30],
     name: 'المحقق',
-    desc: 'اكشف {n} خاين بالتحقيق',
+    desc: 'اكشف {n} خائن بالتحقيق',
     icon: 'search',
   ),
   Achievement(

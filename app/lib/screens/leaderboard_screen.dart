@@ -258,10 +258,10 @@ class LeaderboardView extends StatelessWidget {
                         offline || error || list == null
                             ? ''
                             : board == Board.weekly
-                            ? 'ما أحد فاز هذا الأسبوع للحين.\nكن أول واحد!'
+                            ? 'لا أحد فاز هذا الأسبوع حتى الآن.\nكن أول واحد!'
                             : board == Board.ranked
-                            ? 'ما أحد دخل التصنيف هالموسم للحين.\nالعب في الطاولات العامة!'
-                            : 'ما فيه أحد في الترتيب للحين',
+                            ? 'لا أحد دخل التصنيف هالموسم حتى الآن.\nالعب في الطاولات العامة!'
+                            : 'لا يوجد أحد في الترتيب حتى الآن',
                       )
                     : FittedBox(
                         fit: BoxFit.scaleDown,

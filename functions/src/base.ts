@@ -15,6 +15,6 @@ export const userRef = (uid: string) => db.doc(`users/${uid}`);
 export const boardRef = (uid: string) => db.doc(`leaderboard/${uid}`);
 
 export function requireAuth(req: CallableRequest): string {
-  if (!req.auth) throw new HttpsError('unauthenticated', 'لازم تسجل دخول');
+  if (!req.auth) throw new HttpsError('unauthenticated', 'يجب أن تسجل دخول');
   return req.auth.uid;
 }

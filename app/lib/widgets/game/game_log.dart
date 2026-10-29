@@ -69,7 +69,7 @@ class _GameLog extends StatelessWidget {
             const Padding(
               padding: EdgeInsets.all(24),
               child: Text(
-                'ما صار شي للحين',
+                'ما صار شي حتى الآن',
                 style: TextStyle(color: Color(0xFFE7CFA6), fontWeight: FontWeight.w700),
               ),
             ),
@@ -236,7 +236,7 @@ class _RoundCard extends StatelessWidget {
               : 'الوزير طلب النقض ووافق الرئيس';
           lines.add(line('hand', '$who: انرمت الكروت كلها بدون قرار${_failNote(e)}'));
         case 'vetoRejected':
-          lines.add(line('cross', 'الرئيس رفض النقض، والوزير لازم يمرر قرار'));
+          lines.add(line('cross', 'الرئيس رفض النقض، والوزير يجب أن يمرر قرار'));
         case 'investigated':
           lines.add(line('search', '${name(d['by'] as String)} حقق مع ${name(d['target'] as String)}'));
         case 'peeked':

@@ -93,7 +93,7 @@ class _FriendsScreenState extends State<FriendsScreen> {
                 ),
                 FriendsScreen.requestsTab =>
                   reqs.isEmpty
-                      ? const FriendsEmpty(icon: 'invite', text: 'ما فيه طلبات صداقة')
+                      ? const FriendsEmpty(icon: 'addfriend', text: 'لا توجد طلبات صداقة')
                       : ListView(
                           padding: const EdgeInsets.only(top: 6),
                           children: [for (final r in reqs) _RequestRow(uid: r.key)],
@@ -102,7 +102,7 @@ class _FriendsScreenState extends State<FriendsScreen> {
                   p.friends.isEmpty
                       ? FriendsEmpty(
                           icon: 'friends',
-                          text: 'ما عندك أصدقاء للحين.\nضيفهم برمزهم من «أضف صديق بالرمز»، أو من بطاقة أي لاعب في الطاولة.',
+                          text: 'ليس لديك أصدقاء حتى الآن.\nضيفهم برمزهم من «أضف صديق بالرمز»، أو من بطاقة أي لاعب في الطاولة.',
                         )
                       : _FriendsList(uids: p.friends, unread: p.dmUnread, selected: selected, onOpen: _openFriend),
               },
@@ -502,9 +502,9 @@ class _FriendRowState extends State<_FriendRow> {
     final p = widget.presence;
     final online = playing || (p?.online ?? false);
     final (status, color) = playing
-        ? ('يلعب الحين', socOrangeText)
+        ? ('يلعب الآن', socOrangeText)
         : online
-        ? ('متصل الحين', socGreenText)
+        ? ('متصل الآن', socGreenText)
         : (p?.at == null ? 'غير متصل' : agoText(DateTime.now().difference(p!.at!)), socMuted);
     return FriendRowView(
       name: e?.name ?? '…',
@@ -591,7 +591,7 @@ class _ChatsListState extends State<_ChatsList> {
     if (p.clan == null && uids.isEmpty) {
       return const FriendsEmpty(
         icon: 'chat',
-        text: 'ما فيه محادثات للحين.\nابدأ دردشة مع أي صاحب من «الأصدقاء»، أو ادخل ديوان وسولف مع ربعك.',
+        text: 'لا يوجد محادثات حتى الآن.\nابدأ دردشة مع أي صاحب من «الأصدقاء»، أو ادخل ديوان وسولف مع ربعك.',
       );
     }
     return ListView(
@@ -852,7 +852,7 @@ class _RequestRowState extends State<_RequestRow> {
         name: e?.name ?? '…',
         avatar: e?.avatar ?? 'masked',
         style: frameStyle(e?.frame),
-        status: e == null ? '' : 'يبي يصير صديقك · مستوى ${arabicNumber(e.level)}',
+        status: e == null ? '' : 'يريد أن يصير صديقك · مستوى ${arabicNumber(e.level)}',
         dot: null,
         onAvatar: e == null
             ? null
@@ -1129,7 +1129,7 @@ class _InviteSheetState extends State<_InviteSheet> {
         const SocPopupText('توصلهم الدعوة في اللعبة وبإشعار، ويدخلون الطاولة بضغطة', size: 13.5, muted: true),
         const SizedBox(height: 8),
         if (friends.isEmpty) ...[
-          const SocPopupText('ما عندك أصدقاء للحين'),
+          const SocPopupText('ليس لديك أصدقاء حتى الآن'),
           const SizedBox(height: 10),
           SocButton(
             label: 'أضف أصدقاء',

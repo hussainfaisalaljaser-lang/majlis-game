@@ -160,16 +160,6 @@ class StickerPackCard extends StatelessWidget {
                         child: interactive ? stickerBuilder!(ids[i], size) : _StaticSticker(id: ids[i], size: size),
                       ),
                     ),
-                if (rarity == Rarity.epic || rarity == Rarity.legendary)
-                  Positioned(
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    height: stripH,
-                    child: IgnorePointer(
-                      child: CustomPaint(painter: _SparklePainter(_lookOf(rarity).light)),
-                    ),
-                  ),
                 PositionedDirectional(top: 4, start: 5, child: ShopRarityTag(rarity)),
                 if (onPreview != null) PositionedDirectional(top: 3, end: 3, child: ShopEyeButton(onTap: onPreview)),
               ],
@@ -302,6 +292,7 @@ class _Strip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (rarity != Rarity.common) return RarityBackdrop(rarity);
     final tint = _lookOf(rarity).mid;
     return DecoratedBox(
       decoration: const BoxDecoration(
@@ -626,35 +617,4 @@ class _BubblePainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_BubblePainter old) => old.fill != fill || old.tailEnd != tailEnd || old.rtl != rtl;
-}
-
-/// لمعات صغيرة على شريط الملحمي والأسطوري.
-class _SparklePainter extends CustomPainter {
-  const _SparklePainter(this.color);
-
-  final Color color;
-
-  void _star(Canvas canvas, Offset p, double r, Paint paint) {
-    final path = Path()
-      ..moveTo(p.dx, p.dy - r)
-      ..quadraticBezierTo(p.dx, p.dy, p.dx + r, p.dy)
-      ..quadraticBezierTo(p.dx, p.dy, p.dx, p.dy + r)
-      ..quadraticBezierTo(p.dx, p.dy, p.dx - r, p.dy)
-      ..quadraticBezierTo(p.dx, p.dy, p.dx, p.dy - r)
-      ..close();
-    canvas.drawPath(path, paint);
-  }
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final glow = Paint()..color = color.withValues(alpha: .9);
-    final white = Paint()..color = Colors.white.withValues(alpha: .95);
-    _star(canvas, Offset(size.width * .3, size.height * .3), 5.5, glow);
-    _star(canvas, Offset(size.width * .52, size.height * .22), 3.2, white);
-    _star(canvas, Offset(size.width * .72, size.height * .78), 4.6, glow);
-    _star(canvas, Offset(size.width * .09, size.height * .74), 3.4, white);
-  }
-
-  @override
-  bool shouldRepaint(_SparklePainter old) => old.color != color;
 }

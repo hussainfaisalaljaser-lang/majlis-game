@@ -17,7 +17,7 @@ import '../ui.dart';
 Future<void> showLiesReveal(BuildContext context, GameView view, Room? room) => showGeneralDialog<void>(
   context: context,
   barrierDismissible: true,
-  barrierLabel: 'مين كذب؟',
+  barrierLabel: 'من كذب؟',
   barrierColor: Colors.black.withValues(alpha: .82),
   transitionDuration: const Duration(milliseconds: 240),
   transitionBuilder: (context, a, _, child) => FadeTransition(opacity: a, child: child),
@@ -120,7 +120,7 @@ class _LiesRevealState extends State<_LiesReveal> with SingleTickerProviderState
                                       const SizedBox(width: 56),
                                       const Expanded(
                                         child: Center(
-                                          child: SizedBox(width: 280, child: RibbonTitle('مين كذب؟', size: 21)),
+                                          child: SizedBox(width: 280, child: RibbonTitle('من كذب؟', size: 21)),
                                         ),
                                       ),
                                       SizedBox(

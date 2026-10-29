@@ -75,7 +75,7 @@ String agoText(Duration d) {
     <= 10 => 'قبل ${arabicNumber(n)} $few',
     _ => 'قبل ${arabicNumber(n)} $many',
   };
-  if (d.inMinutes < 1) return 'الحين';
+  if (d.inMinutes < 1) return 'الآن';
   if (d.inMinutes < 60) return count(d.inMinutes, 'دقيقة', 'دقيقتين', 'دقايق', 'دقيقة');
   if (d.inHours < 24) return count(d.inHours, 'ساعة', 'ساعتين', 'ساعات', 'ساعة');
   if (d.inDays <= 30) return count(d.inDays, 'يوم', 'يومين', 'أيام', 'يوم');

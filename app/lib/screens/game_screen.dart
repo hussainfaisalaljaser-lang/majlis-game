@@ -65,9 +65,9 @@ const _tips = {
   'tut_vote': 'صوّت على الحكومة: موافق يعني تبيهم، ورافض يعني ما تثق فيهم.',
   'tut_discard': 'وصلتك ٣ كروت. ارمِ واحد بالسر، والباقي يروح للوزير يختار منه.',
   'tut_enacted': 'شف اللوحة فوق: هنا تنعد القرارات. الأزرق للأوفياء، والأحمر للخونة.',
-  'tut_claim': 'الحين قول للكل وش وصلك. تقدر تقول الصدق… أو تكذب عليهم!',
-  'tut_chat': 'تبي تتهم أحد أو تدافع عن نفسك؟ اضغط زر التفاعل، واختار ملصق أو كلام.',
-  'tut_power': 'القرار الأحمر عطى الرئيس قدرة! انتبه وش بيسوي فيها.',
+  'tut_claim': 'الآن قول للكل ماذا وصلك. تستطيع أن تقول الصدق… أو تكذب عليهم!',
+  'tut_chat': 'تريد أن تتهم أحد أو تدافع عن نفسك؟ اضغط زر التفاعل، واختار ملصق أو كلام.',
+  'tut_power': 'القرار الأحمر عطى الرئيس قدرة! انتبه ماذا بيسوي فيها.',
 };
 
 /// نصايح الخطوات تبقى لين تسويها، ونصايح المعلومات تختفي بعد شوي.
@@ -466,7 +466,7 @@ class _GameScreenState extends State<GameScreen> {
       setState(() => _nextReady = {for (final p in r.players) p.uid});
       if (!told && r.hostId != _backend.uid) {
         told = true;
-        _toast('${r.player(r.hostId)?.name ?? 'واحد'} يبي يلعب مرة ثانية! اضغط «العب مرة ثانية» وتدخل معه');
+        _toast('${r.player(r.hostId)?.name ?? 'واحد'} يريد أن يلعب مرة ثانية! اضغط «العب مرة ثانية» وتدخل معه');
       }
     }, onError: (Object e) => debugPrint('next room listener: $e'));
   }
@@ -557,7 +557,7 @@ class _GameScreenState extends State<GameScreen> {
         (_) => _alert(
           'نتيجة التحقيق',
           '$name من ${result.traitor ? 'الخونة' : 'الأوفياء'}',
-          'هذي المعلومة لك بس. تقدر تقولها أو تكذب فيها',
+          'هذه المعلومة لك فقط. تستطيع أن تقولها أو تكذب فيها',
           'search',
           result.traitor,
         ),
@@ -825,7 +825,7 @@ class _GameScreenState extends State<GameScreen> {
                       ),
                       const SizedBox(height: 8),
                       const Text(
-                        'من الحين: لو زعيم الخونة صار وزير وانتخبتوا حكومته، يفوزون الخونة على طول.',
+                        'من الآن: لو زعيم الخونة صار وزير وانتخبتوا حكومته، يفوزون الخونة على طول.',
                         style: TextStyle(fontSize: 15, height: 1.5, fontWeight: FontWeight.w700),
                       ),
                       const SizedBox(height: 8),
@@ -907,7 +907,7 @@ class _GameScreenState extends State<GameScreen> {
             v.pendingPower == Power.execute);
     if (!nominating && !power || _waiting(v)) return null;
     final p = v.player(id);
-    if (id == v.you) return nominating ? 'ما تقدر ترشّح نفسك، اختر لاعب ثاني' : 'اختر لاعب غيرك';
+    if (id == v.you) return nominating ? 'لا تستطيع أن ترشّح نفسك، اختر لاعب ثاني' : 'اختر لاعب غيرك';
     if (!p.alive) return '${p.name} مطرود من المجلس';
     if (nominating && id == v.lastChancellor) {
       return '${p.name} كان الوزير في الحكومة اللي قبل، وما يصير وزير مرتين ورا بعض. اختر غيره';
@@ -1044,13 +1044,6 @@ class _GameScreenState extends State<GameScreen> {
       'type': 'claim',
       'policies': [for (final p in policies) p.code],
     }, key: key);
-    if (mounted) {
-      ScaffoldMessenger.of(context)
-        ..hideCurrentSnackBar()
-        ..showSnackBar(
-          SnackBar(content: Text('قلت للكل إنه وصلك: ${_claimLabel(policies)}'), duration: const Duration(seconds: 2)),
-        );
-    }
   }
 
   Future<void> _confirm(GameView v, String verb, String id, Map<String, dynamic> action, {String? key}) async {
@@ -1101,7 +1094,7 @@ class _GameScreenState extends State<GameScreen> {
     final special = v.yourSpecial;
 
     final pickHint = _clearPick
-        ? 'اختر اللاعب اللي تبي تشيل رأيك فيه'
+        ? 'اختر اللاعب اللي تريد أن تشيل رأيك فيه'
         : _seerPicking
         ? 'اختر لاعب تكشف فريقه (سراً)'
         : _pendingReaction == null
@@ -1449,12 +1442,12 @@ class _GameScreenState extends State<GameScreen> {
             : say('الكرتين راحوا للوزير', dim: true);
       case Phase.vetoResponse:
         return mine && v.amPresident
-            ? say('الوزير يبي يرمي الكرتين. توافق؟', icon: 'hand')
+            ? say('الوزير يريد أن يرمي الكرتين. توافق؟', icon: 'hand')
             : say('الوزير طلب النقض… ننتظر رد الرئيس', dim: true);
       case Phase.power:
         if (mine && v.amPresident) {
           return v.pendingPower == Power.peek
-              ? say('أول ٣ كروت في الكومة (لك بس)', icon: 'eye')
+              ? say('أول ٣ كروت في الكومة (لك فقط)', icon: 'eye')
               : say('${powerName[v.pendingPower]}: اختر لاعب من الطاولة', icon: powerIcon[v.pendingPower]);
         }
         return say('$president يستخدم قدرته: ${powerName[v.pendingPower] ?? ''}', dim: true);
@@ -1592,7 +1585,7 @@ class _GameScreenState extends State<GameScreen> {
       builder: (context) => AlertDialog(
         title: const Text('انطردت من اللعبة', textAlign: TextAlign.center),
         content: const Text(
-          'ما لعبت دورك مرتين ورا بعض، فكمّل عنك بوت.\nتقدر ترجع تلعب بعد ٥ دقايق.',
+          'ما لعبت دورك مرتين ورا بعض، فكمّل عنك بوت.\nتستطيع أن ترجع تلعب بعد ٥ دقايق.',
           textAlign: TextAlign.center,
         ),
         actions: [
@@ -1684,7 +1677,7 @@ class _GameScreenState extends State<GameScreen> {
               key: const ValueKey('peek'),
               cards: v.peeked ?? const <Policy>[],
               skin: _skin,
-              hint: 'أول ٣ كروت في الكومة (لك بس)',
+              hint: 'أول ٣ كروت في الكومة (لك فقط)',
               extra: SizedBox(
                 width: 120,
                 child: GameButton(
@@ -1831,7 +1824,7 @@ class _GameScreenState extends State<GameScreen> {
               ),
             ),
             const Text(
-              'محد غيرك شافه. تقدر تقوله للكل… أو تخليه سر.',
+              'لا أحد غيرك رآه. تستطيع أن تقوله للكل… أو تخليه سر.',
               textAlign: TextAlign.center,
               style: TextStyle(fontSize: 13),
             ),
@@ -2285,9 +2278,9 @@ class _ResultCenter extends StatelessWidget {
                         ],
                         Semantics(
                           button: true,
-                          label: 'مين كذب؟',
+                          label: 'من كذب؟',
                           excludeSemantics: true,
-                          child: GestureDetector(onTap: onLies, child: _chip('مين كذب؟', const Color(0xFFB04A12))),
+                          child: GestureDetector(onTap: onLies, child: _chip('من كذب؟', const Color(0xFFB04A12))),
                         ),
                       ],
                     ),
@@ -2472,7 +2465,7 @@ class _ClaimPrompt extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         GoldText(
-                          count == 3 ? 'وش تقول إنه وصلك وأنت رئيس؟' : 'وش تقول إنه وصلك وأنت وزير؟',
+                          count == 3 ? 'ماذا تقول إنه وصلك وأنت رئيس؟' : 'ماذا تقول إنه وصلك وأنت وزير؟',
                           size: 21,
                           align: TextAlign.start,
                         ),
@@ -2487,7 +2480,7 @@ class _ClaimPrompt extends StatelessWidget {
                   SizedBox(
                     width: 92,
                     child: GameButton(
-                      label: 'بعدين',
+                      label: 'لاحقاً',
                       tone: ButtonTone.ghost,
                       height: 38,
                       fontSize: 15,
@@ -2779,7 +2772,7 @@ class _ClaimChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Semantics(
     button: true,
-    label: 'وش وصلك؟',
+    label: 'ماذا وصلك؟',
     excludeSemantics: true,
     child: GestureDetector(
       onTap: onTap,
@@ -2797,7 +2790,7 @@ class _ClaimChip extends StatelessWidget {
             Gfx('megaphone', size: 30),
             SizedBox(width: 6),
             Text(
-              'وش وصلك؟',
+              'ماذا وصلك؟',
               style: TextStyle(fontFamily: kufi, fontSize: 14.5, fontWeight: FontWeight.w800, color: Color(0xFFFFF3DA)),
             ),
           ],
@@ -2850,7 +2843,7 @@ class _TutorialDone extends StatelessWidget {
               const SizedBox(width: 6),
               Flexible(
                 child: Text(
-                  gift ? 'خلّصت الشرح! هديتك تنتظرك في الرئيسية' : 'خلّصت الشرح! الحين أنت جاهز تلعب مع الناس',
+                  gift ? 'خلّصت الشرح! هديتك تنتظرك في الرئيسية' : 'خلّصت الشرح! الآن أنت جاهز تلعب مع الناس',
                   style: const TextStyle(
                     fontFamily: kufi,
                     color: AppColors.goldLight,
@@ -3066,9 +3059,9 @@ class _GameOver extends StatelessWidget {
                                       children: [
                                         Expanded(
                                           child: GameButton(
-                                            label: 'مين كذب؟',
+                                            label: 'من كذب؟',
                                             icon: const Gfx('liar', size: 22),
-                                            semantics: 'مين كذب؟',
+                                            semantics: 'من كذب؟',
                                             tone: ButtonTone.purple,
                                             height: compact ? 34 : 40,
                                             fontSize: 13,

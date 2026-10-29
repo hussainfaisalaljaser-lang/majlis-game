@@ -573,7 +573,7 @@ class _OfferDialog extends StatelessWidget {
               _row('إطار', offer.frame),
               const SizedBox(height: 6),
               Text(
-                owned ? 'عندك العرض كامل' : 'تشتريهم مع بعض بسعرهم العادي (ما فيه خصم للحين)',
+                owned ? 'عندك العرض كامل' : 'تشتريهم مع بعض بسعرهم العادي (لا يوجد خصم حتى الآن)',
                 textAlign: TextAlign.center,
                 style: const TextStyle(color: Color(0xFF6A4A2A), fontSize: 13, fontWeight: FontWeight.w700),
               ),
@@ -807,7 +807,7 @@ class _PreviewDialogState extends State<_PreviewDialog> {
                     const SizedBox(width: 10),
                     const Flexible(
                       child: Text(
-                        'كذا يطلع على الطاولة وفي ملفك، والكل يشوفه',
+                        'هكذا يطلع على الطاولة وفي ملفك، والكل يشوفه',
                         style: TextStyle(
                           fontFamily: kufi,
                           color: Color(0xFF6A4A2A),
@@ -999,7 +999,7 @@ class _DiamondPacks extends StatelessWidget {
               SizedBox(width: 10),
               Expanded(
                 child: Text(
-                  '$_msg\nللحين تجمع جواهر من الهدية اليومية وهدايا المستويات والباتل باس.',
+                  '$_msg\nحتى الآن تجمع جواهر من الهدية اليومية وهدايا المستويات والباتل باس.',
                   style: TextStyle(
                     fontFamily: kufi,
                     color: Color(0xFFFFEBCB),

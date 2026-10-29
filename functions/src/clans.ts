@@ -196,7 +196,7 @@ export const createClan = onCall(async (req) => {
     if (p.clan) throw new HttpsError('failed-precondition', 'أنت في ديوان، اطلع منه أول');
     if (taken.exists) throw new HttpsError('already-exists', 'فيه ديوان بهالاسم، اختر اسم ثاني');
     const price = p.dev ? 0 : CLAN_PRICE;
-    if (p.coins < price) throw new HttpsError('failed-precondition', 'ما عندك ذهب كافي');
+    if (p.coins < price) throw new HttpsError('failed-precondition', 'ليس لديك ذهب كافي');
     const now = Date.now();
     const clan: Clan = {
       id: ref.id,
@@ -242,11 +242,11 @@ export const joinClan = onCall(async (req) => {
       if (level < (clan.minLevel ?? 0)) {
         throw new HttpsError('failed-precondition', `هالديوان للي مستواهم ${clan.minLevel} وفوق`);
       }
-      if (clan.join === 'invite') throw new HttpsError('permission-denied', 'هالديوان بالدعوة بس');
+      if (clan.join === 'invite') throw new HttpsError('permission-denied', 'هالديوان بالدعوة فقط');
       if (clan.join === 'request') {
         const pending = Object.entries(clan.requests ?? {}).filter(([, r]) => r.at > now - CLAN_INVITE_TTL);
         if (!clan.requests?.[uid] && pending.length >= CLAN_REQUESTS_MAX) {
-          throw new HttpsError('resource-exhausted', 'طلبات الديوان كثيرة، جرب بعدين');
+          throw new HttpsError('resource-exhausted', 'طلبات الديوان كثيرة، جرب لاحقاً');
         }
         tx.update(clanRef(id), { [`requests.${uid}`]: { name: p.name, avatar: avatarOf(p), level, at: now } });
         return { requested: true };
@@ -267,7 +267,7 @@ export const clanRespond = onCall(async (req) => {
     const clan = await readClan(tx, p.clan?.id);
     const them = (await tx.get(userRef(target))).data() as Profile | undefined;
     const me = clan.members[uid];
-    if (!me || RANK[me.role] < RANK.elder) throw new HttpsError('permission-denied', 'بس الوجهاء وفوق');
+    if (!me || RANK[me.role] < RANK.elder) throw new HttpsError('permission-denied', 'فقط الوجهاء وفوق');
     if (!clan.requests?.[target]) throw new HttpsError('not-found', 'الطلب مو موجود');
     if (!accept || !them || them.clan) {
       tx.update(clanRef(clan.id), { [`requests.${target}`]: FieldValue.delete() });
@@ -290,11 +290,11 @@ export const clanInvite = onCall(async (req) => {
     const clan = await readClan(tx, p.clan?.id);
     const snap = await tx.get(userRef(target));
     const me = clan.members[uid];
-    if (!me || RANK[me.role] < RANK.elder) throw new HttpsError('permission-denied', 'بس الوجهاء وفوق يدعون');
+    if (!me || RANK[me.role] < RANK.elder) throw new HttpsError('permission-denied', 'فقط الوجهاء وفوق يدعون');
     if (!snap.exists) throw new HttpsError('not-found', 'اللاعب مو موجود');
     const them = snap.data() as Profile;
     if (them.clan) throw new HttpsError('failed-precondition', 'هو في ديوان');
-    if ((them.blocked ?? []).includes(uid)) throw new HttpsError('permission-denied', 'ما تقدر تدعيه');
+    if ((them.blocked ?? []).includes(uid)) throw new HttpsError('permission-denied', 'لا تستطيع أن تدعيه');
     if (clan.count >= CLAN_MAX) throw new HttpsError('failed-precondition', 'الديوان مليان');
     const now = Date.now();
     const kept = Object.entries(them.clanInvites ?? {})
@@ -350,7 +350,7 @@ export const clanSettings = onCall(async (req) => {
     const p = await readProfile(db, tx, uid);
     const clan = await readClan(tx, p.clan?.id);
     const me = clan.members[uid];
-    if (!me || RANK[me.role] < RANK.deputy) throw new HttpsError('permission-denied', 'بس الشيخ ونوابه');
+    if (!me || RANK[me.role] < RANK.deputy) throw new HttpsError('permission-denied', 'فقط الشيخ ونوابه');
     tx.update(clanRef(clan.id), { desc, minLevel, join });
   });
   return { desc };
@@ -379,7 +379,7 @@ export const leaveClan = onCall(async (req) => {
   const uid = requireAuth(req);
   await db.runTransaction(async (tx) => {
     const p = await readProfile(db, tx, uid);
-    if (!p.clan) throw new HttpsError('failed-precondition', 'أنت مو في ديوان');
+    if (!p.clan) throw new HttpsError('failed-precondition', 'أنت لست في ديوان');
     const snap = await tx.get(clanRef(p.clan.id));
     if (snap.exists) {
       const clan = snap.data() as Clan;
@@ -403,7 +403,7 @@ export const clanKick = onCall(async (req) => {
     const other = clan.members[target];
     if (!me || !other || target === uid) throw new HttpsError('invalid-argument', 'اختار عضو من الديوان');
     const allowed = RANK[me.role] >= RANK.deputy && RANK[me.role] > RANK[other.role];
-    if (!allowed) throw new HttpsError('permission-denied', 'ما تقدر تطلّعه');
+    if (!allowed) throw new HttpsError('permission-denied', 'لا تستطيع أن تطلّعه');
     removeMember(tx, clan, target);
     if (them?.clan?.id === clan.id) setTag(tx, target, them, null);
     clanNotice(tx, clan.id, `${other.name} انطلع من الديوان`, Date.now());
@@ -432,7 +432,7 @@ export const clanRole = onCall(async (req) => {
     // النائب: بس بين العضو والوجيه، وعلى اللي تحته.
     const allowed =
       me.role === 'owner' || (me.role === 'deputy' && RANK[other.role] < RANK.deputy && RANK[role] < RANK.deputy);
-    if (!allowed) throw new HttpsError('permission-denied', 'ما تقدر تغيّر رتبته');
+    if (!allowed) throw new HttpsError('permission-denied', 'لا تستطيع أن تغيّر رتبته');
     const count = (r: ClanRole) => Object.entries(clan.members).filter(([id, m]) => m.role === r && id !== target).length;
     if (role === 'deputy' && count('deputy') >= CLAN_DEPUTIES) {
       throw new HttpsError('failed-precondition', `بالكثير ${CLAN_DEPUTIES} نواب`);
@@ -460,7 +460,7 @@ export const claimClanChest = onCall(async (req) => {
     const clan = await readClan(tx, p.clan?.id);
     const week = gulfWeek(Date.now());
     const m = clan.members[uid];
-    if ((clan.weekly[week] ?? 0) < CLAN_GOAL) throw new HttpsError('failed-precondition', 'الديوان ما وصل هدف الأسبوع للحين');
+    if ((clan.weekly[week] ?? 0) < CLAN_GOAL) throw new HttpsError('failed-precondition', 'الديوان ما وصل هدف الأسبوع حتى الآن');
     if (!m || m.week !== week || m.points <= 0) throw new HttpsError('failed-precondition', 'العب مع ديوانك هالأسبوع أول');
     const claimed = clan.chest[week] ?? [];
     if (claimed.includes(uid)) throw new HttpsError('already-exists', 'استلمت صندوق هالأسبوع');

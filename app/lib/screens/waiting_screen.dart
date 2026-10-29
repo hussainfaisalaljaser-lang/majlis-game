@@ -412,7 +412,7 @@ class _Invite extends StatelessWidget {
               final messenger = ScaffoldMessenger.of(context);
               Telemetry.invite('copy');
               await Links.copy(code);
-              messenger.showSnackBar(const SnackBar(content: Text('نسخنا الدعوة، الصقها لأصحابك وين ما تبي')));
+              messenger.showSnackBar(const SnackBar(content: Text('نسخنا الدعوة، الصقها لأصحابك أينما شئت')));
             },
             child: const GoldCircle(size: 42, child: Gfx('link', size: 26)),
           ),
@@ -437,7 +437,7 @@ class _CodeBox extends StatelessWidget {
       child: Column(
         children: [
           const Text(
-            'رمز الطاولة (لو تبي تعزم أصحابك)',
+            'رمز الطاولة (لو تريد أن تعزم أصحابك)',
             style: TextStyle(color: socMuted, fontSize: 12.5, fontFamily: kufi, fontWeight: FontWeight.w700),
           ),
           Directionality(
