@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../models/shop.dart';
 import 'fx.dart';
 
+part 'sticker_motion_s1.dart';
 part 'sticker_motion_s2.dart';
 
 /// الملصقات الملحمية والأسطورية تتحرك حسب تعبيرها: اللي يضحك يهتز، واللي يرقص يتمايل، والنعسان تطلع منه
@@ -58,6 +59,7 @@ abstract final class StickerMotion {
   // ───────────── الحركات ─────────────
 
   static final Map<String, _Motion> _motions = {
+    ..._s1Motions,
     // الاحتفال
     'par_kafu': _Motion(
       (t) => _P(dy: -.03 * _bounce(t, 1.6), rot: .06 * math.sin(t * 10) * _beat(t, 1.6, .25), py: .9),
