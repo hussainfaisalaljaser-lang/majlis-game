@@ -61,6 +61,9 @@ abstract final class Sounds {
     } catch (_) {}
   }
 
+  /// مستوى كل المؤثرات (١ = بأعلى مستوى للملف). نزّلناه عشان ما يغطي على الموسيقى والراوي.
+  static const master = .55;
+
   static const _pool = 6;
   static final _players = <AudioPlayer>[];
   static int _next = 0;
@@ -77,7 +80,7 @@ abstract final class Sounds {
           : _players[_next];
       if (_players.length < _pool) _players.add(player);
       _next = (_next + 1) % _pool;
-      player.play(AssetSource('sfx/$name.wav'), volume: volume.clamp(0.0, 1.0)).catchError((_) {});
+      player.play(AssetSource('sfx/$name.wav'), volume: (volume * master).clamp(0.0, 1.0)).catchError((_) {});
     } catch (_) {}
   }
 }
