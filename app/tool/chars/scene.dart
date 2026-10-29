@@ -16,16 +16,6 @@ import 'parts/mouth.dart';
 import 'parts/nose.dart';
 import 'spec.dart';
 
-/// Which part of a character to paint.
-///
-/// - [composite]: background + whole figure (the static `<id>.webp`).
-/// - [body]: shoulders/clothes (+ `behind` props), transparent, 240x240 canvas.
-/// - [head]: neck, headwear, face, features, beard, glasses (rotates around the neck at (100,150)).
-/// - [blink]: closed eyelids only, same coordinates as [head] (laid over it).
-/// - [mouth]: open-mouth overlay only, same coordinates as [head].
-/// - [props]: the `front` custom painter only.
-enum CharLayer { composite, body, head, blink, mouth, props }
-
 /// Paint [s] into [canvas] covering a [px] x [px] area at the origin.
 void paintChar(Canvas canvas, CharSpec s, {double px = 1024, CharLayer layer = CharLayer.composite}) {
   canvas.save();
@@ -45,8 +35,12 @@ void paintChar(Canvas canvas, CharSpec s, {double px = 1024, CharLayer layer = C
       _drawBgGlow(pen, s.bg, h);
     }
     s.behind?.call(pen, h);
-    _drawBody(pen, s, h);
-    _drawHead(pen, s, h);
+    if (s.custom != null) {
+      s.custom!(pen, h);
+    } else {
+      _drawBody(pen, s, h);
+      _drawHead(pen, s, h);
+    }
     s.front?.call(pen, h);
   } else {
     switch (layer) {
@@ -143,3 +137,25 @@ void _drawHair(Pen pen, Head h, HairSpec hs) {
 
 // ignore: unused_element
 double _unusedMath() => math.pi;
+
+/// Names of every rig layer this character exports (render_test with CHAR_LAYERS=1).
+List<String> layerNames(CharSpec s) => [
+  if (s.custom == null) ...['body', 'head', 'blink', 'mouth'],
+  if (s.front != null) 'props',
+  ...s.extraLayers.keys,
+];
+
+/// Paint one named layer (a [CharLayer] name or an entry of [CharSpec.extraLayers]) onto a
+/// transparent 240x240-unit canvas (-20..220) of [px] x [px] pixels.
+void paintLayer(Canvas canvas, CharSpec s, String name, {double px = 1200}) {
+  final extra = s.extraLayers[name];
+  if (extra != null) {
+    canvas.save();
+    canvas.scale(px / 240);
+    canvas.translate(20, 20);
+    extra(Pen(canvas), s.head.build());
+    canvas.restore();
+    return;
+  }
+  paintChar(canvas, s, px: px, layer: CharLayer.values.byName(name));
+}

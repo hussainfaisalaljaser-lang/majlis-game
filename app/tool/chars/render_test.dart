@@ -13,8 +13,9 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'registry.dart';
 import 'scene.dart';
+import 'spec.dart';
 
-Future<void> _save(String path, CharSpec_ spec, int px, CharLayer layer) async {
+Future<void> _save(String path, CharSpec spec, int px, CharLayer layer) async {
   final rec = ui.PictureRecorder();
   final canvas = ui.Canvas(rec, ui.Rect.fromLTWH(0, 0, px.toDouble(), px.toDouble()));
   paintChar(canvas, spec, px: px.toDouble(), layer: layer);
@@ -25,7 +26,16 @@ Future<void> _save(String path, CharSpec_ spec, int px, CharLayer layer) async {
     ..writeAsBytesSync(bytes.buffer.asUint8List());
 }
 
-typedef CharSpec_ = dynamic;
+Future<void> _saveLayer(String path, CharSpec spec, String name, int px) async {
+  final rec = ui.PictureRecorder();
+  final canvas = ui.Canvas(rec, ui.Rect.fromLTWH(0, 0, px.toDouble(), px.toDouble()));
+  paintLayer(canvas, spec, name, px: px.toDouble());
+  final img = await rec.endRecording().toImage(px, px);
+  final bytes = (await img.toByteData(format: ui.ImageByteFormat.png))!;
+  File(path)
+    ..createSync(recursive: true)
+    ..writeAsBytesSync(bytes.buffer.asUint8List());
+}
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -44,8 +54,8 @@ void main() {
       }
       await _save('$out/$id.png', spec, px, CharLayer.composite);
       if (layers) {
-        for (final l in [CharLayer.body, CharLayer.head, CharLayer.blink, CharLayer.mouth, CharLayer.props]) {
-          await _save('$out/layers/$id/${l.name}.png', spec, 1200, l);
+        for (final name in layerNames(spec)) {
+          await _saveLayer('$out/layers/$id/$name.png', spec, name, 1200);
         }
       }
       print('rendered $id');

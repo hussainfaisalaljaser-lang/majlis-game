@@ -1,5 +1,6 @@
-// One import for everything a character file needs:
+// One import for everything a character file needs (also re-exports the dart:ui types used in specs):
 //   import '../kit.dart';
+export 'dart:ui' show BlendMode, Canvas, Color, Gradient, Offset, Paint, PaintingStyle, Path, Rect, Shader, StrokeCap, StrokeJoin;
 export 'core/head.dart';
 export 'core/palette.dart';
 export 'core/pen.dart';

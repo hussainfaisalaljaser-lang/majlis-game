@@ -72,7 +72,7 @@ void checkPattern(Pen pen, Path clip, {Color color = const Color(0xFFC8262E), do
 /// (true 3D: it follows yaw). [sag] lifts the front of the ring (seen from slightly
 /// below, like the video's agal); [tilt] rolls the ring (radians); [span] is the
 /// visible half-angle in degrees.
-Path ring3D(Head h, double y0, double r, double thick, {double sag = 5, double tilt = 0, double span = 76, double lift = 0}) {
+Path ring3D(Head h, double y0, double r, double thick, {double sag = 5, double tilt = 0, double span = 70, double lift = 0}) {
   final top = <Offset>[], bot = <Offset>[];
   const n = 18;
   for (var i = 0; i <= n; i++) {
@@ -131,7 +131,6 @@ class Ghutra extends Headwear {
     this.check,
     this.hem = -34.0,
     this.hemTilt = 0.0,
-    this.drape = 1.0,
     this.agalY = -50.0,
     this.agalSag = 6.0,
     this.agalRings = 2,
@@ -152,8 +151,6 @@ class Ghutra extends Headwear {
   /// y of the cloth hem across the forehead (local) and its tilt (radians).
   final double hem, hemTilt;
 
-  /// Length multiplier of the drape over the shoulders (1 = normal).
-  final double drape;
   final double agalY, agalSag;
   final int agalRings;
 
@@ -178,49 +175,41 @@ class Ghutra extends Headwear {
     Offset(41, top + 19),
     Offset(50, top + 40),
     Offset(54, top + 63),
-    Offset(56, 14),
-    Offset(59, 40),
-    Offset(65, 64),
-    Offset(70, dropY - 8),
-    Offset(70, dropY + 2),
-    Offset(58, dropY + 8),
-    Offset(38, dropY + 6),
+    Offset(57, 14),
+    Offset(61, 40),
+    Offset(68, 62),
+    Offset(75, dropY - 10),
+    Offset(77, dropY + 0),
+    Offset(64, dropY + 9),
+    Offset(40, dropY + 7),
     Offset(18, dropY + 3),
     Offset(0, dropY),
   ];
 
   /// Swept outline (back of the head = +x); mirrored when the head turns the other way.
-  List<Offset> _sweptPts() => [
-    const Offset(-50, -22),
-    Offset(-55, top + 38),
-    Offset(-47, top + 20),
-    Offset(-26, top + 9),
-    Offset(2, top + 2),
-    Offset(30, top - 6),
-    Offset(54, top - 4),
-    Offset(72, top + 12),
-    Offset(81, top + 38),
-    const Offset(82, -2),
-    const Offset(81, 28),
-    Offset(78, dropY - 28),
-    Offset(72, dropY - 6),
-    Offset(60, dropY + 10),
-    Offset(50, dropY + 6),
-    Offset(46, dropY - 6),
-    const Offset(36, 56),
-    const Offset(10, 72),
-    const Offset(-20, 62),
-    const Offset(-42, 34),
-    const Offset(-50, 6),
-  ];
+  Path _sweptPath(double k) {
+    String x(num v) => (v * k * (v > 0 ? width : 1.0)).toStringAsFixed(2);
+    final t = top + 80; // dome offset relative to the default top (-80)
+    final d = dropY;
+    return svg(
+      'M ${x(-50)} -22 '
+      'C ${x(-58)} ${-40 + t} ${x(-50)} ${-62 + t} ${x(-30)} ${-72 + t} '
+      'C ${x(-12)} ${-80 + t} ${x(14)} ${-90 + t} ${x(40)} ${-88 + t} '
+      'C ${x(62)} ${-86 + t} ${x(80)} ${-66 + t} ${x(86)} ${-38 + t} '
+      'C ${x(92)} ${-10 + t} ${x(90)} 24 ${x(86)} ${d - 26} '
+      'C ${x(84)} ${d - 8} ${x(76)} ${d + 8} ${x(62)} ${d + 10} '
+      'C ${x(50)} ${d + 10} ${x(46)} ${d - 4} ${x(44)} ${d - 14} '
+      'C ${x(40)} 40 ${x(24)} 70 0 74 '
+      'C ${x(-24)} 74 ${x(-44)} 48 ${x(-50)} 6 Z',
+    );
+  }
 
   Path _outer(Head h) {
     final ay = h.absYaw.clamp(0.0, 1.0);
     final lead = h.side;
     if (swept && lead != 0) {
       final k = lead > 0 ? -1.0 : 1.0; // back of the head is opposite to the turn
-      final pts = [for (final p in _sweptPts()) Offset(p.dx * k * (1 + 0.0 * ay), p.dy)];
-      return h.path(spline(pts, closed: true, tension: .95), lift: _lift);
+      return h.path(_sweptPath(k), lift: _lift);
     }
     final half = _half();
     double f(int sgn, double y) {
@@ -248,14 +237,20 @@ class Ghutra extends Headwear {
     pen.inside(outer, (p) {
       // the cloth right next to the face / neck is in shadow
       p.line(h.outline(grow: 3), w: 15 * sc, color: withA(cloth.shade, .55));
-      final w = Style.lineThin * 0.95 * sc;
-      final c = withA(cloth.shade, .95);
       final ay = h.absYaw.clamp(0.0, 1.0);
+      final ink = withA(cloth.shade, .98);
       for (final s in const [-1, 1]) {
         final lead = h.side == s;
         final k = lead ? 1 - 0.46 * ay : 1 + 0.2 * ay;
-        p.line(h.path(svg('M${s * 50 * k} 4 C${s * 54 * k} 30 ${s * 58 * k} 52 ${s * 63 * k} ${dropY - 12}'), lift: _lift), w: w, color: c);
-        p.line(h.path(svg('M${s * 41 * k} 30 C${s * 44 * k} 48 ${s * 49 * k} 66 ${s * 52 * k} ${dropY - 4}'), lift: _lift), w: w, color: c);
+        // valley: a shaded strip between two folds
+        final valley = h.path(
+          svg('M${s * 46 * k} 6 C${s * 52 * k} 30 ${s * 58 * k} 54 ${s * 68 * k} ${dropY - 2} L${s * 56 * k} ${dropY - 2} C${s * 50 * k} 56 ${s * 44 * k} 32 ${s * 38 * k} 8 Z'),
+          lift: _lift,
+        );
+        p.fill(valley, withA(cloth.shade, lead ? .35 : .6));
+        p.taper(h.path(svg('M${s * 50 * k} 4 C${s * 55 * k} 30 ${s * 62 * k} 52 ${s * 70 * k} ${dropY - 6}'), lift: _lift), w0: 2.6 * sc, w1: 0.3 * sc, color: ink);
+        p.taper(h.path(svg('M${s * 41 * k} 28 C${s * 45 * k} 46 ${s * 50 * k} 64 ${s * 56 * k} ${dropY - 2}'), lift: _lift), w0: 2.0 * sc, w1: 0.2 * sc, color: ink);
+        p.taper(h.path(svg('M${s * 56 * k} 20 C${s * 60 * k} 36 ${s * 62 * k} 48 ${s * 66 * k} 60'), lift: _lift), w0: 1.6 * sc, w1: 0.2 * sc, color: withA(cloth.shade, .8));
       }
     });
     pen.line(outer, w: Style.line * sc, color: Style.ink);
@@ -277,8 +272,13 @@ class Ghutra extends Headwear {
     });
     paintCloth(pen, cover, cloth, sc, shade: 6, check: check, outline: false);
     pen.inside(cover, (p) {
-      p.line(h.path(svg('M-26 ${top + 8} C-18 ${top + 26} -18 ${hem - 10} -26 $hem'), lift: _lift), w: Style.lineFine * sc, color: withA(cloth.shade, .9));
-      p.line(h.path(svg('M28 ${top + 8} C22 ${top + 26} 24 ${hem - 12} 32 ${hem + 2}'), lift: _lift), w: Style.lineFine * sc, color: withA(cloth.shade, .9));
+      p.taper(h.path(svg('M-26 ${top + 6} C-17 ${top + 26} -17 ${hem - 12} -26 $hem'), lift: _lift), w0: 2.2 * sc, w1: 0.2 * sc, color: withA(cloth.shade, .95));
+      p.taper(h.path(svg('M30 ${top + 6} C22 ${top + 26} 25 ${hem - 12} 34 ${hem + 2}'), lift: _lift), w0: 2.2 * sc, w1: 0.2 * sc, color: withA(cloth.shade, .95));
+      // shadow the agal casts on the cloth below it
+      if (agal) {
+        final y = agalY + (agalRings - 1) * 8.6 + 5.5;
+        p.fill(ring3D(h, y, 45, 7, sag: agalSag, tilt: agalTilt, lift: _lift - 4.0), withA(cloth.shade, .55));
+      }
     });
     pen.inside(regionAbove(h, _hemLocal(), lift: _lift, up: 90), (p) => p.line(outer, w: Style.line * sc, color: Style.ink));
     pen.line(hemP, w: Style.line * sc, color: Style.ink);
@@ -357,8 +357,10 @@ class Hijab extends Headwear {
       Offset(30, bot + 14),
       Offset(0, bot + 14),
     ];
-    final right = <Offset>[for (final p in half) Offset(p.dx * width * f(1, p.dy), p.dy)];
-    final left = <Offset>[for (final p in half) Offset(-p.dx * width * f(-1, p.dy), p.dy)];
+    // the width multiplier grows from the dome down to the shoulders (bell shape)
+    double wf(double y) => 1 + (width - 1) * smoothstep(-62, 10, y);
+    final right = <Offset>[for (final p in half) Offset(p.dx * wf(p.dy) * f(1, p.dy), p.dy)];
+    final left = <Offset>[for (final p in half) Offset(-p.dx * wf(p.dy) * f(-1, p.dy), p.dy)];
     final all = <Offset>[...right, ...left.reversed.skip(1).take(left.length - 2)];
     return h.path(spline(all, closed: true, tension: .95), lift: _lift);
   }
@@ -377,11 +379,11 @@ class Hijab extends Headwear {
       // bold fold valleys running from the head down over the shoulders
       final valley = h.path(svg('M${s * 52} -44 C${s * 66} -6 ${s * 64} 40 ${s * 78} ${88 * len} L${s * 66} ${94 * len} C${s * 56} 48 ${s * 56} 2 ${s * 44} -36 Z'), lift: _lift);
       p.fill(valley, withA(cloth.shade, s == 1 ? .85 : .55));
-      p.line(h.path(svg('M${s * 52} -44 C${s * 66} -6 ${s * 64} 40 ${s * 78} ${88 * len}'), lift: _lift), w: w * 1.2, color: ink);
+      p.taper(h.path(svg('M${s * 52} -44 C${s * 66} -6 ${s * 64} 40 ${s * 78} ${88 * len}'), lift: _lift), w0: 3.0 * sc, w1: 0.4 * sc, color: ink);
       // light ridge next to it
-      p.line(h.path(svg('M${s * 40} -42 C${s * 51} -2 ${s * 52} 48 ${s * 60} ${100 * len}'), lift: _lift), w: w * 1.1, color: hi);
+      p.taper(h.path(svg('M${s * 40} -42 C${s * 51} -2 ${s * 52} 48 ${s * 60} ${100 * len}'), lift: _lift), w0: 2.4 * sc, w1: 0.3 * sc, color: hi);
       // swoop across the chest
-      p.line(h.path(svg('M${s * 34} 54 C${s * 48} 70 ${s * 60} 80 ${s * 78} ${92 * len}'), lift: _lift), w: w * 1.2, color: ink);
+      p.taper(h.path(svg('M${s * 34} 54 C${s * 48} 70 ${s * 60} 80 ${s * 78} ${92 * len}'), lift: _lift), w0: 2.8 * sc, w1: 0.3 * sc, color: ink);
     }
     p.line(h.path(svg('M-16 -76 C-3 -64 -3 -50 -11 -38'), lift: _lift), w: w * .9, color: dark);
     p.line(h.path(svg('M20 -75 C10 -62 12 -48 21 -38'), lift: _lift), w: w * .9, color: dark);
@@ -446,7 +448,7 @@ class Hijab extends Headwear {
       p.line(h.path(svg('M${-30.0 * s} 62 C${-8.0 * s} 80 ${30.0 * s} 84 ${52.0 * s} 74'), lift: _lift + 2), w: 1.8 * sc, color: withA(cloth.shade, .95));
       p.line(h.path(svg('M${-50.0 * s} 78 C${-30.0 * s} 94 ${10.0 * s} 100 ${44.0 * s} 94'), lift: _lift + 2), w: 1.6 * sc, color: withA(cloth.shade, .9));
     });
-    pen.line(h.path(svg('M${-44.0 * s} 50 C${-20.0 * s} 72 ${26.0 * s} 80 ${64.0 * s} 62'), lift: _lift + 2), w: Style.line * sc, color: Style.ink);
+    pen.inside(_outer(h), (p) => p.line(h.path(svg('M${-44.0 * s} 50 C${-20.0 * s} 72 ${26.0 * s} 80 ${64.0 * s} 62'), lift: _lift + 2), w: Style.line * sc, color: Style.ink));
   }
 }
 
@@ -605,13 +607,13 @@ class FaceVeil extends Headwear {
         Offset(50, -32),
         Offset(55, 0),
         Offset(56, 36),
-        Offset(62, 66),
-        Offset(70, 90),
-        Offset(40, 100),
-        Offset(0, 102),
-        Offset(-40, 100),
-        Offset(-70, 90),
-        Offset(-62, 66),
+        Offset(60, 64),
+        Offset(70, 86),
+        Offset(40, 94),
+        Offset(0, 96),
+        Offset(-40, 94),
+        Offset(-70, 86),
+        Offset(-60, 64),
         Offset(-56, 36),
         Offset(-55, 0),
         Offset(-50, -32),
@@ -628,16 +630,19 @@ class FaceVeil extends Headwear {
     final topCurve = spline([Offset(-52, eyeBottom + 6), Offset(-30, eyeBottom + 3), const Offset(-12, 13), const Offset(0, 15), const Offset(12, 13), Offset(30, eyeBottom + 3), Offset(52, eyeBottom + 6)], tension: .9);
     final below = regionBelow(h, topCurve, lift: _lift, down: 140);
     var cover = Path.combine(PathOperation.intersect, h.outline(grow: 2.8), below);
-    final neck = h.path(svg('M-28 36 C-29 62 -32 78 -38 90 Q0 104 38 90 C32 78 29 62 28 36 Z'), lift: _lift);
+    final neck = h.path(svg('M-26 36 C-27 56 -29 68 -33 78 Q0 92 33 78 C29 68 27 56 26 36 Z'), lift: _lift);
     cover = Path.combine(PathOperation.union, cover, Path.combine(PathOperation.intersect, neck, below));
     paintCloth(pen, cover, cloth, sc, shade: 6.5, outline: false, check: check);
     pen.inside(cover, (p) {
-      final w = Style.lineThin * sc;
-      final c = withA(check != null ? Style.ink : cloth.shade, check != null ? .45 : .95);
-      p.line(h.path(svg('M-36 18 C-26 40 -26 62 -34 88'), lift: _lift), w: w, color: c);
-      p.line(h.path(svg('M36 18 C26 40 26 62 34 88'), lift: _lift), w: w, color: c);
-      p.line(h.path(svg('M-14 30 C-8 40 8 40 14 30'), lift: _lift), w: w * .8, color: c);
-      p.line(h.path(svg('M-6 18 C-4 26 -2 30 0 34 C2 30 4 26 6 18'), lift: _lift + 3), w: w * .8, color: c);
+      final c = check != null ? withA(Style.ink, .5) : withA(cloth.shade, .98);
+      // folds that radiate from the nose bridge to the jaw, tapering out
+      for (final s in const [-1, 1]) {
+        p.taper(h.path(svg('M${s * 33} 14 C${s * 28} 36 ${s * 26} 58 ${s * 32} 80'), lift: _lift), w0: 2.6 * sc, w1: 0.3 * sc, color: c);
+        p.taper(h.path(svg('M${s * 14} 24 C${s * 17} 40 ${s * 15} 54 ${s * 18} 70'), lift: _lift), w0: 2.0 * sc, w1: 0.2 * sc, color: c);
+      }
+      // nose ridge under the cloth + shadow below it
+      p.taper(h.path(svg('M-6 16 C-5 24 -2 30 0 35 C2 30 5 24 6 16'), lift: _lift + 3), w0: 2.0 * sc, w1: 0.8 * sc, color: c);
+      p.fill(h.path(svg('M-12 36 C-6 44 6 44 12 36 C8 50 -8 50 -12 36 Z'), lift: _lift + 1), withA(cloth.shade, .35));
     });
     pen.line(cover, w: Style.line * sc, color: Style.ink);
   }

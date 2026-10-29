@@ -16,9 +16,9 @@ class EyeSpec {
     this.y = 0.0,
     this.lookX = 0.0,
     this.lookY = 0.0,
-    this.iris = const Color(0xFF6A4326),
-    this.irisR = 0.54,
-    this.pupilR = 0.56,
+    this.iris = const Color(0xFF4B3020),
+    this.irisR = 0.44,
+    this.pupilR = 0.6,
     this.lidTop = 0.0,
     this.lidSlant = 0.0,
     this.lidCurve = 0.25,
@@ -26,7 +26,7 @@ class EyeSpec {
     this.lashes = false,
     this.crease = false,
     this.sclera = const Color(0xFFFFFFFF),
-    this.lid = 3.0,
+    this.lid = 3.4,
     this.left,
     this.right,
     this.open = 1.0,
@@ -143,11 +143,11 @@ class _EyeGeom {
 
   Path get contour => h.path(contourLocal, lift: _lift);
 
+  /// Effective upper-lid coverage (lidTop, plus the blink amount).
+  double get _lt => s.lidTop + (1 - s.lidTop) * (1 - s.open.clamp(0.0, 1.0));
+
   /// Lid line v at u (unit coordinates).
-  double lidV(double u) {
-    final v0 = -1 + 2 * s.lidTop * s.open.clamp(0.0, 1.0) + (1 - s.open) * 0.0;
-    return v0 + s.lidSlant * u * -1 * 0.9;
-  }
+  double lidV(double u) => -1 + 2 * _lt - s.lidSlant * u * 0.9;
 
   /// Region of the eye that is NOT covered by the upper lid (local), as a path.
   Path get visibleLocal {
@@ -188,8 +188,7 @@ class _EyeGeom {
   /// The upper lid line as a polyline (local), used for the thick lid stroke.
   Path lidLineLocal() {
     final u0 = -1.18, u1 = 1.18;
-    final open = s.open.clamp(0.0, 1.0);
-    if (s.lidTop <= 0.001 && open >= .999) {
+    if (_lt <= 0.001) {
       // follow the contour's top arc
       final p = Path()
         ..moveTo(-1, 0.12)
@@ -241,7 +240,7 @@ void _drawEye(Pen pen, _EyeGeom g, Color ink) {
     final pupil = h.path(circle(icx + lookX * 0.4, icy + lookY * 0.3, pr), lift: _EyeGeom._lift + 0.5);
     p.fill(pupil, const Color(0xFF16101A));
     // highlights
-    final hl1 = h.path(circle(icx - ir * 0.32, icy - ir * 0.34, ir * 0.30), lift: _EyeGeom._lift + 1);
+    final hl1 = h.path(circle(icx - ir * 0.30, icy - ir * 0.34, ir * 0.26), lift: _EyeGeom._lift + 1);
     p.fill(hl1, const Color(0xFFFFFFFF));
     final hl2 = h.path(circle(icx + ir * 0.30, icy + ir * 0.36, ir * 0.13), lift: _EyeGeom._lift + 1);
     p.fill(hl2, withA(const Color(0xFFFFFFFF), .85));
@@ -249,7 +248,7 @@ void _drawEye(Pen pen, _EyeGeom g, Color ink) {
 
   // contour outline: thin all round, thick on the upper lid
   final contour = h.path(g.visibleLocal, lift: _EyeGeom._lift);
-  pen.line(contour, w: Style.lineFine * 1.15 * scale, color: ink);
+  pen.line(contour, w: Style.lineThin * 1.35 * scale, color: ink);
   final lidLine = h.path(g.lidLineLocal(), lift: _EyeGeom._lift);
   final contourGrown = h.path(g.contourLocal, lift: _EyeGeom._lift);
   pen.inside(_grow(contourGrown, 1.6 * scale), (p) {

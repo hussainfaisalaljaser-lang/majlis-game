@@ -122,6 +122,17 @@ class HeadSpec {
 
 typedef PropPainter = void Function(Pen pen, Head head);
 
+/// Which part of a character to paint.
+///
+/// - [composite]: background + whole figure (the static `<id>.webp`).
+/// - [body]: shoulders/clothes (+ `behind` props), transparent, 240x240 canvas.
+/// - [head]: headwear back, neck, collar, face, features, beard, glasses, headwear front
+///   (the rig rotates it around the neck at (100,150)).
+/// - [blink]: closed eyelids only, same coordinates as [head] (laid over it).
+/// - [mouth]: open-mouth overlay only, same coordinates as [head].
+/// - [props]: the `front` custom painter only.
+enum CharLayer { composite, body, head, blink, mouth, props }
+
 /// A character, as data.
 class CharSpec {
   const CharSpec({
@@ -144,6 +155,8 @@ class CharSpec {
     this.front,
     this.mouthOpen,
     this.neckWidth = 20,
+    this.custom,
+    this.extraLayers = const {},
   });
 
   final String id;
@@ -179,6 +192,14 @@ class CharSpec {
   final MouthSpec? mouthOpen;
   final double neckWidth;
 
+  /// Paints the WHOLE figure yourself (animals, mascots, ghosts...). When set, the body /
+  /// head / face parts above are ignored and only [custom] (after the background) is drawn.
+  final PropPainter? custom;
+
+  /// Extra named rig layers (wing, tail, crest, ear_l...). Each painter draws on the same
+  /// 240x240 (-20..220) transparent canvas as the standard layers; exported as `<name>.webp`.
+  final Map<String, PropPainter> extraLayers;
+
   Expr get resolvedExpr {
     if (irisColor == null) return expr;
     return expr.copyWith(eyes: expr.eyes.copyWith(iris: irisColor));
@@ -187,7 +208,7 @@ class CharSpec {
 
 /// Simple visible hair: sideburns / a hairline cap that peeks out under headwear.
 class HairSpec {
-  const HairSpec({this.color = HairColor.black, this.sideburn = 10.0, this.cap = false, this.fringe = 0.0});
+  const HairSpec({this.color = HairColor.black, this.sideburn = 10.0, this.cap = false});
 
   final HairColor color;
 
@@ -196,5 +217,4 @@ class HairSpec {
 
   /// Draw a full hair cap over the skull (bareheaded characters).
   final bool cap;
-  final double fringe;
 }

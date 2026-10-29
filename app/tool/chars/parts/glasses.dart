@@ -38,13 +38,13 @@ void drawGlasses(Pen pen, Head h, GlassesSpec g, EyeSpec eyes) {
         final r = (e.ew + 5.4) * g.size;
         p = circle(cx, cy, r);
       case GlassesKind.square:
-        p = svg('M${cx - 15 * g.size} ${cy - 10 * g.size} L${cx + 15 * g.size} ${cy - 10 * g.size} L${cx + 15 * g.size} ${cy + 8 * g.size} Q${cx} ${cy + 13 * g.size} ${cx - 15 * g.size} ${cy + 8 * g.size} Z');
+        p = svg('M${cx - 15 * g.size} ${cy - 10 * g.size} L${cx + 15 * g.size} ${cy - 10 * g.size} L${cx + 15 * g.size} ${cy + 8 * g.size} Q$cx ${cy + 13 * g.size} ${cx - 15 * g.size} ${cy + 8 * g.size} Z');
       case GlassesKind.sun:
         final w = (e.ew + 6) * g.size;
-        p = svg('M${cx - w} ${cy - 8 * g.size} Q${cx} ${cy - 11 * g.size} ${cx + w} ${cy - 8 * g.size} L${cx + w - 1} ${cy + 4 * g.size} Q${cx + w - 3} ${cy + 12 * g.size} ${cx} ${cy + 12 * g.size} Q${cx - w + 3} ${cy + 12 * g.size} ${cx - w + 1} ${cy + 4 * g.size} Z');
+        p = svg('M${cx - w} ${cy - 8 * g.size} Q$cx ${cy - 11 * g.size} ${cx + w} ${cy - 8 * g.size} L${cx + w - 1} ${cy + 4 * g.size} Q${cx + w - 3} ${cy + 12 * g.size} $cx ${cy + 12 * g.size} Q${cx - w + 3} ${cy + 12 * g.size} ${cx - w + 1} ${cy + 4 * g.size} Z');
       case GlassesKind.aviator:
         final w = (e.ew + 6) * g.size;
-        p = svg('M${cx - w} ${cy - 8 * g.size} Q${cx} ${cy - 11 * g.size} ${cx + w} ${cy - 8 * g.size} Q${cx + w + 1} ${cy + 8 * g.size} ${cx + 2} ${cy + 13 * g.size} Q${cx - w - 1} ${cy + 8 * g.size} ${cx - w} ${cy - 8 * g.size} Z');
+        p = svg('M${cx - w} ${cy - 8 * g.size} Q$cx ${cy - 11 * g.size} ${cx + w} ${cy - 8 * g.size} Q${cx + w + 1} ${cy + 8 * g.size} ${cx + 2} ${cy + 13 * g.size} Q${cx - w - 1} ${cy + 8 * g.size} ${cx - w} ${cy - 8 * g.size} Z');
     }
     lensPaths.add(h.path(p, lift: lift));
   }

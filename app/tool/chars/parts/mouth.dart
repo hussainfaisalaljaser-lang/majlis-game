@@ -73,7 +73,7 @@ void drawMouth(Pen pen, Head h, MouthSpec m, Skin skin) {
       pen.line(P('M${x0 - w - 0.5} ${y - 3 * k - 2.2} Q${x0 - w - 2} ${y - 3 * k} ${x0 - w + 1.5} ${y - 3 * k + 0.6}'), w: inkW * .7, color: withA(Style.ink, .8));
       pen.line(P('M${x0 + w + 0.5} ${y - 3 * k - 2.2} Q${x0 + w + 2} ${y - 3 * k} ${x0 + w - 1.5} ${y - 3 * k + 0.6}'), w: inkW * .7, color: withA(Style.ink, .8));
       if (m.lips) {
-        pen.line(P('M${x0 - w * .5} ${y + dp * .9 + 2.2} Q${x0} ${y + dp * .9 + 4.5} ${x0 + w * .5} ${y + dp * .9 + 2.2}'), w: inkW * .6, color: withA(lip, .9));
+        pen.line(P('M${x0 - w * .5} ${y + dp * .9 + 2.2} Q$x0 ${y + dp * .9 + 4.5} ${x0 + w * .5} ${y + dp * .9 + 2.2}'), w: inkW * .6, color: withA(lip, .9));
       }
     case MouthKind.smirk:
       final s = m.side;
@@ -117,7 +117,7 @@ void drawMouth(Pen pen, Head h, MouthSpec m, Skin skin) {
       final mouth = P('M${x0 - w} ${y - 3} C${x0 - w * .6} ${y + 1} ${x0 + w * .6} ${y + 1} ${x0 + w} ${y - 3} C${x0 + w * .8} ${y + 14 * k} ${x0 - w * .8} ${y + 14 * k} ${x0 - w} ${y - 3} Z');
       pen.fill(mouth, _mouthDark);
       pen.inside(mouth, (p) {
-        final teeth = P('M${x0 - w - 1} ${y - 5} L${x0 + w + 1} ${y - 5} L${x0 + w + 1} ${y + 3} Q${x0} ${y + 7} ${x0 - w - 1} ${y + 3} Z');
+        final teeth = P('M${x0 - w - 1} ${y - 5} L${x0 + w + 1} ${y - 5} L${x0 + w + 1} ${y + 3} Q$x0 ${y + 7} ${x0 - w - 1} ${y + 3} Z');
         p.fill(teeth, _teeth);
         p.fill(P('M${x0 - w * .6} ${y + 14 * k + 1} C${x0 - w * .4} ${y + 7 * k + 2} ${x0 + w * .4} ${y + 7 * k + 2} ${x0 + w * .6} ${y + 14 * k + 1} Z'), _tongue);
       });
@@ -126,9 +126,9 @@ void drawMouth(Pen pen, Head h, MouthSpec m, Skin skin) {
       // bared clenched teeth (angry): wide rounded rectangle, upper + lower row
       final hw = w * 1.05, hh = 5.4 * k;
       final mouth = P(
-        'M${x0 - hw} ${y - 1} C${x0 - hw - 2} ${y - hh - 3} ${x0 - hw * .4} ${y - hh - 4.5} ${x0} ${y - hh - 3.2}'
+        'M${x0 - hw} ${y - 1} C${x0 - hw - 2} ${y - hh - 3} ${x0 - hw * .4} ${y - hh - 4.5} $x0 ${y - hh - 3.2}'
         ' C${x0 + hw * .4} ${y - hh - 4.5} ${x0 + hw + 2} ${y - hh - 3} ${x0 + hw} ${y - 1}'
-        ' C${x0 + hw + 1} ${y + hh + 3} ${x0 + hw * .4} ${y + hh + 4.5} ${x0} ${y + hh + 3.4}'
+        ' C${x0 + hw + 1} ${y + hh + 3} ${x0 + hw * .4} ${y + hh + 4.5} $x0 ${y + hh + 3.4}'
         ' C${x0 - hw * .4} ${y + hh + 4.5} ${x0 - hw - 1} ${y + hh + 3} ${x0 - hw} ${y - 1} Z',
       );
       pen.fill(mouth, _mouthDark);
@@ -151,14 +151,14 @@ void drawMouth(Pen pen, Head h, MouthSpec m, Skin skin) {
       // small worried / surprised open mouth
       final hw = w * 0.55, hh = 3.6 * k;
       final mouth = P(
-        'M${x0 - hw} ${y} C${x0 - hw * .5} ${y - hh * .9} ${x0 + hw * .5} ${y - hh * .9} ${x0 + hw} ${y}'
-        ' C${x0 + hw * .8} ${y + hh * 2} ${x0 - hw * .8} ${y + hh * 2} ${x0 - hw} ${y} Z',
+        'M${x0 - hw} $y C${x0 - hw * .5} ${y - hh * .9} ${x0 + hw * .5} ${y - hh * .9} ${x0 + hw} $y'
+        ' C${x0 + hw * .8} ${y + hh * 2} ${x0 - hw * .8} ${y + hh * 2} ${x0 - hw} $y Z',
       );
       pen.fill(mouth, _mouthDark);
       pen.inside(mouth, (p) {
         final t = P('M${x0 - hw} ${y - 2} L${x0 + hw} ${y - 2} L${x0 + hw} ${y + hh * .5} L${x0 - hw} ${y + hh * .5} Z');
         p.fill(t, _teeth);
-        p.fill(P('M${x0 - hw * .5} ${y + hh * 2} Q${x0} ${y + hh * .4} ${x0 + hw * .5} ${y + hh * 2} Z'), _tongue);
+        p.fill(P('M${x0 - hw * .5} ${y + hh * 2} Q$x0 ${y + hh * .4} ${x0 + hw * .5} ${y + hh * 2} Z'), _tongue);
       });
       pen.line(mouth, w: inkW * 1.1, color: Style.ink);
     case MouthKind.oh:
@@ -170,10 +170,10 @@ void drawMouth(Pen pen, Head h, MouthSpec m, Skin skin) {
     case MouthKind.frown:
       final line = P('M${x0 - w} ${y + 1.5} C${x0 - w * .5} ${y - 5 * k} ${x0 + w * .5} ${y - 5 * k} ${x0 + w} ${y + 1.5}');
       pen.line(line, w: inkW * 1.15, color: Style.ink);
-      if (m.lips) pen.line(P('M${x0 - w * .5} ${y + 3.6} Q${x0} ${y + 2.4} ${x0 + w * .5} ${y + 3.6}'), w: inkW * .55, color: withA(lip, .9));
+      if (m.lips) pen.line(P('M${x0 - w * .5} ${y + 3.6} Q$x0 ${y + 2.4} ${x0 + w * .5} ${y + 3.6}'), w: inkW * .55, color: withA(lip, .9));
     case MouthKind.pout:
-      final upper = P('M${x0 - w * .55} ${y} C${x0 - w * .2} ${y - 3} ${x0 + w * .2} ${y - 3} ${x0 + w * .55} ${y}');
-      final lower = P('M${x0 - w * .55} ${y} C${x0 - w * .3} ${y + 5} ${x0 + w * .3} ${y + 5} ${x0 + w * .55} ${y}');
+      final upper = P('M${x0 - w * .55} $y C${x0 - w * .2} ${y - 3} ${x0 + w * .2} ${y - 3} ${x0 + w * .55} $y');
+      final lower = P('M${x0 - w * .55} $y C${x0 - w * .3} ${y + 5} ${x0 + w * .3} ${y + 5} ${x0 + w * .55} $y');
       pen.fill(lower, withA(lip, .85));
       pen.line(lower, w: inkW * .9, color: Style.ink);
       pen.line(upper, w: inkW * .9, color: Style.ink);

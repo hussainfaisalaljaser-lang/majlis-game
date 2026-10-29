@@ -251,6 +251,35 @@ Path warpPath(Path p, Offset Function(Offset) f, {double step = 0.9}) {
   return out;
 }
 
+/// A stroke that starts [w0] wide and tapers to [w1] (organic cloth folds, hair strands).
+Path taperedStroke(Path curve, {double w0 = 2.4, double w1 = 0.2, double bulge = 0.0}) {
+  final left = <Offset>[], right = <Offset>[];
+  for (final m in curve.computeMetrics()) {
+    final n = math.max(4, (m.length / 1.6).ceil());
+    for (var i = 0; i <= n; i++) {
+      final t = i / n;
+      final tan = m.getTangentForOffset(m.length * t);
+      if (tan == null) continue;
+      final v = tan.vector;
+      final nrm = Offset(-v.dy, v.dx);
+      final w = (w0 + (w1 - w0) * math.pow(t, 0.85) + bulge * math.sin(t * math.pi)) / 2;
+      left.add(tan.position + nrm * w);
+      right.add(tan.position - nrm * w);
+    }
+    break;
+  }
+  if (left.length < 2) return Path();
+  final p = Path()..moveTo(left.first.dx, left.first.dy);
+  for (final o in left.skip(1)) {
+    p.lineTo(o.dx, o.dy);
+  }
+  for (final o in right.reversed) {
+    p.lineTo(o.dx, o.dy);
+  }
+  p.close();
+  return p;
+}
+
 // ───────────────────────────── colour helpers ─────────────────────────────
 
 Color hex(int v) => Color(0xFF000000 | v);
@@ -321,6 +350,11 @@ class Pen {
   );
 
   void line(Path p, {double w = Style.lineThin, Color color = Style.ink}) => c.drawPath(p, _stroke(color, w));
+
+  /// Tapered fold line: thick at the start, thin at the end.
+  void taper(Path curve, {double w0 = 2.4, double w1 = 0.2, Color color = Style.ink, double bulge = 0}) {
+    fill(taperedStroke(curve, w0: w0, w1: w1, bulge: bulge), color);
+  }
 
   /// Run [draw] with the canvas clipped to [clip].
   void clipped(Path clip, void Function() draw) {

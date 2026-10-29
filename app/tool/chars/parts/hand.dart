@@ -51,9 +51,9 @@ void drawChinHand(
   pen.solid(thumb, skin.tones, shade: 2 * s, hi: 0.8 * s, w: lw * .9);
 
   // index finger lying along the cheek
-  final index = P('M8 -8 C10 -22 16 -32 24 -40 C28 -44 33 -41 31 -36 C27 -26 24 -16 22 -6 Z');
+  final index = P('M8 -8 C12 -18 20 -26 30 -31 C35 -33 38 -28 34 -24 C28 -18 25 -12 22 -6 Z');
   pen.solid(index, skin.tones, shade: 2.4 * s, hi: 0.8 * s, w: lw * .9);
-  pen.line(P('M14 -26 C18 -27 22 -27 26 -29'), w: fine * .7, color: withA(skin.deep, .8));
+  pen.line(P('M17 -19 C21 -22 25 -23 29 -25'), w: fine * .7, color: withA(skin.deep, .8));
 
   // fist
   final fist = P('M-14 -4 C-14 -13 -3 -16 7 -15 C17 -14 23 -6 23 3 C23 14 16 21 5 21 C-6 21 -14 13 -14 -4 Z');
