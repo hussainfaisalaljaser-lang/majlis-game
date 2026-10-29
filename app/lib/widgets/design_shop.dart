@@ -521,19 +521,7 @@ class ShopTopBar extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 12),
       child: Row(
         children: [
-          Semantics(
-            button: true,
-            label: 'رجوع',
-            excludeSemantics: true,
-            child: GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onTap: () => Navigator.of(context).maybePop(),
-              child: const Padding(
-                padding: EdgeInsets.fromLTRB(2, 6, 8, 6),
-                child: CustomPaint(size: Size(32, 32), painter: _BackArrowPainter()),
-              ),
-            ),
-          ),
+          const BackArrow(height: 30),
           if (icon != null) ...[icon!, const SizedBox(width: 6)],
           OutlinedText(
             title,
@@ -557,45 +545,6 @@ class ShopTopBar extends StatelessWidget {
       ),
     ),
   );
-}
-
-/// سهم الرجوع: سهم ذهبي ثخين بحد بني (يشير لليمين لأن الشاشة من اليمين).
-class _BackArrowPainter extends CustomPainter {
-  const _BackArrowPainter();
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final k = size.width / 28;
-    final p = Path()
-      ..moveTo(2 * k, 10.5 * k)
-      ..lineTo(14 * k, 10.5 * k)
-      ..lineTo(14 * k, 4 * k)
-      ..lineTo(26 * k, 14 * k)
-      ..lineTo(14 * k, 24 * k)
-      ..lineTo(14 * k, 17.5 * k)
-      ..lineTo(2 * k, 17.5 * k)
-      ..close();
-    canvas.drawPath(
-      p,
-      Paint()
-        ..shader = const LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [Color(0xFFFFE08A), Color(0xFFF0A33A), Color(0xFFC2701C)],
-        ).createShader(Offset.zero & size),
-    );
-    canvas.drawPath(
-      p,
-      Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 2.2 * k
-        ..strokeJoin = StrokeJoin.round
-        ..color = const Color(0xFF3A1A08),
-    );
-  }
-
-  @override
-  bool shouldRepaint(_BackArrowPainter old) => false;
 }
 
 /// زر «غرفة التبديل» بالشريط: الاسم بالذهبي وبلورة زرقا.

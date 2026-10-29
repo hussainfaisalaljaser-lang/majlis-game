@@ -544,13 +544,9 @@ class DesignAppBar extends StatelessWidget implements PreferredSizeWidget {
                 button: true,
                 label: 'رجوع',
                 excludeSemantics: true,
-                child: GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onTap: onBack ?? () => Navigator.of(context).maybePop(),
-                  child: const SizedBox(width: 46, height: 46, child: CustomPaint(painter: _BackArrowPainter())),
-                ),
+                child: BackArrow(onTap: onBack, height: 32),
               ),
-              const SizedBox(width: 10),
+              const SizedBox(width: 6),
               if (icon != null) ...[icon!, const SizedBox(width: 8)],
               OutlinedText(title, size: 30, stroke: const Color(0xFF5A1A10), strokeWidth: 5),
               const Spacer(),
@@ -563,35 +559,110 @@ class DesignAppBar extends StatelessWidget implements PreferredSizeWidget {
   }
 }
 
-/// سهم الرجوع: خط وراس سهم مزدوج بلون الكريم وحد بني أحمر.
-class _BackArrowPainter extends CustomPainter {
-  const _BackArrowPainter();
+/// سهم الرجوع الوحيد في اللعبة (مثل الفيديو): سهم قصير مليان وبعده علامة »، ذهبي بتدرج وحد بني غامق.
+/// يشير لليمين لأن الشاشات عربية والرجوع جهة اليمين. كل الشاشات تستخدمه (ما أحد يرسم سهم لنفسه).
+class BackArrow extends StatelessWidget {
+  const BackArrow({super.key, this.onTap, this.height = 30});
+
+  /// لو ما انعطى: يرجع للشاشة اللي قبل.
+  final VoidCallback? onTap;
+
+  /// ارتفاع الرسمة؛ العرض يتبعه.
+  final double height;
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+    button: true,
+    label: 'رجوع',
+    excludeSemantics: true,
+    child: GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap ?? () => Navigator.of(context).maybePop(),
+      // مساحة اللمس أكبر من الرسمة شوي
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+        child: CustomPaint(size: Size(height * BackArrowPainter.aspect, height), painter: const BackArrowPainter()),
+      ),
+    ),
+  );
+}
+
+class BackArrowPainter extends CustomPainter {
+  const BackArrowPainter();
+
+  /// العرض ÷ الارتفاع.
+  static const aspect = 1.16;
 
   @override
   void paint(Canvas canvas, Size size) {
-    final c = size.center(Offset.zero);
-    final w = size.width * .62;
-    final shaft = Path()
-      ..moveTo(c.dx - w / 2, c.dy)
-      ..lineTo(c.dx + w / 2 - 4, c.dy);
-    final head = Path()
-      ..moveTo(c.dx + w * .05, c.dy - w * .34)
-      ..lineTo(c.dx + w / 2, c.dy)
-      ..lineTo(c.dx + w * .05, c.dy + w * .34);
-    for (final (width, color) in [(11.0, const Color(0xFF5A1A10)), (6.0, const Color(0xFFF6DFA8))]) {
-      final paint = Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = width
-        ..strokeCap = StrokeCap.round
-        ..strokeJoin = StrokeJoin.round
-        ..color = color;
-      canvas.drawPath(shaft, paint);
-      canvas.drawPath(head, paint);
+    // الرسمة على لوحة ١٠٠×٨٨
+    final k = size.height / 88;
+    canvas.translate((size.width - 100 * k) / 2, 0);
+    canvas.scale(k);
+    // السهم القصير (جسم وراس مثلث)
+    final arrow = Path()
+      ..moveTo(3, 35)
+      ..lineTo(35, 35)
+      ..lineTo(35, 26)
+      ..lineTo(58, 44)
+      ..lineTo(35, 62)
+      ..lineTo(35, 53)
+      ..lineTo(3, 53)
+      ..close();
+    // علامة » (خط مكسور بسماكة)
+    final chevron = Path()
+      ..moveTo(55, 11)
+      ..lineTo(88, 44)
+      ..lineTo(55, 77);
+    const stroke = 15.0;
+    const edge = 4.0;
+    Paint line(double w, {Color? color, Shader? shader}) => Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = w
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round
+      ..color = color ?? const Color(0xFF000000)
+      ..shader = shader;
+    // ظل خفيف تحت، ثم الحد البني الغامق
+    for (final (shift, color) in [(3.0, const Color(0x66000000)), (0.0, const Color(0xFF4A1810))]) {
+      canvas.save();
+      canvas.translate(0, shift);
+      canvas.drawPath(arrow, line(edge * 2, color: color));
+      canvas.drawPath(chevron, line(stroke + edge * 2, color: color));
+      canvas.restore();
     }
+    // التعبئة الذهبية: تدرج من الكريم لفوق للنحاسي لتحت
+    final gold = const LinearGradient(
+      begin: Alignment.topCenter,
+      end: Alignment.bottomCenter,
+      colors: [Color(0xFFF8E3A6), Color(0xFFE2B160), Color(0xFFB9782C)],
+      stops: [0, .5, 1],
+    ).createShader(const Rect.fromLTWH(0, 0, 100, 88));
+    canvas.drawPath(arrow, Paint()..shader = gold);
+    canvas.drawPath(chevron, line(stroke, shader: gold));
+    // لمعة رفيعة على الحافة العليا
+    final shine = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.2
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round
+      ..color = const Color(0xCCFFF6D6);
+    canvas.drawPath(
+      Path()
+        ..moveTo(6, 37.5)
+        ..lineTo(33, 37.5),
+      shine,
+    );
+    canvas.drawPath(
+      Path()
+        ..moveTo(59, 7.5)
+        ..lineTo(90, 38.5),
+      shine,
+    );
   }
 
   @override
-  bool shouldRepaint(_BackArrowPainter old) => false;
+  bool shouldRepaint(BackArrowPainter old) => false;
 }
 
 /// حبة غامقة مدورة بكلام وأيقونة (مثل «غرفة التبديل» جنب الفلوس فوق).

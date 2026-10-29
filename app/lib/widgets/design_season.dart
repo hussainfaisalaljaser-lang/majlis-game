@@ -270,63 +270,7 @@ class SnBackButton extends StatelessWidget {
   final double size;
 
   @override
-  Widget build(BuildContext context) => Semantics(
-    button: true,
-    label: 'رجوع',
-    excludeSemantics: true,
-    child: GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: onTap ?? () => Navigator.of(context).maybePop(),
-      child: SizedBox(
-        width: size * 1.25,
-        height: size,
-        child: CustomPaint(painter: _BackArrowPainter()),
-      ),
-    ),
-  );
-}
-
-class _BackArrowPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final w = size.width, h = size.height;
-    final shaft = Path()
-      ..moveTo(w * .06, h * .5)
-      ..lineTo(w * .52, h * .5)
-      ..moveTo(w * .36, h * .3)
-      ..lineTo(w * .56, h * .5)
-      ..lineTo(w * .36, h * .7);
-    final chevron = Path()
-      ..moveTo(w * .62, h * .16)
-      ..lineTo(w * .92, h * .5)
-      ..lineTo(w * .62, h * .84);
-    final stroke = h * .13;
-    Paint line(double width, Color c) => Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = width
-      ..strokeCap = StrokeCap.round
-      ..strokeJoin = StrokeJoin.round
-      ..color = c;
-    for (final p in [shaft, chevron]) {
-      canvas.drawPath(p.shift(Offset(0, h * .04)), line(stroke + h * .2, const Color(0xFF3A0E08)));
-      canvas.drawPath(p, line(stroke + h * .13, const Color(0xFF7A2A14)));
-    }
-    final gold = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = stroke
-      ..strokeCap = StrokeCap.round
-      ..strokeJoin = StrokeJoin.round
-      ..shader = const LinearGradient(
-        begin: Alignment.topCenter,
-        end: Alignment.bottomCenter,
-        colors: [Color(0xFFFFE9A8), Color(0xFFF0B24A), Color(0xFFD08A22)],
-      ).createShader(Offset.zero & size);
-    canvas.drawPath(shaft, gold);
-    canvas.drawPath(chevron, gold);
-  }
-
-  @override
-  bool shouldRepaint(_BackArrowPainter old) => false;
+  Widget build(BuildContext context) => BackArrow(onTap: onTap, height: size);
 }
 
 /// الشريط العلوي: سهم الرجوع، أيقونة وعنوان ذهبي، ومنتصف ([middle]) وطرف ([trailing]، العملات عادةً).

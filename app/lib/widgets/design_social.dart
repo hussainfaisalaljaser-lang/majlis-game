@@ -394,60 +394,7 @@ class SocBackArrow extends StatelessWidget {
   final VoidCallback? onTap;
 
   @override
-  Widget build(BuildContext context) => Semantics(
-    button: true,
-    label: 'رجوع',
-    excludeSemantics: true,
-    child: GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: onTap ?? () => Navigator.of(context).maybePop(),
-      child: const SizedBox(width: 48, height: 40, child: CustomPaint(painter: _ArrowPainter())),
-    ),
-  );
-}
-
-class _ArrowPainter extends CustomPainter {
-  const _ArrowPainter();
-
-  @override
-  void paint(Canvas canvas, Size s) {
-    final w = s.width, h = s.height;
-    final c = h / 2;
-    final p = Path()
-      ..moveTo(w * .14, c)
-      ..lineTo(w * .86, c)
-      ..moveTo(w * .56, c - h * .27)
-      ..lineTo(w * .86, c)
-      ..lineTo(w * .56, c + h * .27)
-      ..moveTo(w * .14, c - h * .2)
-      ..lineTo(w * .3, c)
-      ..lineTo(w * .14, c + h * .2);
-    canvas.drawPath(
-      p,
-      Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 7
-        ..strokeCap = StrokeCap.round
-        ..strokeJoin = StrokeJoin.round
-        ..color = const Color(0xFF3A1606),
-    );
-    canvas.drawPath(
-      p,
-      Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 3.6
-        ..strokeCap = StrokeCap.round
-        ..strokeJoin = StrokeJoin.round
-        ..shader = const LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [Color(0xFFFFE9A0), Color(0xFFF2A92E)],
-        ).createShader(Offset.zero & s),
-    );
-  }
-
-  @override
-  bool shouldRepaint(_ArrowPainter old) => false;
+  Widget build(BuildContext context) => BackArrow(onTap: onTap, height: 30);
 }
 
 /// شريط الشاشة: سهم الرجوع، وأيقونة وعنوان ذهبي، والفلوس (اختياري) على الطرف الثاني.
