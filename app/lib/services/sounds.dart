@@ -49,6 +49,18 @@ abstract final class Sounds {
     } catch (_) {}
   }
 
+  /// سياق الصوت لكل اللعبة: ما يطلب «تركيز الصوت» من أندرويد. بدون هذا كل مشغّل جديد (مؤثر أو جملة راوي)
+  /// ياخذ التركيز من الباقين، فتوقف الموسيقى والراوي كل ما يشتغل مؤثر.
+  static final _context = AudioContext(android: const AudioContextAndroid(audioFocus: AndroidAudioFocus.none));
+
+  /// يخلي كل المشغّلات اللي تنفتح بعدها تشتغل مع بعض بدون ما توقف بعض (يُستدعى مرة وحدة من main).
+  static Future<void> init() async {
+    if (silent) return;
+    try {
+      await AudioPlayer.global.setAudioContext(_context);
+    } catch (_) {}
+  }
+
   static const _pool = 6;
   static final _players = <AudioPlayer>[];
   static int _next = 0;
@@ -60,6 +72,7 @@ abstract final class Sounds {
       final player = _players.length < _pool
           ? (AudioPlayer()
               ..positionUpdater = null
+              ..setAudioContext(_context)
               ..setPlayerMode(PlayerMode.lowLatency))
           : _players[_next];
       if (_players.length < _pool) _players.add(player);

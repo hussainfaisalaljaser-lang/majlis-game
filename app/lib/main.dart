@@ -14,6 +14,7 @@ import 'services/presence.dart';
 import 'services/push.dart';
 import 'services/music.dart';
 import 'services/sfx.dart';
+import 'services/sounds.dart';
 import 'services/telemetry.dart';
 import 'widgets/fx.dart';
 import 'widgets/splash.dart';
@@ -32,6 +33,8 @@ Future<void> main() async {
   // اللعبة بالعرض، مثل ألعاب الطاولة. ونخفي أشرطة النظام عشان الشاشة كلها للعبة.
   await SystemChrome.setPreferredOrientations([DeviceOrientation.landscapeLeft, DeviceOrientation.landscapeRight]);
   SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+  // أول شي: كل مشغّلات الصوت تشتغل مع بعض (موسيقى وراوي ومؤثرات) بدون ما أحد ياخذ تركيز الصوت من الثاني
+  await Sounds.init();
   await Future.wait([Backend.instance.init(), Sfx.init(), Music.init(), FxClock.init()]);
   await Telemetry.init();
   Music.play('menu');
