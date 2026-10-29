@@ -145,7 +145,7 @@ class _RoleRevealState extends State<_RoleReveal> with TickerProviderStateMixin 
                         opacity: .35 + .65 * shown,
                         child: Transform.translate(
                           offset: Offset(0, c.dy - box.maxHeight / 2),
-                          child: const SunRays(opacity: .17),
+                          child: const SunRays(opacity: .11),
                         ),
                       ),
                     ),
