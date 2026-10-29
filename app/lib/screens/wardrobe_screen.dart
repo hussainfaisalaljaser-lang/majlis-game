@@ -530,7 +530,7 @@ class _Preview extends StatelessWidget {
           Positioned.fill(
             child: LayoutBuilder(
               builder: (context, c) {
-                final avatar = (c.maxHeight * .34).clamp(70.0, 112.0);
+                final avatar = (c.maxHeight * .29).clamp(56.0, 112.0);
                 return Column(
                   children: [
                     const SizedBox(height: 10),
