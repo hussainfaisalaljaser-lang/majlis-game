@@ -4,6 +4,16 @@ import 'package:flutter/material.dart';
 
 import 'fx.dart';
 
+/// طبقات الشخصيات المتحركة أصلها ٦٠٠ نقطة. اللي تنعرض أصغر من [animLayerSmall] (المتجر والطاولة والبطاقات)
+/// تنفك بهالحجم: نفس الشكل، بربع الذاكرة، فتتجهز كلها ورا الرئيسية (preload.dart). الأكبر تنفك كاملة.
+const animLayerSmall = 384;
+
+/// حجم فك الطبقة اللي عرضها [logicalWidth] (null = كاملة).
+int? animLayerCacheWidth(double logicalWidth) {
+  final ratio = WidgetsBinding.instance.platformDispatcher.views.first.devicePixelRatio;
+  return logicalWidth * ratio <= animLayerSmall ? animLayerSmall : null;
+}
+
 /// الشخصيات الملحمية والأسطورية (غير الصقّار): طبقات من نفس الرسمة (tools/art/anim_avatars.py → RIGS)
 /// بلوحة أكبر من الصورة بـ ٢٠٪، و٢٠٠ وحدة = قطر الصورة. كلهم يتنفسون ويرمشون ويحركون روسهم،
 /// ولكل واحد حركة خاصة (يغمز، يعوي، يطفو، تطيح حوله عملات…).
@@ -89,6 +99,7 @@ class AvatarRig {
         'assets/avatars/anim/$id/$name.webp',
         width: size * 1.2,
         height: size * 1.2,
+        cacheWidth: animLayerCacheWidth(size * 1.2),
         gaplessPlayback: true,
         filterQuality: FilterQuality.medium,
         opacity: opacity >= 1 ? null : AlwaysStoppedAnimation(opacity.clamp(0.0, 1.0)),

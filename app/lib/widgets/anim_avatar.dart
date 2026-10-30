@@ -116,6 +116,7 @@ class AnimAvatar extends StatelessWidget {
           'assets/avatars/anim/$id/$name.webp',
           width: size * 1.2,
           height: size * 1.2,
+          cacheWidth: animLayerCacheWidth(size * 1.2),
           gaplessPlayback: true,
           filterQuality: FilterQuality.medium,
         ),
