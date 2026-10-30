@@ -5,7 +5,7 @@ name: Deploy server
 on:
   push:
     branches: [main]
-    paths: ['engine/**', 'functions/**', 'firestore.rules', 'firestore.indexes.json', 'firebase.json', 'site/**']
+    paths: ['engine/**', 'functions/**', 'firestore.rules', 'firestore.indexes.json', 'firebase.json', 'site/**', '.github/workflows/deploy.yml']
   workflow_dispatch:
 
 jobs:
@@ -48,8 +48,15 @@ jobs:
           code=${PIPESTATUS[0]}
           # الفهارس (للترتيب): لو فشلت نكمل ونطلع السبب كملاحظة.
           if [ "$code" -eq 0 ]; then
-            npx firebase deploy --only firestore:indexes --project majlis-game-1d739 --non-interactive --force --debug > "$RUNNER_TEMP/indexes.log" 2>&1 \
-              || echo "::warning::الفهارس: $(sed 's/\x1b\[[0-9;]*m//g' "$RUNNER_TEMP/indexes.log" | grep -iE 'HTTP Error|error:|\"message\"' | tail -6 | tr '\n' ' ' | cut -c1-900)"
+            # فايربيس يتعثر بالفهارس على قاعدة جديدة فاضية، فنسويها من firestore.indexes.json بـ gcloud (الموجود يتخطاه).
+            python3 - > "$RUNNER_TEMP/idx.sh" <<'PY'
+          import json, shlex
+          for ix in json.load(open('../firestore.indexes.json'))['indexes']:
+              fields = ' '.join('--field-config=' + shlex.quote(f"field-path={f['fieldPath']},order={f['order'].lower()}") for f in ix['fields'])
+              print(f"gcloud firestore indexes composite create --collection-group={ix['collectionGroup']} --query-scope={ix['queryScope'].lower().replace('_', '-')} {fields} --database=gulf --project majlis-game-1d739 --async --quiet 2>&1 | grep -viE 'already exists' | tail -2")
+          PY
+            idx_out=$(bash "$RUNNER_TEMP/idx.sh" 2>&1 | tr '\n' ' ' | cut -c1-900)
+            [ -n "$idx_out" ] && echo "::notice::الفهارس: ${idx_out}"
             # سجل المباريات ينمسح لحاله بعد مدته (TTL على expireAt).
             gcloud firestore fields ttls update expireAt --collection-group=history --enable-ttl --database=gulf \
               --project majlis-game-1d739 --async --quiet > "$RUNNER_TEMP/ttl.log" 2>&1 \
