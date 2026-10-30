@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import '../theme.dart';
 import 'common.dart';
 import 'fx.dart';
+import 'gradient_text.dart';
 import 'ui.dart';
 
 /// الطورين وثيم كل واحد: الكلاسيكي (الزعيم والخونة والأوفياء بس) بليل خمري وجمر، والمطوّر (فيه أدوار بقدرات)
@@ -279,13 +280,18 @@ class ModeName extends StatelessWidget {
   final String? text;
 
   @override
-  Widget build(BuildContext context) => ShaderMask(
-    blendMode: BlendMode.srcIn,
-    shaderCallback: (r) =>
-        LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: mode.title).createShader(r),
+  // الكلام نفسه شفاف (مقاسه بس)، والتدرج ينرسم مكانه (مو ShaderMask: طبقته المؤقتة تطلع بقايا ببعض الجوالات).
+  Widget build(BuildContext context) => GradientFill(
+    colors: mode.title,
     child: Text(
       text ?? mode.name,
-      style: TextStyle(fontFamily: kufi, fontSize: size, fontWeight: FontWeight.w700, height: 1.25),
+      style: TextStyle(
+        fontFamily: kufi,
+        fontSize: size,
+        fontWeight: FontWeight.w700,
+        height: 1.25,
+        color: Colors.transparent,
+      ),
     ),
   );
 }

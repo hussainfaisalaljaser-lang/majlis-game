@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import '../theme.dart';
 import 'draw_flags.dart';
 import 'fx.dart';
+import 'gradient_text.dart';
 
 /// قطع التصميم الجديد (خشب، مخمل، رق، ذهب): كل شاشة تبني منها عشان يكون الشكل واحد في كل مكان.
 /// الخامات في assets/design (مقصوصة من صور التصميم أو مولّدة بسكربت).
@@ -191,47 +192,35 @@ class OutlinedText extends StatelessWidget {
     final sw = strokeWidth ?? (size * .16).clamp(2.0, 9.0);
     final base = TextStyle(fontFamily: family, fontWeight: weight, fontSize: size, height: 1.25);
     final overflow = maxLines == null ? null : TextOverflow.ellipsis;
-    Widget fill = Text(
+    final outline = Text(
       text,
       textAlign: align,
       maxLines: maxLines,
       overflow: overflow,
       style: base.copyWith(
-        color: gradient == null
-            ? color
-            : DrawFlags.titleGradients
-            ? Colors.white
-            : gradient![1],
+        foreground: Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = sw
+          ..strokeJoin = StrokeJoin.round
+          ..color = stroke,
+        shadows: shadow && DrawFlags.textShadows ? [Shadow(color: Colors.black.withValues(alpha: .5), offset: Offset(0, size * .08), blurRadius: 3)] : null,
       ),
     );
+    // التدرج: الحروف تنرسم فوق حدها بفرشاة متدرجة (مو ShaderMask: طبقته المؤقتة تومّض ببعض الجوالات).
     if (gradient case final g? when DrawFlags.titleGradients) {
-      fill = ShaderMask(
-        shaderCallback: (r) => LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: g,
-        ).createShader(r),
-        child: fill,
-      );
+      return Stack(alignment: Alignment.center, children: [GradientFill(colors: g, child: outline)]);
     }
     return Stack(
       alignment: Alignment.center,
       children: [
+        outline,
         Text(
           text,
           textAlign: align,
           maxLines: maxLines,
           overflow: overflow,
-          style: base.copyWith(
-            foreground: Paint()
-              ..style = PaintingStyle.stroke
-              ..strokeWidth = sw
-              ..strokeJoin = StrokeJoin.round
-              ..color = stroke,
-            shadows: shadow && DrawFlags.textShadows ? [Shadow(color: Colors.black.withValues(alpha: .5), offset: Offset(0, size * .08), blurRadius: 3)] : null,
-          ),
+          style: base.copyWith(color: gradient == null ? color : gradient![1]),
         ),
-        fill,
       ],
     );
   }
