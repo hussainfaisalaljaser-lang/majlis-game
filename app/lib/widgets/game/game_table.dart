@@ -11,6 +11,7 @@ import '../../services/backend.dart';
 import '../../services/notes.dart';
 import '../../theme.dart';
 import '../bubble.dart';
+import '../cached_paint.dart';
 import '../common.dart';
 import '../death_fx.dart';
 import '../design.dart';
@@ -175,11 +176,12 @@ class GameTable extends StatelessWidget {
         return Stack(
           clipBehavior: Clip.none,
           children: [
+            // السجادة والصينية ثابتة: تنرسم مرة صورة (cached_paint.dart).
             Positioned.fill(
-              child: RepaintBoundary(child: CustomPaint(painter: CarpetPainter(palette))),
+              child: RepaintBoundary(child: CachedPaint(painter: CarpetPainter(palette))),
             ),
             Positioned.fill(
-              child: RepaintBoundary(child: CustomPaint(painter: OvalPainter(palette))),
+              child: RepaintBoundary(child: CachedPaint(painter: OvalPainter(palette))),
             ),
             pile(TablePos.draw, GameCardKind.draw, view.drawPileCount, 'السحب'),
             pile(TablePos.discard, GameCardKind.discard, view.discardPileCount, 'الرمي'),

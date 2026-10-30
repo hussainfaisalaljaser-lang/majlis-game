@@ -24,8 +24,8 @@ service cloud.firestore {
 
     // أبطال الأسبوع وغيرها من المعلومات العامة. الكل يقرا، والسيرفر بس يكتب.
     match /meta/{doc} {
-      allow read: if request.auth != null;
-      allow write: if false;
+      allow get: if request.auth != null;
+      allow list, write: if false;
     }
 
     // الدواوين: الكل يشوفها (الترتيب والأعضاء)، والسيرفر بس يكتب.
@@ -66,14 +66,14 @@ service cloud.firestore {
 
     // بطولة الأسبوع: المشاركين ووين وصلوا. الكل يشوفها، والسيرفر بس يكتب.
     match /tours/{week} {
-      allow read: if request.auth != null;
-      allow write: if false;
+      allow get: if request.auth != null;
+      allow list, write: if false;
     }
 
-    // الروم: الكل يقدر يشوف مين فيه وحالته.
+    // الروم: اللي عنده كوده يشوف مين فيه وحالته. ما أحد يقدر يجيب قائمة كل الطاولات (فيها أكواد الخاصة).
     match /rooms/{code} {
-      allow read: if request.auth != null;
-      allow write: if false;
+      allow get: if request.auth != null;
+      allow list, write: if false;
     }
 
     // الحالة الكاملة للعبة فيها الأدوار والكروت، فممنوع أي أحد يقراها.

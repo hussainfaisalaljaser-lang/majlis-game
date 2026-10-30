@@ -50,21 +50,104 @@ class FxClock extends StatefulWidget {
   State<FxClock> createState() => _FxClockState();
 }
 
+/// نبضة الحركات: كل ساعات الحركة تتحدث مع بعض في نفس الفريم.
+/// الجوال يرسم الشاشة كلها من جديد بكل فريم. لو الفريم خفيف تتحدث كل فريم (مثل قبل)، ولو الجوال تعبان
+/// (الفريم ياخذ أكثر من ١٢ms) تتحدث ٣٠ مرة بالثانية: الزينة (نجوم، لمعات، فوانيس، إطارات) تبان نفسها،
+/// والرسم ينقص للنص بدل ما يتقطع. الحركات الثانية (المشاهد، اللمس، السحب) تبقى كل فريم.
+abstract final class _Pulse {
+  static final _clocks = <_FxClockState>{};
+  static bool _waiting = false;
+  static bool _watching = false;
+
+  /// متوسط وقت الفريم (الأطول من البناء والرسم) بالملي ثانية، وهل الجوال تعبان.
+  static double _load = 0;
+  static bool _slow = false;
+
+  static void add(_FxClockState clock) {
+    if (!_watching) {
+      _watching = true;
+      SchedulerBinding.instance.addTimingsCallback(_onTimings);
+    }
+    if (_clocks.add(clock)) _arm();
+  }
+
+  static void remove(_FxClockState clock) => _clocks.remove(clock);
+
+  static void _onTimings(List<FrameTiming> timings) {
+    for (final t in timings) {
+      final us = math.max(t.buildDuration.inMicroseconds, t.rasterDuration.inMicroseconds);
+      _load = _load * .9 + us / 1000 * .1;
+    }
+    // فرق بين الحدين عشان ما يتنقل كل شوي.
+    if (!_slow && _load > 12) {
+      _slow = true;
+    } else if (_slow && _load < 8) {
+      _slow = false;
+    }
+  }
+
+  static void _arm() {
+    if (_waiting || _clocks.isEmpty) return;
+    _waiting = true;
+    void next() => SchedulerBinding.instance.scheduleFrameCallback((_) {
+      _waiting = false;
+      for (final clock in _clocks.toList()) {
+        clock._tick();
+      }
+      _arm();
+    });
+    // التعبان: ننتظر أقل من ٣٣ms بشوي ثم نطلب فريم، فيجي مع تحديث الشاشة اللي بعده (منتظم).
+    // والتطبيق بالخلفية ما يرسم.
+    if (_slow) {
+      Timer(const Duration(milliseconds: 24), next);
+    } else {
+      next();
+    }
+  }
+}
+
 class _FxClockState extends State<FxClock> with SingleTickerProviderStateMixin {
   // كل حركة تبدأ من نقطة مختلفة عشان الإطارات المتشابهة ما تتحرك سوا.
   late final double _offset = math.Random().nextDouble() * 100;
   final _watch = Stopwatch()..start();
   late final ValueNotifier<double> _time = ValueNotifier(_now);
-  late final Ticker _ticker = createTicker((_) => _time.value = _now);
+
+  /// للتصوير بس (services/capture.dart): كل فريم بالضبط. غيره على النبضة ([_Pulse]).
+  late final Ticker _ticker = createTicker((_) => _tick());
   Timer? _wake;
 
+  /// الصفحة مخفية (تحت صفحة ثانية): ما نحرّك.
+  ValueListenable<TickerModeData>? _mode;
+
   double get _now => FxClock.manual.value ?? _offset + _watch.elapsedMicroseconds / 1e6;
+
+  void _tick() => _time.value = _now;
 
   @override
   void initState() {
     super.initState();
     FxClock.manual.addListener(_schedule);
     FxClock.lite.addListener(_schedule);
+    _schedule();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _watchMode();
+  }
+
+  @override
+  void activate() {
+    super.activate();
+    _watchMode();
+  }
+
+  void _watchMode() {
+    final mode = TickerMode.getValuesNotifier(context);
+    if (mode == _mode) return;
+    _mode?.removeListener(_schedule);
+    _mode = mode..addListener(_schedule);
     _schedule();
   }
 
@@ -80,12 +163,19 @@ class _FxClockState extends State<FxClock> with SingleTickerProviderStateMixin {
   }
 
   void _run() {
-    if (!_ticker.isActive) _ticker.start();
+    if (FxClock.manual.value != null) {
+      _Pulse.remove(this);
+      if (!_ticker.isActive) _ticker.start();
+      return;
+    }
+    if (_ticker.isActive) _ticker.stop();
+    (_mode?.value.enabled ?? true) ? _Pulse.add(this) : _Pulse.remove(this);
   }
 
   /// توقف على لحظة ما فيها لمعة، وتصحى للمعة الجاية (لو مو خفيف).
   void _rest(double t, double into) {
     if (_ticker.isActive) _ticker.stop();
+    _Pulse.remove(this);
     _time.value = into >= glintFor ? t : t - into + glintFor + .01;
     if (!FxClock.lite.value) {
       _wake = Timer(Duration(microseconds: ((glintEvery - _time.value % glintEvery) * 1e6).ceil()), _schedule);
@@ -95,6 +185,8 @@ class _FxClockState extends State<FxClock> with SingleTickerProviderStateMixin {
   @override
   void dispose() {
     _wake?.cancel();
+    _Pulse.remove(this);
+    _mode?.removeListener(_schedule);
     FxClock.manual.removeListener(_schedule);
     FxClock.lite.removeListener(_schedule);
     _ticker.dispose();

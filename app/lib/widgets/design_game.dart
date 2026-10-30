@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../models/shop.dart';
 import '../theme.dart';
+import 'cached_paint.dart';
 import 'common.dart';
 import 'design.dart';
 import 'fx.dart';
@@ -754,14 +755,18 @@ class GameCardFace extends StatelessWidget {
     return _face(context);
   }
 
-  Widget _face(BuildContext context) => SizedBox(
-    width: width,
-    height: height,
-    child: CustomPaint(
-      painter: GameCardPainter(kind: kind, stamp: stamp, colors: colors, glow: glow, drawMark: emblem == null),
-      child: emblem == null
-          ? null
-          : Align(
+  Widget _face(BuildContext context) {
+    final painter = GameCardPainter(kind: kind, stamp: stamp, colors: colors, glow: glow, drawMark: emblem == null);
+    return SizedBox(
+      width: width,
+      height: height,
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          // الكرت الثابت ينرسم مرة صورة (cached_paint.dart). وقت الختم يتحرك، فينرسم كل فريم.
+          if (stamp == null) CachedPaint(painter: painter) else CustomPaint(painter: painter),
+          if (emblem != null)
+            Align(
               alignment: const Alignment(0, -.04),
               child: Opacity(
                 opacity: (stamp ?? 1).clamp(0.0, 1.0),
@@ -771,8 +776,10 @@ class GameCardFace extends StatelessWidget {
                 ),
               ),
             ),
-    ),
-  );
+        ],
+      ),
+    );
+  }
 }
 
 /// ظهر كرت اللعبة (كومة السحب وكومة الرمي): بنفسجي غامق بحافة ذهبية، وفيه أيقونة اللعبة واسمها بس.
@@ -790,7 +797,7 @@ class GameCardBack extends StatelessWidget {
       height: h,
       child: Stack(
         children: [
-          CustomPaint(size: Size(w, h), painter: _CardBackPainter(glow)),
+          SizedBox(width: w, height: h, child: CachedPaint(painter: _CardBackPainter(glow))),
           if (w >= 22)
             Positioned.fill(
               child: Padding(

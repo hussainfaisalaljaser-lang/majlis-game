@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import '../models/shop.dart';
 import '../theme.dart';
 import 'design_death.dart';
+import 'cached_paint.dart';
 import 'design_game.dart';
 import 'fx.dart';
 import 'venues.dart';
@@ -44,11 +45,9 @@ class MajlisRoom extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Stack(
     children: [
-      // الرسمة الثابتة: تنرسم مرة وتنحفظ.
+      // الرسمة الثابتة: تنرسم مرة وتنحفظ صورة.
       Positioned.fill(
-        child: RepaintBoundary(
-          child: CustomPaint(painter: venueBackdrop(venue, safe: safe), isComplex: true),
-        ),
+        child: RepaintBoundary(child: CachedPaint(painter: venueBackdrop(venue, safe: safe))),
       ),
       // التوتر يحمّر الغرفة.
       if (tension > 0)

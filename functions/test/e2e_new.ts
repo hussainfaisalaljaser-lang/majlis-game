@@ -246,6 +246,8 @@ async function main(): Promise<void> {
   assert.equal(entry.room.results[dev.uid].won, myTeam === entry.view.winner, 'نتيجته');
   assert.ok(entry.expireAt, 'تنحذف بعد ٣٠ يوم');
   await assert.rejects(getDocs(collection(plain.fs, `users/${dev.uid}/history`)), 'غيره ما يشوفه');
+  // ما أحد يجيب قائمة كل الطاولات (فيها أكواد الطاولات الخاصة)، بس طاولة بكودها.
+  await assert.rejects(getDocs(collection(plain.fs, 'rooms')), 'قائمة الطاولات ممنوعة');
   console.log('✓ سجل المباريات: اللعبة انحفظت لصاحبها بأدوارها وكروتها ونتيجته، وغيره ما يشوفها');
 
   // ٧. «العب مرة ثانية» في التدريب: نفس البوتات، وتبدأ على طول

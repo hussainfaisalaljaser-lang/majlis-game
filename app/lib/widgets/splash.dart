@@ -1,11 +1,11 @@
 import 'dart:async';
 import 'dart:math' as math;
-import 'dart:ui' as ui;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../theme.dart';
+import 'cached_paint.dart';
 import 'common.dart';
 import 'design.dart';
 import 'design_social.dart';
@@ -81,10 +81,7 @@ class _SplashViewState extends State<SplashView> {
       body: Stack(
         fit: StackFit.expand,
         children: [
-          ImageFiltered(
-            imageFilter: ui.ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-            child: const Image(image: AssetImage(DesignAssets.homeBg), fit: BoxFit.cover),
-          ),
+          const BlurredImage(AssetImage(DesignAssets.homeBg), sigma: 10),
           const DecoratedBox(
             decoration: BoxDecoration(
               gradient: RadialGradient(radius: 1.1, colors: [Color(0x00160A05), Color(0xCC160A05)], stops: [.3, 1]),
