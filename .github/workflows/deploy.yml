@@ -43,9 +43,18 @@ jobs:
           # قاعدة البيانات في الدوحة (مثل السيرفر). تنسوى أول مرة بس؛ لو موجودة يكمل.
           db_out=$(npx firebase firestore:databases:create gulf --location me-central1 --project majlis-game-1d739 --non-interactive 2>&1 | sed 's/\x1b\[[0-9;]*m//g' | tail -4 | tr '\n' ' ')
           echo "::notice::قاعدة gulf: ${db_out}"
-          # القواعد والفهارس أول: لو القاعدة ما انسوت يوقف هنا، قبل ما يتغيّر السيرفر.
-          npx firebase deploy --only firestore:rules,firestore:indexes --project majlis-game-1d739 --non-interactive --force 2>&1 | tee "$RUNNER_TEMP/deploy.log"
+          # القواعد أول: لو القاعدة ما انسوت يوقف هنا، قبل ما يتغيّر السيرفر.
+          npx firebase deploy --only firestore:rules --project majlis-game-1d739 --non-interactive --force 2>&1 | tee "$RUNNER_TEMP/deploy.log"
           code=${PIPESTATUS[0]}
+          # الفهارس (للترتيب): لو فشلت نكمل ونطلع السبب كملاحظة.
+          if [ "$code" -eq 0 ]; then
+            npx firebase deploy --only firestore:indexes --project majlis-game-1d739 --non-interactive --force --debug > "$RUNNER_TEMP/indexes.log" 2>&1 \
+              || echo "::warning::الفهارس: $(sed 's/\x1b\[[0-9;]*m//g' "$RUNNER_TEMP/indexes.log" | grep -iE 'HTTP Error|error:|\"message\"' | tail -6 | tr '\n' ' ' | cut -c1-900)"
+            # سجل المباريات ينمسح لحاله بعد مدته (TTL على expireAt).
+            gcloud firestore fields ttls update expireAt --collection-group=history --enable-ttl --database=gulf \
+              --project majlis-game-1d739 --async --quiet > "$RUNNER_TEMP/ttl.log" 2>&1 \
+              || echo "::warning::مدة سجل المباريات: $(tail -3 "$RUNNER_TEMP/ttl.log" | tr '\n' ' ' | cut -c1-500)"
+          fi
           if [ "$code" -eq 0 ]; then
             npx firebase deploy --only functions --project majlis-game-1d739 --non-interactive --force 2>&1 | tee -a "$RUNNER_TEMP/deploy.log"
             code=${PIPESTATUS[0]}
