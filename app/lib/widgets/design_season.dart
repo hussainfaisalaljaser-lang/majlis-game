@@ -1136,7 +1136,9 @@ class SnRewardTile extends StatelessWidget {
         ),
       );
     }
+    // الرسمة واسمها بنص البطاقة (بدون المحاذاة تلصق على بدايتها، يعني يمين).
     final body = Stack(
+      alignment: Alignment.center,
       children: [
         Padding(
           padding: EdgeInsets.fromLTRB(4 * k, 12 * k, 4 * k, 6 * k),
