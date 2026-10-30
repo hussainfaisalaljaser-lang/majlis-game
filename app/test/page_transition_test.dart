@@ -108,8 +108,9 @@ void main() {
         if (d > 24) off++;
       }
       final mean = sum / a.length;
-      // الفرق الوحيد المسموح: حواف الصفحة على بكسل الشاشة (الأصل يرسمها بين بكسلين).
-      expect(mean, lessThan(1), reason: 'لقطة $i: متوسط الفرق $mean');
+      // الفرق الوحيد المسموح: حواف الصفحة على بكسل الشاشة (الأصل يرسمها بين بكسلين)، وتقريب الشفافية
+      // (بمحرك Impeller، مثل الجوال، يوصل ١٫٥ من ٢٥٥).
+      expect(mean, lessThan(2), reason: 'لقطة $i: متوسط الفرق $mean');
       expect(off / a.length, lessThan(.002), reason: 'لقطة $i: بكسلات مختلفة ${off / a.length}');
     }
   });

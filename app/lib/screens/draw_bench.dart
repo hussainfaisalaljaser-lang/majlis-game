@@ -3,24 +3,20 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 
-import '../services/perf.dart';
 import '../services/preload.dart';
 import '../widgets/draw_flags.dart';
-import '../widgets/page_transition.dart';
 import 'shop_screen.dart';
 
 /// «قياس الرسم والتنقل» (أدوات المطور): يقيس على جوال اللاعب نفسه وين يروح وقت الرسم.
 /// يرجع للرئيسية، ويستنى التجهيز ورا الرئيسية يخلص، وبعدين:
-/// ١) يفتح المتجر ويرجع ٣ مرات بكل حركة (الجديدة بالصور، والأصلية).
-/// ٢) يقيس رسم المتجر كامل، وبدون كل نوع رسم بالدور (ظل النصوص، تدرج العناوين، رسومات الأغراض).
+/// يقيس رسم الرئيسية، ورسم المتجر كامل وبدون كل جزء بالدور (خلفية الليل، الكروت، الحركة، ظل النصوص،
+/// رسومات الأغراض) بتبويب العروض والشخصيات.
 /// يرجع سطور النتيجة (تطلع بنافذة يصورها اللاعب).
 abstract final class DrawBench {
   static bool running = false;
 
   static Future<List<String>> run(NavigatorState nav) async {
     running = true;
-    final wasOn = Perf.enabled.value;
-    Perf.enabled.value = true; // قياس التنقل يحتاجه (بدون ما نحفظه)
     final out = <String>[];
     try {
       nav.popUntil((r) => r.isFirst);
@@ -44,22 +40,8 @@ abstract final class DrawBench {
       keep.remove();
       await _wait(500);
 
-      // ١) التنقل بين الرئيسية والمتجر بالحركتين
-      for (final snap in [true, false]) {
-        SmoothPageTransitionsBuilder.snapshots = snap;
-        final go = <_Nav>[], back = <_Nav>[];
-        for (var i = 0; i < 3; i++) {
-          go.add(await _nav(() => nav.push(MaterialPageRoute<void>(builder: (_) => const ShopScreen()))));
-          await _wait(800);
-          back.add(await _nav(nav.pop));
-          await _wait(800);
-        }
-        out.add('${snap ? 'الحركة الجديدة (صور)' : 'الحركة الأصلية'} (ms):\n  فتح المتجر: ${_navText(go)}\n  الرجوع: ${_navText(back)}');
-      }
-      SmoothPageTransitionsBuilder.snapshots = true;
-
-      // ٢) رسم المتجر بكل حالة (بدون حركة تنقل)
-      final variant = ValueNotifier(0);
+      // رسم المتجر بكل حالة (بدون حركة تنقل): كل حالة تشيل جزء، عشان نعرف وين يروح الوقت.
+      final variant = ValueNotifier((key: 0, tab: ShopScreen.offersTab, still: false));
       unawaited(
         nav.push(
           PageRouteBuilder<void>(
@@ -69,7 +51,13 @@ abstract final class DrawBench {
               valueListenable: variant,
               builder: (_, v, _) => Stack(
                 children: [
-                  KeyedSubtree(key: ValueKey(v), child: const ShopScreen()),
+                  TickerMode(
+                    enabled: !v.still,
+                    child: KeyedSubtree(
+                      key: ValueKey(v.key),
+                      child: ShopScreen(initialTab: v.tab),
+                    ),
+                  ),
                   const _KeepDrawing(),
                 ],
               ),
@@ -77,64 +65,45 @@ abstract final class DrawBench {
           ),
         ),
       );
-      final cases = <(String, void Function())>[
-        ('المتجر كامل', () {}),
-        ('بدون ظل النصوص', () => DrawFlags.textShadows = false),
-        ('بدون تدرج العناوين', () => DrawFlags.titleGradients = false),
-        ('بدون رسومات الأغراض', () => DrawFlags.itemArt = false),
+      const offers = ShopScreen.offersTab, avatars = ShopScreen.avatarsTab;
+      final cases = <(String, int, bool, void Function())>[
+        ('العروض كامل', offers, false, () {}),
+        ('العروض والخلفية واقفة', offers, false, () => DrawFlags.nightSky = 1),
+        ('العروض بدون الخلفية', offers, false, () => DrawFlags.nightSky = 2),
+        ('العروض وكل شي واقف', offers, true, () {}),
+        ('بدون الكروت (إطار الصفحة بس)', offers, false, () => DrawFlags.shopContent = false),
         (
-          'بدون الثلاثة',
+          'بدون الكروت وبدون الخلفية',
+          offers,
+          false,
           () {
-            DrawFlags.textShadows = false;
-            DrawFlags.titleGradients = false;
-            DrawFlags.itemArt = false;
+            DrawFlags.shopContent = false;
+            DrawFlags.nightSky = 2;
           },
         ),
+        ('الشخصيات كامل', avatars, false, () {}),
+        ('الشخصيات وكل شي واقف', avatars, true, () {}),
+        ('الشخصيات بدون ظل النصوص', avatars, false, () => DrawFlags.textShadows = false),
+        ('الشخصيات بدون رسومات الأغراض', avatars, false, () => DrawFlags.itemArt = false),
       ];
       out.add('رسم المتجر بكل فريم (ms):');
-      for (final (i, (name, apply)) in cases.indexed) {
+      for (final (i, (name, tab, still, apply)) in cases.indexed) {
         DrawFlags.reset();
         apply();
-        variant.value = i + 1;
-        await _wait(1000);
+        variant.value = (key: i + 1, tab: tab, still: still);
+        await _wait(1200);
         out.add('  $name: ${await _sample(const Duration(seconds: 2))}');
       }
       DrawFlags.reset();
       nav.pop();
     } finally {
       DrawFlags.reset();
-      SmoothPageTransitionsBuilder.snapshots = true;
-      Perf.enabled.value = wasOn;
       running = false;
     }
     return out;
   }
 
   static Future<void> _wait(int ms) => Future<void>.delayed(Duration(milliseconds: ms));
-
-  /// يسوي التنقل وينتظر قياسه من Perf (أول فريم وأبطأ فريم وكم تأخر).
-  static Future<_Nav> _nav(void Function() action) async {
-    final done = Completer<void>();
-    void listener() {
-      if (!done.isCompleted) done.complete();
-    }
-
-    Perf.nav.addListener(listener);
-    action();
-    await done.future.timeout(const Duration(milliseconds: 2500), onTimeout: () {});
-    Perf.nav.removeListener(listener);
-    return Perf.nav.value;
-  }
-
-  static String _navText(List<_Nav> list) {
-    final got = list.nonNulls.toList();
-    if (got.isEmpty) return 'ما انقاس';
-    String ms(double v) => '${v.round()}';
-    final worst = [for (final n in got) n.worst];
-    final first = [for (final n in got) n.raster];
-    return 'أبطأ ${worst.map(ms).join('، ')} · أول فريم ${first.map(ms).join('، ')} · '
-        'متأخر ${got.fold(0, (a, n) => a + n.late)} من ${got.fold(0, (a, n) => a + n.count)}';
-  }
 
   /// متوسط الرسم والبناء لكل فريم خلال [d]، و٩٠٪ من الفريمات تحت كم.
   static Future<String> _sample(Duration d) async {
@@ -159,8 +128,6 @@ abstract final class DrawBench {
     return 'رسم ${stat(raster)} · بناء ${stat(build)}';
   }
 }
-
-typedef _Nav = ({String page, double build, double raster, double worst, int late, int count})?;
 
 /// نقطة شبه مخفية تتغير كل فريم: الشاشة ترسم كل فريم حتى لو المتجر واقف، عشان نقيس رسمه كامل.
 class _KeepDrawing extends StatefulWidget {

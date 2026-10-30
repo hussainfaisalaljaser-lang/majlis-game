@@ -12,6 +12,7 @@ import '../widgets/common.dart';
 import '../widgets/design.dart';
 import '../widgets/design_shop.dart';
 import '../widgets/design_stickers.dart';
+import '../widgets/draw_flags.dart';
 import '../widgets/fx.dart';
 import '../widgets/fx_sig.dart';
 import '../widgets/item_preview.dart';
@@ -188,7 +189,9 @@ class _ShopScreenState extends State<ShopScreen> {
                   ),
                   Expanded(
                     // المعاينة مفتوحة: الأغراض اللي ورها توقف حركتها
-                    child: ValueListenableBuilder(
+                    child: !DrawFlags.shopContent
+                        ? const SizedBox()
+                        : ValueListenableBuilder(
                       valueListenable: _previewOpen,
                       builder: (context, open, child) => TickerMode(enabled: !open, child: child!),
                       child: AnimatedSwitcher(

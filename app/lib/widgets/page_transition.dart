@@ -11,9 +11,6 @@ import 'package:flutter/rendering.dart';
 class SmoothPageTransitionsBuilder extends PageTransitionsBuilder {
   const SmoothPageTransitionsBuilder();
 
-  /// false: الحركة الأصلية (بدون صور). بس لمقارنة الاثنين في «قياس الرسم والتنقل» (أدوات المطور).
-  static bool snapshots = true;
-
   @override
   Duration get transitionDuration =>
       const Duration(milliseconds: FadeForwardsPageTransitionsBuilder.kTransitionMilliseconds);
@@ -25,9 +22,7 @@ class SmoothPageTransitionsBuilder extends PageTransitionsBuilder {
     Animation<double> animation,
     Animation<double> secondaryAnimation,
     Widget child,
-  ) => !snapshots
-      ? const FadeForwardsPageTransitionsBuilder().buildTransitions(route, context, animation, secondaryAnimation, child)
-      : _SmoothTransition(
+  ) => _SmoothTransition(
     animation: animation,
     secondaryAnimation: secondaryAnimation,
     opaque: route?.opaque ?? true,

@@ -10,5 +10,14 @@ abstract final class DrawFlags {
   /// رسومات الأغراض في كروت المتجر (ItemPreview).
   static bool itemArt = true;
 
-  static void reset() => textShadows = titleGradients = itemArt = true;
+  /// خلفية الليل (WoodWall): ٠ متحركة، ١ واقفة، ٢ بدون (بس التدرج).
+  static int nightSky = 0;
+
+  /// محتوى المتجر (الكروت) يختفي، ويبقى إطار الصفحة.
+  static bool shopContent = true;
+
+  static void reset() {
+    textShadows = titleGradients = itemArt = shopContent = true;
+    nightSky = 0;
+  }
 }

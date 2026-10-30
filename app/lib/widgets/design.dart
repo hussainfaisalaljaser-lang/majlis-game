@@ -274,17 +274,24 @@ class WoodWall extends StatelessWidget {
       child: Stack(
         fit: StackFit.expand,
         children: [
-          RepaintBoundary(
-            child: FxClock(
-              builder: (context, time) => CustomPaint(painter: _NightTentPainter(time, glow ?? const Color(0xFFFFB05A))),
+          if (DrawFlags.nightSky != 2)
+            RepaintBoundary(
+              child: DrawFlags.nightSky == 1
+                  ? CustomPaint(painter: _NightTentPainter(_still, glow ?? const Color(0xFFFFB05A)))
+                  : FxClock(
+                      builder: (context, time) =>
+                          CustomPaint(painter: _NightTentPainter(time, glow ?? const Color(0xFFFFB05A))),
+                    ),
             ),
-          ),
           child,
         ],
       ),
     );
   }
 }
+
+/// وقت واقف لخلفية الليل (قياس الرسم بس).
+final _still = ValueNotifier<double>(0);
 
 class _NightTentPainter extends CustomPainter {
   _NightTentPainter(this.time, this.glow) : super(repaint: time);
