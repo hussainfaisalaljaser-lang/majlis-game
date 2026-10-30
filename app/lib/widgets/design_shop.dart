@@ -8,6 +8,7 @@ import '../models/shop.dart';
 import '../theme.dart';
 import 'common.dart';
 import 'design.dart';
+import 'draw_flags.dart';
 import 'fx.dart';
 import 'item_preview.dart';
 
@@ -605,7 +606,11 @@ class ShopRail extends StatelessWidget {
       image: DecorationImage(
         image: const AssetImage(DesignAssets.woodPanel),
         fit: BoxFit.cover,
-        colorFilter: ColorFilter.mode(Colors.black.withValues(alpha: .12), BlendMode.darken),
+        // تغميق بالأسود: srcOver يطلع نفس ألوان darken بالضبط، بدون خطوة الدمج المتقدم.
+        colorFilter: ColorFilter.mode(
+          Colors.black.withValues(alpha: .12),
+          DrawFlags.oldDarken ? BlendMode.darken : BlendMode.srcOver,
+        ),
       ),
       borderRadius: const BorderRadiusDirectional.only(topEnd: Radius.circular(26)),
       border: const BorderDirectional(end: BorderSide(color: Color(0xFF1A0E07), width: 3)),
@@ -763,7 +768,11 @@ class _CatIconPainter extends CustomPainter {
     c.drawCircle(ctr, r, _line(w * .05));
     for (var i = 0; i < 4; i++) {
       final a = math.pi / 4 + i * math.pi / 2;
-      c.drawCircle(ctr + Offset(math.cos(a), math.sin(a)) * (r * .83), w * .04, Paint()..color = const Color(0xFFFFE19A));
+      c.drawCircle(
+        ctr + Offset(math.cos(a), math.sin(a)) * (r * .83),
+        w * .04,
+        Paint()..color = const Color(0xFFFFE19A),
+      );
     }
   }
 
@@ -991,7 +1000,9 @@ class ShopCardFrame extends StatelessWidget {
                     )
                   : null,
               border: Border.all(
-                color: _plain ? (dark ? const Color(0xFF2A0B12) : const Color(0xFF4E331F)) : rarity!.color.withValues(alpha: .75),
+                color: _plain
+                    ? (dark ? const Color(0xFF2A0B12) : const Color(0xFF4E331F))
+                    : rarity!.color.withValues(alpha: .75),
                 width: 1.5,
               ),
             ),
@@ -1011,7 +1022,15 @@ class ShopCardFrame extends StatelessWidget {
                     stops: const [0, .62, 1],
                   ),
                 ),
-                child: _plain ? child : Stack(fit: StackFit.expand, children: [RarityBackdrop(rarity!, dark: dark), child]),
+                child: _plain
+                    ? child
+                    : Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          RarityBackdrop(rarity!, dark: dark),
+                          child,
+                        ],
+                      ),
               ),
             ),
           ),
@@ -1047,7 +1066,10 @@ class RarityBackdrop extends StatelessWidget {
             Rarity.epic => (const Color(0xFFF0E2FF), const Color(0xFFB690EA)),
             _ => (const Color(0xFFFFF6C8), const Color(0xFFF1BD45)),
           };
-    final art = CustomPaint(painter: _RarityArtPainter(rarity, null, dark: dark), size: Size.infinite);
+    final art = CustomPaint(
+      painter: _RarityArtPainter(rarity, null, dark: dark),
+      size: Size.infinite,
+    );
     return DecoratedBox(
       decoration: BoxDecoration(
         gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [top, bottom]),
@@ -1055,7 +1077,9 @@ class RarityBackdrop extends StatelessWidget {
       // الأسطوري: لمعة تمر ببطء. الباقي ثابت (كروت كثيرة بالشاشة، فنوفّر).
       child: rarity == Rarity.legendary
           ? RepaintBoundary(
-              child: FxClock(builder: (context, time) => CustomPaint(painter: _RarityArtPainter(rarity, time, dark: dark))),
+              child: FxClock(
+                builder: (context, time) => CustomPaint(painter: _RarityArtPainter(rarity, time, dark: dark)),
+              ),
             )
           : art,
     );

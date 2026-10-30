@@ -16,8 +16,13 @@ abstract final class DrawFlags {
   /// محتوى المتجر (الكروت) يختفي، ويبقى إطار الصفحة.
   static bool shopContent = true;
 
+  /// تغميق خشب الشريط الجانبي واللوح بطريقة الدمج القديمة (darken). نفس الألوان بالضبط مثل srcOver
+  /// (الأسود أغمق لون)، بس darken طريقة «متقدمة» تكلّف كرت الشاشة خطوة زيادة. للمقارنة بس.
+  static bool oldDarken = false;
+
   static void reset() {
     textShadows = titleGradients = itemArt = shopContent = true;
     nightSky = 0;
+    oldDarken = false;
   }
 }

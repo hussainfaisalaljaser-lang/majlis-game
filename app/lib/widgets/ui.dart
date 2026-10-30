@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 
 import '../theme.dart';
 import 'design.dart';
+import 'draw_flags.dart';
 import 'fx.dart';
 
 /// خلفية اللعبة: جدار ألواح خشب دافي (التصميم الجديد)، وفوقه ضو خفيف بلون [glow].
@@ -47,7 +48,10 @@ class NightScaffold extends StatelessWidget {
       return Stack(
         children: [
           Positioned.fill(child: bg),
-          if (shade > 0) Positioned.fill(child: ColoredBox(color: Colors.black.withValues(alpha: shade))),
+          if (shade > 0)
+            Positioned.fill(
+              child: ColoredBox(color: Colors.black.withValues(alpha: shade)),
+            ),
           Scaffold(
             backgroundColor: Colors.transparent,
             appBar: appBar,
@@ -200,11 +204,22 @@ class _GameButtonState extends State<GameButton> with TickerProviderStateMixin {
                   borderRadius: BorderRadius.circular(14),
                   gradient: ghost
                       ? null
-                      : LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: t!.$1, stops: const [0, .55, 1]),
+                      : LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: t!.$1,
+                          stops: const [0, .55, 1],
+                        ),
                   color: ghost ? const Color(0xFF2A1A10).withValues(alpha: .88) : null,
                   border: Border.all(color: ghost ? const Color(0xFF8A6038) : outline, width: 3),
                   boxShadow: ghost
-                      ? [BoxShadow(color: Colors.black.withValues(alpha: .35), blurRadius: 8, offset: const Offset(0, 3))]
+                      ? [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: .35),
+                            blurRadius: 8,
+                            offset: const Offset(0, 3),
+                          ),
+                        ]
                       : [
                           BoxShadow(color: t!.$3, offset: Offset(0, depth)),
                           BoxShadow(
@@ -343,7 +358,11 @@ class Panel extends StatelessWidget {
             ? DecorationImage(
                 image: const AssetImage(DesignAssets.woodPanel),
                 fit: BoxFit.cover,
-                colorFilter: ColorFilter.mode(Colors.black.withValues(alpha: .15), BlendMode.darken),
+                // تغميق بالأسود: srcOver يطلع نفس ألوان darken بالضبط، بدون خطوة الدمج المتقدم.
+                colorFilter: ColorFilter.mode(
+                  Colors.black.withValues(alpha: .15),
+                  DrawFlags.oldDarken ? BlendMode.darken : BlendMode.srcOver,
+                ),
               )
             : null,
         gradient: gradient,
