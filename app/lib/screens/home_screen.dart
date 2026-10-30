@@ -1095,7 +1095,7 @@ class _Tiles extends StatelessWidget {
   );
 }
 
-/// كرت رق: أيقونة كبيرة بالنص، واسم بالبني، وسطر صغير تحته. [tag]: شارة حمرا مائلة بالزاوية (مثل «جديد»).
+/// كرت رق: أيقونة كبيرة بالنص، واسم بالذهبي (مثل عناوين الصفحات)، وسطر صغير تحته. [tag]: شارة حمرا مائلة بالزاوية (مثل «جديد»).
 class _ParchTile extends StatelessWidget {
   const _ParchTile({
     required this.icon,
@@ -1143,16 +1143,8 @@ class _ParchTile extends StatelessWidget {
                           ],
                         ),
                         SizedBox(height: ic * .16),
-                        Text(
-                          title,
-                          style: const TextStyle(
-                            fontFamily: kufi,
-                            fontSize: 27,
-                            fontWeight: FontWeight.w800,
-                            color: Color(0xFF3A2212),
-                            height: 1.1,
-                          ),
-                        ),
+                        // نفس عناوين الصفحات (الدواوين، الموسم، المتجر): ذهبي بحد غامق.
+                        GoldTitle(title, size: 27),
                         Text(
                           subtitle,
                           maxLines: 1,
