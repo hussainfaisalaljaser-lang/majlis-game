@@ -1,4 +1,5 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
+import { Agent, request as httpsRequest } from 'node:https';
 import { getFunctions, type TaskQueue } from 'firebase-admin/functions';
 import { logger } from 'firebase-functions/v2';
 import { db, REGION } from './base.js';
@@ -53,9 +54,17 @@ export async function withTicks<T>(run: () => Promise<T>, timings?: Timings): Pr
     return await store.run(after, run);
   } finally {
     const done = Date.now();
+    // نعرف متى طلعت طلبات المنبّه كلها (عشان نرد على اللاعب بعدها على طول).
+    const alarms = [...after.games].filter(([, g]) => g.deadline !== null && TICKS_ON);
+    let sentCount = 0;
+    let allSent = () => {};
+    const sent = new Promise<void>((resolve) => (allSent = resolve));
+    const onSent = () => {
+      if (++sentCount === alarms.length) allSent();
+    };
     const ticks = Promise.all(
-      [...after.games].map(([code, g]) =>
-        scheduleTick(code, g.key, g.deadline).then((fallback) => {
+      alarms.map(([code, g]) =>
+        scheduleTick(code, g.key, g.deadline, 0, onSent).then((fallback) => {
           if (fallback && timings) timings.tickFallback = 1;
         }),
       ),
@@ -70,12 +79,12 @@ export async function withTicks<T>(run: () => Promise<T>, timings?: Timings): Pr
           }),
       ),
     );
-    // خدمة المهام عند قوقل ترد بعد حوالي ثانية. ننتظر بس لين يطلع طلب المنبّه (أقل من [TICK_WAIT_MS])، ونرد
+    // خدمة المهام عند قوقل ترد بعد حوالي ثانية. ننتظر بس لين يطلع طلب المنبّه (وبالكثير [TICK_WAIT_MS])، ونرد
     // على اللاعب، والحجز يكمل بالخلفية. لو تأخر، الجوال يكمّل الدور بنفسه مثل قبل.
-    await Promise.all([jobs, after.games.size ? Promise.race([ticks, sleep(TICK_WAIT_MS)]) : null]);
+    await Promise.all([jobs, alarms.length ? Promise.race([sent, ticks, sleep(TICK_WAIT_MS)]) : null]);
     if (timings) {
       timings.work = done - started;
-      if (after.games.size) timings.tick = Date.now() - done;
+      if (alarms.length) timings.tick = Date.now() - done;
     }
   }
 }
@@ -88,13 +97,20 @@ let queue: TaskQueue | undefined;
  * يحط منبّه عند [deadline] للعبة [code] على الدور [key]. أي خطأ (مثل صلاحية ناقصة) ما يوقف اللعبة.
  * يرجع true لو الطريقة المباشرة فشلت وانحط بالمكتبة (للقياس).
  */
-export async function scheduleTick(code: string, key: string, deadline: number | null, attempt = 0): Promise<boolean> {
+export async function scheduleTick(
+  code: string,
+  key: string,
+  deadline: number | null,
+  attempt = 0,
+  onSent: () => void = () => {},
+): Promise<boolean> {
   if (deadline === null || !TICKS_ON) return false;
   const payload = { code, key, attempt };
   const at = new Date(Math.max(Date.now(), deadline) + 60);
   const viaSdk = async () => {
     queue ??= getFunctions().taskQueue(`locations/${REGION}/functions/${TICK_FN}`);
     await queue.enqueue(payload, { scheduleTime: at });
+    onSent();
   };
   try {
     // بدون اسم للمهمة: مع الاسم قوقل تدور أول على مهمة بنفس الاسم، وهذا يبطّئ حطها كثير.
@@ -104,7 +120,7 @@ export async function scheduleTick(code: string, key: string, deadline: number |
       return false;
     }
     try {
-      await createTask(payload, at);
+      await createTask(payload, at, onSent);
       return false;
     } catch (e) {
       // الطريقة المباشرة ما مشت: نحطه بالمكتبة (أبطأ بس أكيد)، ونسجل السبب مرة (وفي config/diag لفحص السرعة).
@@ -146,26 +162,51 @@ async function accessToken(): Promise<string> {
   return token.value;
 }
 
-async function createTask(payload: unknown, at: Date): Promise<void> {
+/** اتصال واحد مفتوح لخدمة المهام يتعاد استخدامه بين الطلبات. */
+const agent = new Agent({ keepAlive: true, keepAliveMsecs: 30_000 });
+
+/** يحط المهمة. [onSent]: الطلب طلع كامل من السيرفر (قوقل بتحطها حتى لو ما قرينا ردها). */
+async function createTask(payload: unknown, at: Date, onSent: () => void): Promise<void> {
   account ??= (await meta('email')).trim();
-  const res = await fetch(
-    `https://cloudtasks.googleapis.com/v2/projects/${PROJECT}/locations/${REGION}/queues/${TICK_FN}/tasks`,
-    {
-      method: 'POST',
-      headers: { authorization: `Bearer ${await accessToken()}`, 'content-type': 'application/json' },
-      body: JSON.stringify({
-        task: {
-          scheduleTime: at.toISOString(),
-          httpRequest: {
-            httpMethod: 'POST',
-            url: `https://${REGION}-${PROJECT}.cloudfunctions.net/${TICK_FN}`,
-            headers: { 'content-type': 'application/json' },
-            body: Buffer.from(JSON.stringify({ data: payload })).toString('base64'),
-            oidcToken: { serviceAccountEmail: account },
-          },
-        },
-      }),
+  const body = JSON.stringify({
+    task: {
+      scheduleTime: at.toISOString(),
+      httpRequest: {
+        httpMethod: 'POST',
+        url: `https://${REGION}-${PROJECT}.cloudfunctions.net/${TICK_FN}`,
+        headers: { 'content-type': 'application/json' },
+        body: Buffer.from(JSON.stringify({ data: payload })).toString('base64'),
+        oidcToken: { serviceAccountEmail: account },
+      },
     },
-  );
-  if (!res.ok) throw new Error(`createTask ${res.status}: ${(await res.text()).slice(0, 300)}`);
+  });
+  const auth = await accessToken();
+  await new Promise<void>((resolve, reject) => {
+    const req = httpsRequest(
+      {
+        host: 'cloudtasks.googleapis.com',
+        path: `/v2/projects/${PROJECT}/locations/${REGION}/queues/${TICK_FN}/tasks`,
+        method: 'POST',
+        agent,
+        headers: {
+          authorization: `Bearer ${auth}`,
+          'content-type': 'application/json',
+          'content-length': Buffer.byteLength(body),
+        },
+      },
+      (res) => {
+        let text = '';
+        res.setEncoding('utf8');
+        res.on('data', (chunk: string) => (text += chunk));
+        res.on('end', () => {
+          const ok = (res.statusCode ?? 500) < 300;
+          if (ok) resolve();
+          else reject(new Error(`createTask ${res.statusCode}: ${text.slice(0, 300)}`));
+        });
+      },
+    );
+    req.on('error', reject);
+    req.on('finish', onSent);
+    req.end(body);
+  });
 }
