@@ -14,7 +14,7 @@ import '../theme.dart';
 import '../widgets/common.dart';
 import '../widgets/daily_reward.dart';
 import '../widgets/design.dart';
-import '../widgets/design_icons.dart';
+import '../widgets/design_season.dart';
 import '../widgets/fx.dart';
 import '../widgets/gifts.dart';
 import '../widgets/reward_fly.dart';
@@ -1063,7 +1063,8 @@ class _Tiles extends StatelessWidget {
         Expanded(
           // ديوانك (أو تدخل واحد)، والنقطة لو وصلتك دعوة لديوان.
           child: _ParchTile(
-            icon: const ShieldSwordsIcon(size: 64),
+            // نفس أيقونات عناوين الصفحات (الدواوين، الموسم، المتجر).
+            icon: const Gfx('shield', size: 64),
             title: 'الديوان',
             subtitle: p.clan?.name ?? 'ادخل ديوان',
             badge: p.clan == null && p.clanInvites.isNotEmpty,
@@ -1073,7 +1074,7 @@ class _Tiles extends StatelessWidget {
         const SizedBox(width: 10),
         Expanded(
           child: _ParchTile(
-            icon: const ChestIcon(size: 64),
+            icon: const SnChest(size: 64),
             title: 'الموسم',
             subtitle: 'المرحلة ${arabicNumber(p.pass.tier)} من ${arabicNumber(season.tiers)}',
             badge: p.pass.claimable,
@@ -1083,7 +1084,7 @@ class _Tiles extends StatelessWidget {
         const SizedBox(width: 10),
         Expanded(
           child: _ParchTile(
-            icon: const StallIcon(size: 64),
+            icon: const Gfx('shop', size: 64),
             title: 'المتجر',
             subtitle: 'عروض جديدة',
             tag: 'جديد',
