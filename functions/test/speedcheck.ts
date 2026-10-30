@@ -111,7 +111,8 @@ function report(): void {
     const part = (k: string) => median(list.map((r) => r.t?.[k] ?? 0));
     const line =
       `${fn} ×${list.length}: كامل ${median(list.map((r) => r.total))}ms، السيرفر ${median(list.map((r) => r.server ?? 0))}ms ` +
-      `(العملية ${part('work')} · المنبّه ${part('tick')} · الإشعارات ${part('push')})، الأبطأ ${Math.max(...list.map((r) => r.server ?? 0))}ms`;
+      `(العملية ${part('work')} · المنبّه ${part('tick')} · الإشعارات ${part('push')})، الأبطأ ${Math.max(...list.map((r) => r.server ?? 0))}ms` +
+      `، المنبّه بالمكتبة ${list.filter((r) => r.t?.tickFallback).length} مرة`;
     console.log(`::notice title=فحص السرعة::${line}`);
   }
 }
@@ -153,6 +154,12 @@ async function main(): Promise<void> {
     }
     await db.doc(`users/${UID}`).update({ playing: null }).catch(() => undefined);
     report();
+    // لو حط المنبّه المباشر فشل في السيرفر، السبب هنا (ticks.ts).
+    const diag = (await db.doc('config/diag').get().catch(() => null))?.data();
+    if (diag?.tickRest) {
+      const ago = Math.round((Date.now() - diag.tickRest.at) / 60000);
+      console.log(`::notice title=فحص السرعة::المنبّه المباشر فشل قبل ${ago} دقيقة: ${String(diag.tickRest.err).slice(0, 400)}`);
+    }
   }
 }
 

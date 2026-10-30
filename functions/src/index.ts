@@ -1739,6 +1739,11 @@ const REPORT_REASONS = ['name', 'behavior', 'cheat', 'chat'] as const;
 const MAX_REPORTS_PER_DAY = 10;
 /** كم لاعب مختلف لازم يبلّغون عن اسم عشان ينغيّر تلقائياً. */
 const NAME_REPORTS_TO_RENAME = 3;
+/**
+ * المبلّغ ينحسب بلاغه للتغيير التلقائي بس لو اختار اسمه ولعب هالعدد من الألعاب، عشان كم حساب جديد فاضي
+ * ما يقدرون يغيّرون اسم أي لاعب. بلاغ غيرهم ينحفظ للمطور يراجعه.
+ */
+const NAME_REPORTER_MIN_GAMES = 2;
 
 /** اسم مؤقت محايد لما ينغيّر الاسم بسبب البلاغات (واللاعب يختار اسم جديد). */
 function placeholderName(): string {
@@ -1782,7 +1787,7 @@ export const reportPlayer = onCall(async (req) => {
     const t = targetSnap.data() as Profile;
     tx.set(ref, { reporter: uid, target, reason, code, ...(text ? { text } : {}), name: t.name, at: now, status: 'open' });
     tx.set(userRef(uid), { ...me, reportDay: day, reportCount: count + 1 });
-    if (reason === 'name') {
+    if (reason === 'name' && me.setupDone && (me.gamesPlayed ?? 0) >= NAME_REPORTER_MIN_GAMES) {
       const reporters = [...new Set([...(t.nameReporters ?? []), uid])];
       if (reporters.length >= NAME_REPORTS_TO_RENAME) {
         renameTx(tx, target, t);

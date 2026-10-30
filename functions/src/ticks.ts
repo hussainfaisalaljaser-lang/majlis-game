@@ -1,7 +1,7 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { getFunctions, type TaskQueue } from 'firebase-admin/functions';
 import { logger } from 'firebase-functions/v2';
-import { REGION } from './base.js';
+import { db, REGION } from './base.js';
 
 /**
  * منبّه الدور: كل ما يبدأ دور جديد، نحط مهمة (Cloud Tasks) تصحى عند آخر وقت الدور وتكمّل اللعبة
@@ -98,10 +98,12 @@ export async function scheduleTick(code: string, key: string, deadline: number |
       await createTask(payload, at);
       return false;
     } catch (e) {
-      // الطريقة المباشرة ما مشت: نحطه بالمكتبة (أبطأ بس أكيد)، ونسجل السبب مرة.
+      // الطريقة المباشرة ما مشت: نحطه بالمكتبة (أبطأ بس أكيد)، ونسجل السبب مرة (وفي config/diag لفحص السرعة).
       if (!restWarned) {
         restWarned = true;
-        logger.warn('حط المنبّه المباشر ما مشى، رجعنا للمكتبة', { err: String((e as Error)?.message ?? e) });
+        const err = String((e as Error)?.message ?? e).slice(0, 500);
+        logger.warn('حط المنبّه المباشر ما مشى، رجعنا للمكتبة', { err });
+        await db.doc('config/diag').set({ tickRest: { err, at: Date.now() } }, { merge: true }).catch(() => undefined);
       }
       await viaSdk();
       return true;

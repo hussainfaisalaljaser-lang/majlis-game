@@ -311,6 +311,10 @@ export function applyAction(state: GameState, playerId: PlayerId, action: Action
       finishPower(s);
       return s;
     }
+
+    default:
+      // حركة مو معروفة (من نسخة معدّلة): ترفض بسبب واضح بدل خطأ داخلي.
+      throw new RuleError('unknownAction', 'حركة مو معروفة');
   }
 }
 

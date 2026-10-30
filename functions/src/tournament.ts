@@ -49,6 +49,9 @@ export interface Tour {
 
 export const tourRef = (week: string) => db.doc(`tours/${week}`);
 
+/** بالكثير كم لاعب في بطولة الأسبوع: لوحتها ملف واحد يقراه كل اللاعبين، فلازم يبقى أصغر من حد Firestore. */
+export const TOUR_MAX_PLAYERS = 2000;
+
 /** يسجّل في بطولة هالأسبوع (برسوم، مرة وحدة). */
 export const tourJoin = onCall(async (req) => {
   const uid = requireAuth(req);
@@ -59,6 +62,9 @@ export const tourJoin = onCall(async (req) => {
     const p = await readProfile(db, tx, uid);
     const tour = (await tx.get(tourRef(week))).data() as Tour | undefined;
     if (p.tour?.week === week) throw new HttpsError('already-exists', 'سجّلت في بطولة هالأسبوع');
+    if (Object.keys(tour?.players ?? {}).length >= TOUR_MAX_PLAYERS) {
+      throw new HttpsError('resource-exhausted', 'البطولة امتلأت هالأسبوع');
+    }
     const fee = p.dev ? 0 : TOUR_FEE;
     if (p.coins < fee) throw new HttpsError('failed-precondition', 'ليس لديك ذهب كافي');
     const entry: TourEntry = { name: p.name, avatar: avatarOf(p), frame: equippedOf(p).frame, stage: 0, out: false, at: now };

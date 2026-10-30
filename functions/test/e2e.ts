@@ -628,6 +628,12 @@ async function main(): Promise<void> {
   assert.ok(renamedP.name.startsWith('لاعب'));
   assert.equal(renamedP.renamed, true);
   assert.equal((await getDoc(doc(getFirestore(reported.app, DB), `leaderboard/${reported.uid}`))).data()!.name, renamedP.name);
+  // حساب جديد فاضي (ما اختار اسمه ولا لعب): بلاغه ينحفظ للمطور بس، وما يحسب لتغيير اسم أحد.
+  const sybil = await client(11);
+  await sybil.call('ensureProfile');
+  await sybil.call('reportPlayer', { uid: players[3].uid, reason: 'name' });
+  assert.deepEqual((await players[3].profile()).nameReporters ?? [], [], 'الحساب الفاضي ما يحسب بلاغه');
+  await deleteApp(sybil.app);
   // يختار اسم جديد: تنشال علامة التغيير
   await reported.call('updateProfile', { name: 'اسم نظيف', avatar: 'falcon' });
   assert.equal((await reported.profile()).renamed, false);
