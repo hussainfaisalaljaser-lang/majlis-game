@@ -63,6 +63,9 @@ abstract final class Perf {
   /// أول سطر في main.
   static void begin() => _clock.start();
 
+  /// كم مر من تشغيل اللعبة (ms).
+  static int get sinceStart => _clock.elapsedMilliseconds;
+
   static void markStartup() => startupMs ??= _clock.elapsedMilliseconds;
 
   static void markFirstData() => firstDataMs ??= _clock.elapsedMilliseconds;

@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../theme.dart';
+import 'draw_flags.dart';
 import 'fx.dart';
 
 /// قطع التصميم الجديد (خشب، مخمل، رق، ذهب): كل شاشة تبني منها عشان يكون الشكل واحد في كل مكان.
@@ -195,9 +196,15 @@ class OutlinedText extends StatelessWidget {
       textAlign: align,
       maxLines: maxLines,
       overflow: overflow,
-      style: base.copyWith(color: gradient == null ? color : Colors.white),
+      style: base.copyWith(
+        color: gradient == null
+            ? color
+            : DrawFlags.titleGradients
+            ? Colors.white
+            : gradient![1],
+      ),
     );
-    if (gradient case final g?) {
+    if (gradient case final g? when DrawFlags.titleGradients) {
       fill = ShaderMask(
         shaderCallback: (r) => LinearGradient(
           begin: Alignment.topCenter,
@@ -221,7 +228,7 @@ class OutlinedText extends StatelessWidget {
               ..strokeWidth = sw
               ..strokeJoin = StrokeJoin.round
               ..color = stroke,
-            shadows: shadow ? [Shadow(color: Colors.black.withValues(alpha: .5), offset: Offset(0, size * .08), blurRadius: 3)] : null,
+            shadows: shadow && DrawFlags.textShadows ? [Shadow(color: Colors.black.withValues(alpha: .5), offset: Offset(0, size * .08), blurRadius: 3)] : null,
           ),
         ),
         fill,

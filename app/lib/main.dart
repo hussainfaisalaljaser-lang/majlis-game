@@ -60,7 +60,7 @@ class MajlisApp extends StatelessWidget {
       title: 'مجلس الخونة',
       debugShowCheckedModeBanner: false,
       navigatorKey: navigatorKey,
-      navigatorObservers: [routeObserver, Perf.navObserver],
+      navigatorObservers: [routeObserver, Perf.navObserver, Preload.navObserver],
       scaffoldMessengerKey: messengerKey,
       theme: buildTheme(),
       locale: const Locale('ar'),

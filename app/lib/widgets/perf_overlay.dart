@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../services/backend.dart';
 import '../services/perf.dart';
+import '../services/preload.dart';
 
 /// القياس فوق اللعبة (من أدوات المطور): السيرفر والرسم والتشغيل. ما يتأثر باللمس.
 class PerfOverlay extends StatelessWidget {
@@ -31,7 +32,7 @@ class _Readout extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => ListenableBuilder(
-    listenable: Listenable.merge([Perf.last, Perf.frames, Perf.turns, Perf.nav]),
+    listenable: Listenable.merge([Perf.last, Perf.frames, Perf.turns, Perf.nav, Preload.background]),
     builder: (context, _) {
       final last = Perf.last.value;
       final f = Perf.frames.value;
@@ -48,8 +49,14 @@ class _Readout extends StatelessWidget {
           ? 'الرسم: …'
           : 'الرسم: ${f.fps.round()} فريم/ث · متأخر ${(f.jank * 100).round()}% · بناء ${f.build.toStringAsFixed(1)}ms · رسم ${f.raster.toStringAsFixed(1)}ms';
       String secs(int? ms) => ms == null ? '…' : '${(ms / 1000).toStringAsFixed(1)}ث';
+      final bg = Preload.background.value;
+      final ready = bg.total == 0
+          ? ''
+          : bg.doneMs == null
+          ? ' · التجهيز ${bg.done} من ${bg.total}'
+          : ' · التجهيز خلص ${secs(bg.doneMs)}';
       final boot =
-          'التشغيل: ${secs(Perf.startupMs)} · أول بيانات ${secs(Perf.firstDataMs)} · شهادة قوقل $cert';
+          'التشغيل: ${secs(Perf.startupMs)} · أول بيانات ${secs(Perf.firstDataMs)}$ready · شهادة قوقل $cert';
       final alarm = 'آخر وقت الدور: السيرفر كمّل ${Perf.turnsServer} · الجوال كمّل ${Perf.turnsPhone}';
       final n = Perf.nav.value;
       String ms(double v) => '${v.round()}ms';

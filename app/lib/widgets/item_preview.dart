@@ -6,6 +6,7 @@ import '../models/shop.dart';
 import 'bubble.dart';
 import 'common.dart';
 import 'death_fx.dart';
+import 'draw_flags.dart';
 import 'game/policy_card.dart';
 import 'game/table_art.dart';
 
@@ -23,6 +24,7 @@ class ItemPreview extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final k = big ? 1.7 : scale;
+    if (!DrawFlags.itemArt) return SizedBox.square(dimension: 74 * k);
     return switch (item.slot) {
       // «بدون إطار»: حلقة بنية سادة مثل التصميم
       ShopSlot.frame when item.frame == null => PlayerAvatar(

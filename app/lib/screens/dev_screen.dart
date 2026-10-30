@@ -6,6 +6,7 @@ import '../theme.dart';
 import '../widgets/common.dart';
 import '../widgets/curtain_route.dart';
 import '../widgets/ui.dart';
+import 'draw_bench.dart';
 import 'game_screen.dart';
 import 'moderation_screen.dart';
 
@@ -411,6 +412,59 @@ class _SpeedPanel extends StatefulWidget {
 }
 
 class _SpeedPanelState extends State<_SpeedPanel> {
+  static Future<void> _bench(NavigatorState nav) async {
+    final lines = await DrawBench.run(nav);
+    if (!nav.mounted) return;
+    // عمودين (التنقل، ورسم المتجر) عشان النتيجة كلها تطلع بلقطة وحدة والجوال بالعرض.
+    final cut = lines.indexWhere((l) => l.startsWith('رسم المتجر'));
+    final parts = cut < 0 ? [lines] : [lines.sublist(0, cut), lines.sublist(cut)];
+    await showDialog<void>(
+      context: nav.context,
+      builder: (context) => Dialog(
+        insetPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(14, 10, 14, 2),
+          child: Directionality(
+            textDirection: TextDirection.rtl,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'قياس الرسم والتنقل',
+                  style: TextStyle(fontFamily: kufi, fontSize: 15, fontWeight: FontWeight.w800),
+                ),
+                const SizedBox(height: 6),
+                Flexible(
+                  child: SingleChildScrollView(
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        for (final (i, part) in parts.indexed) ...[
+                          if (i > 0) const SizedBox(width: 14),
+                          Expanded(
+                            child: Text(
+                              part.join('\n'),
+                              style: const TextStyle(fontSize: 11.5, height: 1.4, fontWeight: FontWeight.w600),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
+                Align(
+                  alignment: AlignmentDirectional.centerEnd,
+                  child: TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('تمام')),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final stats = Perf.callStats();
@@ -444,6 +498,15 @@ class _SpeedPanelState extends State<_SpeedPanel> {
                 ),
               ),
             ],
+          ),
+          const SizedBox(height: 8),
+          // يرجع للرئيسية ويفتح المتجر ويرجع بنفسه، والنتيجة تطلع بنافذة تصوّرها.
+          GameButton(
+            label: 'قياس الرسم والتنقل',
+            tone: ButtonTone.purple,
+            height: 44,
+            fontSize: 15,
+            onPressed: DrawBench.running ? null : () => _bench(Navigator.of(context)),
           ),
           if (stats.isNotEmpty) ...[
             const SizedBox(height: 6),
