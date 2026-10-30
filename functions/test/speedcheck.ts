@@ -99,6 +99,41 @@ function nextMove(v: any): Record<string, unknown> | null {
   }
 }
 
+/** دور في لعبة الفحص: [seen] متى شفناه (نقرا كل ٠٫٢ ث)، و[ended] متى شفنا اللي بعده. */
+interface Turn {
+  phase: string;
+  round: number;
+  seen: number;
+  deadline: number | null;
+  mine: boolean;
+  ended?: number;
+}
+const turns: Turn[] = [];
+
+/** توقيت اللعب: كم ياخذ كل نوع دور، وكم يتأخر منبّه السيرفر بعد آخر وقت أدوار البوتات. */
+function timeline(): void {
+  const done = turns.filter((t) => t.ended !== undefined);
+  const late = done.filter((t) => !t.mine && t.deadline !== null).map((t) => t.ended! - t.deadline!);
+  if (late.length) {
+    const s = [...late].sort((a, b) => a - b);
+    console.log(
+      `::notice title=توقيت اللعب::منبّه السيرفر بعد آخر وقت دور البوت: الوسط ${median(late)}ms، ` +
+        `٩٠٪ أقل من ${s[Math.floor(s.length * 0.9)] ?? s[s.length - 1]}ms، الأبطأ ${s[s.length - 1]}ms (${late.length} دور، والقراءة كل ٠٫٢ ث)`,
+    );
+  }
+  const groups = new Map<string, Turn[]>();
+  for (const t of done) {
+    const k = `${t.phase}${t.mine ? ' (علي)' : ' (بوت)'}`;
+    groups.set(k, [...(groups.get(k) ?? []), t]);
+  }
+  const lines = [...groups].map(([k, list]) => {
+    const total = median(list.map((t) => t.ended! - t.seen));
+    const wait = median(list.filter((t) => t.deadline !== null).map((t) => t.deadline! - t.seen));
+    return `${k} ×${list.length}: يطول ${total}ms (وقته المكتوب ${wait}ms)`;
+  });
+  console.log(`::notice title=توقيت اللعب::${lines.join(' | ')}`);
+}
+
 const median = (xs: number[]) => {
   const s = [...xs].sort((a, b) => a - b);
   return s.length ? s[Math.floor(s.length / 2)] : 0;
@@ -123,20 +158,31 @@ async function main(): Promise<void> {
   try {
     for (let i = 0; i < 3; i++) await call(token, 'ensureProfile', { proto: PROTOCOL });
     code = (await call<{ code: string }>(token, 'startTraining', {})).code;
-    const stop = Date.now() + 80_000;
+    const stop = Date.now() + 120_000;
     let moves = 0;
     let round = 0;
-    while (Date.now() < stop && moves < 12) {
+    let lastKey = '';
+    let cur: Turn | undefined;
+    while (Date.now() < stop && moves < 16) {
       const v = (await db.doc(`games/${code}/views/${UID}`).get()).data();
       round = Math.max(round, v?.round ?? 0);
+      // كل دور جديد (المرحلة أو آخر وقتها تغيّر): متى شفناه، وآخر وقته، وهل الحركة علينا.
+      const key = v ? `${v.round}|${v.phase}|${v.deadline}` : '';
+      if (v && key !== lastKey) {
+        const now = Date.now();
+        if (cur) cur.ended = now;
+        cur = { phase: v.phase, round: v.round, seen: now, deadline: v.deadline ?? null, mine: nextMove(v) !== null };
+        turns.push(cur);
+        lastKey = key;
+      }
       if (!v || v.phase === 'gameOver') {
         if (v) break;
-        await sleep(400);
+        await sleep(200);
         continue;
       }
       const move = nextMove(v);
       if (!move) {
-        await sleep(400);
+        await sleep(200);
         continue;
       }
       try {
@@ -144,11 +190,12 @@ async function main(): Promise<void> {
         moves++;
       } catch {
         // الحالة تغيّرت قبل ما توصل الحركة (البوتات أسرع): نقرا من جديد.
-        await sleep(400);
+        await sleep(200);
       }
     }
     // أدوار البوتات يكملها منبّه السيرفر بس (الفحص ما يطلب timeout)، فلو الجولات تمشي المنبّه شغال.
     console.log(`::notice title=فحص السرعة::منبّه السيرفر: اللعبة وصلت الجولة ${round} بـ ${moves} حركة`);
+    timeline();
     await call(token, 'leaveGame', { code }).catch(() => undefined);
   } finally {
     // نمسح لعبة الفحص قبل ما تخلص (ما تنحسب ولا تطلع في الترتيب).
