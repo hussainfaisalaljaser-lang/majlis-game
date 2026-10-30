@@ -20,8 +20,11 @@ abstract final class DrawFlags {
   /// (الأسود أغمق لون)، بس darken طريقة «متقدمة» تكلّف كرت الشاشة خطوة زيادة. للمقارنة بس.
   static bool oldDarken = false;
 
+  /// تجميد الكروت وقت التمرير (scroll_freeze.dart). للمقارنة بس.
+  static bool scrollFreeze = true;
+
   static void reset() {
-    textShadows = titleGradients = itemArt = shopContent = true;
+    textShadows = titleGradients = itemArt = shopContent = scrollFreeze = true;
     nightSky = 0;
     oldDarken = false;
   }

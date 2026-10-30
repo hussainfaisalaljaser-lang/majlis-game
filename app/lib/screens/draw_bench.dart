@@ -128,6 +128,26 @@ abstract final class DrawBench {
         final box = shot.currentContext?.findRenderObject();
         if (box is RenderRepaintBoundary) out.add('  $name: ${await _shots(box)}');
       }
+
+      // التمرير بتبويب الشخصيات: بالتجميد (الكروت صور وقت التمرير) وبدونه. كل فريم وقت التمرير.
+      out.add('تمرير الشخصيات بكل فريم:');
+      for (final freeze in [true, false]) {
+        DrawFlags.reset();
+        DrawFlags.scrollFreeze = freeze;
+        scene.value = (100 + (freeze ? 1 : 0), const ShopScreen(initialTab: ShopScreen.avatarsTab));
+        await _wait(1500);
+        final grid = _grid(shot.currentContext);
+        if (grid == null) {
+          out.add('  ما لقيت الشبكة');
+          continue;
+        }
+        final end = grid.position.maxScrollExtent;
+        final sampling = _sample(const Duration(milliseconds: 1600));
+        await grid.position.animateTo(end, duration: const Duration(milliseconds: 1500), curve: Curves.linear);
+        out.add('  ${freeze ? 'بالتجميد' : 'بدون تجميد'}: ${await sampling}');
+        grid.position.jumpTo(0);
+        await _wait(600);
+      }
       DrawFlags.reset();
       nav.pop();
     } finally {
@@ -138,6 +158,25 @@ abstract final class DrawBench {
   }
 
   static Future<void> _wait(int ms) => Future<void>.delayed(Duration(milliseconds: ms));
+
+  /// أطول قائمة عمودية تتمرر داخل [context] (شبكة المتجر).
+  static ScrollableState? _grid(BuildContext? context) {
+    ScrollableState? best;
+    void visit(Element e) {
+      if (e is StatefulElement && e.state is ScrollableState) {
+        final s = e.state as ScrollableState;
+        if (axisDirectionToAxis(s.axisDirection) == Axis.vertical &&
+            s.position.hasContentDimensions &&
+            s.position.maxScrollExtent > (best?.position.maxScrollExtent ?? 0)) {
+          best = s;
+        }
+      }
+      e.visitChildren(visit);
+    }
+
+    if (context is Element) visit(context);
+    return best;
+  }
 
   /// يرسم [box] كصورة بدقة الشاشة ٦ مرات ويقرا بكسلاتها (لين يخلص كرت الشاشة فعلاً): الأقل والمتوسط.
   static Future<String> _shots(RenderRepaintBoundary box) async {

@@ -154,6 +154,14 @@ class _FxClockState extends State<FxClock> with SingleTickerProviderStateMixin {
   /// تشغّل الساعة أو توقفها حسب الوضع: التصوير كل فريم، والخفيف واقف، والنادر وقت اللمعة بس.
   void _schedule() {
     _wake?.cancel();
+    if (!(_mode?.value.enabled ?? true) && FxClock.manual.value == null) {
+      // موقوفة (صفحة مخفية، أو قائمة تتمرر): وقتها يوقف معها، ولما ترجع تكمل من نفس اللحظة بدون قفزة.
+      _watch.stop();
+      if (_ticker.isActive) _ticker.stop();
+      _Pulse.remove(this);
+      return;
+    }
+    _watch.start();
     final t = _now;
     if (FxClock.manual.value != null || !FxClock.lite.value && !widget.glint) return _run();
     final into = t % glintEvery;

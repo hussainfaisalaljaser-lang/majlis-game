@@ -17,6 +17,7 @@ import '../widgets/fx.dart';
 import '../widgets/fx_sig.dart';
 import '../widgets/item_preview.dart';
 import '../widgets/pid.dart';
+import '../widgets/scroll_freeze.dart';
 import '../widgets/ui.dart';
 import 'wardrobe_screen.dart';
 
@@ -196,6 +197,8 @@ class _ShopScreenState extends State<ShopScreen> {
                       builder: (context, open, child) => TickerMode(enabled: !open, child: child!),
                       child: AnimatedSwitcher(
                         duration: const Duration(milliseconds: 220),
+                        // نفس التلاشي، بس بين صورتين ثابتتين (scroll_freeze.dart).
+                        transitionBuilder: frozenFade,
                         child: switch (_tab) {
                           ShopScreen.offersTab => _OffersGrid(
                             key: const ValueKey('offers'),
@@ -322,21 +325,28 @@ class _ItemsGrid extends StatelessWidget {
         builder: (context, box) {
           // كروت الباقات عريضة (أربع ملصقات بصف): تتوزع على قد العرض، وأقلها عمودين
           final cols = math.max(2, ((box.maxWidth - 8) / (packs ? 205 : (wide ? 190 : 124))).floor());
-          return GridView.builder(
-            padding: const EdgeInsets.fromLTRB(10, 8, 10, 14),
-            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: wide ? math.max(1, cols) : cols,
-              mainAxisSpacing: 11,
-              crossAxisSpacing: 11,
-              childAspectRatio: packs
-                  ? stickerPackCardW / stickerPackCardH
-                  : (wide ? shopCardWideW : shopCardW) / shopCardH,
+          // وقت التمرير الكروت تصير صور ثابتة (scroll_freeze.dart): التمرير يمشي سلس، والحركات ترجع لما يوقف.
+          return ScrollFreeze(
+            child: GridView.builder(
+              padding: const EdgeInsets.fromLTRB(10, 8, 10, 14),
+              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: wide ? math.max(1, cols) : cols,
+                mainAxisSpacing: 11,
+                crossAxisSpacing: 11,
+                childAspectRatio: packs
+                    ? stickerPackCardW / stickerPackCardH
+                    : (wide ? shopCardWideW : shopCardW) / shopCardH,
+              ),
+              itemCount: items.length,
+              itemBuilder: (context, i) {
+                final item = items[i];
+                // الهامش يشمل ظل الكرت وتوهج المختار.
+                return Freezable(
+                  margin: 20,
+                  child: _shopCard(context, item, p, busy: busy, onAct: () => onAct(item, p)),
+                );
+              },
             ),
-            itemCount: items.length,
-            itemBuilder: (context, i) {
-              final item = items[i];
-              return _shopCard(context, item, p, busy: busy, onAct: () => onAct(item, p));
-            },
           );
         },
       ),
@@ -378,14 +388,24 @@ class _OffersGrid extends StatelessWidget {
   @override
   Widget build(BuildContext context) => ValueListenableBuilder(
     valueListenable: Backend.instance.profile,
-    builder: (context, p, _) => ListView.separated(
-      padding: const EdgeInsets.fromLTRB(12, 10, 12, 16),
-      itemCount: _offers.length,
-      separatorBuilder: (_, _) => const SizedBox(height: 12),
-      itemBuilder: (context, i) => Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 760),
-          child: _OfferBanner(offer: _offers[i], profile: p, busy: busy == _offers[i].id, onTap: () => onBuy(_offers[i], p)),
+    builder: (context, p, _) => ScrollFreeze(
+      child: ListView.separated(
+        padding: const EdgeInsets.fromLTRB(12, 10, 12, 16),
+        itemCount: _offers.length,
+        separatorBuilder: (_, _) => const SizedBox(height: 12),
+        itemBuilder: (context, i) => Freezable(
+          margin: 24,
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 760),
+              child: _OfferBanner(
+                offer: _offers[i],
+                profile: p,
+                busy: busy == _offers[i].id,
+                onTap: () => onBuy(_offers[i], p),
+              ),
+            ),
+          ),
         ),
       ),
     ),
