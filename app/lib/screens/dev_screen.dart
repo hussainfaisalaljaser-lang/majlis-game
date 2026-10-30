@@ -449,7 +449,7 @@ class _SpeedPanelState extends State<_SpeedPanel> {
             const SizedBox(height: 6),
             for (final s in stats.take(10))
               Text(
-                '${s.fn}: متوسط ${s.avg}ms · أبطأ ${s.max}ms · ${s.n} مرة',
+                '${s.fn}: متوسط ${s.avg}ms${s.server == null ? '' : ' (السيرفر ${s.server})'} · أبطأ ${s.max}ms · ${s.n} مرة',
                 textDirection: TextDirection.rtl,
                 style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
               ),

@@ -10,7 +10,6 @@ import '../models/profile.dart';
 import '../models/shop.dart';
 import '../services/backend.dart';
 import '../services/links.dart';
-import '../services/perf.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
 import '../widgets/daily_reward.dart';
@@ -187,8 +186,6 @@ class _TutorialOfferState extends State<_TutorialOffer> {
   @override
   void initState() {
     super.initState();
-    // للقياس: كم أخذ فتح اللعبة لين طلعت الرئيسية.
-    WidgetsBinding.instance.addPostFrameCallback((_) => Perf.markStartup());
     WidgetsBinding.instance.addPostFrameCallback((_) => _check());
   }
 

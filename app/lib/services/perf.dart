@@ -13,21 +13,24 @@ abstract final class Perf {
   /// يطلع القياس فوق اللعبة.
   static final enabled = ValueNotifier<bool>(false);
 
-  /// من تشغيل اللعبة (main) لين طلعت الرئيسية.
-  static final _clock = Stopwatch()..start();
+  /// يبدأ من أول سطر في main ([begin]).
+  static final _clock = Stopwatch();
+
+  /// من تشغيل اللعبة لين طلعت أول صفحة (الرئيسية، أو الترحيب لو لاعب جديد).
   static int? startupMs;
 
-  /// أول ملف من قاعدة البيانات بعد التشغيل.
+  /// من تشغيل اللعبة لين وصل ملف اللاعب من قاعدة البيانات.
   static int? firstDataMs;
 
   /// شهادة قوقل: كم أخذت، وهل نجحت.
   static ({int ms, bool ok})? appCheck;
 
-  /// آخر ٣٠ طلب لكل نوع (بالملي ثانية).
+  /// آخر ٣٠ طلب لكل نوع (بالملي ثانية): الوقت كامل، وكم منه شغل السيرفر نفسه (الباقي الطريق).
   static final _calls = <String, List<int>>{};
+  static final _server = <String, List<int>>{};
 
-  /// آخر طلب (يتحدث القياس اللي فوق اللعبة).
-  static final last = ValueNotifier<({String fn, int ms, bool ok})?>(null);
+  /// آخر طلب (يتحدث القياس اللي فوق اللعبة). [server]: شغل السيرفر (null لو ما رجعه).
+  static final last = ValueNotifier<({String fn, int ms, bool ok, int? server})?>(null);
 
   /// أدوار خلص وقتها: كم واحد كمّله منبّه السيرفر بنفسه، وكم واحد احتاج الجوال يطلبه.
   static int turnsServer = 0, turnsPhone = 0;
@@ -38,7 +41,8 @@ abstract final class Perf {
     turns.value++;
   }
 
-  /// الرسم كل ثانية: فريمات بالثانية، ونسبة الفريمات المتأخرة، ومتوسط وقت البناء والرسم.
+  /// الرسم كل ثانية: فريمات بالثانية، ونسبة الفريمات المتأخرة (البناء أو الرسم أخذ أكثر من وقت الفريم)،
+  /// ومتوسط وقت البناء والرسم.
   static final frames = ValueNotifier<({double fps, double jank, double build, double raster})?>(null);
 
   static Future<void> init() async {
@@ -55,22 +59,38 @@ abstract final class Perf {
     } catch (_) {}
   }
 
+  /// أول سطر في main.
+  static void begin() => _clock.start();
+
   static void markStartup() => startupMs ??= _clock.elapsedMilliseconds;
 
   static void markFirstData() => firstDataMs ??= _clock.elapsedMilliseconds;
 
-  static void recordCall(String fn, int ms, {bool ok = true}) {
-    final list = _calls.putIfAbsent(fn, () => []);
-    list.add(ms);
-    if (list.length > 30) list.removeAt(0);
-    last.value = (fn: fn, ms: ms, ok: ok);
+  static void recordCall(String fn, int ms, {bool ok = true, int? server}) {
+    _keep(_calls, fn, ms);
+    if (server != null) _keep(_server, fn, server);
+    last.value = (fn: fn, ms: ms, ok: ok, server: server);
   }
 
-  /// كل الطلبات: (النوع، العدد، المتوسط، الأبطأ)، الأبطأ أول.
-  static List<({String fn, int n, int avg, int max})> callStats() {
+  static void _keep(Map<String, List<int>> lists, String fn, int ms) {
+    final list = lists.putIfAbsent(fn, () => []);
+    list.add(ms);
+    if (list.length > 30) list.removeAt(0);
+  }
+
+  static int _avg(List<int> list) => list.reduce((a, b) => a + b) ~/ list.length;
+
+  /// كل الطلبات: (النوع، العدد، المتوسط، الأبطأ، متوسط شغل السيرفر)، الأبطأ أول.
+  static List<({String fn, int n, int avg, int max, int? server})> callStats() {
     final out = [
       for (final MapEntry(:key, :value) in _calls.entries)
-        (fn: key, n: value.length, avg: value.reduce((a, b) => a + b) ~/ value.length, max: value.reduce(math.max)),
+        (
+          fn: key,
+          n: value.length,
+          avg: _avg(value),
+          max: value.reduce(math.max),
+          server: _server[key] == null ? null : _avg(_server[key]!),
+        ),
     ];
     out.sort((a, b) => b.avg.compareTo(a.avg));
     return out;
@@ -78,12 +98,14 @@ abstract final class Perf {
 
   static void reset() {
     _calls.clear();
+    _server.clear();
     last.value = null;
     turnsServer = turnsPhone = 0;
     turns.value++;
   }
 
   // ── الرسم
+  static const _budgetUs = 16700;
   static int _count = 0, _late = 0;
   static double _buildSum = 0, _rasterSum = 0;
   static final _window = Stopwatch()..start();
@@ -94,7 +116,8 @@ abstract final class Perf {
       _count++;
       _buildSum += t.buildDuration.inMicroseconds / 1000;
       _rasterSum += t.rasterDuration.inMicroseconds / 1000;
-      if (t.totalSpan.inMicroseconds > 17000) _late++;
+      // البناء والرسم يشتغلون بنفس الوقت (كل واحد على فريم)، فالفريم يتأخر لو واحد منهم تعدّى ١٦٫٧ms.
+      if (t.buildDuration.inMicroseconds > _budgetUs || t.rasterDuration.inMicroseconds > _budgetUs) _late++;
     }
     if (_window.elapsedMilliseconds >= 1000) _flush();
     // لو وقف الرسم (ما فيه حركة)، نبيّن صفر بعد ثانية.

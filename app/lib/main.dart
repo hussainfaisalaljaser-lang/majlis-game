@@ -26,6 +26,8 @@ import 'widgets/splash.dart';
 import 'theme.dart';
 
 Future<void> main() async {
+  // للقياس (أدوات المطور): من هنا نحسب كم ياخذ فتح اللعبة.
+  Perf.begin();
   WidgetsFlutterBinding.ensureInitialized();
   // أول شي نسمع للروابط، عشان ما يفوتنا رابط الدعوة اللي فتح اللعبة.
   Links.init();
@@ -110,16 +112,21 @@ class _GateState extends State<_Gate> {
     if (!backend.isReady) return const HomeScreen();
     return ValueListenableBuilder(
       valueListenable: backend.profileLoaded,
-      builder: (context, loaded, _) => !loaded || _held
-          ? ValueListenableBuilder(
-              valueListenable: backend.startupError,
-              builder: (context, error, _) =>
-                  SplashView(progress: Preload.progress, error: error, onRetry: backend.retryStartup),
-            )
-          : ValueListenableBuilder(
-              valueListenable: backend.profile,
-              builder: (context, p, _) => p.setupDone ? const HomeScreen() : const WelcomeScreen(),
-            ),
+      builder: (context, loaded, _) {
+        if (!loaded || _held) {
+          return ValueListenableBuilder(
+            valueListenable: backend.startupError,
+            builder: (context, error, _) =>
+                SplashView(progress: Preload.progress, error: error, onRetry: backend.retryStartup),
+          );
+        }
+        // للقياس: فتح اللعبة خلص لما طلعت أول صفحة (الرئيسية، أو الترحيب لو لاعب جديد).
+        if (Perf.startupMs == null) WidgetsBinding.instance.addPostFrameCallback((_) => Perf.markStartup());
+        return ValueListenableBuilder(
+          valueListenable: backend.profile,
+          builder: (context, p, _) => p.setupDone ? const HomeScreen() : const WelcomeScreen(),
+        );
+      },
     );
   }
 }

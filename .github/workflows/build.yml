@@ -93,7 +93,7 @@ jobs:
           openssl enc -d -aes-256-cbc -pbkdf2 -iter 1000000 -in "$KEY" -out "$RUNNER_TEMP/upload.keystore" \
             -pass env:UPLOAD_KEY_PASSWORD
           export UPLOAD_KEYSTORE_PATH="$RUNNER_TEMP/upload.keystore" UPLOAD_KEYSTORE_PASSWORD="$UPLOAD_KEY_PASSWORD" UPLOAD_KEY_ALIAS=upload
-          flutter build appbundle --release --build-number=${{ github.run_number }} --dart-define=BUILD=${{ github.run_number }}
+          flutter build appbundle --release --build-number=${{ github.run_number }} --dart-define=BUILD=${{ github.run_number }} --dart-define=STORE=true
           rm "$RUNNER_TEMP/upload.keystore"
           cp build/app/outputs/bundle/release/app-release.aab ../majlis-${{ github.run_number }}.aab
       # نسخة في Releases تحمّلها من جوالك. نسخ main هي "الأحدث"، فرابط

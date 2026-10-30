@@ -2004,5 +2004,8 @@ const ROUTES: Record<string, CallableFunction<unknown, unknown>> = {
 export const api = onCall({ cpu: 1, memory: '512MiB', concurrency: 80, minInstances: 1, maxInstances: 100 }, async (req) => {
   const route = ROUTES[String(req.data?.fn ?? '')];
   if (!route) throw new HttpsError('not-found', 'طلب مو معروف');
-  return withTicks(async () => route.run({ ...req, data: req.data?.data ?? {} }));
+  const started = Date.now();
+  const out = await withTicks(async () => route.run({ ...req, data: req.data?.data ?? {} }));
+  // كم أخذ شغل السيرفر (قياس السرعة في التطبيق يحسب الباقي: الطريق).
+  return out && typeof out === 'object' && !Array.isArray(out) ? { ...out, _ms: Date.now() - started } : out;
 });

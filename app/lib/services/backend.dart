@@ -21,6 +21,9 @@ import 'perf.dart';
 
 /// شغّل التطبيق مع `--dart-define=USE_EMULATOR=true` عشان يتصل بمحاكي Firebase على جهازك.
 const _useEmulator = bool.fromEnvironment('USE_EMULATOR');
+
+/// نسخة المتجر (ملف AAB لقوقل بلاي، من build.yml). نسخ التجربة (APK من GitHub) غيرها.
+const storeBuild = bool.fromEnvironment('STORE');
 const _emulatorHost = String.fromEnvironment('EMULATOR_HOST', defaultValue: '10.0.2.2');
 
 /// نسخة بروتوكول التطبيق: السيرفر يعطي الأدوار الجديدة (قاضي، شيخ، جاسوس) بس لو كل اللي بالطاولة
@@ -66,7 +69,9 @@ class Backend {
       await Firebase.initializeApp(options: options);
       // شهادة إن الطلب جاي من تطبيقنا الأصلي (من قوقل بلاي): السيرفر يرفض اللي بدونها لما تتفعّل الحماية
       // (functions/src/security.ts). الويب والمحاكي للتجربة بس، بدونها.
-      if (!kIsWeb && !_useEmulator) {
+      // نسخ التجربة اللي من برا المتجر ما تقدر تاخذها أصلاً، والجوال يعيد المحاولة كل شوي (كل محاولة تأخر
+      // طلب أو تحديث بحوالي ثانية)، فما نطلبها إلا في نسخة المتجر.
+      if (!kIsWeb && !_useEmulator && (storeBuild || kDebugMode)) {
         await FirebaseAppCheck.instance
             .activate(
               providerAndroid: kDebugMode ? const AndroidDebugProvider() : const AndroidPlayIntegrityProvider(),
@@ -264,8 +269,10 @@ class Backend {
     final clock = Stopwatch()..start();
     try {
       final result = await _api.call<Map<String, dynamic>>({'fn': name, 'data': data});
-      Perf.recordCall(name, clock.elapsedMilliseconds);
-      return Map<String, dynamic>.from(result.data);
+      final out = Map<String, dynamic>.from(result.data);
+      // السيرفر يرجع كم أخذ شغله (للقياس)، والباقي من الوقت هو الطريق.
+      Perf.recordCall(name, clock.elapsedMilliseconds, server: (out.remove('_ms') as num?)?.toInt());
+      return out;
     } on FirebaseFunctionsException catch (e) {
       Perf.recordCall(name, clock.elapsedMilliseconds, ok: false);
       // نسخة الويب تضيف رقم الحالة آخر الرسالة (مثل [400])، ما نحتاجه.

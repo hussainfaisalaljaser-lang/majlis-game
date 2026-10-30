@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../services/backend.dart';
 import '../services/perf.dart';
 
 /// القياس فوق اللعبة (من أدوات المطور): السيرفر والرسم والتشغيل. ما يتأثر باللمس.
@@ -35,13 +36,19 @@ class _Readout extends StatelessWidget {
       final last = Perf.last.value;
       final f = Perf.frames.value;
       final ac = Perf.appCheck;
-      final server = last == null ? 'السيرفر: لسا ما فيه طلب' : 'السيرفر: ${last.fn} ${last.ms}ms${last.ok ? '' : ' (فشل)'}';
+      final cert = ac == null
+          ? (storeBuild ? '…' : 'مطفية في نسخ التجربة')
+          : '${ac.ms}ms ${ac.ok ? 'نجحت' : 'فشلت'}';
+      final split = last?.server == null ? '' : ' (الطريق ${last!.ms - last.server!} + شغل السيرفر ${last.server})';
+      final server = last == null
+          ? 'السيرفر: لسا ما فيه طلب'
+          : 'السيرفر: ${last.fn} ${last.ms}ms$split${last.ok ? '' : ' (فشل)'}';
       final draw = f == null
           ? 'الرسم: …'
           : 'الرسم: ${f.fps.round()} فريم/ث · متأخر ${(f.jank * 100).round()}% · بناء ${f.build.toStringAsFixed(1)}ms · رسم ${f.raster.toStringAsFixed(1)}ms';
       String secs(int? ms) => ms == null ? '…' : '${(ms / 1000).toStringAsFixed(1)}ث';
       final boot =
-          'التشغيل: ${secs(Perf.startupMs)} · أول بيانات ${secs(Perf.firstDataMs)} · شهادة قوقل ${ac == null ? '…' : '${ac.ms}ms ${ac.ok ? 'نجحت' : 'فشلت'}'}';
+          'التشغيل: ${secs(Perf.startupMs)} · أول بيانات ${secs(Perf.firstDataMs)} · شهادة قوقل $cert';
       final alarm = 'آخر وقت الدور: السيرفر كمّل ${Perf.turnsServer} · الجوال كمّل ${Perf.turnsPhone}';
       return Directionality(
         textDirection: TextDirection.rtl,
