@@ -11,6 +11,12 @@ import { REGION } from './base.js';
  */
 export const TICK_FN = 'gameTick';
 
+/**
+ * المنبّه شغال؟ يحتاج خدمة Cloud Tasks مفعّلة في المشروع، وصلاحية «Cloud Tasks Admin» لحساب الرفع.
+ * لين تتفعّل: مطفي، واللعبة تكمل من الجوالات مثل قبل.
+ */
+export const TICKS_ON = false;
+
 type Pending = Map<string, { key: string; deadline: number | null }>;
 const store = new AsyncLocalStorage<Pending>();
 
@@ -33,7 +39,7 @@ let warned = false;
 
 /** يحط منبّه عند [deadline] للعبة [code] على الدور [key]. أي خطأ (مثل صلاحية ناقصة) ما يوقف اللعبة. */
 export async function scheduleTick(code: string, key: string, deadline: number | null, attempt = 0): Promise<void> {
-  if (deadline === null) return;
+  if (deadline === null || !TICKS_ON) return;
   // اسم المهمة ثابت لكل دور، فلو انطلبت مرتين ما تنحط مرتين. [attempt] لو صحى بدري وانحط من جديد.
   const id = `${code}-${createHash('sha1').update(`${key}|${deadline}|${attempt}`).digest('hex').slice(0, 20)}`;
   try {

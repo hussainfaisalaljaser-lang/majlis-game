@@ -39,11 +39,17 @@ jobs:
           for f in weeklyChampions; do
             gcloud functions delete "$f" --gen2 --region europe-west1 --project majlis-game-1d739 --quiet 2>&1 || true
           done
-          # قاعدة البيانات في الدوحة (مثل السيرفر). تنسوى أول مرة بس؛ لو موجودة يكمل.
-          npx firebase firestore:databases:create gulf --location me-central1 --project majlis-game-1d739 --non-interactive 2>&1 | tail -5 || true
           set +e
-          npx firebase deploy --only functions,firestore:rules,firestore:indexes --project majlis-game-1d739 --non-interactive --force 2>&1 | tee "$RUNNER_TEMP/deploy.log"
+          # قاعدة البيانات في الدوحة (مثل السيرفر). تنسوى أول مرة بس؛ لو موجودة يكمل.
+          db_out=$(npx firebase firestore:databases:create gulf --location me-central1 --project majlis-game-1d739 --non-interactive 2>&1 | sed 's/\x1b\[[0-9;]*m//g' | tail -4 | tr '\n' ' ')
+          echo "::notice::قاعدة gulf: ${db_out}"
+          # القواعد والفهارس أول: لو القاعدة ما انسوت يوقف هنا، قبل ما يتغيّر السيرفر.
+          npx firebase deploy --only firestore:rules,firestore:indexes --project majlis-game-1d739 --non-interactive --force 2>&1 | tee "$RUNNER_TEMP/deploy.log"
           code=${PIPESTATUS[0]}
+          if [ "$code" -eq 0 ]; then
+            npx firebase deploy --only functions --project majlis-game-1d739 --non-interactive --force 2>&1 | tee -a "$RUNNER_TEMP/deploy.log"
+            code=${PIPESTATUS[0]}
+          fi
           rm "$RUNNER_TEMP/sa.json"
           # آخر سطور الخطأ تطلع كملاحظات في صفحة التشغيل، عشان نعرف السبب بسرعة.
           if [ "$code" -ne 0 ]; then

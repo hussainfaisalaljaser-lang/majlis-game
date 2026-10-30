@@ -6,7 +6,7 @@ import { HttpsError, type CallableFunction } from 'firebase-functions/v2/https';
 import { onTaskDispatched } from 'firebase-functions/v2/tasks';
 import { boardRef, db, requireAuth, userRef } from './base.js';
 import { sendPush } from './push.js';
-import { noteGameWrite, scheduleTick, withTicks } from './ticks.js';
+import { noteGameWrite, scheduleTick, TICKS_ON, withTicks } from './ticks.js';
 import { appCheckMode, onCall, openCall, setAppCheckMode } from './security.js';
 import {
   buyPid,
@@ -1267,7 +1267,9 @@ export const timeout = onCall(async (req) => {
  * منبّه الدور (ticks.ts): يصحى عند آخر وقت الدور ويكمّل اللعبة بدون ما ينتظر جوال لاعب.
  * لو الدور تغيّر قبله (لعب اللاعب أو طلبها جوال)، ما يسوي شي.
  */
-export const gameTick = onTaskDispatched(
+export const gameTick = !TICKS_ON
+  ? undefined
+  : onTaskDispatched(
   { retryConfig: { maxAttempts: 3, minBackoffSeconds: 2 }, rateLimits: { maxConcurrentDispatches: 300 }, memory: '512MiB' },
   async (req) => {
     const code = String(req.data?.code ?? '');
