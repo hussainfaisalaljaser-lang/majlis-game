@@ -1,8 +1,9 @@
 import 'dart:async';
 import 'dart:math' as math;
+import 'dart:ui' show FramePhase, PlatformDispatcher;
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/scheduler.dart';
+import 'package:flutter/widgets.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// قياس السرعة (من أدوات المطور): كم ياخذ كل طلب للسيرفر، وكم الشاشة سلسة، وكم ياخذ فتح اللعبة،
@@ -123,6 +124,7 @@ abstract final class Perf {
 
   static void _onTimings(List<FrameTiming> timings) {
     for (final t in timings) {
+      _navFrame(t);
       _count++;
       _buildSum += t.buildDuration.inMicroseconds / 1000;
       _rasterSum += t.rasterDuration.inMicroseconds / 1000;
@@ -145,5 +147,103 @@ abstract final class Perf {
     _window
       ..reset()
       ..start();
+  }
+
+  // ── التنقل بين الصفحات
+  /// آخر تنقل: لأي صفحة، وأول فريم بعده (بناء الصفحة الجديدة ورسمها)، وخلال حركة التنقل: أبطأ فريم
+  /// وكم فريم تأخر من كم.
+  static final nav = ValueNotifier<({String page, double build, double raster, double worst, int late, int count})?>(
+    null,
+  );
+
+  /// يتسجل في MaterialApp: يعرف متى انفتحت صفحة أو رجعنا لصفحة.
+  static final navObserver = _NavProbe();
+
+  /// حركة التنقل ٤٥٠ms (FadeForwards)، ونحسب شوي بعدها.
+  static const _navWindowUs = 600000;
+  static int? _navAfter, _navStart;
+  static String _navPage = '';
+  static double _navBuild = 0, _navRaster = 0, _navWorst = 0;
+  static int _navCount = 0, _navLate = 0;
+  static Timer? _navTimer;
+
+  static void _navStarted(String page) {
+    if (!enabled.value) return;
+    // الفريمات اللي بعد آخر فريم بدأ هي فريمات التنقل (نفس ترقيم FrameTiming).
+    _navAfter = PlatformDispatcher.instance.frameData.frameNumber;
+    _navStart = null;
+    _navPage = page;
+    _navBuild = _navRaster = _navWorst = 0;
+    _navCount = _navLate = 0;
+    _navTimer?.cancel();
+    _navTimer = Timer(const Duration(milliseconds: 1500), _navFlush);
+  }
+
+  static void _navFrame(FrameTiming t) {
+    final after = _navAfter;
+    if (after == null || t.frameNumber <= after) return;
+    final start = t.timestampInMicroseconds(FramePhase.buildStart);
+    final build = t.buildDuration.inMicroseconds / 1000, raster = t.rasterDuration.inMicroseconds / 1000;
+    if (_navStart == null) {
+      _navStart = start;
+      _navBuild = build;
+      _navRaster = raster;
+    }
+    if (start - _navStart! > _navWindowUs) return _navFlush();
+    _navCount++;
+    _navWorst = math.max(_navWorst, math.max(build, raster));
+    if (t.buildDuration.inMicroseconds > _budgetUs || t.rasterDuration.inMicroseconds > _budgetUs) _navLate++;
+  }
+
+  static void _navFlush() {
+    _navTimer?.cancel();
+    if (_navAfter == null || _navCount == 0) return;
+    _navAfter = null;
+    nav.value = (
+      page: _navPage,
+      build: _navBuild,
+      raster: _navRaster,
+      worst: _navWorst,
+      late: _navLate,
+      count: _navCount,
+    );
+  }
+}
+
+class _NavProbe extends NavigatorObserver {
+  // بس الصفحات (مو النوافذ الصغيرة فوقها).
+  @override
+  void didPush(Route<dynamic> route, Route<dynamic>? previousRoute) {
+    if (route is PageRoute) _started(route);
+  }
+
+  @override
+  void didPop(Route<dynamic> route, Route<dynamic>? previousRoute) {
+    if (route is PageRoute) _started(previousRoute);
+  }
+
+  @override
+  void didReplace({Route<dynamic>? newRoute, Route<dynamic>? oldRoute}) => _started(newRoute);
+
+  /// اسم الصفحة اللي بتطلع (أول ودجت اسمه …Screen فيها)، بعد ما تنبني.
+  void _started(Route<dynamic>? route) {
+    if (route is! PageRoute || !Perf.enabled.value) return;
+    Perf._navStarted('');
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      String? found;
+      void visit(Element e, int depth) {
+        if (found != null || depth > 8) return;
+        final name = e.widget.runtimeType.toString();
+        if (name.endsWith('Screen')) {
+          found = name;
+          return;
+        }
+        e.visitChildren((c) => visit(c, depth + 1));
+      }
+
+      final context = route.subtreeContext;
+      if (context is Element) visit(context, 0);
+      Perf._navPage = found ?? route.settings.name ?? '';
+    });
   }
 }

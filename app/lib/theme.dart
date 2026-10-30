@@ -1,4 +1,7 @@
+import 'package:flutter/cupertino.dart' show CupertinoPageTransitionsBuilder;
 import 'package:flutter/material.dart';
+
+import 'widgets/page_transition.dart';
 
 /// ألوان التصميم: خشب بني غامق، وذهب، ومخمل أحمر، ورق قديم.
 abstract final class AppColors {
@@ -46,6 +49,17 @@ ThemeData buildTheme() {
     useMaterial3: true,
   );
   return base.copyWith(
+    // التنقل بين الصفحات: نفس حركة أندرويد بالضبط، بس كل صفحة تنرسم كصورة وهي تتحرك (page_transition.dart).
+    // باقي الأنظمة مثل ما هي.
+    pageTransitionsTheme: const PageTransitionsTheme(
+      builders: {
+        TargetPlatform.android: SmoothPageTransitionsBuilder(),
+        TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
+        TargetPlatform.macOS: CupertinoPageTransitionsBuilder(),
+        TargetPlatform.windows: ZoomPageTransitionsBuilder(),
+        TargetPlatform.linux: ZoomPageTransitionsBuilder(),
+      },
+    ),
     textTheme: base.textTheme.apply(bodyColor: AppColors.text, displayColor: AppColors.text),
     appBarTheme: const AppBarTheme(
       backgroundColor: Colors.transparent,
