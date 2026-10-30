@@ -3,7 +3,8 @@
  * مع البوتات ويلعب كم حركة، ونقيس كل طلب: الوقت كامل، وشغل السيرفر (_ms)، وأجزاؤه (_t: العملية والمنبّه
  * والإشعارات). بعدها نمسح اللعبة. الوقت كامل يشمل الطريق من GitHub (أمريكا) للدوحة، فالمهم شغل السيرفر.
  */
-import { initializeApp } from 'firebase-admin/app';
+import { readFileSync } from 'node:fs';
+import { cert, initializeApp } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
 import { getFirestore } from 'firebase-admin/firestore';
 
@@ -14,7 +15,9 @@ const API_KEY = 'AIzaSyBvUqssl1P_-P6Zd7CaJmzLKYlZeYYVmwQ';
 const UID = 'speedcheck-ci';
 const PROTOCOL = 2;
 
-initializeApp({ projectId: PROJECT });
+// مفتاح حساب الرفع (من السر في GitHub): يوقّع توكن لاعب التجربة بنفسه بدون صلاحيات زيادة.
+const keyFile = process.env.GOOGLE_APPLICATION_CREDENTIALS;
+initializeApp({ projectId: PROJECT, ...(keyFile ? { credential: cert(JSON.parse(readFileSync(keyFile, 'utf8'))) } : {}) });
 const db = getFirestore('gulf');
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
