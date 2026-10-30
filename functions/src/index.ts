@@ -397,6 +397,8 @@ export const ensureProfile = onCall(async (req) => {
   const owner = isOwner(req);
   // نسخة التطبيق (النسخ القديمة ما ترسلها).
   const proto = clampInt(req.data?.proto ?? 1, 1, 100);
+  // أسبوع جديد؟ نتوّج أبطال اللي فات (مرة وحدة)، بنفس وقت تجهيز الملف. أي خطأ هنا ما يمنع اللاعب يدخل.
+  const crown = maybeCrown(Date.now()).catch((e) => logger.warn('التتويج', e));
   await db.runTransaction(async (tx) => {
     const snap = await tx.get(userRef(uid));
     if (!snap.exists) {
@@ -413,8 +415,7 @@ export const ensureProfile = onCall(async (req) => {
     }
     if (withPid !== p && p.setupDone) tx.set(boardRef(uid), toLeaderboard(rewarded));
   });
-  // أسبوع جديد؟ نتوّج أبطال اللي فات (مرة وحدة). أي خطأ هنا ما يمنع اللاعب يدخل.
-  await maybeCrown(Date.now()).catch((e) => logger.warn('التتويج', e));
+  await crown;
   return {};
 });
 
@@ -1612,8 +1613,12 @@ async function crownChampions(week: string, now: number): Promise<string[]> {
  * تتويج أبطال الأسبوع اللي خلص، أول ما يفتح أي لاعب اللعبة بعد بداية أسبوع جديد (الأحد).
  * القفل في meta/crownLock يضمن إنه يصير مرة وحدة بس لكل أسبوع حتى لو فتح أكثر من لاعب بنفس اللحظة.
  */
+/** آخر أسبوع شافت هالنسخة من السيرفر إنه تتوّج (عشان ما تسأل قاعدة البيانات مع كل فتحة للعبة). */
+let crownedWeek: string | undefined;
+
 async function maybeCrown(now: number): Promise<void> {
   const lastWeek = gulfWeek(now - 7 * 86400_000);
+  if (crownedWeek === lastWeek) return;
   const lockRef = db.doc('meta/crownLock');
   const mine = await db.runTransaction(async (tx) => {
     const lock = (await tx.get(lockRef)).data();
@@ -1621,6 +1626,7 @@ async function maybeCrown(now: number): Promise<void> {
     tx.set(lockRef, { week: lastWeek, at: now });
     return true;
   });
+  crownedWeek = lastWeek;
   if (!mine) return;
   const champions = await crownChampions(lastWeek, now);
   logger.info('أبطال الأسبوع', { week: lastWeek, champions });
