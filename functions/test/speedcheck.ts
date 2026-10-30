@@ -125,8 +125,10 @@ async function main(): Promise<void> {
     code = (await call<{ code: string }>(token, 'startTraining', {})).code;
     const stop = Date.now() + 80_000;
     let moves = 0;
+    let round = 0;
     while (Date.now() < stop && moves < 12) {
       const v = (await db.doc(`games/${code}/views/${UID}`).get()).data();
+      round = Math.max(round, v?.round ?? 0);
       if (!v || v.phase === 'gameOver') {
         if (v) break;
         await sleep(400);
@@ -145,6 +147,8 @@ async function main(): Promise<void> {
         await sleep(400);
       }
     }
+    // أدوار البوتات يكملها منبّه السيرفر بس (الفحص ما يطلب timeout)، فلو الجولات تمشي المنبّه شغال.
+    console.log(`::notice title=فحص السرعة::منبّه السيرفر: اللعبة وصلت الجولة ${round} بـ ${moves} حركة`);
     await call(token, 'leaveGame', { code }).catch(() => undefined);
   } finally {
     // نمسح لعبة الفحص قبل ما تخلص (ما تنحسب ولا تطلع في الترتيب).

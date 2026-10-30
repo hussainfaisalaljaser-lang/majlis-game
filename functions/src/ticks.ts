@@ -41,6 +41,10 @@ export async function afterwards(job: () => Promise<unknown>): Promise<void> {
 /** كم أخذ كل جزء من الطلب بالملي ثانية (قياس السرعة في التطبيق): العملية، والمنبّه، والإشعارات. */
 export type Timings = Partial<Record<'work' | 'tick' | 'push' | 'tickFallback', number>>;
 
+/** كم ننتظر حط المنبّه قبل ما نرد على اللاعب (بس لين يطلع الطلب لقوقل). */
+const TICK_WAIT_MS = 200;
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
 /** يشغّل الطلب، وبعده يحط منبّه لكل لعبة انكتبت فيه ويرسل الإشعارات (مع بعض). */
 export async function withTicks<T>(run: () => Promise<T>, timings?: Timings): Promise<T> {
   const after: After = { games: new Map(), jobs: [] };
@@ -49,25 +53,30 @@ export async function withTicks<T>(run: () => Promise<T>, timings?: Timings): Pr
     return await store.run(after, run);
   } finally {
     const done = Date.now();
-    const clock = (name: 'tick' | 'push') => () => {
-      if (timings) timings[name] = Math.max(timings[name] ?? 0, Date.now() - done);
-    };
-    await Promise.all([
-      ...[...after.games].map(([code, g]) =>
-        scheduleTick(code, g.key, g.deadline)
-          .then((fallback) => {
-            if (fallback && timings) timings.tickFallback = 1;
-          })
-          .finally(clock('tick')),
+    const ticks = Promise.all(
+      [...after.games].map(([code, g]) =>
+        scheduleTick(code, g.key, g.deadline).then((fallback) => {
+          if (fallback && timings) timings.tickFallback = 1;
+        }),
       ),
-      ...after.jobs.map((job) =>
+    );
+    const jobs = Promise.all(
+      after.jobs.map((job) =>
         Promise.resolve()
           .then(job)
           .catch((e) => logger.warn('after-request job failed', e))
-          .finally(clock('push')),
+          .finally(() => {
+            if (timings) timings.push = Math.max(timings.push ?? 0, Date.now() - done);
+          }),
       ),
-    ]);
-    if (timings) timings.work = done - started;
+    );
+    // خدمة المهام عند قوقل ترد بعد حوالي ثانية. ننتظر بس لين يطلع طلب المنبّه (أقل من [TICK_WAIT_MS])، ونرد
+    // على اللاعب، والحجز يكمل بالخلفية. لو تأخر، الجوال يكمّل الدور بنفسه مثل قبل.
+    await Promise.all([jobs, after.games.size ? Promise.race([ticks, sleep(TICK_WAIT_MS)]) : null]);
+    if (timings) {
+      timings.work = done - started;
+      if (after.games.size) timings.tick = Date.now() - done;
+    }
   }
 }
 
