@@ -25,7 +25,9 @@ import { getFirestore as adminFirestore } from 'firebase-admin/firestore';
 import type { GameState, PlayerView } from '../../engine/src/index.js';
 
 const PROJECT = 'majlis-game-1d739';
-const admin = adminFirestore(adminApp({ projectId: PROJECT }, 'admin'));
+/** قاعدة البيانات اللي يكتب فيها السيرفر (functions/src/base.ts). */
+const DB = 'gulf';
+const admin = adminFirestore(adminApp({ projectId: PROJECT }, 'admin'), DB);
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 interface Client {
@@ -42,7 +44,7 @@ async function client(i: number, owner = false): Promise<Client> {
   const app = initializeApp({ projectId: PROJECT, apiKey: 'fake' }, `n${i}`);
   const auth = getAuth(app);
   connectAuthEmulator(auth, 'http://127.0.0.1:9099', { disableWarnings: true });
-  const fs = getFirestore(app);
+  const fs = getFirestore(app, DB);
   connectFirestoreEmulator(fs, '127.0.0.1', 8080);
   const fns = getFunctions(app, 'me-central1');
   connectFunctionsEmulator(fns, '127.0.0.1', 5001);
@@ -298,13 +300,13 @@ async function main(): Promise<void> {
   assert.equal(board.code, undefined, 'كود الروم ما يطلع للناس');
   const { code: watched } = await watcher.call<{ code: string }>('spectate', { uid: dev.uid });
   assert.equal(watched, live);
-  const wfs = getFirestore(watcher.app);
+  const wfs = getFirestore(watcher.app, DB);
   const wv = (await getDoc(doc(wfs, `games/${live}/views/_watch`))).data() as PlayerView;
   assert.equal(wv.spectator, true);
   assert.ok(wv.players.every((p) => p.knownRole === null), 'ما يشوف الأدوار');
   assert.deepEqual(wv.hand, []);
   await assert.rejects(getDoc(doc(wfs, `games/${live}/views/${dev.uid}`)), 'نسخة اللاعب نفسه ممنوعة');
-  await assert.rejects(getDoc(doc(getFirestore(plain.app), `games/${live}/views/_watch`)), 'اللي مو متفرج ممنوع');
+  await assert.rejects(getDoc(doc(getFirestore(plain.app, DB), `games/${live}/views/_watch`)), 'اللي مو متفرج ممنوع');
   assert.deepEqual((await dev.room(live)).watchers, [watcher.uid]);
   await watcher.call('stopWatching', { code: live });
   assert.deepEqual((await dev.room(live)).watchers, []);

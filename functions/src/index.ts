@@ -6,7 +6,7 @@ import { HttpsError, type CallableFunction } from 'firebase-functions/v2/https';
 import { onTaskDispatched } from 'firebase-functions/v2/tasks';
 import { boardRef, db, requireAuth, userRef } from './base.js';
 import { sendPush } from './push.js';
-import { noteGameWrite, scheduleTick, TICKS_ON, withTicks } from './ticks.js';
+import { noteGameWrite, scheduleTick, TICKS_ON, withTicks, type Timings } from './ticks.js';
 import { appCheckMode, onCall, openCall, setAppCheckMode } from './security.js';
 import {
   buyPid,
@@ -363,14 +363,18 @@ function runInstantBots(state: GameState): GameState {
   return s;
 }
 
-/** نحفظ الحالة الكاملة مع المؤقت، ونسخة لكل لاعب. */
-function writeGame(tx: Transaction, code: string, state: GameState, deadline: number | null): void {
+/**
+ * نحفظ الحالة الكاملة مع المؤقت، ونسخة لكل لاعب. [alarm]: بدأ دور جديد ويحتاج منبّه (نفس الدور له منبّه من قبل).
+ */
+function writeGame(tx: Transaction, code: string, state: GameState, deadline: number | null, alarm = true): void {
   const gameRef = db.doc(`games/${code}`);
   const key = turnKey(state);
   tx.set(gameRef, { ...state, deadline, turnKey: key });
   // منبّه الدور ينحط بعد ما تنحفظ العملية (ticks.ts).
-  noteGameWrite(code, key, state.phase === 'gameOver' ? null : deadline);
+  noteGameWrite(code, key, state.phase === 'gameOver' || !alarm ? null : deadline);
   for (const p of state.players) {
+    // البوتات يلعبون من السيرفر وما أحد يقرا نسختهم، فما نكتبها (كل حفظ أخف).
+    if (isBot(p.id)) continue;
     tx.set(gameRef.collection('views').doc(p.id), { ...viewFor(state, p.id), deadline, autopilot: state.autopilot ?? [] });
   }
   // نسخة المتفرجين (بدون أي سر).
@@ -1068,8 +1072,9 @@ async function finishTurn(
   const tourChanges: Parameters<typeof writeTour>[3] = [];
 
   const delay = scenesDelay(prev.state, next);
-  const deadline = turnKey(next) === prev.key ? prev.deadline : deadlineFor(next, now, delay);
-  writeGame(tx, code, next, deadline);
+  const newTurn = turnKey(next) !== prev.key;
+  const deadline = newTurn ? deadlineFor(next, now, delay) : prev.deadline;
+  writeGame(tx, code, next, deadline, newTurn);
 
   // ردود البوتات تطلع بعد المشاهد (كشف التصويت والختم)، وحدة ورا الثانية.
   const roomUpdate: Record<string, unknown> = {};
@@ -2005,7 +2010,10 @@ export const api = onCall({ cpu: 1, memory: '512MiB', concurrency: 80, minInstan
   const route = ROUTES[String(req.data?.fn ?? '')];
   if (!route) throw new HttpsError('not-found', 'طلب مو معروف');
   const started = Date.now();
-  const out = await withTicks(async () => route.run({ ...req, data: req.data?.data ?? {} }));
-  // كم أخذ شغل السيرفر (قياس السرعة في التطبيق يحسب الباقي: الطريق).
-  return out && typeof out === 'object' && !Array.isArray(out) ? { ...out, _ms: Date.now() - started } : out;
+  const timings: Timings = {};
+  const out = await withTicks(async () => route.run({ ...req, data: req.data?.data ?? {} }), timings);
+  // كم أخذ شغل السيرفر وكل جزء منه (قياس السرعة في التطبيق يحسب الباقي: الطريق).
+  return out && typeof out === 'object' && !Array.isArray(out)
+    ? { ...out, _ms: Date.now() - started, _t: timings }
+    : out;
 });

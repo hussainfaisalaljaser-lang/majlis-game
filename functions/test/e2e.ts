@@ -24,6 +24,8 @@ import { SEASON } from '../src/catalog.js';
 import { seasonActive } from '../src/rewards.js';
 
 const PROJECT = 'majlis-game-1d739';
+/** قاعدة البيانات اللي يكتب فيها السيرفر (functions/src/base.ts). */
+const DB = 'gulf';
 
 interface Client {
   app: FirebaseApp;
@@ -38,7 +40,7 @@ async function client(i: number): Promise<Client> {
   const app = initializeApp({ projectId: PROJECT, apiKey: 'fake' }, `p${i}`);
   const auth = getAuth(app);
   connectAuthEmulator(auth, 'http://127.0.0.1:9099', { disableWarnings: true });
-  const fs = getFirestore(app);
+  const fs = getFirestore(app, DB);
   connectFirestoreEmulator(fs, '127.0.0.1', 8080);
   const fns = getFunctions(app, 'me-central1');
   connectFunctionsEmulator(fns, '127.0.0.1', 5001);
@@ -145,7 +147,7 @@ async function main(): Promise<void> {
   await expectError(host.call('startGame', { code }), 'failed-precondition');
   await expectError(rest[0].call('joinRoom', { code: 'ZZZZZ' }), 'not-found');
   for (const p of rest) await p.call('joinRoom', { code });
-  const roomPlayers = (await getDoc(doc(getFirestore(host.app), `rooms/${code}`))).data()!.players;
+  const roomPlayers = (await getDoc(doc(getFirestore(host.app, DB), `rooms/${code}`))).data()!.players;
   assert.equal(roomPlayers[0].name, 'أبو فيصل', 'الاسم يجي من الملف الشخصي');
   await expectError(rest[0].call('startGame', { code }), 'permission-denied');
   await host.call('startGame', { code });
@@ -181,11 +183,11 @@ async function main(): Promise<void> {
   await expectError(rest[1].call('react', { code, kind: 'shock_jaw' }), 'permission-denied');
   await expectError(rest[0].call('react', { code, kind: 'trust', target: rest[0].uid }), 'invalid-argument');
   await expectError(rest[2].call('react', { code, kind: 'hello' }), 'invalid-argument');
-  const roomDoc = (await getDoc(doc(getFirestore(host.app), `rooms/${code}`))).data()!;
+  const roomDoc = (await getDoc(doc(getFirestore(host.app, DB), `rooms/${code}`))).data()!;
   assert.equal(roomDoc.reactions.length, 2);
   assert.equal(roomDoc.opinions[rest[0].uid][rest[1].uid], 'suspect');
   await rest[0].call('clearOpinion', { code, target: rest[1].uid });
-  const cleared = (await getDoc(doc(getFirestore(host.app), `rooms/${code}`))).data()!;
+  const cleared = (await getDoc(doc(getFirestore(host.app, DB), `rooms/${code}`))).data()!;
   assert.equal(cleared.opinions[rest[0].uid]?.[rest[1].uid], undefined, 'الرأي ينشال لو غيّر رأيه');
   console.log('✓ الردود السريعة تنحفظ، ومؤشر الشك يتحدث وينشال، والردود الغلط ترفض');
 
@@ -214,7 +216,7 @@ async function main(): Promise<void> {
   const before = await Promise.all(players.map((p) => p.profile()));
   const end = await playToEnd(players, code);
   console.log(`✓ انتهت اللعبة. الفايز: ${end.winner} (${end.winReason})`);
-  const results = (await getDoc(doc(getFirestore(host.app), `rooms/${code}`))).data()!.results;
+  const results = (await getDoc(doc(getFirestore(host.app, DB), `rooms/${code}`))).data()!.results;
   for (const [i, p] of players.entries()) {
     const after = await p.profile();
     const r = results[p.uid];
@@ -227,7 +229,7 @@ async function main(): Promise<void> {
   console.log('✓ نهاية الروم الخاص: خبرة للكل، والفايزين انحسب لهم فوز');
 
   // ٥أ. بعد اللعبة: الطاولة تبقى للسوالف (حتى المطرودين) لين يطلعون، واللي يطلع يبان للباقين
-  const roomRef = doc(getFirestore(host.app), `rooms/${code}`);
+  const roomRef = doc(getFirestore(host.app, DB), `rooms/${code}`);
   await rest[2].call('react', { code, kind: 'b_laugh' });
   await expectError(rest[3].call('react', { code, kind: 'suspect', target: host.uid }), 'failed-precondition');
   const deadOne = players.find((p) => end.players.some((x) => x.id === p.uid && !x.alive) && p !== rest[0]);
@@ -255,7 +257,7 @@ async function main(): Promise<void> {
   console.log('✓ المهام: التقدم ينحسب، وما تنستلم قبل ما تخلص، وتنستلم مرة وحدة');
 
   // ٥ج. جدول الترتيب
-  const boardDb = getFirestore(host.app);
+  const boardDb = getFirestore(host.app, DB);
   const all = await getDocs(query(collection(boardDb, 'leaderboard'), orderBy('gamesWon', 'desc'), limit(50)));
   assert.equal(all.size, 5);
   const top = all.docs[0].data();
@@ -294,10 +296,11 @@ async function main(): Promise<void> {
   }
   console.log(`✓ المطابقة: ٥ لاعبين دخلوا روم ${qm} ودفعوا الرسوم وبدأت تلقائياً`);
   await playToEnd(players, qm);
-  const qmResults = (await getDoc(doc(getFirestore(host.app), `rooms/${qm}`))).data()!.results;
+  const qmResults = (await getDoc(doc(getFirestore(host.app, DB), `rooms/${qm}`))).data()!.results;
   const winnerCount = Object.values(qmResults).filter((r: any) => r.won).length;
   for (const [i, p] of players.entries()) {
-    const expected = qmResults[p.uid].won ? Math.floor(5000 / winnerCount) : 0;
+    // نهاية الأسبوع الذهب مضاعف (النتيجة فيها boost).
+    const expected = qmResults[p.uid].won ? Math.floor(5000 / winnerCount) * (qmResults[p.uid].boost ?? 1) : 0;
     assert.equal(qmResults[p.uid].coins, expected);
     const prof = await p.profile();
     assert.equal(prof.coins - achCoins(prof), startCoins[i] - 1000 + expected);
@@ -311,7 +314,7 @@ async function main(): Promise<void> {
     else assert.ok(r.rank <= 0);
   }
   const rankWinner = players.find((p) => qmResults[p.uid].won)!;
-  const rankBoard = (await getDoc(doc(getFirestore(host.app), `leaderboard/${rankWinner.uid}`))).data()!;
+  const rankBoard = (await getDoc(doc(getFirestore(host.app, DB), `leaderboard/${rankWinner.uid}`))).data()!;
   assert.equal(rankBoard.rankPoints, qmResults[rankWinner.uid].rank);
   assert.equal((await rankWinner.profile()).rank.points, qmResults[rankWinner.uid].rank);
   console.log(`✓ التصنيف: الفايز +${qmResults[rankWinner.uid].rank} في الموسم ${rankBoard.rankSeason}`);
@@ -336,7 +339,7 @@ async function main(): Promise<void> {
   assert.equal((await rich.p.profile()).equipped.bubble, 'bubble_classic');
   await rich.p.call('equipItem', { id: 'bubble_gold' });
   const { code: shopRoom } = await rich.p.call<{ code: string }>('createRoom', { maxPlayers: 5 });
-  const shopRoomData = (await getDoc(doc(getFirestore(host.app), `rooms/${shopRoom}`))).data()!;
+  const shopRoomData = (await getDoc(doc(getFirestore(host.app, DB), `rooms/${shopRoom}`))).data()!;
   assert.equal(shopRoomData.players[0].bubble, 'bubble_gold');
   console.log('✓ المتجر: الشراء ينخصم ويلبس، وما ينشرى مرتين، وما يكفي الذهب يرفض، والفقاعة تطلع في الطاولة');
 
@@ -359,7 +362,7 @@ async function main(): Promise<void> {
   await expectError(rest[0].call('addBots', { code: botRoom }), 'permission-denied');
   for (let i = 0; i < 4; i++) await host.call('addBots', { code: botRoom });
   await expectError(host.call('addBots', { code: botRoom }), 'failed-precondition');
-  const botRoomData = (await getDoc(doc(getFirestore(host.app), `rooms/${botRoom}`))).data()!;
+  const botRoomData = (await getDoc(doc(getFirestore(host.app, DB), `rooms/${botRoom}`))).data()!;
   assert.equal(botRoomData.players.filter((p: { bot?: boolean }) => p.bot).length, 4);
   const removed = botRoomData.players.find((p: { bot?: boolean }) => p.bot).uid;
   await host.call('removeBot', { code: botRoom, botId: removed });
@@ -385,9 +388,9 @@ async function main(): Promise<void> {
   }
   const hostAfter = await host.profile();
   assert.equal(hostAfter.gamesPlayed, hostBefore.gamesPlayed + 1, 'اللعبة انحسبت للاعب');
-  const botBoard = await getDoc(doc(getFirestore(host.app), `leaderboard/${removed}`));
+  const botBoard = await getDoc(doc(getFirestore(host.app, DB), `leaderboard/${removed}`));
   assert.equal(botBoard.exists(), false, 'البوت ما يدخل الترتيب');
-  const botTalk = ((await getDoc(doc(getFirestore(host.app), `rooms/${botRoom}`))).data()!.reactions ?? []).filter(
+  const botTalk = ((await getDoc(doc(getFirestore(host.app, DB), `rooms/${botRoom}`))).data()!.reactions ?? []).filter(
     (r: { from: string }) => r.from.startsWith('bot_'),
   );
   assert.ok(botTalk.length > 0, 'البوتات يتفاعلون في الطاولة');
@@ -401,7 +404,7 @@ async function main(): Promise<void> {
   await host.call('leaveGame', { code: leaveRoom });
   const leftView = (await host.view(leaveRoom)) as PlayerView & { autopilot: string[] };
   assert.ok(leftView.autopilot.includes(host.uid), 'البوت يلعب عنه');
-  const leftRoom = (await getDoc(doc(getFirestore(host.app), `rooms/${leaveRoom}`))).data()!;
+  const leftRoom = (await getDoc(doc(getFirestore(host.app, DB), `rooms/${leaveRoom}`))).data()!;
   assert.equal(leftRoom.players.find((p: { uid: string }) => p.uid === host.uid).bot, true, 'يطلع جنبه 🤖 للكل');
   await expectError(host.call('act', { code: leaveRoom, action: { type: 'vote', ja: true } }), 'failed-precondition');
   console.log('✓ الخروج: البوت يكمل عنه، وما يقدر يلعب بعدها');
@@ -491,7 +494,7 @@ async function main(): Promise<void> {
   await dev.call('buyItem', { id: 'bubble_neon' });
   await dev.call('equipItem', { id: 'bubble_neon' });
   const { code: bubbleRoom } = await dev.call<{ code: string }>('createRoom', { maxPlayers: 5 });
-  const bubbleRoomData = (await getDoc(doc(getFirestore(dev.app), `rooms/${bubbleRoom}`))).data()!;
+  const bubbleRoomData = (await getDoc(doc(getFirestore(dev.app, DB), `rooms/${bubbleRoom}`))).data()!;
   assert.equal(bubbleRoomData.players[0].bubble, 'bubble_neon', 'الفقاعة تطلع للكل في الطاولة');
   await dev.call('leaveRoom', { code: bubbleRoom });
   console.log('✓ المتجر الجديد: طاولة، شخصية مميزة، باقة ملصقات، وفقاعة');
@@ -624,7 +627,7 @@ async function main(): Promise<void> {
   assert.notEqual(renamedP.name, oldName);
   assert.ok(renamedP.name.startsWith('لاعب'));
   assert.equal(renamedP.renamed, true);
-  assert.equal((await getDoc(doc(getFirestore(reported.app), `leaderboard/${reported.uid}`))).data()!.name, renamedP.name);
+  assert.equal((await getDoc(doc(getFirestore(reported.app, DB), `leaderboard/${reported.uid}`))).data()!.name, renamedP.name);
   // يختار اسم جديد: تنشال علامة التغيير
   await reported.call('updateProfile', { name: 'اسم نظيف', avatar: 'falcon' });
   assert.equal((await reported.profile()).renamed, false);
@@ -653,7 +656,7 @@ async function main(): Promise<void> {
   // الإنجازات: بعد الألعاب اللي فاتت، الإحصائيات تنحسب وتطلع في الترتيب
   const hostStats = await host.profile();
   assert.ok((hostStats.stats?.games ?? 0) >= 2, 'الألعاب تنعد');
-  const board = (await getDoc(doc(getFirestore(host.app), `leaderboard/${host.uid}`))).data()!;
+  const board = (await getDoc(doc(getFirestore(host.app, DB), `leaderboard/${host.uid}`))).data()!;
   assert.equal(typeof board.badges, 'object');
   console.log(`✓ الإنجازات: ${hostStats.stats.games} ألعاب انعدت، والدرجات: ${JSON.stringify(hostStats.badges ?? {})}`);
 
@@ -669,7 +672,7 @@ async function main(): Promise<void> {
   assert.match(aProfile.pid, /^[1-9]\d{7}$/, 'كل لاعب له رمز ٨ أرقام');
   assert.equal(aProfile.pidTier, 0);
   assert.notEqual(aProfile.pid, (await pb.profile()).pid);
-  const aBoard = (await getDoc(doc(getFirestore(pb.app), `leaderboard/${pa.uid}`))).data()!;
+  const aBoard = (await getDoc(doc(getFirestore(pb.app, DB), `leaderboard/${pa.uid}`))).data()!;
   assert.equal(aBoard.pid, aProfile.pid, 'الرمز يطلع في بطاقته');
   const found = await pb.call<{ uid: string; name: string; pid: string }>('findPlayer', { pid: aProfile.pid });
   assert.equal(found.uid, pa.uid);
@@ -738,7 +741,7 @@ async function main(): Promise<void> {
   assert.equal(devPid.diamonds, devBefore.diamonds - 1500);
   assert.equal((await pa.call<{ uid: string }>('findPlayer', { pid: '7777' })).uid, dev.uid);
   await expectError(pa.call('findPlayer', { pid: devBefore.pid }), 'not-found');
-  assert.equal((await getDoc(doc(getFirestore(pa.app), `leaderboard/${dev.uid}`))).data()!.pid, '7777');
+  assert.equal((await getDoc(doc(getFirestore(pa.app, DB), `leaderboard/${dev.uid}`))).data()!.pid, '7777');
   await expectError(pb.call('buyPid', { pid: '7777' }), 'already-exists');
   assert.equal((await pb.call<{ available: boolean }>('quotePid', { pid: '7777' })).available, false);
   console.log('✓ الرمز المميز: ٧٧٧٧ بـ ١٥٠٠ جوهرة، والقديم انفك، وما ينشرى مرتين');
@@ -763,7 +766,7 @@ async function main(): Promise<void> {
   await leaver.call('updateProfile', { name: 'حذفني', avatar: 'falcon' });
   await leaver.call('sendFeedback', { kind: 'bug', text: 'رسالة قبل الحذف' });
   await leaver.call('deleteAccount');
-  assert.equal((await getDoc(doc(getFirestore(players[0].app), `leaderboard/${leaver.uid}`))).exists(), false);
+  assert.equal((await getDoc(doc(getFirestore(players[0].app, DB), `leaderboard/${leaver.uid}`))).exists(), false);
   await players[0].call('updateProfile', { name: 'حذفني', avatar: 'falcon' });
   assert.equal((await players[0].profile()).name, 'حذفني', 'الاسم انفك بعد الحذف');
   const fb = await dev.call<{ feedback: { text: string }[] }>('devTool', { action: 'feedback' });
@@ -782,7 +785,7 @@ async function main(): Promise<void> {
   assert.equal(reqDoc.uid, asker.uid, 'لقينا صاحب الاسم');
   const del = await dev.call<{ deleted: boolean }>('devTool', { action: 'deleteUser', request: reqDoc.id, confirm: true });
   assert.equal(del.deleted, true);
-  assert.equal((await getDoc(doc(getFirestore(players[1].app), `leaderboard/${asker.uid}`))).exists(), false);
+  assert.equal((await getDoc(doc(getFirestore(players[1].app, DB), `leaderboard/${asker.uid}`))).exists(), false);
   await deleteApp(asker.app);
   console.log('✓ طلب الحذف من الموقع: المطور يراجعه ويحذف');
 
@@ -799,7 +802,7 @@ async function main(): Promise<void> {
   assert.equal(tv.players.length, 5);
   assert.equal(tv.players.filter((p) => p.id.startsWith('bot_')).length, 4, 'أنت و٤ بوتات');
   assert.equal(tv.phase, 'nomination');
-  const troom = (await getDoc(doc(getFirestore(trainee.app), `rooms/${training.code}`))).data()!;
+  const troom = (await getDoc(doc(getFirestore(trainee.app, DB), `rooms/${training.code}`))).data()!;
   assert.deepEqual([troom.isPrivate, troom.status, troom.hostId], [true, 'playing', trainee.uid]);
   // الحركات والمؤقت كذلك من api: ترشّح لو أنت الرئيس، وإلا البوت يرشّح لما يخلص وقته.
   if (tv.presidentId === trainee.uid) {
@@ -825,7 +828,7 @@ async function main(): Promise<void> {
   assert.ok(champProfile.temp.frame_champ1 > Date.now());
   assert.ok(!champProfile.owned?.includes('frame_champ1'), 'مؤقت، مو ملك دائم');
   assert.equal(champProfile.gifts.at(-1).kind, 'champion');
-  const meta = (await getDoc(doc(getFirestore(dev.app), 'meta/champions'))).data()!;
+  const meta = (await getDoc(doc(getFirestore(dev.app, DB), 'meta/champions'))).data()!;
   assert.equal(meta.uids[0], champ.uid);
   console.log(`✓ أبطال الأسبوع: ${champions.length} تتوّجوا بإطار وشخصية لأسبوع`);
   await deleteApp(dev.app);

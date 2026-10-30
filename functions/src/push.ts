@@ -4,6 +4,7 @@ import { logger } from 'firebase-functions/v2';
 import { db, userRef } from './base.js';
 import type { Note } from './notify.js';
 import type { Profile } from './profile.js';
+import { afterwards } from './ticks.js';
 
 /**
  * يرسل إشعارات لأجهزة اللاعبين. أي خطأ هنا ما يأثر على اللي قبله (الحركة أو الطلب انحفظ).
@@ -40,5 +41,5 @@ export async function sendNotes(notes: Note[], data: Record<string, string>, tag
   }
 }
 
-/** إشعارات الطاولة (دورك، بدأت اللعبة…). */
-export const sendPush = (code: string, notes: Note[]) => sendNotes(notes, { code }, code);
+/** إشعارات الطاولة (دورك، بدأت اللعبة…). تنرسل بعد ما تنحفظ الحركة، مع منبّه الدور بنفس الوقت (ticks.ts). */
+export const sendPush = (code: string, notes: Note[]) => afterwards(() => sendNotes(notes, { code }, code));
