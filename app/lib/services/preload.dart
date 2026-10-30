@@ -7,7 +7,7 @@ import 'package:flutter/services.dart';
 
 /// تحميل مسبق لصور اللعبة (الأيقونات، الخلفيات، الملصقات) وقت صفحة التحميل: تنفك وتنحط بذاكرة الصور،
 /// فالصفحات والمتجر والطاولة تفتح بدون ما تنتظر الصورة. [progress] من ٠ لين ١ (يعرضه شريط التحميل).
-/// الملصقات ما تبان إلا لما تفتح التفاعل أو الدردشة، فتكمل بعد ما تطلع الرئيسية (اللعبة تفتح أسرع).
+/// الملصقات والشخصيات تكمل بعد ما تطلع الرئيسية (اللعبة تفتح أسرع، والمتجر والطاولة يلقونها جاهزة).
 class Preload {
   Preload._();
 
@@ -42,12 +42,15 @@ class Preload {
       later = [
         for (final a in manifest.listAssets())
           if (_wanted(a) && a.startsWith('assets/stickers/')) a,
+        // الشخصيات (المتجر والملفات والطاولة). المتحركة طبقاتها كبيرة، فتتجهز وقت ما تبان.
+        for (final a in manifest.listAssets())
+          if (a.startsWith('assets/avatars/') && !a.startsWith('assets/avatars/anim/') && a.endsWith('.webp')) a,
       ];
     } catch (_) {}
     if (!context.mounted) return;
     await _decode(context, first, workers: 4, onProgress: (p) => progress.value = p);
     progress.value = 1;
-    // الملصقات بعد ما تطلع الرئيسية، بعاملين بس عشان ما تثقّل حركتها.
+    // الملصقات والشخصيات بعد ما تطلع الرئيسية، بعاملين بس عشان ما تثقّل حركتها.
     if (context.mounted) unawaited(_decode(context, later, workers: 2));
   }
 

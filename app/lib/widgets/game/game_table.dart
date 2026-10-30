@@ -110,10 +110,14 @@ class GameTable extends StatelessWidget {
     this.hiddenDeaths = const {},
     this.timer,
     this.ready = const {},
+    this.mine,
   });
 
   final GameView view;
   final Room? room;
+
+  /// ملصقك اللي أرسلته وللحين ما رجع من السيرفر: يطلع على كرسيك على طول.
+  final Reaction? mine;
 
   /// اللي في نص البيضاوي (الرئيس والوزير أو النتيجة): يبنى فوق كل المسرح، وبإحداثيات [Stage].
   final Widget Function(BuildContext context, Stage stage) center;
@@ -213,6 +217,7 @@ class GameTable extends StatelessWidget {
                           player: p,
                           view: view,
                           room: room,
+                          mine: p.id == view.you ? mine : null,
                           note: notes.of(p.id),
                           now: now ?? DateTime.now(),
                           selectable: selectable.contains(p.id),
@@ -386,6 +391,7 @@ class _SeatView extends StatelessWidget {
     required this.player,
     required this.view,
     required this.room,
+    this.mine,
     required this.note,
     required this.now,
     required this.selectable,
@@ -397,6 +403,7 @@ class _SeatView extends StatelessWidget {
   final ViewPlayer player;
   final GameView view;
   final Room? room;
+  final Reaction? mine;
   final NoteMark? note;
   final DateTime now;
   final bool selectable;
@@ -431,12 +438,15 @@ class _SeatView extends StatelessWidget {
     // اللي حظرتهم: ما تشوف ردودهم ولا رأيهم.
     final blocked = Backend.instance.profile.value.blocked;
     final opinion = room?.opinionOf(p.id, ignore: blocked);
+    // ملصقك يطلع عندك لحظة ما تضغطه (قبل ما يرجع من السيرفر)، ويبقى نفس المدة (٥ ثواني).
+    final pending = mine != null && now.difference(mine!.at).inSeconds < 5 ? mine : null;
     final reaction = blocked.contains(p.id)
         ? null
         // ردود البوتات وقتها بعد المشاهد (مستقبلاً)، فتطلع لما يجي وقتها.
-        : room?.reactions
-              .where((r) => r.from == p.id && !r.at.isAfter(now) && now.difference(r.at).inSeconds < 5)
-              .lastOrNull;
+        : pending ??
+              room?.reactions
+                  .where((r) => r.from == p.id && !r.at.isAfter(now) && now.difference(r.at).inSeconds < 5)
+                  .lastOrNull;
     final dead = !p.alive && !deathHidden;
     final d = seatDiameter * s;
 

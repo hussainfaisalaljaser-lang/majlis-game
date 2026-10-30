@@ -39,6 +39,8 @@ class RoomPlayer {
 enum RoomStatus { waiting, playing, finished }
 
 class Reaction {
+  const Reaction({required this.from, required this.kind, this.target, required this.at});
+
   Reaction.fromJson(Map<String, dynamic> j)
     : from = j['from'] as String,
       kind = j['kind'] as String,

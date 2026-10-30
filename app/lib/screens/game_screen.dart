@@ -722,6 +722,9 @@ class _GameScreenState extends State<GameScreen> {
   /// رأيي الحالي في لاعب: true أشك، false أثق، null ما عندي رأي.
   bool? _myOpinion(String target) => _room?.opinions[_backend.uid]?[target];
 
+  /// آخر ملصق أرسلته (يطلع على كرسيك قبل ما يرجع من السيرفر).
+  Reaction? _mine;
+
   Future<void> _react(String kind, {String? target}) async {
     setState(() {
       _pendingReaction = null;
@@ -737,8 +740,11 @@ class _GameScreenState extends State<GameScreen> {
         _toast('شلت رأيك');
         return;
       }
+      // يطلع على كرسيك على طول، والباقين يشوفونه لما يوصلهم من السيرفر.
+      setState(() => _mine = Reaction(from: _backend.uid, kind: kind, target: target, at: DateTime.now()));
       await _backend.react(widget.code, kind, target: target);
     } on BackendException catch (e) {
+      if (mounted) setState(() => _mine = null);
       _toast(e.message);
     }
   }
@@ -1178,6 +1184,7 @@ class _GameScreenState extends State<GameScreen> {
                             hiddenDeaths: _hiddenDeaths,
                             timer: v.deadline != null && !over ? (deadline: v.deadline!, total: _phaseTotal(v)) : null,
                             ready: over ? _nextReady : const {},
+                            mine: _mine,
                             center: (context, stage) => over
                                 ? _ResultCenter(
                                     view: v,
