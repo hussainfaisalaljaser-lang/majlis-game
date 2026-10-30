@@ -50,7 +50,7 @@ class PresenceService with WidgetsBindingObserver {
   void _write(bool on) {
     final backend = Backend.instance;
     if (!backend.isReady) return;
-    FirebaseFirestore.instance
+    backend.db
         .doc('presence/${backend.uid}')
         .set({'t': FieldValue.serverTimestamp(), 'on': on})
         .catchError((_) {});

@@ -8,8 +8,11 @@ import { setGlobalOptions } from 'firebase-functions/v2';
 import { HttpsError, type CallableRequest } from 'firebase-functions/v2/https';
 
 initializeApp();
-setGlobalOptions({ region: 'europe-west1', maxInstances: 100 });
-export const db = getFirestore();
+/** السيرفر في الدوحة (أقرب للخليج من أوروبا)، وقاعدة البيانات «gulf» بنفس المنطقة. */
+export const REGION = 'me-central1';
+export const DATABASE = 'gulf';
+setGlobalOptions({ region: REGION, maxInstances: 100 });
+export const db = getFirestore(DATABASE);
 
 export const userRef = (uid: string) => db.doc(`users/${uid}`);
 export const boardRef = (uid: string) => db.doc(`leaderboard/${uid}`);

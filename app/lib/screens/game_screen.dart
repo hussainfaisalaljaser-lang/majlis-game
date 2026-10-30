@@ -319,15 +319,15 @@ class _GameScreenState extends State<GameScreen> {
     _timeoutTimer = Timer(wait.isNegative ? Duration.zero : wait + const Duration(milliseconds: 30), _checkTimeout);
   }
 
-  /// متى نطلب بعد آخر الوقت: البوت السيرفر حاسب وقت تفكيره فنطلب على طول، واللاعب نعطيه ثانية زيادة.
-  /// وأول لاعب (مو بوت) في الطاولة يطلب أول، والباقي ورا بعض لو ما مشى.
+  /// متى نطلب بعد آخر الوقت: السيرفر عنده منبّه يكمّل الدور لحاله (functions/src/ticks.ts)، وهذا احتياط
+  /// لو ما مشى: دور البوت بعد ٠٫٧ ثانية، واللاعب بعد ثانية. وأول لاعب (مو بوت) يطلب أول، والباقي ورا بعض.
   Duration _timeoutDelay(GameView v) {
     final humans = [
       for (final p in v.players)
         if (!_botPlays(v, p.id)) p.id,
     ];
     final order = humans.indexOf(v.you).clamp(0, 99);
-    return Duration(milliseconds: (_botTurn(v) ? 150 : 1000) + 600 * order);
+    return Duration(milliseconds: (_botTurn(v) ? 700 : 1000) + 600 * order);
   }
 
   static bool _botPlays(GameView v, String id) => id.startsWith('bot_') || v.autopilot.contains(id);

@@ -38,6 +38,9 @@ class Backend {
   late final FirebaseFunctions _functions;
   late final FirebaseFirestore _db;
 
+  /// قاعدة البيانات (قاعدة «gulf» في الدوحة).
+  FirebaseFirestore get db => _db;
+
   String get uid => FirebaseAuth.instance.currentUser!.uid;
 
   /// ملف اللاعب الحالي، يتحدث مباشرة من السيرفر. بدون سيرفر يبقى على الملف التجريبي.
@@ -79,8 +82,9 @@ class Backend {
           }
         }());
       }
-      _functions = FirebaseFunctions.instanceFor(region: 'europe-west1');
-      _db = FirebaseFirestore.instance;
+      // السيرفر وقاعدة البيانات في الدوحة (أقرب للخليج): functions/src/base.ts.
+      _functions = FirebaseFunctions.instanceFor(region: 'me-central1');
+      _db = FirebaseFirestore.instanceFor(app: Firebase.app(), databaseId: 'gulf');
       if (_useEmulator) {
         await FirebaseAuth.instance.useAuthEmulator(_emulatorHost, 9099);
         _db.useFirestoreEmulator(_emulatorHost, 8080);

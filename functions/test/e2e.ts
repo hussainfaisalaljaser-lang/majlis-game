@@ -40,7 +40,7 @@ async function client(i: number): Promise<Client> {
   connectAuthEmulator(auth, 'http://127.0.0.1:9099', { disableWarnings: true });
   const fs = getFirestore(app);
   connectFirestoreEmulator(fs, '127.0.0.1', 8080);
-  const fns = getFunctions(app, 'europe-west1');
+  const fns = getFunctions(app, 'me-central1');
   connectFunctionsEmulator(fns, '127.0.0.1', 5001);
   const { user } = await signInAnonymously(auth);
   return {

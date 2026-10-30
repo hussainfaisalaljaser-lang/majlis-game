@@ -39,6 +39,8 @@ jobs:
           for f in weeklyChampions; do
             gcloud functions delete "$f" --gen2 --region europe-west1 --project majlis-game-1d739 --quiet 2>&1 || true
           done
+          # قاعدة البيانات في الدوحة (مثل السيرفر). تنسوى أول مرة بس؛ لو موجودة يكمل.
+          npx firebase firestore:databases:create gulf --location me-central1 --project majlis-game-1d739 --non-interactive 2>&1 | tail -5 || true
           set +e
           npx firebase deploy --only functions,firestore:rules,firestore:indexes --project majlis-game-1d739 --non-interactive --force 2>&1 | tee "$RUNNER_TEMP/deploy.log"
           code=${PIPESTATUS[0]}

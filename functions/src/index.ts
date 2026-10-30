@@ -3,8 +3,10 @@ import { getAuth } from 'firebase-admin/auth';
 import { FieldValue, Timestamp, type Transaction } from 'firebase-admin/firestore';
 import { logger } from 'firebase-functions/v2';
 import { HttpsError, type CallableFunction } from 'firebase-functions/v2/https';
+import { onTaskDispatched } from 'firebase-functions/v2/tasks';
 import { boardRef, db, requireAuth, userRef } from './base.js';
 import { sendPush } from './push.js';
+import { noteGameWrite, scheduleTick, withTicks } from './ticks.js';
 import { appCheckMode, onCall, openCall, setAppCheckMode } from './security.js';
 import {
   buyPid,
@@ -364,7 +366,10 @@ function runInstantBots(state: GameState): GameState {
 /** نحفظ الحالة الكاملة مع المؤقت، ونسخة لكل لاعب. */
 function writeGame(tx: Transaction, code: string, state: GameState, deadline: number | null): void {
   const gameRef = db.doc(`games/${code}`);
-  tx.set(gameRef, { ...state, deadline, turnKey: turnKey(state) });
+  const key = turnKey(state);
+  tx.set(gameRef, { ...state, deadline, turnKey: key });
+  // منبّه الدور ينحط بعد ما تنحفظ العملية (ticks.ts).
+  noteGameWrite(code, key, state.phase === 'gameOver' ? null : deadline);
   for (const p of state.players) {
     tx.set(gameRef.collection('views').doc(p.id), { ...viewFor(state, p.id), deadline, autopilot: state.autopilot ?? [] });
   }
@@ -1253,11 +1258,59 @@ export const leaveGame = onCall(async (req) => {
 export const timeout = onCall(async (req) => {
   const uid = requireAuth(req);
   const code = String(req.data?.code ?? '');
-  const notes = await db.runTransaction(async (tx): Promise<Note[] | null> => {
+  const notes = await runTimeout(code, uid);
+  if (notes) await sendPush(code, notes);
+  return { applied: notes !== null };
+});
+
+/**
+ * منبّه الدور (ticks.ts): يصحى عند آخر وقت الدور ويكمّل اللعبة بدون ما ينتظر جوال لاعب.
+ * لو الدور تغيّر قبله (لعب اللاعب أو طلبها جوال)، ما يسوي شي.
+ */
+export const gameTick = onTaskDispatched(
+  { retryConfig: { maxAttempts: 3, minBackoffSeconds: 2 }, rateLimits: { maxConcurrentDispatches: 300 }, memory: '512MiB' },
+  async (req) => {
+    const code = String(req.data?.code ?? '');
+    const key = String(req.data?.key ?? '');
+    const attempt = Number(req.data?.attempt ?? 0);
+    if (!code || !key) return;
+    await withTicks(async () => {
+      const notes = await runTimeout(code, null, key, attempt);
+      if (notes) await sendPush(code, notes);
+    });
+  },
+);
+
+/**
+ * يكمّل الدور لو خلص وقته: البوتات تلعب، واللي ما لعب نلعب عنه. [uid] اللاعب اللي طلب (null من المنبّه)،
+ * و[key] دور المنبّه (لو تغيّر الدور ما يسوي شي).
+ */
+async function runTimeout(code: string, uid: string | null, key?: string, attempt = 0): Promise<Note[] | null> {
+  // المنبّه لو صحى قبل آخر الوقت (المفروض ما يصير، بس المحاكي ما يلتزم بالوقت): ينتظر الباقي.
+  if (key !== undefined) {
+    const peek = await db.doc(`games/${code}`).get();
+    if (peek.get('turnKey') !== key) return null;
+    const deadline = (peek.get('deadline') as number | null) ?? 0;
+    const wait = deadline - Date.now();
+    // باقي كثير: ننتظر شوي ونحط المنبّه من جديد (لين ٢٠ مرة)، وإلا ننتظر الباقي.
+    if (wait > 20_000) {
+      await new Promise((r) => setTimeout(r, 15_000));
+      if (attempt < 20) await scheduleTick(code, key, deadline, attempt + 1);
+      return null;
+    }
+    if (wait > 0) await new Promise((r) => setTimeout(r, wait + 30));
+  }
+  return db.runTransaction(async (tx): Promise<Note[] | null> => {
     const snap = await tx.get(db.doc(`games/${code}`));
-    if (!snap.exists) throw new HttpsError('not-found', 'اللعبة مو موجودة');
+    if (!snap.exists) {
+      if (uid === null) return null;
+      throw new HttpsError('not-found', 'اللعبة مو موجودة');
+    }
     const prev = splitGame(snap.data() as StoredGame);
-    if (!prev.state.players.some((p) => p.id === uid)) throw new HttpsError('permission-denied', 'أنت لست في هذه اللعبة');
+    if (uid !== null && !prev.state.players.some((p) => p.id === uid)) {
+      throw new HttpsError('permission-denied', 'أنت لست في هذه اللعبة');
+    }
+    if (key !== undefined && prev.key !== key) return null;
     if (prev.deadline === null || Date.now() < prev.deadline) return null;
     let next = prev.state;
     const actors = currentActors(prev.state);
@@ -1276,12 +1329,9 @@ export const timeout = onCall(async (req) => {
         }
       }
     }
-    const notes = await finishTurn(tx, code, prev, next, new Map());
-    return notes;
+    return finishTurn(tx, code, prev, next, new Map());
   });
-  if (notes) await sendPush(code, notes);
-  return { applied: notes !== null };
-});
+}
 
 /** بالكثير كم واحد يتفرج على لعبة. */
 const MAX_WATCHERS = 20;
@@ -1952,5 +2002,5 @@ const ROUTES: Record<string, CallableFunction<unknown, unknown>> = {
 export const api = onCall({ cpu: 1, memory: '512MiB', concurrency: 80, minInstances: 1, maxInstances: 100 }, async (req) => {
   const route = ROUTES[String(req.data?.fn ?? '')];
   if (!route) throw new HttpsError('not-found', 'طلب مو معروف');
-  return route.run({ ...req, data: req.data?.data ?? {} });
+  return withTicks(async () => route.run({ ...req, data: req.data?.data ?? {} }));
 });

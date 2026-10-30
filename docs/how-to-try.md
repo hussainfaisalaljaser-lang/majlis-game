@@ -20,7 +20,7 @@
 
 ### ب. تفعيل الخدمات
 1. **Authentication** ← Get started ← Sign-in method ← **Anonymous** ← Enable
-2. **Firestore Database** ← Create database ← الموقع **`europe-west1`** ← Production mode
+2. **Firestore Database**: قاعدة `gulf` في الدوحة (**`me-central1`**) تنسوى لحالها أول رفع للسيرفر (deploy.yml)
 
 ### ج. مفتاح الرفع التلقائي
 1. افتح https://console.cloud.google.com/iam-admin/serviceaccounts?project=majlis-game-1d739
