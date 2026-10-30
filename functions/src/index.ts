@@ -303,7 +303,7 @@ const botPlays = (s: GameState) => (id: string) => isBot(id) || (s.autopilot ?? 
 
 /**
  * آخر وقت للدور الحالي (بالملي ثانية). [waitMs] وقت ننتظره قبل ما يبدأ الدور (الترحيب، أو مشاهد
- * الأحداث اللي صارت للتو) عشان ما يركب شي على شي. لو الدور على بوت، يفكر ٣–٥ ثواني،
+ * الأحداث اللي صارت للتو) عشان ما يركب شي على شي. لو الدور على بوت، يفكر ثانية لين ثانيتين،
  * وبعدها أي جوال في الطاولة يطلب من السيرفر يلعب عنه.
  */
 function deadlineFor(state: GameState, now: number, waitMs = 0): number | null {
@@ -1948,7 +1948,8 @@ const ROUTES: Record<string, CallableFunction<unknown, unknown>> = {
   quotePid, suggestIds, buyPid,
 };
 
-export const api = onCall({ cpu: 1, memory: '512MiB', concurrency: 80 }, async (req) => {
+// نسخة وحدة صاحية دايم (ما فيه انتظار تشغيل السيرفر أول ضغطة بعد ما يهدأ اللعب)، ولين ١٠٠ نسخة وقت الزحمة.
+export const api = onCall({ cpu: 1, memory: '512MiB', concurrency: 80, minInstances: 1, maxInstances: 100 }, async (req) => {
   const route = ROUTES[String(req.data?.fn ?? '')];
   if (!route) throw new HttpsError('not-found', 'طلب مو معروف');
   return route.run({ ...req, data: req.data?.data ?? {} });

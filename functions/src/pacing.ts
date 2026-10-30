@@ -15,16 +15,18 @@ export const START_GRACE_MS = 8_000;
 export const TUTORIAL_START_GRACE_MS = 13_000;
 
 /** وقت كل مشهد في التطبيق مع جملة الراوي اللي معه. */
+// مدة المشهد في التطبيق وفوقها شوي (scenes.dart: التصويت ٣٫٦، القرار ٣٫٢، الطرد ٣٫٨). الراوي ما ينقطع:
+// جمله تنتظر دورها (sfx.dart).
 const SCENE_MS: Partial<Record<GameEvent['type'], number>> = {
-  voteResult: 4_000,
-  enacted: 3_500,
-  executed: 4_000,
-  guarded: 4_000,
+  voteResult: 3_750,
+  enacted: 3_350,
+  executed: 3_950,
+  guarded: 3_950,
 };
 
-/** البوت "يفكر" شوي قبل حركته. */
-export const BOT_THINK_MS = 3_000;
-export const BOT_THINK_JITTER_MS = 2_000;
+/** البوت "يفكر" شوي قبل حركته (ثانية لين ثانيتين). */
+export const BOT_THINK_MS = 1_000;
+export const BOT_THINK_JITTER_MS = 1_000;
 
 /** وقت المشاهد اللي طلعت من الأحداث الجديدة (من بعد آخر حالة). */
 export function scenesDelay(prev: GameState, next: GameState): number {
@@ -44,7 +46,7 @@ export function botThink(jitter: number): number {
 /** الوضع السريع: وقت كل دور نص الوقت العادي، والبوت يفكر أقل. */
 export const QUICK_TIME_FACTOR = 0.5;
 export function quickBotThink(jitter: number): number {
-  return (fast() ? 2_000 : 1_500) + Math.floor(jitter / 2);
+  return (fast() ? 2_000 : 700) + Math.floor(jitter / 2);
 }
 
 /** لعبة الشرح: وقت اللاعب أطول بكثير عشان يقرا النصايح، والبوتات أبطأ شوي. */
