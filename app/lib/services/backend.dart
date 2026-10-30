@@ -270,8 +270,13 @@ class Backend {
     try {
       final result = await _api.call<Map<String, dynamic>>({'fn': name, 'data': data});
       final out = Map<String, dynamic>.from(result.data);
-      // السيرفر يرجع كم أخذ شغله (للقياس)، والباقي من الوقت هو الطريق.
-      Perf.recordCall(name, clock.elapsedMilliseconds, server: (out.remove('_ms') as num?)?.toInt());
+      // السيرفر يرجع كم أخذ شغله وأجزاؤه (للقياس)، والباقي من الوقت هو الطريق.
+      Perf.recordCall(
+        name,
+        clock.elapsedMilliseconds,
+        server: (out.remove('_ms') as num?)?.toInt(),
+        parts: Perf.partsOf(out.remove('_t')),
+      );
       return out;
     } on FirebaseFunctionsException catch (e) {
       Perf.recordCall(name, clock.elapsedMilliseconds, ok: false);

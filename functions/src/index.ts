@@ -1275,7 +1275,14 @@ export const timeout = onCall(async (req) => {
 export const gameTick = !TICKS_ON
   ? undefined
   : onTaskDispatched(
-  { retryConfig: { maxAttempts: 3, minBackoffSeconds: 2 }, rateLimits: { maxConcurrentDispatches: 300 }, memory: '512MiB' },
+  // معالج كامل مثل api (الافتراضي ثلث معالج وطلب واحد بكل نسخة): البوتات تكمّل أسرع، ونسخ أقل تصحى من النوم.
+  {
+    retryConfig: { maxAttempts: 3, minBackoffSeconds: 2 },
+    rateLimits: { maxConcurrentDispatches: 300 },
+    memory: '512MiB',
+    cpu: 1,
+    concurrency: 80,
+  },
   async (req) => {
     const code = String(req.data?.code ?? '');
     const key = String(req.data?.key ?? '');

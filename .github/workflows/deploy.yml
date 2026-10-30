@@ -70,6 +70,24 @@ jobs:
           PY
             idx_out=$(bash "$RUNNER_TEMP/idx.sh" 2>&1 | tr '\n' ' ' | cut -c1-900)
             [ -n "$idx_out" ] && echo "::notice::الفهارس: ${idx_out}"
+            # الحقول الكبيرة اللي ما ندور فيها أبداً (اللعبة ونسخ اللاعبين والطاولة والملف ننقراها بالرقم): فهرستها
+            # تبطّئ كل حفظ بدون فايدة، فنشيلها من الفهرسة. مرة وحدة: لو آخر حقل انشال نتخطى.
+            if [ "$(gcloud firestore indexes fields describe invitedAt --collection-group=users --database=gulf --project majlis-game-1d739 --format='value(indexConfig.usesAncestorConfig)' 2>/dev/null)" != "False" ]; then
+              ex_err=""
+              for cf in games:players games:log games:drawPile games:discardPile games:hand games:hands games:votes \
+                games:investigations games:lastLegislature games:lastElected games:seerSees games:spySaw games:elderShown \
+                games:misses games:autopilot games:rngState games:judgeCancel \
+                views:players views:log views:hand views:peeked views:yourInvestigations views:lastElected views:claimable \
+                views:seerSees views:spySaw views:autopilot views:truths \
+                rooms:players rooms:reactions rooms:opinions rooms:results \
+                users:missions users:owned users:equipped users:temp users:restore users:gifts users:pass users:passMissions \
+                users:stats users:badges users:rank users:blocked users:nameReporters users:fcmTokens users:friends \
+                users:friendReqs users:sentReqs users:invitedAt; do
+                ex_err+=$(gcloud firestore indexes fields update "${cf#*:}" --collection-group="${cf%%:*}" --disable-indexes \
+                  --database=gulf --project majlis-game-1d739 --async --quiet 2>&1 | grep -iE "error|denied|invalid" | head -1)
+              done
+              echo "::notice::فهرسة الحقول الكبيرة: ${ex_err:-انشالت}" | cut -c1-900
+            fi
             # سجل المباريات ينمسح لحاله بعد مدته (TTL على expireAt).
             gcloud firestore fields ttls update expireAt --collection-group=history --enable-ttl --database=gulf \
               --project majlis-game-1d739 --async --quiet > "$RUNNER_TEMP/ttl.log" 2>&1 \

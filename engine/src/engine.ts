@@ -186,6 +186,8 @@ export function applyAction(state: GameState, playerId: PlayerId, action: Action
     case 'vote': {
       requirePhase(s, 'election');
       if (playerId in s.votes) throw new RuleError('alreadyVoted', 'صوّتت من قبل');
+      // الصوت ينحفظ في اللعبة كما هو، فلازم يكون موافق أو رافض بس (لا نص ولا غيره).
+      if (typeof action.ja !== 'boolean') throw new RuleError('badVote', 'التصويت موافق أو رافض بس');
       s.votes[playerId] = action.ja;
       if (Object.keys(s.votes).length === alivePlayers(s).length) resolveElection(s);
       return s;
@@ -250,7 +252,11 @@ export function applyAction(state: GameState, playerId: PlayerId, action: Action
       if (!office) throw new RuleError('notInGovernment', 'بس الرئيس والوزير يقدرون يدّعون');
       if (leg.claimed.includes(playerId)) throw new RuleError('alreadyClaimed', 'ادّعيت من قبل');
       const expected = office === 'president' ? 3 : 2;
-      if (action.policies.length !== expected || action.policies.some((p) => p !== 'L' && p !== 'T')) {
+      if (
+        !Array.isArray(action.policies) ||
+        action.policies.length !== expected ||
+        action.policies.some((p) => p !== 'L' && p !== 'T')
+      ) {
         throw new RuleError('badClaim', `الادعاء لازم يكون ${expected} كروت`);
       }
       leg.claimed.push(playerId);

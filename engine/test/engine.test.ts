@@ -129,6 +129,19 @@ describe('الترشيح والتصويت', () => {
     assert.throws(() => act(s, 'p3', { type: 'vote', ja: false }), RuleError);
   });
 
+  it('الصوت موافق أو رافض بس، والادعاء كروت بس (اللي يرسل غيرها ينرفض وما ينحفظ)', () => {
+    let s = rigged(5, FIVE, Array(17).fill('L'));
+    s = act(s, 'p0', { type: 'nominate', chancellor: 'p2' });
+    for (const ja of ['x'.repeat(1000), 1, null, { a: 1 }]) {
+      assert.throws(() => act(s, 'p3', { type: 'vote', ja } as unknown as Action), RuleError);
+    }
+    assert.ok(!('p3' in s.votes));
+    s = voteAll(s, true);
+    s = act(s, 'p0', { type: 'discard', index: 0 });
+    s = act(s, 'p2', { type: 'enact', index: 0 });
+    assert.throws(() => act(s, 'p2', { type: 'claim', policies: 'LL' } as unknown as Action), RuleError);
+  });
+
   it('التعادل يعني رفض', () => {
     let s = rigged(6, ['loyal', 'loyal', 'loyal', 'loyal', 'traitor', 'leader'], Array(17).fill('L'));
     s = act(s, 'p0', { type: 'nominate', chancellor: 'p1' });

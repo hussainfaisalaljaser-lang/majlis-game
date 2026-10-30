@@ -39,7 +39,8 @@ class _Readout extends StatelessWidget {
       final cert = ac == null
           ? (storeBuild ? '…' : 'مطفية في نسخ التجربة')
           : '${ac.ms}ms ${ac.ok ? 'نجحت' : 'فشلت'}';
-      final split = last?.server == null ? '' : ' (الطريق ${last!.ms - last.server!} + شغل السيرفر ${last.server})';
+      final parts = last?.parts == null ? '' : ': ${last!.parts}';
+      final split = last?.server == null ? '' : ' (الطريق ${last!.ms - last.server!} + شغل السيرفر ${last.server}$parts)';
       final server = last == null
           ? 'السيرفر: لسا ما فيه طلب'
           : 'السيرفر: ${last.fn} ${last.ms}ms$split${last.ok ? '' : ' (فشل)'}';

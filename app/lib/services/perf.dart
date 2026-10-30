@@ -29,8 +29,8 @@ abstract final class Perf {
   static final _calls = <String, List<int>>{};
   static final _server = <String, List<int>>{};
 
-  /// آخر طلب (يتحدث القياس اللي فوق اللعبة). [server]: شغل السيرفر (null لو ما رجعه).
-  static final last = ValueNotifier<({String fn, int ms, bool ok, int? server})?>(null);
+  /// آخر طلب (يتحدث القياس اللي فوق اللعبة). [server]: شغل السيرفر (null لو ما رجعه)، و[parts] أجزاؤه.
+  static final last = ValueNotifier<({String fn, int ms, bool ok, int? server, String? parts})?>(null);
 
   /// أدوار خلص وقتها: كم واحد كمّله منبّه السيرفر بنفسه، وكم واحد احتاج الجوال يطلبه.
   static int turnsServer = 0, turnsPhone = 0;
@@ -66,10 +66,20 @@ abstract final class Perf {
 
   static void markFirstData() => firstDataMs ??= _clock.elapsedMilliseconds;
 
-  static void recordCall(String fn, int ms, {bool ok = true, int? server}) {
+  static void recordCall(String fn, int ms, {bool ok = true, int? server, String? parts}) {
     _keep(_calls, fn, ms);
     if (server != null) _keep(_server, fn, server);
-    last.value = (fn: fn, ms: ms, ok: ok, server: server);
+    last.value = (fn: fn, ms: ms, ok: ok, server: server, parts: parts);
+  }
+
+  /// أجزاء شغل السيرفر من الرد (_t): الحفظ، والمنبّه والإشعار (يمشون مع بعض بعد الحفظ).
+  static String? partsOf(Object? t) {
+    if (t is! Map) return null;
+    final out = [
+      for (final (key, label) in const [('work', 'الحفظ'), ('tick', 'المنبّه'), ('push', 'الإشعار')])
+        if (t[key] is num) '$label ${(t[key] as num).round()}',
+    ];
+    return out.isEmpty ? null : out.join(' · ');
   }
 
   static void _keep(Map<String, List<int>> lists, String fn, int ms) {
