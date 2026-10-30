@@ -111,7 +111,11 @@ class _GateState extends State<_Gate> {
     return ValueListenableBuilder(
       valueListenable: backend.profileLoaded,
       builder: (context, loaded, _) => !loaded || _held
-          ? SplashView(progress: Preload.progress)
+          ? ValueListenableBuilder(
+              valueListenable: backend.startupError,
+              builder: (context, error, _) =>
+                  SplashView(progress: Preload.progress, error: error, onRetry: backend.retryStartup),
+            )
           : ValueListenableBuilder(
               valueListenable: backend.profile,
               builder: (context, p, _) => p.setupDone ? const HomeScreen() : const WelcomeScreen(),

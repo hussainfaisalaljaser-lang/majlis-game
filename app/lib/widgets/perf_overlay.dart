@@ -30,7 +30,7 @@ class _Readout extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => ListenableBuilder(
-    listenable: Listenable.merge([Perf.last, Perf.frames]),
+    listenable: Listenable.merge([Perf.last, Perf.frames, Perf.turns]),
     builder: (context, _) {
       final last = Perf.last.value;
       final f = Perf.frames.value;
@@ -42,6 +42,7 @@ class _Readout extends StatelessWidget {
       String secs(int? ms) => ms == null ? '…' : '${(ms / 1000).toStringAsFixed(1)}ث';
       final boot =
           'التشغيل: ${secs(Perf.startupMs)} · أول بيانات ${secs(Perf.firstDataMs)} · شهادة قوقل ${ac == null ? '…' : '${ac.ms}ms ${ac.ok ? 'نجحت' : 'فشلت'}'}';
+      final alarm = 'آخر وقت الدور: السيرفر كمّل ${Perf.turnsServer} · الجوال كمّل ${Perf.turnsPhone}';
       return Directionality(
         textDirection: TextDirection.rtl,
         child: Container(
@@ -53,6 +54,7 @@ class _Readout extends StatelessWidget {
               Text(server, style: _style),
               Text(draw, style: _style),
               Text(boot, style: _style),
+              Text(alarm, style: _style),
             ],
           ),
         ),

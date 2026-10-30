@@ -11,6 +11,7 @@ import '../models/table_tier.dart';
 import '../models/tour.dart';
 import '../models/shop.dart';
 import '../services/backend.dart';
+import '../services/perf.dart';
 import '../services/notes.dart';
 import '../services/push.dart';
 import '../services/music.dart';
@@ -296,6 +297,10 @@ class _GameScreenState extends State<GameScreen> {
   DateTime? _lastTimeoutCall;
   Timer? _timeoutTimer;
 
+  /// للقياس: آخر وقت دور شفناه، وهل جوالنا طلب يكمّله (لو ما طلب وانكمّل، كمّله منبّه السيرفر).
+  DateTime? _armedDeadline;
+  bool _phoneAsked = false;
+
   /// لو خلص وقت الدور، أي لاعب في الطاولة يطلب من السيرفر يكمّل. نوزع الطلبات على اللاعبين
   /// عشان ما يطلبون كلهم بنفس اللحظة، والسيرفر ينفذ مرة وحدة بس.
   void _checkTimeout() {
@@ -307,7 +312,10 @@ class _GameScreenState extends State<GameScreen> {
     if (now.isBefore(deadline.add(_timeoutDelay(v)))) return;
     if (_lastTimeoutCall != null && now.difference(_lastTimeoutCall!) < const Duration(seconds: 2)) return;
     _lastTimeoutCall = now;
-    _backend.timeout(widget.code).catchError((_) => false);
+    _phoneAsked = true;
+    _backend.timeout(widget.code).then((applied) {
+      if (applied) Perf.turnEnded(byServer: false);
+    }, onError: (_) {});
   }
 
   /// نطلب بالضبط لما يجي وقتنا (مو مع عداد الثانية)، عشان دور البوت ما يتأخر.
@@ -507,6 +515,15 @@ class _GameScreenState extends State<GameScreen> {
       }
       _queueScenes(view);
       return;
+    }
+    // الدور تغيّر بعد ما خلص وقته وجوالنا ما طلبه: كمّله منبّه السيرفر.
+    final armed = _armedDeadline;
+    if (armed != null && view.deadline != armed && DateTime.now().isAfter(armed) && !_phoneAsked) {
+      Perf.turnEnded(byServer: true);
+    }
+    if (view.deadline != armed) {
+      _armedDeadline = view.deadline;
+      _phoneAsked = false;
     }
     _scheduleTimeout(view);
     if (view.autopilot.contains(view.you) && view.phase != Phase.gameOver) {

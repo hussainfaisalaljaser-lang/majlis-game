@@ -29,6 +29,15 @@ abstract final class Perf {
   /// آخر طلب (يتحدث القياس اللي فوق اللعبة).
   static final last = ValueNotifier<({String fn, int ms, bool ok})?>(null);
 
+  /// أدوار خلص وقتها: كم واحد كمّله منبّه السيرفر بنفسه، وكم واحد احتاج الجوال يطلبه.
+  static int turnsServer = 0, turnsPhone = 0;
+  static final turns = ValueNotifier<int>(0);
+
+  static void turnEnded({required bool byServer}) {
+    byServer ? turnsServer++ : turnsPhone++;
+    turns.value++;
+  }
+
   /// الرسم كل ثانية: فريمات بالثانية، ونسبة الفريمات المتأخرة، ومتوسط وقت البناء والرسم.
   static final frames = ValueNotifier<({double fps, double jank, double build, double raster})?>(null);
 
@@ -70,6 +79,8 @@ abstract final class Perf {
   static void reset() {
     _calls.clear();
     last.value = null;
+    turnsServer = turnsPhone = 0;
+    turns.value++;
   }
 
   // ── الرسم

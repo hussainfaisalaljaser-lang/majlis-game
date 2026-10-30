@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import '../theme.dart';
 import 'common.dart';
 import 'design.dart';
+import 'design_social.dart';
 import 'fx.dart';
 
 /// جمل تطلع تحت شريط التحميل، كل مرة وحدة عشوائية وتتبدل وهم ينتظرون: نصايح، وكلام عن المجلس، ومزح خفيفة.
@@ -38,11 +39,14 @@ const loadingLines = [
 
 /// شاشة الافتتاح والتحميل: أيقونة اللعبة تطفو، واسمها بالذهب، وشريط تعبئة، وتحتها جملة عشوائية تتبدل.
 /// [loading]: الشريط والجملة (لما ننتظر السيرفر). [progress]: تقدم تحميل الصور من ٠ لين ١ (بدونه الشريط يلمع بس).
+/// [error]: لو ما قدرنا نكمل، الرسالة وزر «جرّب مرة ثانية» ([onRetry]) بدال الشريط.
 class SplashView extends StatefulWidget {
-  const SplashView({super.key, this.loading = true, this.progress});
+  const SplashView({super.key, this.loading = true, this.progress, this.error, this.onRetry});
 
   final bool loading;
   final ValueListenable<double>? progress;
+  final String? error;
+  final VoidCallback? onRetry;
 
   @override
   State<SplashView> createState() => _SplashViewState();
@@ -127,7 +131,24 @@ class _SplashViewState extends State<SplashView> {
                       child: GoldTitle('مجلس الخونة', size: 60 * s),
                     ),
                     SizedBox(height: 16 * s),
-                    if (widget.loading) ...[
+                    if (widget.error case final error?) ...[
+                      SizedBox(
+                        width: math.min(box.maxWidth - 40, 460),
+                        child: Text(
+                          error,
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 16 * s,
+                            fontWeight: FontWeight.w800,
+                            color: const Color(0xFFF6E2BC),
+                            height: 1.4,
+                            shadows: const [Shadow(color: Color(0xCC000000), blurRadius: 4)],
+                          ),
+                        ),
+                      ),
+                      SizedBox(height: 12 * s),
+                      SocButton(label: 'جرّب مرة ثانية', height: 40 * s, width: 210 * s, onPressed: widget.onRetry),
+                    ] else if (widget.loading) ...[
                       _Bar(width: 260 * s, height: 12 * s, progress: widget.progress),
                       if (widget.progress case final progress?)
                         ValueListenableBuilder<double>(

@@ -12,10 +12,10 @@ import { REGION } from './base.js';
 export const TICK_FN = 'gameTick';
 
 /**
- * المنبّه شغال؟ يحتاج خدمة Cloud Tasks مفعّلة في المشروع، وصلاحية «Cloud Tasks Admin» لحساب الرفع.
- * لين تتفعّل: مطفي، واللعبة تكمل من الجوالات مثل قبل.
+ * المنبّه شغال (يحتاج خدمة Cloud Tasks مفعّلة في المشروع، وصلاحية «Cloud Tasks Admin» لحساب الرفع).
+ * لو طفيناه (false) اللعبة تكمل من الجوالات مثل قبل.
  */
-export const TICKS_ON = false;
+export const TICKS_ON = true;
 
 type Pending = Map<string, { key: string; deadline: number | null }>;
 const store = new AsyncLocalStorage<Pending>();

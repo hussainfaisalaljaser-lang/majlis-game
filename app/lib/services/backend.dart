@@ -49,6 +49,10 @@ class Backend {
   /// هل وصل الملف من السيرفر؟ قبلها ما نعرف إذا اختار اسمه.
   final profileLoaded = ValueNotifier<bool>(false);
 
+  /// ليش الملف ما وصل (صفحة التحميل تعرضه مع «جرّب مرة ثانية» بدل ما تنتظر للأبد). null: ما فيه مشكلة.
+  final startupError = ValueNotifier<String?>(null);
+  Timer? _slowTimer;
+
   /// إيميل قوقل لو الحساب مربوط، و null لو ضيف.
   final googleEmail = ValueNotifier<String?>(null);
 
@@ -95,7 +99,8 @@ class Backend {
       }
       _ready = true;
       FirebaseAuth.instance.userChanges().listen((u) => googleEmail.value = _googleOf(u)?.email ?? _googleOf(u)?.uid);
-      await _openAccount();
+      // ما ننتظر رد السيرفر هنا: صفحة التحميل تطلع وتحمّل الصور بنفس الوقت، وتنتظر الملف هي.
+      unawaited(_openAccount().catchError((Object e) => debugPrint('open account: $e')));
     } catch (e) {
       debugPrint('Firebase init failed: $e');
     }
@@ -106,13 +111,50 @@ class Backend {
   Future<void> _openAccount() async {
     await _profileSub?.cancel();
     profileLoaded.value = false;
+    startupError.value = null;
+    _slowTimer?.cancel();
+    _slowTimer = Timer(const Duration(seconds: 20), () => _failStartup('الاتصال بطيء، تأكد من النت وجرّب مرة ثانية'));
     _profileSub = _db.doc('users/$uid').snapshots().listen((s) {
       if (!s.exists) return;
       Perf.markFirstData();
       profile.value = Profile.fromJson(s.data()!);
       profileLoaded.value = true;
-    }, onError: (Object e) => debugPrint('profile listener: $e'));
-    await _call('ensureProfile', {'proto': protocolVersion});
+      _slowTimer?.cancel();
+      startupError.value = null;
+    }, onError: (Object e) {
+      debugPrint('profile listener: $e');
+      _failStartup('ما قدرنا نجيب ملفك، جرّب مرة ثانية');
+    });
+    try {
+      await _call('ensureProfile', {'proto': protocolVersion});
+    } on BackendException catch (e) {
+      _failStartup(e.message);
+      rethrow;
+    }
+  }
+
+  /// يطلع السبب في صفحة التحميل (لو الملف للحين ما وصل).
+  void _failStartup(String message) {
+    if (profileLoaded.value) return;
+    _slowTimer?.cancel();
+    startupError.value = message;
+  }
+
+  /// زر «جرّب مرة ثانية» في صفحة التحميل.
+  Future<void> retryStartup() => _openAccount().catchError((Object e) => debugPrint('open account: $e'));
+
+  /// ينتظر لين يوصل ملف اللاعب.
+  Future<void> untilProfileLoaded() {
+    if (profileLoaded.value) return Future.value();
+    final done = Completer<void>();
+    void check() {
+      if (!profileLoaded.value) return;
+      profileLoaded.removeListener(check);
+      done.complete();
+    }
+
+    profileLoaded.addListener(check);
+    return done.future;
   }
 
   static UserInfo? _googleOf(User? u) =>
@@ -227,7 +269,11 @@ class Backend {
     } on FirebaseFunctionsException catch (e) {
       Perf.recordCall(name, clock.elapsedMilliseconds, ok: false);
       // نسخة الويب تضيف رقم الحالة آخر الرسالة (مثل [400])، ما نحتاجه.
-      throw BackendException((e.message ?? 'صار خطأ، جرّب مرة ثانية').replaceAll(RegExp(r'\s*\[\d{3}\]$'), ''));
+      final message = (e.message ?? '').replaceAll(RegExp(r'\s*\[\d+\]$'), '');
+      // رسايل السيرفر بالعربي. غيرها (مثل «internal» لما ينقطع النت) نبدلها برسالة مفهومة.
+      throw BackendException(
+        RegExp(r'[؀-ۿ]').hasMatch(message) ? message : 'ما قدرنا نوصل للخادم، تأكد من النت وجرّب مرة ثانية',
+      );
     } catch (e) {
       Perf.recordCall(name, clock.elapsedMilliseconds, ok: false);
       debugPrint('$name failed: $e');

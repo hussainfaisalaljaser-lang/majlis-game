@@ -29,6 +29,8 @@ abstract final class Push {
       // بالرمز عن طريق getMessaging().sendEach({token}). نخلي الطريقة الحالية لين ننقل السيرفر.
       // ignore: deprecated_member_use
       final token = await messaging.getToken();
+      // السيرفر يحفظ الرمز في ملف اللاعب، والملف أول مرة ينسوى مع فتح اللعبة: ننتظره.
+      await Backend.instance.untilProfileLoaded();
       if (token != null) await Backend.instance.registerPushToken(token);
       // ignore: deprecated_member_use
       messaging.onTokenRefresh.listen(Backend.instance.registerPushToken);
