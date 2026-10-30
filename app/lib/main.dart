@@ -15,11 +15,13 @@ import 'services/links.dart';
 import 'services/presence.dart';
 import 'services/push.dart';
 import 'services/music.dart';
+import 'services/perf.dart';
 import 'services/preload.dart';
 import 'services/sfx.dart';
 import 'services/sounds.dart';
 import 'services/telemetry.dart';
 import 'widgets/fx.dart';
+import 'widgets/perf_overlay.dart';
 import 'widgets/splash.dart';
 import 'theme.dart';
 
@@ -38,7 +40,7 @@ Future<void> main() async {
   SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
   // أول شي: كل مشغّلات الصوت تشتغل مع بعض (موسيقى وراوي ومؤثرات) بدون ما أحد ياخذ تركيز الصوت من الثاني
   await Sounds.init();
-  await Future.wait([Backend.instance.init(), Sfx.init(), Music.init(), FxClock.init()]);
+  await Future.wait([Backend.instance.init(), Sfx.init(), Music.init(), FxClock.init(), Perf.init()]);
   await Telemetry.init();
   Music.play('menu');
   runApp(const MajlisApp());
@@ -62,6 +64,8 @@ class MajlisApp extends StatelessWidget {
       locale: const Locale('ar'),
       supportedLocales: const [Locale('ar')],
       localizationsDelegates: GlobalMaterialLocalizations.delegates,
+      // قياس السرعة فوق كل الصفحات (لو شغّلته من أدوات المطور).
+      builder: (context, child) => PerfOverlay(child: child ?? const SizedBox()),
       home: const _Gate(),
     );
   }

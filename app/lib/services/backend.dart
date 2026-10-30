@@ -17,6 +17,7 @@ import '../models/leaderboard.dart';
 import '../models/profile.dart';
 import '../models/room.dart';
 import '../models/tour.dart';
+import 'perf.dart';
 
 /// شغّل التطبيق مع `--dart-define=USE_EMULATOR=true` عشان يتصل بمحاكي Firebase على جهازك.
 const _useEmulator = bool.fromEnvironment('USE_EMULATOR');
@@ -67,6 +68,16 @@ class Backend {
                   : const AppleAppAttestWithDeviceCheckFallbackProvider(),
             )
             .catchError((Object e) => debugPrint('App Check: $e'));
+        // للقياس (أدوات المطور): كم تاخذ الشهادة، وهل نجحت (النسخ اللي من برا المتجر تفشل).
+        unawaited(() async {
+          final clock = Stopwatch()..start();
+          try {
+            await FirebaseAppCheck.instance.getToken().timeout(const Duration(seconds: 20));
+            Perf.appCheck = (ms: clock.elapsedMilliseconds, ok: true);
+          } catch (_) {
+            Perf.appCheck = (ms: clock.elapsedMilliseconds, ok: false);
+          }
+        }());
       }
       _functions = FirebaseFunctions.instanceFor(region: 'europe-west1');
       _db = FirebaseFirestore.instance;
@@ -93,6 +104,7 @@ class Backend {
     profileLoaded.value = false;
     _profileSub = _db.doc('users/$uid').snapshots().listen((s) {
       if (!s.exists) return;
+      Perf.markFirstData();
       profile.value = Profile.fromJson(s.data()!);
       profileLoaded.value = true;
     }, onError: (Object e) => debugPrint('profile listener: $e'));
@@ -203,13 +215,17 @@ class Backend {
   late final _api = _functions.httpsCallable('api');
 
   Future<Map<String, dynamic>> _call(String name, Map<String, dynamic> data) async {
+    final clock = Stopwatch()..start();
     try {
       final result = await _api.call<Map<String, dynamic>>({'fn': name, 'data': data});
+      Perf.recordCall(name, clock.elapsedMilliseconds);
       return Map<String, dynamic>.from(result.data);
     } on FirebaseFunctionsException catch (e) {
+      Perf.recordCall(name, clock.elapsedMilliseconds, ok: false);
       // نسخة الويب تضيف رقم الحالة آخر الرسالة (مثل [400])، ما نحتاجه.
       throw BackendException((e.message ?? 'صار خطأ، جرّب مرة ثانية').replaceAll(RegExp(r'\s*\[\d{3}\]$'), ''));
     } catch (e) {
+      Perf.recordCall(name, clock.elapsedMilliseconds, ok: false);
       debugPrint('$name failed: $e');
       throw BackendException('ما قدرنا نوصل للخادم، تأكد من النت وجرّب مرة ثانية');
     }

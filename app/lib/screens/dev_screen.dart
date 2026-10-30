@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../services/backend.dart';
+import '../services/perf.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
 import '../widgets/curtain_route.dart';
@@ -312,6 +313,8 @@ class _DevScreenState extends State<DevScreen> {
                     onPressed: () =>
                         Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ModerationScreen())),
                   ),
+                  const SizedBox(height: 14),
+                  const _SpeedPanel(),
                   if (backend.profile.value.owner) ...[
                     const SizedBox(height: 14),
                     _appCheckPanel(),
@@ -393,6 +396,72 @@ class _DevScreenState extends State<DevScreen> {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+
+/// قياس السرعة: يطلع فوق اللعبة (السيرفر والرسم والتشغيل)، وهنا كل الطلبات بمتوسطها وأبطئها.
+class _SpeedPanel extends StatefulWidget {
+  const _SpeedPanel();
+
+  @override
+  State<_SpeedPanel> createState() => _SpeedPanelState();
+}
+
+class _SpeedPanelState extends State<_SpeedPanel> {
+  @override
+  Widget build(BuildContext context) {
+    final stats = Perf.callStats();
+    return Panel(
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Gfx('hourglass', size: 32),
+              const SizedBox(width: 10),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('قياس السرعة', style: TextStyle(fontFamily: kufi, fontSize: 16, fontWeight: FontWeight.w700)),
+                    Text(
+                      'يطلع فوق اللعبة: كم ياخذ السيرفر بكل حركة، وكم الشاشة سلسة، وكم أخذ فتح اللعبة. العب جولة وصوّره.',
+                      style: TextStyle(color: AppColors.muted, fontSize: 12),
+                    ),
+                  ],
+                ),
+              ),
+              ValueListenableBuilder(
+                valueListenable: Perf.enabled,
+                builder: (context, on, _) => Switch(
+                  value: on,
+                  activeThumbColor: AppColors.green,
+                  onChanged: (v) => Perf.setEnabled(v),
+                ),
+              ),
+            ],
+          ),
+          if (stats.isNotEmpty) ...[
+            const SizedBox(height: 6),
+            for (final s in stats.take(10))
+              Text(
+                '${s.fn}: متوسط ${s.avg}ms · أبطأ ${s.max}ms · ${s.n} مرة',
+                textDirection: TextDirection.rtl,
+                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+              ),
+            Align(
+              alignment: AlignmentDirectional.centerEnd,
+              child: TextButton(
+                onPressed: () => setState(Perf.reset),
+                child: const Text('صفّر القياس'),
+              ),
+            ),
+          ],
+        ],
       ),
     );
   }
