@@ -21,26 +21,42 @@ abstract final class Links {
   /// رمز روم وصل من رابط، وينتظر اللاعب يوصل الرئيسية (بعد ما يسجل ويختار اسمه).
   static final pending = ValueNotifier<String?>(null);
 
+  /// رمز اللاعب اللي أرسل الرابط (?by=)، يوصل السيرفر مع الدخول عشان هدية الدعوة لو اللي دخل جديد.
+  static String? pendingBy;
+
+  /// هدية الدعوة (نفس functions/src/economy.ts): الصاحب الجديد بعد أول قيم، واللي دعاه عن كل صاحب.
+  static const newFriendCoins = 1000;
+  static const inviterCoins = 1000;
+  static const inviterGems = 10;
+
   /// روم دعوة صديق دخلناه (من الإشعار أو من نافذة الدعوة)، عشان ما نسأله عنه مرة ثانية.
   static String? seenInvite;
 
   /// يدخل روم دعوة صديق.
   static void joinInvite(String code) {
     seenInvite = code;
+    pendingBy = null;
     pending.value = code;
   }
 
-  static String roomUrl(String code) => 'https://$host/r/$code';
+  /// رابط الطاولة، وفيه رمزي (عشان لو صاحبي جديد ياخذ هو وأنا هدية الدعوة).
+  static String roomUrl(String code) {
+    final pid = Backend.instance.profile.value.pid;
+    return 'https://$host/r/$code${pid.isEmpty ? '' : '?by=$pid'}';
+  }
 
   static String inviteText(String code) =>
-      'تعال العب معي «مجلس الخونة»! من الخائن فينا؟\nادخل الطاولة بالرمز $code أو من الرابط:\n${roomUrl(code)}';
+      'تعال العب معي «مجلس الخونة»! من الخائن فينا؟\nادخل الطاولة بالرمز $code أو من الرابط:\n${roomUrl(code)}'
+      '\nوإذا أول مرة تلعب، تاخذ ${arabicNumber(newFriendCoins)} ذهب هدية بعد أول قيم!';
 
   /// نسمع للروابط من أول ما تفتح اللعبة (الرابط اللي فتحها وأي رابط بعده). في الويب: رابط الصفحة نفسها.
   static void init() {
     try {
       AppLinks().uriLinkStream.listen((uri) {
         final code = codeFrom(uri);
-        if (code != null) pending.value = code;
+        if (code == null) return;
+        pendingBy = inviterFrom(uri);
+        pending.value = code;
       }, onError: (_) {});
     } catch (e) {
       debugPrint('links init failed: $e');
@@ -57,6 +73,12 @@ abstract final class Links {
     };
     final code = raw?.toUpperCase();
     return code != null && RegExp(r'^[A-Z0-9]{5}$').hasMatch(code) ? code : null;
+  }
+
+  /// رمز اللاعب اللي أرسل الرابط (?by=)، أو null.
+  static String? inviterFrom(Uri uri) {
+    final by = uri.queryParameters['by'];
+    return by != null && RegExp(r'^[1-9][0-9]{2,7}$').hasMatch(by) ? by : null;
   }
 
   /// يفتح واتساب برسالة الدعوة (ولو مو موجود، wa.me تفتح في المتصفح).
@@ -191,6 +213,8 @@ class _LinkWatcherState extends State<LinkWatcher> {
     }
     _busy = true;
     Links.pending.value = null;
+    final by = Links.pendingBy;
+    Links.pendingBy = null;
     final navigator = navigatorKey.currentState;
     final messenger = messengerKey.currentState;
     if (navigator == null) {
@@ -211,7 +235,7 @@ class _LinkWatcherState extends State<LinkWatcher> {
       ),
     );
     try {
-      await Backend.instance.joinRoom(code);
+      await Backend.instance.joinRoom(code, by: by);
       Telemetry.joinRoom('link');
       navigator.pop();
       navigator.push(MaterialPageRoute(builder: (_) => WaitingScreen(tier: null, playerCount: 5, code: code)));

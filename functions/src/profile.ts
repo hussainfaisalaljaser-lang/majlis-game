@@ -17,12 +17,15 @@ export const AVATARS = FREE_AVATARS;
 
 /** هدية وصلت اللاعب (مستوى، بطولة الأسبوع، الشرح، إنجاز). التطبيق يعرضها ويشيلها بـ ackGifts. */
 export interface Gift {
-  kind: 'level' | 'champion' | 'tutorial' | 'achievement' | 'rank' | 'tour' | 'passGift';
+  kind: 'level' | 'champion' | 'tutorial' | 'achievement' | 'rank' | 'tour' | 'passGift' | 'invite';
   /** المستوى (للمستويات) أو المركز (للأبطال) أو الدرجة (للإنجازات). */
   n: number;
   /** معرف الإنجاز (للإنجازات). */
   ach?: string;
-  /** اسم اللي أهداه (هدية الباتل باس من صاحب). n: ١ لو الباتل باس كامل. */
+  /**
+   * اسم اللي أهداه (هدية الباتل باس من صاحب، n: ١ لو الباتل باس كامل). هدية الدعوة: اسم اللي دعاه (n: ٠)،
+   * أو اسم صاحبه اللي دعاه وخلّص أول لعبة (n: ١).
+   */
   from?: string;
   coins: number;
   diamonds: number;
@@ -136,6 +139,12 @@ export interface Profile {
   favorites?: string[];
   /** آخر دعوة وصلته من صديق: التطبيق يعرضها لو كانت جديدة والروم للحين ينتظر. */
   invite?: { from: string; name: string; code: string; at: number };
+  /** دعاه صاحب وهو جديد (invites.ts): لما يخلّص أول لعبة حقيقية ياخذون الثنين هدية الدعوة. */
+  invitedBy?: { uid: string; name: string } | null;
+  /** أخذ هدية الدعوة (مرة وحدة بس). */
+  inviteDone?: boolean;
+  /** كم صاحب دعاه وأخذ عليه هدية (لين INVITE_MAX). */
+  invites?: number;
   createdAt?: FieldValue;
 }
 

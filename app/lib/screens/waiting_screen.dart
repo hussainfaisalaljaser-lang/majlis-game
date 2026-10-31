@@ -315,36 +315,43 @@ class _WaitingScreenState extends State<WaitingScreen> {
               Expanded(
                 child: WoodPanel(
                   padding: const EdgeInsets.fromLTRB(12, 14, 12, 10),
-                  child: Center(
-                    child: GridView.count(
-                      crossAxisCount: 5,
-                      shrinkWrap: true,
-                      mainAxisSpacing: 8,
-                      childAspectRatio: .92,
-                      children: [
-                        for (var i = 0; i < max; i++)
-                          i < players.length
-                              ? _Seat(
-                                  avatar: players[i].avatar,
-                                  name: players[i].uid == myUid ? 'أنت' : players[i].name,
-                                  bot: players[i].bot,
-                                  me: players[i].uid == myUid,
-                                  onTap: isPrivate && isHost && players[i].bot
-                                      ? () => _removeBot(players[i])
-                                      : () => showPlayerCard(
-                                          context,
-                                          uid: players[i].uid,
-                                          name: players[i].name,
-                                          avatar: players[i].avatar,
-                                          frame: players[i].frame,
-                                          bot: players[i].uid.startsWith('bot_'),
-                                          code: widget.code,
-                                        ),
-                                  style: frameStyle(players[i].frame),
-                                )
-                              : const _Seat(avatar: '', name: 'ينتظر…', empty: true),
-                      ],
-                    ),
+                  child: Column(
+                    children: [
+                      Expanded(
+                        child: Center(
+                          child: GridView.count(
+                            crossAxisCount: 5,
+                            shrinkWrap: true,
+                            mainAxisSpacing: 8,
+                            childAspectRatio: .92,
+                            children: [
+                              for (var i = 0; i < max; i++)
+                                i < players.length
+                                    ? _Seat(
+                                        avatar: players[i].avatar,
+                                        name: players[i].uid == myUid ? 'أنت' : players[i].name,
+                                        bot: players[i].bot,
+                                        me: players[i].uid == myUid,
+                                        onTap: isPrivate && isHost && players[i].bot
+                                            ? () => _removeBot(players[i])
+                                            : () => showPlayerCard(
+                                                context,
+                                                uid: players[i].uid,
+                                                name: players[i].name,
+                                                avatar: players[i].avatar,
+                                                frame: players[i].frame,
+                                                bot: players[i].uid.startsWith('bot_'),
+                                                code: widget.code,
+                                              ),
+                                        style: frameStyle(players[i].frame),
+                                      )
+                                    : const _Seat(avatar: '', name: 'ينتظر…', empty: true),
+                            ],
+                          ),
+                        ),
+                      ),
+                      if (isPrivate && widget.code != null) const _InviteReward(),
+                    ],
                   ),
                 ),
               ),
@@ -354,6 +361,38 @@ class _WaitingScreenState extends State<WaitingScreen> {
       ),
     );
   }
+}
+
+/// هدية الدعوة: رابط الواتساب فيه رمزك، ولو صاحبك جديد ودخل منه وخلّص أول قيم تاخذون الثنين.
+class _InviteReward extends StatelessWidget {
+  const _InviteReward();
+
+  @override
+  Widget build(BuildContext context) => Container(
+    // جوا زوايا اللوح الذهبية.
+    margin: const EdgeInsets.fromLTRB(34, 4, 34, 6),
+    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+    decoration: BoxDecoration(
+      color: Colors.black.withValues(alpha: .28),
+      borderRadius: BorderRadius.circular(20),
+      border: Border.all(color: AppColors.gold.withValues(alpha: .35)),
+    ),
+    child: Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const Gfx('gift', size: 22),
+        const SizedBox(width: 8),
+        Flexible(
+          child: Text(
+            'صاحب جديد يدخل من رابطك ويخلّص أول قيم: لك ${arabicNumber(Links.inviterCoins)} ذهب '
+            'و${arabicNumber(Links.inviterGems)} جواهر، وله ${arabicNumber(Links.newFriendCoins)} ذهب',
+            textAlign: TextAlign.center,
+            style: const TextStyle(color: socCream, fontSize: 13, fontFamily: kufi, fontWeight: FontWeight.w700),
+          ),
+        ),
+      ],
+    ),
+  );
 }
 
 /// دعوة الأصحاب: أصدقاؤك في اللعبة (دعوة وإشعار)، أو واتساب برسالة فيها الكود والرابط، أو نسخ الرسالة.

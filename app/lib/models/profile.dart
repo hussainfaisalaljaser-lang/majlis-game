@@ -311,6 +311,7 @@ class Gift {
       rank = j['kind'] == 'rank',
       tour = j['kind'] == 'tour',
       passFrom = j['kind'] == 'passGift' ? (j['from'] as String? ?? 'صاحبك') : null,
+      inviteFrom = j['kind'] == 'invite' ? (j['from'] as String? ?? 'صاحبك') : null,
       n = (j['n'] as num).toInt(),
       coins = (j['coins'] as num?)?.toInt() ?? 0,
       diamonds = (j['diamonds'] as num?)?.toInt() ?? 0,
@@ -333,6 +334,9 @@ class Gift {
 
   /// هدية باتل باس من صاحب: اسمه ([n] = ١ لو الباتل باس كامل).
   final String? passFrom;
+
+  /// هدية الدعوة: اسم اللي دعاه ([n] = ٠)، أو اسم صاحبه اللي دعاه وخلّص أول قيم ([n] = ١).
+  final String? inviteFrom;
 
   /// المستوى، أو المركز للبطولة.
   final int n;

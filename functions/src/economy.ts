@@ -28,6 +28,17 @@ export const TUTORIAL_REWARD = 500;
 /** مكافأة أول مرة يربط حسابه بقوقل. */
 export const LINK_REWARD = 500;
 
+/**
+ * هدية الدعوة (invites.ts): الصاحب الجديد لما يخلّص أول لعبة حقيقية ياخذ [INVITE_NEW_REWARD]، واللي دعاه
+ * ياخذ [INVITE_REWARD] عن كل صاحب لين [INVITE_MAX] (عشان ما تنجمع جواهر من حسابات وهمية بلا حد).
+ */
+export const INVITE_NEW_REWARD = { coins: 1000, diamonds: 0 };
+export const INVITE_REWARD = { coins: 1000, diamonds: 10 };
+export const INVITE_MAX = 20;
+
+/** الحساب يقدر ينحسب «مدعو» أول أسبوع بس من إنشائه. */
+export const INVITE_WINDOW_MS = 7 * 24 * 3600_000;
+
 /** مكافأة الدخول اليومي حسب اليوم في السلسلة (١ إلى ٧). اليوم السابع فيه جواهر. */
 export const DAILY_REWARDS: { coins: number; diamonds: number }[] = [
   { coins: 200, diamonds: 0 },

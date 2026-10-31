@@ -37,6 +37,9 @@
   // الرابط: /r/CODE. لو اللعبة محمّلة، الرابط يفتحها مباشرة وما يوصل هنا أصلاً.
   var m = location.pathname.match(/\/r\/([A-Za-z0-9]{5})(?:\/|$)/);
   var code = m ? m[1].toUpperCase() : null;
+  // رمز اللي أرسل الرابط (?by=): يمشي مع اللعبة عشان هدية الدعوة لو اللي دخل جديد.
+  var by = new URLSearchParams(location.search).get('by') || '';
+  if (!/^[1-9][0-9]{2,7}$/.test(by)) by = '';
   var open = document.getElementById('open');
   var get = document.getElementById('get');
   if (!code) {
@@ -47,12 +50,13 @@
     get.textContent = 'حمّل اللعبة';
   } else {
     document.getElementById('code').textContent = code;
-    var download = location.origin + '/?room=' + code;
+    var q = by ? '?by=' + by : '';
+    var download = location.origin + '/?room=' + code + (by ? '&by=' + by : '');
     get.href = download;
     // أندرويد: نفتح اللعبة على الطاولة، ولو مو محمّلة يروح لصفحة التحميل ومعه الرمز.
     open.href = /android/i.test(navigator.userAgent)
-      ? 'intent://room/' + code + '#Intent;scheme=majlis;package=com.majlis.majlis;S.browser_fallback_url=' + encodeURIComponent(download) + ';end'
-      : 'majlis://room/' + code;
+      ? 'intent://room/' + code + q + '#Intent;scheme=majlis;package=com.majlis.majlis;S.browser_fallback_url=' + encodeURIComponent(download) + ';end'
+      : 'majlis://room/' + code + q;
   }
 </script>
 </body>

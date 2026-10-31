@@ -337,8 +337,9 @@ class Backend {
     return r['code'] as String;
   }
 
-  Future<String> joinRoom(String code) async {
-    final r = await _call('joinRoom', {'code': code});
+  /// [by]: رمز اللاعب اللي أرسل رابط الدعوة (هدية الدعوة لو أنا جديد).
+  Future<String> joinRoom(String code, {String? by}) async {
+    final r = await _call('joinRoom', {'code': code, 'by': ?by});
     return r['code'] as String;
   }
 

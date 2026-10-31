@@ -38,13 +38,17 @@
 </main>
 <script>
   // جاي من رابط دعوة واللعبة مو محمّلة: نعرض الرمز عشان يدخل الطاولة بعد التثبيت.
-  var code = (new URLSearchParams(location.search).get('room') || '').toUpperCase();
+  var params = new URLSearchParams(location.search);
+  var code = (params.get('room') || '').toUpperCase();
+  // رمز اللي دعاه (هدية الدعوة): يمشي مع زر «ادخل الطاولة».
+  var by = params.get('by') || '';
+  if (!/^[1-9][0-9]{2,7}$/.test(by)) by = '';
   if (/^[A-Z0-9]{5}$/.test(code)) {
     document.getElementById('codeBox').classList.remove('hidden');
     document.getElementById('code').textContent = code;
     var open = document.getElementById('open');
     open.classList.remove('hidden');
-    open.href = 'majlis://room/' + code;
+    open.href = 'majlis://room/' + code + (by ? '?by=' + by : '');
   }
 </script>
 </body>

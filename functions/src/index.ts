@@ -79,6 +79,7 @@ import {
 } from './missions.js';
 import { isDev, isOwner } from './dev.js';
 import { validPid } from './ids.js';
+import { canBeInvited, invitePending, rewardInvited, rewardInviter } from './invites.js';
 import { applyStats, statsFromGame } from './achievements.js';
 import { offensiveName } from './moderation.js';
 import { applyRank, rankDelta, rankOf } from './rank.js';
@@ -628,8 +629,22 @@ export const createRoom = onCall(async (req) => {
   return { code };
 });
 
+/**
+ * اللي دعا لاعب جديد (هدية الدعوة، invites.ts): صاحب رمز اللاعب [by] اللي في رابط الدعوة، وإلا صاحب الروم
+ * الخاص (هو اللي عطاه الرمز). قراءة بس، قبل أي كتابة في العملية.
+ */
+async function inviterOf(tx: Transaction, room: Room, uid: string, by: string | null): Promise<{ uid: string; name: string } | null> {
+  let inviter = by ? (((await tx.get(db.doc(`ids/${by}`))).data()?.uid as string | undefined) ?? null) : null;
+  if (!inviter && room.isPrivate) inviter = room.hostId;
+  if (!inviter || inviter === uid || isBot(inviter)) return null;
+  const seated = room.players.find((p) => p.uid === inviter);
+  if (seated) return { uid: inviter, name: seated.name };
+  const p = (await tx.get(userRef(inviter))).data() as Profile | undefined;
+  return p?.setupDone ? { uid: inviter, name: p.name } : null;
+}
+
 /** يدخّل لاعب روم ينتظر (داخل عملية): يتأكد من المكان والطاولة ويخصم الرسوم. يرجّع اللعبة لو بدأت. */
-async function joinTx(tx: Transaction, code: string, uid: string): Promise<GameState | null> {
+async function joinTx(tx: Transaction, code: string, uid: string, by: string | null = null): Promise<GameState | null> {
   const ref = db.doc(`rooms/${code}`);
   const snap = await tx.get(ref);
   if (!snap.exists) throw new HttpsError('not-found', 'لا يوجد طاولة بهذا الرمز');
@@ -641,7 +656,11 @@ async function joinTx(tx: Transaction, code: string, uid: string): Promise<GameS
   requireNotBanned(p);
   const tier = tierById(room.tierId);
   if (tier) checkTier(p, tier);
-  if (room.entryFee > 0) chargeEntry(tx, uid, p, room.entryFee);
+  // لاعب جديد دخل من دعوة صاحبه: ينحفظ مين دعاه، ولما يخلّص أول لعبة ياخذون الثنين هدية.
+  const invitedBy = canBeInvited(p, Date.now()) ? await inviterOf(tx, room, uid, by) : null;
+  // الرسوم تكتب الملف كله، فمين دعاه يمشي معها (ولا كان انمسح).
+  if (room.entryFee > 0) chargeEntry(tx, uid, invitedBy ? { ...p, invitedBy } : p, room.entryFee);
+  else if (invitedBy) tx.set(userRef(uid), { invitedBy }, { merge: true });
   room.players.push(asPlayer(uid, p));
   tx.update(ref, { players: room.players });
   return !room.isPrivate && room.players.length === room.maxPlayers ? startGameTx(tx, room) : null;
@@ -651,7 +670,9 @@ export const joinRoom = onCall(async (req) => {
   const uid = requireAuth(req);
   const code = String(req.data?.code ?? '').trim().toUpperCase();
   if (!/^[A-Z0-9]{5}$/.test(code)) throw new HttpsError('invalid-argument', 'الرمز يجب أن يكون ٥ حروف');
-  const started = await db.runTransaction((tx) => joinTx(tx, code, uid));
+  // رمز اللاعب اللي أرسل رابط الدعوة (لو فيه): يحسب له هدية الدعوة لو اللي دخل جديد.
+  const by = validPid(req.data?.by) ? req.data.by : null;
+  const started = await db.runTransaction((tx) => joinTx(tx, code, uid, by));
   if (started) await sendPush(code, whoToNotify(null, started));
   return { code };
 });
@@ -1071,6 +1092,21 @@ async function finishTurn(
   const tourWeek = over && room?.tour != null ? room.tourWeek : undefined;
   const tourDoc = tourWeek ? ((await tx.get(tourRef(tourWeek))).data() as Tour | undefined) : undefined;
   const tourChanges: Parameters<typeof writeTour>[3] = [];
+  // هدية الدعوة: اللي دعاه صاحب وخلّص أول لعبة حقيقية (ما طلع منها). اللي دعاه لو مو في الطاولة نقرا ملفه
+  // هنا، لأن كل القراءات قبل الكتابات.
+  const invited =
+    over && !next.tutorial
+      ? humans.flatMap((pl, i) => {
+          const p = profiles[i];
+          return invitePending(p) && !(next.autopilot ?? []).includes(pl.id)
+            ? [{ uid: pl.id, name: p.name, by: p.invitedBy.uid }]
+            : [];
+        })
+      : [];
+  const away = [...new Set(invited.map((x) => x.by))].filter((u) => !uids.includes(u));
+  const inviters = (await Promise.all(away.map((u) => tx.get(userRef(u))))).flatMap((s) =>
+    s.exists ? [{ uid: s.id, p: s.data() as Profile }] : [],
+  );
 
   const delay = scenesDelay(prev.state, next);
   const newTurn = turnKey(next) !== prev.key;
@@ -1163,6 +1199,9 @@ async function finishTurn(
       updated = applyRank(updated, rankDelta(won, humans.length, next.players.length));
       results[player.id] = { ...results[player.id], rank: rankOf(updated).points - before };
     }
+    // هدية الدعوة: هو الجديد اللي خلّص أول لعبة، أو هو اللي دعا صاحب خلّص أول لعبته هنا.
+    if (invited.some((x) => x.uid === player.id)) updated = rewardInvited(updated);
+    for (const x of invited.filter((x) => x.by === player.id)) updated = rewardInviter(updated, x.name);
     if (!next.tutorial) {
       tx.set(userRef(player.id).collection('history').doc(`${now}-${code}`), historyEntry(next, room, player.id, results[player.id], now));
     }
@@ -1171,8 +1210,17 @@ async function finishTurn(
   });
   if (clanGains.length) addClanPoints(tx, clans, clanGains, now);
   if (tourWeek) writeTour(tx, tourWeek, tourDoc, tourChanges);
+  // اللي دعا وهو مو في الطاولة: هديته، وإشعار إن صاحبه خلّص أول لعبة.
+  const inviteNotes: Note[] = [];
+  for (const { uid, p } of inviters) {
+    const friends = invited.filter((x) => x.by === uid).map((x) => x.name);
+    const q = friends.reduce(rewardInviter, p);
+    if (q === p) continue;
+    tx.set(userRef(uid), q);
+    inviteNotes.push({ uid, title: 'هدية الدعوة', body: `${friends.join(' و')} خلّص أول قيم له، افتح اللعبة وخذ هديتك` });
+  }
   tx.update(roomRef, { ...roomUpdate, status: 'finished', results, finishedAtMs: Date.now() });
-  return whoToNotify(prev.state, next);
+  return [...whoToNotify(prev.state, next), ...inviteNotes];
 }
 
 /** كم يوم تبقى اللعبة في سجل المباريات (Firestore يحذفها بنفسه بعدها: firestore.indexes.json → expireAt). */

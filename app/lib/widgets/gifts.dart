@@ -90,8 +90,11 @@ Future<void> showGiftDialog(BuildContext context, Gift g) {
   final rank = g.rank ? rankTiers[g.n.clamp(0, rankTiers.length - 1)] : null;
   if (!g.tutorial && ach == null) Sfx.say(g.champion ? 'win_loyal' : 'enact_loyal');
   final from = g.passFrom;
+  final invite = g.inviteFrom;
   final title = from != null
       ? (g.n == 1 ? 'هدية من $from: تذكرة الموسم كاملة!' : 'هدية من $from: تذكرة الموسم!')
+      : invite != null
+      ? (g.n == 1 ? '$invite خلّص أول قيم له!' : 'هدية الدعوة!')
       : rank != null
       ? 'وصلت رتبة ${rank.name}!'
       : ach != null
@@ -107,6 +110,10 @@ Future<void> showGiftDialog(BuildContext context, Gift g) {
       ? (g.n == 1
             ? 'كل درجات الموسم انفتحت لك. استلم مكافآتها من تذكرة الموسم.'
             : 'انفتح لك المسار المدفوع ومعه ${arabicNumber(season.bonusTiers)} درجات هدية. استلمها من تذكرة الموسم.')
+      : invite != null
+      ? (g.n == 1
+            ? 'هذي هديتك لأنك دعيته للمجلس. ادع أصحاب أكثر برابط الطاولة، وتجيك هدية عن كل صاحب جديد.'
+            : '$invite دعاك للمجلس، وهذي هديتك على أول قيم. وهو بعد أخذ هديته!')
       : rank != null
       ? 'هذه مكافأة أول وصول للرتبة هالموسم. كمّل في الطاولات العامة عشان تطلع أكثر.'
       : ach != null
@@ -154,6 +161,8 @@ Future<void> showGiftDialog(BuildContext context, Gift g) {
                         Gfx(
                           from != null
                               ? 'pass'
+                              : invite != null
+                              ? 'invite'
                               : (g.tutorial || g.tour ? 'trophy' : (g.champion ? 'medal${g.n}' : 'gift')),
                           size: 62,
                         ),
