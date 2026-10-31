@@ -91,22 +91,41 @@ class _LinkWatcherState extends State<LinkWatcher> {
   /// آخر دعوة صديق عرضناها (عشان ما تطلع مرتين).
   String? _shownInvite;
 
+  /// شيّكنا على اللعبة اللي كان فيها (مرة وحدة بس من فتح التطبيق).
+  static bool _resumeChecked = false;
+
   @override
   void initState() {
     super.initState();
     Links.pending.addListener(_check);
-    Backend.instance.profile.addListener(_invite);
+    Backend.instance.profile.addListener(_onProfile);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _check();
-      _invite();
+      _onProfile();
     });
+  }
+
+  void _onProfile() {
+    _resume();
+    _invite();
+  }
+
+  /// فتح التطبيق وهو وسط لعبة (انقفل التطبيق أو طاح، أو جته مكالمة): نرجعه لطاولته على طول، قبل لا يخلص
+  /// وقت دوره مرتين وينطرد ويكمل عنه بوت. لو اللعبة خلصت أو طلع منها، السيرفر صفّر «يلعب الحين».
+  void _resume() {
+    if (_resumeChecked || !Backend.instance.isReady || !Backend.instance.profileLoaded.value) return;
+    _resumeChecked = true;
+    final playing = Backend.instance.profile.value.playing;
+    // أقدم من كذا أكيد علقت (أطول لعبة أقل من ساعة).
+    if (playing == null || DateTime.now().difference(playing.at) > const Duration(hours: 3)) return;
+    Push.openGame(playing.code);
   }
 
   @override
   void dispose() {
     _retry?.cancel();
     Links.pending.removeListener(_check);
-    Backend.instance.profile.removeListener(_invite);
+    Backend.instance.profile.removeListener(_onProfile);
     super.dispose();
   }
 

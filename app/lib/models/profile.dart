@@ -47,6 +47,7 @@ class Profile {
     this.friendReqs = const {},
     this.sentReqs = const {},
     this.invite,
+    this.playing,
     this.favorites = const [],
     this.clan,
     this.clanInvites = const [],
@@ -98,6 +99,10 @@ class Profile {
     friendReqs: _ints(j['friendReqs']),
     sentReqs: {for (final s in (j['sentReqs'] as List?) ?? const []) s as String},
     invite: j['invite'] == null ? null : Invite.fromJson(Map<String, dynamic>.from(j['invite'] as Map)),
+    playing: switch (j['playing']) {
+      {'code': final String code, 'at': final num at} => (code: code, at: DateTime.fromMillisecondsSinceEpoch(at.toInt())),
+      _ => null,
+    },
     favorites: [for (final f in (j['favorites'] as List?) ?? const []) f as String],
     clan: ClanTag.maybe(j['clan']),
     clanInvites: [
@@ -200,6 +205,9 @@ class Profile {
 
   /// آخر دعوة وصلته من صديق لروم.
   final Invite? invite;
+
+  /// يلعب الحين: في أي طاولة ومن متى. السيرفر يصفّره لما تخلص اللعبة أو يطلع منها (أو يكمل عنه بوت).
+  final ({String code, DateTime at})? playing;
 
   /// ملصقاته المفضلة (بالكثير [maxFavorites])، تطلع جنب زر التفاعل في اللعب.
   final List<String> favorites;

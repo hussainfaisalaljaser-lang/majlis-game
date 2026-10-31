@@ -229,7 +229,8 @@ class _TutorialOfferState extends State<_TutorialOffer> {
     Backend.instance.profile.addListener(_renamed);
     _renamed();
     // جاي من رابط دعوة: يدخل مع أصحابه أول، والشرح الإجباري يطلع له المرة الجاية (أو لما يضغط «العب»).
-    if (Links.pending.value != null) return;
+    // ووسط لعبة (انقفل التطبيق وهو يلعب): يرجع لطاولته (LinkWatcher) بدل الشرح.
+    if (Links.pending.value != null || Backend.instance.profile.value.playing != null) return;
     if (mounted) await ensureOnboarded(context);
   }
 

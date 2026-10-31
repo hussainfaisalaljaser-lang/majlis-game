@@ -54,7 +54,7 @@ abstract final class Push {
             'friend' => SnackBarAction(label: 'شوف', onPressed: _openFriends),
             'dm' => SnackBarAction(label: 'رد', onPressed: () => _openDm(m.data['from'])),
             'clanInvite' => SnackBarAction(label: 'شوف', onPressed: _openClans),
-            _ when m.data['code'] != null => SnackBarAction(label: 'افتح', onPressed: () => _open(m.data['code'])),
+            _ when m.data['code'] != null => SnackBarAction(label: 'افتح', onPressed: () => openGame(m.data['code'])),
             _ => null,
           },
         ),
@@ -79,7 +79,7 @@ abstract final class Push {
       case 'clanInvite':
         _openClans();
       default:
-        _open(code);
+        openGame(code);
     }
   }
 
@@ -105,19 +105,39 @@ abstract final class Push {
   /// (لو حفظنا وحدة بس، القديمة تمسحها وهي تنقفل).
   static final _games = <String>[];
 
+  /// طاولات قاعدين نفتحها (من الإشعار أو الرجوع للعبة): لين تسجل شاشتها نفسها، عشان ما تنفتح مرتين.
+  static final _opening = <String>{};
+
   /// شاشة اللعب تسجل نفسها هنا عشان ما نزعجك بإشعار وأنت تلعب.
-  static void enterGame(String code) => _games.add(code);
+  static void enterGame(String code) {
+    _opening.remove(code);
+    _games.add(code);
+  }
+
   static void leaveGame(String code) => _games.remove(code);
 
-  static bool _isOnGame(Object? code) => code != null && _games.contains(code);
+  static bool _isOnGame(Object? code) => code != null && (_games.contains(code) || _opening.contains(code));
 
   /// اللاعب في طاولة الحين (ما نطلعه منها لرابط دعوة، ولا نطلع له أشرطة الإشعارات).
   static bool get inGame => _games.isNotEmpty;
 
-  static Future<void> _open(Object? code) async {
+  /// يفتح طاولة لو اللعبة فيها شغالة (ولو مو مفتوحة أصلاً).
+  static Future<void> openGame(Object? code) async {
     if (code is! String || _isOnGame(code)) return;
-    final room = await Backend.instance.watchRoom(code).first;
-    if (room?.status != RoomStatus.playing) return;
-    navigatorKey.currentState?.push(curtainRoute<void>((_) => GameScreen(code: code)));
+    _opening.add(code);
+    var opened = false;
+    try {
+      final room = await Backend.instance.watchRoom(code).first;
+      if (room?.status != RoomStatus.playing) return;
+      final navigator = navigatorKey.currentState;
+      if (navigator == null) return;
+      navigator.push(curtainRoute<void>((_) => GameScreen(code: code)));
+      opened = true;
+    } catch (e) {
+      debugPrint('open game $code: $e');
+    } finally {
+      // انفتحت: تنشال من القائمة لما تسجل شاشتها نفسها (enterGame).
+      if (!opened) _opening.remove(code);
+    }
   }
 }
