@@ -92,6 +92,18 @@ jobs:
             gcloud firestore fields ttls update expireAt --collection-group=history --enable-ttl --database=gulf \
               --project majlis-game-1d739 --async --quiet > "$RUNNER_TEMP/ttl.log" 2>&1 \
               || echo "::warning::مدة سجل المباريات: $(tail -3 "$RUNNER_TEMP/ttl.log" | tr '\n' ' ' | cut -c1-500)"
+            # حماية بيانات اللاعبين (أرصدتهم ومشترياتهم): نسخة احتياطية كل يوم تنحفظ أسبوعين، والرجوع لأي دقيقة بآخر
+            # ٧ أيام (PITR). مرة وحدة: لو موجودة يتخطاها. لو الصلاحية ناقصة يطلع السبب كملاحظة وما يوقف الرفع.
+            if [ -z "$(gcloud firestore backups schedules list --database=gulf --project majlis-game-1d739 --format='value(name)' 2>/dev/null)" ]; then
+              bk=$(gcloud firestore backups schedules create --database=gulf --recurrence=daily --retention=14d \
+                --project majlis-game-1d739 --quiet 2>&1 | tail -3 | tr '\n' ' ' | cut -c1-500)
+              echo "::notice::النسخ الاحتياطي اليومي: ${bk}"
+            fi
+            if [ "$(gcloud firestore databases describe --database=gulf --project majlis-game-1d739 --format='value(pointInTimeRecoveryEnablement)' 2>/dev/null)" != "POINT_IN_TIME_RECOVERY_ENABLED" ]; then
+              pitr=$(gcloud firestore databases update --database=gulf --enable-pitr --project majlis-game-1d739 --quiet 2>&1 \
+                | tail -3 | tr '\n' ' ' | cut -c1-500)
+              echo "::notice::الرجوع لأي دقيقة (PITR): ${pitr}"
+            fi
           fi
           if [ "$code" -eq 0 ]; then
             npx firebase deploy --only functions --project majlis-game-1d739 --non-interactive --force 2>&1 | tee -a "$RUNNER_TEMP/deploy.log"
